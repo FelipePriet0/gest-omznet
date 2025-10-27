@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -32,36 +33,45 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full max-w-xl rounded-[30px] bg-gradient-to-r from-emerald-600 to-black p-4 sm:p-6 md:p-8 shadow-2xl shadow-[#FFFFFF]/30">
-      <div className="mb-6 flex flex-col items-center">
-        <div className="mb-3 h-10 sm:h-12 md:h-14 flex items-center justify-center rounded-lg bg-white/5 px-3 py-1 text-2xl font-extrabold tracking-tight text-white">MZ<span className="text-emerald-400">net</span></div>
-        <h1 className="text-lg font-semibold text-white">Entrar</h1>
+    <div className="w-full max-w-md rounded-[30px] bg-gradient-to-r from-emerald-600 to-black p-6 sm:p-8 shadow-2xl shadow-[#FFFFFF]/30 border-2 border-white/90">
+      <div className="mb-8 flex flex-col items-center">
+        <div className="mb-4">
+          <Image
+            src="/mznet-logo.png"
+            alt="MZNET"
+            width={140}
+            height={48}
+            className="h-10 sm:h-12 md:h-14 w-auto drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)]"
+            priority
+          />
+        </div>
+        <h1 className="text-xl font-semibold text-white">Entrar</h1>
       </div>
 
       <form className="space-y-4" action="#" method="post" onSubmit={onSubmit}>
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm text-white/90">E-mail</label>
-          <div className="rounded-full bg-gradient-to-r from-emerald-700/70 to-zinc-700/50 p-[2px]">
+          <div className="rounded-full border-2 border-white p-[2px]">
             <input
               id="email"
               name="email"
               type="email"
               required
               placeholder="Seu e-mail"
-              className="w-full rounded-full bg-zinc-900/60 px-4 py-2.5 text-sm text-white placeholder-white/70 outline-none"
+              className="w-full rounded-full bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/70 outline-none"
             />
           </div>
         </div>
         <div className="space-y-2">
           <label htmlFor="password" className="text-sm text-white/90">Senha</label>
-          <div className="rounded-full bg-gradient-to-r from-emerald-700/70 to-zinc-700/50 p-[2px]">
+          <div className="rounded-full border-2 border-white p-[2px]">
             <input
               id="password"
               name="password"
               type="password"
               required
               placeholder="Sua senha"
-              className="w-full rounded-full bg-zinc-900/60 px-4 py-2.5 text-sm text-white placeholder-white/70 outline-none"
+              className="w-full rounded-full bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/70 outline-none"
             />
           </div>
         </div>
@@ -69,7 +79,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-4 w-full h-11 rounded-full bg-emerald-500 text-base font-semibold text-white shadow hover:bg-emerald-600 disabled:opacity-70"
+          className="mt-4 w-full h-11 rounded-full bg-white border border-white text-base font-semibold text-emerald-800 shadow hover:bg-white disabled:opacity-70"
         >
           {loading ? "Processando..." : "Entrar"}
         </button>

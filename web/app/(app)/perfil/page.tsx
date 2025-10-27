@@ -45,7 +45,6 @@ export default function PerfilPage() {
     };
   }, [router]);
 
-  // Realtime updates on own profile
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
@@ -74,21 +73,33 @@ export default function PerfilPage() {
     router.replace("/login");
   }
 
+  const initial = (profile?.full_name || email || "?").trim().charAt(0).toUpperCase();
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Perfil</h1>
-        <button onClick={onLogout} className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900">
-          Sair da conta
-        </button>
-      </div>
+      <section className="rounded-xl bg-gradient-to-r from-emerald-800 to-emerald-600 px-6 py-5 text-white shadow">
+        <div className="flex items-center gap-4">
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-white/20 text-lg font-bold">
+            {initial || "?"}
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold">Seu Perfil</h1>
+            <p className="text-sm text-white/90">Gerencie suas informações pessoais e configurações</p>
+          </div>
+        </div>
+      </section>
       {loading ? (
-        <div className="text-sm text-zinc-600 dark:text-zinc-400">Carregando…</div>
+        <div className="text-sm text-white/80">Carregando…</div>
       ) : profile && userId ? (
         <>
-          <ProfileCard profile={profile} />
-          <ProfileForm userId={userId} fullName={profile.full_name} onSaved={(name) => setProfile((p) => ({ ...(p as any), full_name: name }))} />
-          {email && <div className="text-xs text-zinc-500">Logado como: {email}</div>}
+          <ProfileForm
+            userId={userId}
+            fullName={profile.full_name}
+            email={email}
+            role={profile.role ?? undefined}
+            onSaved={(name) => setProfile((p) => ({ ...(p as any), full_name: name }))}
+            onLogout={onLogout}
+          />
         </>
       ) : (
         <div className="text-sm text-red-600">Não foi possível carregar o perfil.</div>

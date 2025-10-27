@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Image from "next/image";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -27,41 +28,59 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-      <h1 className="mb-1 text-xl font-semibold">Esqueci minha senha</h1>
-      <p className="mb-6 text-sm text-zinc-600 dark:text-zinc-400">Informe seu e-mail para receber o link de redefinição.</p>
-
-      <form className="space-y-4" onSubmit={onSubmit}>
-        <div className="space-y-1">
-          <label htmlFor="email" className="text-sm">E-mail</label>
-          <input
-            id="email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="voce@empresa.com"
-            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900"
+    <div className="w-full max-w-md rounded-[30px] bg-gradient-to-r from-emerald-600 to-black p-6 sm:p-8 shadow-2xl shadow-[#FFFFFF]/30">
+      <div className="mb-8 flex flex-col items-center">
+        <div className="mb-4">
+          <Image 
+            src="/mznet-logo.svg" 
+            alt="MZnet Logo" 
+            width={120} 
+            height={40}
+            className="h-10 sm:h-12 md:h-14 w-auto"
+            loading="eager"
           />
         </div>
-        <button type="submit" disabled={loading} className="mt-2 w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-70 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white">
+        <h1 className="text-xl font-semibold text-white">Esqueci minha senha</h1>
+        <p className="mt-2 text-sm text-white/80">Informe seu e-mail para receber o link de redefinição.</p>
+      </div>
+
+      <form className="space-y-4" onSubmit={onSubmit}>
+        <div className="space-y-2">
+          <label htmlFor="email" className="text-sm text-white/90">E-mail</label>
+          <div className="rounded-full bg-gradient-to-r from-emerald-700/70 to-zinc-700/50 p-[2px]">
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="voce@empresa.com"
+              className="w-full rounded-full bg-zinc-900/60 px-4 py-2.5 text-sm text-white placeholder-white/70 outline-none"
+            />
+          </div>
+        </div>
+        <button 
+          type="submit" 
+          disabled={loading} 
+          className="mt-4 w-full h-11 rounded-full bg-emerald-500 text-base font-semibold text-white shadow hover:bg-emerald-600 disabled:opacity-70"
+        >
           {loading ? "Enviando..." : "Enviar link"}
         </button>
       </form>
 
       {message && (
-        <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+        <div className="mt-4 rounded-md border border-emerald-300/40 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200">
           {message}
         </div>
       )}
       {error && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+        <div className="mt-4 rounded-md border border-red-400/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
           {error}
         </div>
       )}
 
-      <p className="mt-4 text-center text-xs text-zinc-500">
-        <a href="/login" className="underline underline-offset-2">Voltar para Login</a>
+      <p className="mt-6 text-center text-xs text-white/80">
+        <a href="/login" className="underline underline-offset-2 hover:text-white">Voltar para Login</a>
       </p>
     </div>
   );
