@@ -1,0 +1,4 @@
+- Checklists por seção (obrigatórios, condicionais, auto-save).
+- [ ]  Cobra os campos obrigatórios
+- [ ]  Abre condicionais
+- [ ]  Salva todas as informações no banco conforme redatado a ser programado.

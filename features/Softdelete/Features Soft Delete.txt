@@ -1,0 +1,150 @@
+# **🗑️ Soft Delete: O que é e como funciona**
+
+> **Para:** Toda a equipe (incluindo comercial)
+
+> **Objetivo:** Entender como funciona a "exclusão inteligente" no sistema
+
+> **Última atualização:** Janeiro 2025
+
+---
+
+## **🤔 O que é Soft Delete?**
+
+<aside>
+
+💡 **Em linguagem simples:**
+
+Soft Delete é quando você "apaga" algo no sistema, mas na verdade ele **continua salvo no banco de dados**, só fica invisível.
+
+É como colocar um arquivo na **Lixeira do Windows** em vez de deletar permanentemente. Você não vê mais, mas ele ainda está lá e pode ser recuperado.
+
+</aside>
+
+---
+
+## **🆚 Soft Delete vs Hard Delete**
+
+**Hard Delete (Exclusão Permanente)Você clica em "Excluir" → O registro é DELETADO DO BANCO → Perdeu forever ❌**
+
+**Problemas:**
+
+- ❌ Não tem como desfazer
+- ❌ Não sabe quem deletou
+- ❌ Não sabe quando foi deletado
+- ❌ Perde dados para auditoria
+- ❌ Se foi erro, não tem como recuperar
+
+---
+
+**Soft Delete (Exclusão Inteligente)Você clica em "Excluir" → O registro é MARCADO como deletado → Fica invisível ✅**
+
+**Vantagens:**
+
+- ✅ Pode desfazer se precisar
+- ✅ Sabe quem deletou e quando
+- ✅ Mantém histórico completo
+- ✅ Auditoria total
+- ✅ Recuperação possível
+
+---
+
+## **📊 Onde iremos implantar o Soft Delete?**
+
+<aside>
+
+🎯 1 **funcionalidades principais usam Soft Delete:**
+
+</aside>
+
+### **1. 💬 Cards e Fichas**
+
+- **Tabela:** kanban_cards —> Quando um card é apagado, fazer Cascade de Soft delete em: Public. Applicants + Public.PF_fichas e Public.PJ_fichas . Assim, os dados de toda a ficha é Soft Excluido.
+- **Onde:** Todas as conversas e pareceres nas fichas
+- **Exemplo: Colaborador deleta card na aba de kanban = Todos os dados de Expanded ficha (Que são os dados de cadastro tem que ser SOFT DELETADOS também).**
+
+---
+
+## **🔧 Como podemos fazer para funcionar tecnicamente, mantendo a estrutura abaixo e dentro de um prazo de Limpeza Automática: 90 Dias?**
+
+```tsx
+┌─────────────┐
+│   CRIADO    │ (deleted_at = NULL)
+│             │ Visível no sistema ✅
+└──────┬──────┘
+       │
+       │ Usuário clica "Excluir"
+       │
+       ▼
+┌─────────────┐
+│  DELETADO   │ (deleted_at = "2025-01-15")
+│ (Soft)      │ Invisível no sistema ❌
+│             │ Mas ainda no banco 📋
+└──────┬──────┘
+       │
+       │ [Opcional] Gestor restaura
+       │
+       ▼
+┌─────────────┐
+│ RESTAURADO  │ (deleted_at = NULL novamente)
+│             │ Visível no sistema ✅
+└──────┬──────┘
+       │
+       │ Após 90 dias deletado
+       │
+       ▼
+┌─────────────┐
+│  REMOVIDO   │ Deletado PERMANENTEMENTE
+│(Permanente) │ Sai do banco de dados 🗑️
+└─────────────┘
+```
+
+## **📅 Limpeza Automática: 90 Dias**
+
+⚠️ **Atenção:**
+
+Depois de **90 dias** deletado (soft), o registro é **deletado permanentemente** (hard) de forma automática.
+
+### **Por que 90 dias?**
+
+- Tempo suficiente para auditorias
+- Tempo suficiente para desfazer erros
+- Evita acúmulo infinito de dados deletados
+- Mantém banco de dados performático
+
+**Como funciona?**
+
+```tsx
+Sistema roda limpeza automática todo dia às 3h da manhã
+
+Procura registros onde:
+deleted_at < HOJE - 90 dias
+
+Exemplo:
+- Hoje: 15/04/2025
+- Registro deletado em: 10/01/2025
+- Tempo deletado: 95 dias
+- Ação: DELETAR PERMANENTEMENTE
+```
+
+## **🔍 Log de Auditoria: Rastreando Tudo**
+
+📋 **Tabela Especial: deletion_log**
+
+Toda vez que algo é deletado (soft delete), o sistema cria um registro de auditoria.
+
+**O que é registrado?**
+
+```tsx
+deletion_log:
+┌──────────────────────────────────────────┐
+│ id: "log-001"                            │
+│ table_name: "card_attachments"           │ ← Qual tabela
+│ record_id: "attach-123"                  │ ← Qual registro
+│ deleted_by: "user-456"                   │ ← Quem deletou
+│ deleted_at: "2025-01-15 14:30:00"        │ ← Quando
+│ record_snapshot: { ... }                 │ ← Backup completo!
+│ reason: "Anexo errado"                   │ ← Motivo (opcional)
+└──────────────────────────────────────────┘
+```
+
+Sistema → Aguarda 700ms → Usuário para de digitar?

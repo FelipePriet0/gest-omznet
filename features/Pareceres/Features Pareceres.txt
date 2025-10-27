@@ -1,0 +1,117 @@
+### **Pareceres: 
+
+O que será:**
+
+Local em “Editar ficha” onde ao clicar no CTA: “+” que você verá descrito abaixo, abrirá um campo de digitação para que os Analistas ou Gestores possam escrever as Decisões de Análise daquela ficha. 
+
+Em quais abas estarão: 
+
+- Editar Ficha (Abaixo de: “Equipe Responsável”)
+- Expanded Ficha: 
+    - PF: “Abaixo de Informações relevantes” E “**Informações relevantes do MK”**
+    - PJ: “**Informações relevantes do MK”** 
+
+Todos ficarão realtime, hookando direto do Backend, atualizando nas 3 pontas (Editar ficha / Expanded Ficha) conforme as últimas alterações na coluna respectiva do mesmo. 
+
+Ou seja, se eu alterar criar um novo parecer (Adição) em Expanded Ficha ele vai jogar esse Input na respectiva coluna (public.kanban_cards.reanalysis_notes (array/json)) e na outra ponta (Onde consta esse Campo: Editar ficha, na qual vai puxar AO VIVO a informação. Pois a tabela estará em Realtime.  
+
+**Estrutura:** 
+
+Pareceres  | CTA: “+” 
+
+**Function do CTA: “+”** 
+
+- Abre um campo de digitação abaixo de “Pareceres”
+- Colaboradores (Analistas e Gestores) digitam o parecer dentro do campo
+
+- Ao confirmar (Entender): 
+
+    - Salva no histórico de pareceres da ficha (com autor e horário). 
+   -  Atualiza em tempo real para quem estiver com a ficha aberta.  
+   - Se usar menções (@Nome), os mencionados recebem notificação (quando correspondem a um perfil).  
+        
+
+<aside>
+💡
+
+Hook Realtime de salvamento: 
+ 
+Campo: Parecer —Hook—> public.kanban_cards.reanalysis_notes (array/json)
+
+Cada parecer é um item de uma lista no campo kanban_cards.reanalysis_notes (array/JSON). Não sobrescrevemos o anterior; o novo é acrescentado à lista.
+
+- O que fica salvo (por parecer):
+    - id: identificador único do parecer
+    - text: conteúdo do parecer
+    - author_id, author_name, author_role: autor
+    - created_at: data/hora de criação
+    - Edição (se houver): updated_by_id, updated_by_name, updated_at
+    - Encadeamento (se for resposta): parent_id, level, thread_id, is_thread_starter
+    - Soft‑delete (se usado): deleted (boolean)
+- Resultado: quando há 2+ pareceres, todos os anteriores permanecem nessa lista com seus metadados; o sistema
+apenas agrega o novo como mais um item (e, em caso de edição, atualiza os campos de “updated_*” daquele item)
+</aside>
+
+<aside>
+💡
+
+Funções (RPC) para manipular pareceres
+
+- Padrão do item (note) no array:
+    - id: uuid
+    - text: text
+    - author_id: uuid
+    - author_name: text
+    - author_role: text (opcional)
+    - created_at: timestamptz
+    - updated_by_id, updated_by_name, updated_at (opcionais, só quando editar)
+    - parent_id, level, thread_id, is_thread_starter (opcionais, quando encadeado)
+    - deleted (boolean, opcional)
+
+[SQLs para qualquer dúvida](https://www.notion.so/SQLs-para-qualquer-d-vida-299770a00d18811b946cd4ea40e70e67?pvs=21)
+
+</aside>
+
+**Funções Internas do campo:** 
+
+- /Aprovado → Ao confirmar com Enter: Envia card para coluna: “Aprovados”
+- /Negado → Ao confirmar com Enter: Envia card para coluna: “Negados”
+- /Reanalise → Ao confirmar com Enter: Envia card para coluna: “Reanalise”
+- @ Para mencionar colaboradores. (Dispara notificação para colaborador Mencionado)
+- CTA: “→” (Action: ação para responder diretamente a um parecer existente, criando uma conversa encadeada (thread) ligada àquele parecer.
+
+<aside>
+💡
+
+O que acontece ao clicar
+
+- Abre um campo de texto logo abaixo do parecer selecionado. Podendo nele: @mencionar e Direcionar com CTAs em Barra.
+- Você escreve a resposta e confirma.
+- A resposta aparece “embaixo” do parecer original, com os metadados de um parecer normal.
+- |_> Aparece uma seta que liga o parecer respondido e o novo parecer para deixar visualmente ligados, como se fosse uma resposta mesmo
+
+Assim como conversas co-relacionadas. Porém, no local de pareceres.
+</aside>
+
+- 3 Pontinhos (Canto superior, com CTAs: “Editar” e “Excluir”)
+
+- Editar: Abre o campo de digitação cujo CTA está incluso, permitindo editar a escrita do Campo
+- Excluir: 
+    1  - Abre modal de confirmação: 
+
+          **Excluir Parecer
+          Tem certeza que deseja excluir este parecer? Esta ação não pode ser desfeita. 
+           CTA: “Cancelar”  (Cinza) | “Excluir” (Vermelho)
+
+Ao excluir:**
+
+**Como o Sistema Registra:** 
+
+- Armazena no campo de pareceres da ficha (lista de notas),  e na tabela.coluna: public.kanban_cards.reanalysis_notes (array/json) a ordem e a autoria.
+- Adiciona metadados: autor, data/hora, nível/thread quando for uma resposta encadeada (se aplicável).
+- Mantém os pareceres anteriores (nada é sobrescrito; é sempre “acréscimo”).
+
+**RLS:** 
+
+- Analistas e Gestores podem: Editar e deletar os próprios pareceres e responder pareceres de outros. 
+- Vendedores: Apenas visualizam

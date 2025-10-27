@@ -1,0 +1,70 @@
+# **Conversa Co-relacionada (Trheads e Comentários):**
+
+## **Conversa Co-relacionada:**
+
+- Uma **conversa co-relacionada** é um sistema de comentários organizados hierarquicamente, onde cada comentário pode ter respostas, e essas respostas podem ter outras respostas. É como uma conversa de WhatsApp em grupo, mas visualmente organizada para mostrar quem está respondendo quem
+
+## **COMO FUNCIONA A HIERARQUIA?**
+
+**1. THREAD PAI (Comentário Principal)**
+
+É o comentário inicial que **inicia uma conversa**. Ele não responde ninguém, apenas abre um novo tópico de discussão dentro da ficha.
+
+**Exemplo:**
+
+> *"Precisa revisar os documentos antes de aprovar"*
+
+Onde fica: 
+
+Dentro da aba de editar ficha, que vem do clique em cima do Card no Kanban. 
+
+Abaixo do campo de Parecer, que fica localizado no mesmo. 
+
+**Como é criado:** 
+
+Criaremos um campo de digitação abaixo de Parecer da análise, onde dentro desse campo os: Vendedores / Analistas e Gestores poderão digitar e ao clicar: “Enter” criarão a Trhead Pai. 
+
+No campo será possível ativaros seguintes  CTAs com barras: 
+
+/Tarefa
+/Anexo
+
+Criar uma tarefa ou adicionar um anexo também cria uma trhead Pai, assim como a digitação dentro do campo. 
+
+- Também permitiremos a @menção de usuários dentro do campo. Basta digitar: @ e abrira o dropdown com os nomes (public.profiles.full_name) de todos os colaboradores. 
+
+**2. RESPOSTA**
+
+É um comentário que **responde diretamente** ao thread pai. Fica visualmente indentado (deslocado para a direita) para mostrar que é uma resposta.
+
+**Exemplo:**
+
+> *"Ok, vou revisar hoje mesmo"*
+
+**3. SUB-RESPOSTA** 
+
+É um comentário que **responde uma resposta**. Fica ainda mais indentado, mostrando que é uma continuação da conversa.
+
+**Exemplo:**
+
+> *"Ótimo! Me avise quando concluir"*
+
+Não tem limites de Sub-respostas, e toda resposta e sub resposta abre um campo de digitação que poderá ser usado as seguintes funções: 
+
+/tarefa
+/anexo
+@mencionar 
+
+## **RESUMO EM 3 FRASES**
+
+1. **Thread Pai** = comentário inicial que abre um tópico
+2. **Respostas** = comentários vinculados ao thread pai ou a outras respostas
+3. **Co-relação** = todos ficam ligados pelo mesmo Thread ID, criando uma conversa organizada e rastreável
+
+## **SISTEMA DE NOTIFICAÇÕES**
+
+**Quando são enviadas:**
+
+1. **Resposta direta**: Autor do comentário pai recebe notificação
+2. **Menção @usuario**: Usuário mencionado recebe notificação
+3. **Anexo adicionado**: Participantes da conversa são notificados

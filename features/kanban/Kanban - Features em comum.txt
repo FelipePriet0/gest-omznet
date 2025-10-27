@@ -1,0 +1,400 @@
+Essas são as features comum dos Kanbans, aquelas que constarão tanto no Kanban Comercial quanto no Kanban Análise. 
+
+### 2.1 Estrutura do Card nas colunas:
+
+O sistema de cards do Kanban é o núcleo da aplicação, onde fichas comerciais são organizadas em colunas por status e área. Cada card representa um cliente (PF ou PJ) em diferentes estágios do processo comercial e de análise.
+
+Campos que quero trazer para o Card visto no Kanban (Fazendo Realtime com Banco e  não puxando do Front): 
+
+- Nome ou Razão Social —Hook —> public.applicants.primary_name
+- cpf ou CNPJ —Hook —> public.applicants.**cpf_cnpj**
+- Tel —Hook —> public.applicants.phone
+- Whatsapp —Hook —> public.applicants.**whatsapp**
+- Data Agendamento  —Hook —> public.kanban_cards.**due_at**
+- Horário de Agendamento    —Hook —> public.kanban_cards.hora_at
+- Bairro  —Hook —> public.applicants.**bairro**
+
+### Estrutura Visual:
+
+Nome (Maior e superior)
+CPF 
+PHONE | WHATSAPP
+DATA DE AGENDAMENTO | HORÁRIO 
+BAIRRO
+
+Campo superior direito: “Icone de Lixeira” na cor vermelha, puxando fluxo de Exclusão. 
+
+Fluxo de exclusão de um Card no Kanban: 
+
+**Primeira Etapa - Confirmação Inicial** 
+
+```tsx
+Modal: "Deletar Ficha"
+├── Mostra dados do cliente (Nome + CPF)
+├── Aviso: "A ficha será movida para o histórico de fichas excluídas"
+├── Botão "Cancelar" (cinza)
+└── Botão "Sim, Deletar" (vermelho, corner radius 30px)
+```
+
+ **Segunda Etapa - Confirmação Final**
+
+```tsx
+Modal: "Confirmação Final"
+├── Aviso: "Tem certeza que deseja apagar esta ficha?"
+├── Descrição: "Esta ação não pode ser desfeita..."
+├── Campo de motivo (opcional) - texto verde
+├── Botão "Cancelar" (cinza)
+└── Botão "Confirmar Exclusão" (vermelho)
+```
+
+OBS: Exclusão de Cards entram no Soft Delete, permanecendo no Back end: Deletion Log por 90 dias, podendo reverter a situação através do DB. 
+
+**🛡️ Segurança e Validação (RLS): 
+
+- Apenas quem criou pode deletar.** 
+
+### 2.1.1 Abrir ficha
+
+O que é: Ação de abrir o Card para “Editar Ficha”
+Como funciona: Ao clicar em Cima do Card, abre modal de “Editar ficha”. 
+
+### 2.1.2 Grab + Movimentação entre cards ( **Sistema de Drag & Drop e Movimentações entre Colunas)**
+
+O sistema de drag & drop permitirá que usuários movam cards entre colunas do Kanban de forma intuitiva, com atualização em tempo real, fallback para conexões instáveis e validações de fluxo de negócio.
+
+**Interface de Drag & Drop 
+
+1️⃣ Iniciar o Drag**
+
+<aside>
+💡
+
+Usuário → Clica e arrasta o card → Feedback visual ativado
+
+</aside>
+
+**Estados Visuais**
+
+- **Cursor**: cursor-grabbing durante o drag
+- **Transformação**: rotate(5deg) + opacity: 0.8
+- **Sombra**: box-shadow: 0 10px 20px rgba(0,0,0,0.3)
+- **Z-index**: 1000 para ficar acima de tudo
+
+**2️⃣ Durante o Drag**
+
+<aside>
+💡
+
+Card sendo arrastado → Placeholder fantasma na coluna de destino
+
+</aside>
+
+Lembrando que:
+
+- Colunas: “Canceladas” requisita motivo (Ativa fluxo como descrito anteriormente)
+- Coluna: “Entrada” não permite nenhuma movimentação para dentro
+- Coluna: “Concluídas” envia card para kanban análise: “Recebido”;
+
+## Para o back, precisamos fazer apenas:   **RPC Function: change_stage**
+
+**O que faz**
+
+:
+
+- ✅ Valida parâmetros de área e estágio
+- ✅ Atualiza area e stage do card
+- ✅ Atualiza updated_at
+    
+    
+
+### **2.1.3 - Sistema de Exclusão de Cards no Kanban**
+
+**Visão Geral:** 
+
+O sistema de exclusão de cards no Kanban utiliza **Soft Delete**, uma abordagem que preserva os dados no banco de dados enquanto remove o card da interface do usuário. Isso garante auditoria completa e possibilidade de recuperação.
+
+**🔄 Fluxo Completo de Exclusão**
+
+**1️⃣ Iniciar Exclusão** 
+
+<aside>
+💡
+
+Usuário → Card → Menu (⋮) → + “Mover +  "Deletar” 
+
+</aside>
+
+# 2.1.3.1. Exclusão “Deletar”
+
+**Localização**: Menu dropdown no canto superior direito de cada card
+
+**2️⃣ Primeira Etapa - Confirmação**
+
+<aside>
+💡
+
+Modal: "Deletar Ficha"
+├── Mostra dados do cliente (Nome, CPF)
+├── Aviso: "A ficha será movida para o histórico de exclusões"
+├── Botão "Cancelar" (cinza)
+└── Botão "Sim, Deletar" (vermelho, bordas arredondadas)
+
+</aside>
+
+**3️⃣ Segunda Etapa - Motivo** 
+
+<aside>
+💡
+
+Modal: "Confirmação Final"
+├── Aviso: "Esta ação não pode ser desfeita"
+├── Campo de motivo (opcional)
+├── Botão "Cancelar" (cinza)
+└── Botão "Confirmar Exclusão" (vermelho)
+
+</aside>
+
+**🔍 O que Acontece com os Dados**
+
+**1️⃣ No Banco de Dados deverá ficar:** 
+
+<aside>
+💡
+
+- - ANTES da exclusão
+SELECT id, title, cpf_cnpj, deleted_at, deleted_by, deletion_reason
+FROM kanban_cards
+WHERE id = 'card-id';
+-- Resultado: deleted_at = NULL (card ativo)
+- - DEPOIS da exclusão
+
+SELECT id, title, cpf_cnpj, deleted_at, deleted_by, deletion_reason
+FROM kanban_cards
+WHERE id = 'card-id';
+-- Resultado: deleted_at = '2024-01-15 14:30:00', deleted_by = 'user-id', deletion_reason = 'Motivo'
+
+</aside>
+
+**2️⃣ Na Interface (Front):** 
+
+<aside>
+💡
+
+// ANTES: Card aparece no Kanban
+const cards = [
+{ id: 'card-1', nome: 'João Silva', ... },
+{ id: 'card-2', nome: 'Maria Santos', ... }
+];
+
+// DEPOIS: Card removido da lista
+const cards = [
+{ id: 'card-2', nome: 'Maria Santos', ... }
+// card-1 não aparece mais
+];
+
+</aside>
+
+## Tabela / Colunas:
+
+| **Tabela** | **Colunas de Soft Delete** | **O que Armazenam** |
+| --- | --- | --- |
+| **kanban_cards** | deleted_at | Data/hora da exclusão |
+|  | deleted_by | ID do usuário que deletou |
+|  | deletion_reason | Motivo informado pelo usuário |
+
+## **Mapeamento Direto:**
+
+| **Frontend (JavaScript)** | **Backend (PostgreSQL)** | **Tipo** |
+| --- | --- | --- |
+| new Date().toISOString() | deleted_at | TIMESTAMPTZ |
+| profile?.id | deleted_by | UUID |
+| reason | deletion_reason | TEXT |
+
+**"O botão de deletar no frontend faz um UPDATE direto na tabela kanban_cards, preenchendo as 3 colunas de soft delete: deleted_at, deleted_by e deletion_reason. Não há tabelas intermediárias ou funções complexas - é um hook direto entre o campo do frontend e as colunas do backend."**
+
+## RLS:
+
+- O único que pode excluir um Card é o Autor do mesmo
+
+# 2.1.3.2. Mover:
+
+**🔄 Fluxo Completo do modal: “Mover”**
+
+**1️⃣ Iniciar** 
+
+<aside>
+💡
+
+Usuário → Card → Menu (⋮) → + “Mover +  "Deletar” 
+
+</aside>
+
+### O que abre:
+
+- Modal na tela com dois campos:  
+    
+     Kanban (Dropdown: Comercial / Análise)
+
+- Colunas (Ferente a escolha do Dropdown passado): 
+
+Colunas (Dropdown)
+
+  - Comercial: Feitas / Cadastrar no MK ; Aguardando documenttos ;  Canceladas (ABRIR MODAL DE CONFIRMAÇÃO)  (Concluidas não aparece, uma vez que joga para o kanban Análise). 
+
+  - Análise: “Recebidos” ; “Em análise” ; “Reanálise” ; “Aprovados” ; “Negados” ; “Canceladas” (ABRIR MODAL DE CONFIRMAÇÃO)  ; “Ass App” ; “Finalizadas”.
+
+Somos first backend então quero que essa funcionalidade acompanhe as mesmas regras / triggers que a movimentação de cards com grab usa no Back. 
+
+Obs: Essa func só vai existir para poder migrar cards de Análise → Comercial, caso alguem tenha movido errado, poderá reverter por aqui. 
+
+VAMOS PLANEJAR ANTES DE FAZÊ-LA PARA SER FIRST BACKEND. 
+
+## **💾** 2.1.4  **Auto-save de Fichas - Sistema Completo**
+
+## **Visão Geral**
+
+O sistema de auto-save salva automaticamente os dados das fichas conforme o usuário digita, evitando perda de informações e melhorando a experiência do usuário.
+
+**O que acontece**
+
+:
+
+- ✅ **Usuário digita** → Sistema detecta mudança
+- ✅ **Timer de 700ms** → Aguarda parar de digitar
+- ✅ **Auto-save** → Salva automaticamente no banco
+- ✅ **Repete** → Para cada nova mudança
+- ✅ **Realtime → Garante o Auto-save**
+
+**🎯 Fluxo Completo de Auto-save**
+
+**1️⃣ Usuário Digita** 
+
+<aside>
+💡
+
+Usuário → Digita no campo → Sistema detecta mudança
+
+</aside>
+
+**2️⃣ Timer de Espera** 
+
+<aside>
+💡
+
+Sistema → Aguarda 700ms → Usuário para de digitar?
+
+</aside>
+
+**3️⃣ Execução do Auto-save**
+
+<aside>
+💡
+
+Sistema → flushAutosave() → Salva no banc
+
+</aside>
+
+**4️⃣ Confirmação**
+
+<aside>
+💡
+
+Banco → Dados salvos → Usuário continua digitando
+
+</aside>
+
+ **Estrutura Técnica** 
+
+**1️⃣ Função Principal: flushAutosave → Devemos criar?? Ajudará??** 
+
+**2️⃣ Debounce (Evitar Salvamentos Excessivos) - 700ms**
+
+**Por que 700ms?**
+
+- ✅ **Não muito rápido** → Evita spam no banco
+- ✅ **Não muito lento** → Usuário não perde dados
+- ✅ **Equilíbrio perfeito** → Salva quando para de digitar
+
+## **📊 Tabelas Afetadas pelo Auto-save**
+
+**1️⃣ Tabela Principal: applicants**
+
+**2️⃣ Tabela de Teste: pf_fichas**
+
+3️⃣ **Tabela de Teste: pj_fichas**
+
+## 2.1.5 **🔥 Sistema "Foguinho" - Indicador de Urgência**
+
+## **📋 Visão Geral**
+
+O "Foguinho" é um sistema visual que indica fichas em situação de urgência, com animações de fogo e efeitos visuais para chamar atenção imediata.
+
+## **🎯 Quando o Foguinho Aparece**
+
+## **1️⃣ Condições para Ativar**
+
+**O foguinho aparece quando:** 
+
+- ✅ **Card está em colunas específicas**: recebido, em_analise, reanalise, aprovado
+- ✅ **Prazo próximo**: Restam **24 horas ou menos** para o deadline
+- ✅ **Prazo ainda válido**: Não passou do prazo (msUntil >= 0)
+
+## **2️⃣ Lógica Inteligente de Negócio**
+
+## **Como o Sistema Decide Quando Mostrar o Foguinho**
+
+O sistema de "Foguinho" não é apenas um efeito visual bonito - ele segue uma **lógica de negócio específica** que determina quando uma ficha realmente precisa de atenção urgente.O sistema não conta simplesmente 24 horas corridas. Ele considera apenas o **horário de funcionamento da empresa**:
+ 
+
+- **Prazos por Coluna**
+
+| **Coluna** | **Prazo Limite** | **Quando Aparece Foguinho** | **funcionamento da empresa** |
+| --- | --- | --- | --- |
+| recebido | 12h | Últimas 12h do prazo | Seg a Sex 8h →  18h
+Sabado: 8h → 12h  |
+| em_analise | 12h | Últimas 12h do prazo | Seg a Sex 8h →  18h
+Sabado: 8h → 12h  |
+| reanalise | 12h | Últimas 12h do prazo | Seg a Sex 8h →  18h
+Sabado: 8h → 12h  |
+| Ass App | 5h  | Últimas 5h do prazo | Seg a Sex 8h →  18h
+Sabado: 8h → 12h  |
+
+Sendo assim, as 12 e 5h de prazo (Lidas em: public.kanban_card.applicant_id + due_at + hora_at) só conta as horas de funcionamento da empresa. 
+
+Ou seja, domingo não está na conta. Dia de semana após as 18:00 também não. 
+
+**🔥 Animações do Foguinho 
+
+1️⃣ Animação Principal: Icon Fire: 
+
+  - Icone de foguinho no canto superior direito, lado esquerdo dos 3 pontinhos (Mover / Deletear) 
+
+2️⃣ Efeito de Chamas:
+
+ - Card em chamas. 
+
+Vamos fazer essa parte em flutter para deixar mais animado e bonito.** 
+
+### **🎯 Estados do Foguinho**
+
+**1️⃣ Estado Normal**
+
+<aside>
+💡
+
+Card sem urgência → Sem efeitos visuais
+
+</aside>
+
+**2️⃣ Estado "Pegando Fogo”**
+
+<aside>
+💡
+
+Card com urgência → Foguinho ativo com animações (Urgência, segue tabela abaixo)
+
+</aside>
+
+Como puxa o prazo?? 
+
+- public.kanban_card.applicants_id  + public.kanban_card.due_at + public.kanban_card.hora_at

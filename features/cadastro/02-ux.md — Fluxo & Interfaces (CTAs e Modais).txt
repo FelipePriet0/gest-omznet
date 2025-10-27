@@ -1,0 +1,145 @@
+**CTA:** **Nova Ficha**
+
+- **Onde aparece:** card de filtros em **ambos Kanbans** (abaixo de “Atribuídas”).
+- **Ação:** abre **PersonTypeModal** → opções: **PF** ou **PJ**.
+
+**Passo 1 — PersonTypeModal (Escolher Tipo)**
+
+<aside>
+💡
+
+Modal mostra 2 opções:
+├── 👤 Pessoa Física (PF) → Action: Dados Básicos - Ficha PF
+└── 🏢 Pessoa Jurídica (PJ) → Action: Dados Básicos - Ficha PJ 
+
+</aside>
+
+- Ao escolher, abre **BasicInfoModal** correspondente (PF ou PJ).
+
+**Passo 2 — BasicInfoModal (Dados Básicos PF/PJ)**
+
+- **PF (obrigatórios):**
+
+<aside>
+💡
+
+Após escolher tipo → Modal "BasicInfoModal" abre
+
+Dados Básicos - Ficha PF
+Campos obrigatórios:
+├── Nome
+├── CPF
+├──  Data de nascimento
+
+├── Telefone
+└── whatsapp
+└── Email
+└── Cidade de Nascimento
+└── UF
+
+Estrutura: 
+
+- Title: Identificação:
+————————————————————-
+Nome Completo 
+————————————————————-          
+CPF                                 |                Data de nascimento
+————————————————————-
+- Title: Contatos
+
+Telefone                            |              Whatsapp
+————————————————————-
+E-mail
+————————————————————-
+- Title: Naturalidade  
+————————————————————-
+Cidade de nascimento        |                UF
+————————————————————-
+
+Placeholders Text dos Campos (Cor: Verde Primário 60% opacidade):
+
+- Nome completo (”Nome completo do Lead)
+- CPF (000.000.000-00)
+
+- Data de nacimento (dd/mm/aaaa)
+- Telefone (”(00) 90000-0000”)
+- Whatsapp ((”(00) 90000-0000”)
+- E-mail (”cliente@exemplo.com”)
+- Cidade de nascimento (”Ex: São Paulo”)
+- UF (”SP”)
+
+</aside>
+
+### Dados Básicos - Ficha PF << vem de:  **Pessoa Fisica (PF) ← Escolher Tipo de Pessoa**
+
+| **Campo Frontend** | **Tipo** | **Obrigatório** | **Tabela Backend** | **Coluna Backend** | **Hook** |
+| --- | --- | --- | --- | --- | --- |
+| nome | string | ✅ SIM | public.applicants | primary_name | Auto-save / Realtime |
+| cpf | string | ✅ SIM | public.applicants | cpf_cnpj | Auto-save / Realtime |
+| nasc | string | ✅ SIM | public.pf_ficha | birth_date | Auto-save / Realtime |
+| tel | string | ✅ SIM | public.applicants | phone | Auto-save / Realtime |
+| whats | string | ✅ SIM | public.applicants | whatsapp | Auto-save / Realtime |
+| email | string | ❌ NÃO | public.applicants | email | Auto-save / Realtime |
+| naturalidade | string | ✅ SIM | public.pf_ficha | naturalidade | Auto-save / Realtime |
+| uf | string | ✅ SIM | public.pf_ficha | uf | Auto-save / Realtim |
+
+- **PJ (obrigatórios):** Razão Social, Nome Fantasia, CNPJ, E-mail, Telefone, WhatsApp.
+
+<aside>
+💡
+
+Dados Básicos - Ficha PJ
+
+Campos obrigatórios:
+├── Razão Social
+├── Nome Fantasia
+├──  CNPJ
+└── Email
+
+├── Telefone
+└── whatsapp
+
+Estrutura: 
+
+- Dados da empresa
+————————————————————-
+Razão Social                     |                Nome Fantasia
+————————————————————-
+Cnpj                                  |                E-mail
+————————————————————-
+- Contatos
+————————————————————-
+Telefone                            |              Whatsapp
+
+Placeholders Text dos Campos (Cor: Verde Primário 60% opacidade): 
+
+- Razão Social (Ex: Empresa LTDA)
+- Nome fantasia (Ex: Mznet)
+- CNPJ (00.000.000/0000-00)
+- E-mail (empresa@exemplo.com)
+- Telefone ((00) 90000-0000)
+- Whatsapp ((00) 90000-0000)
+
+</aside>
+
+### Dados Básicos - Ficha PJ << vem de:  **Pessoa Fisica (PF) ← Escolher Tipo de Pessoa**
+
+| **Campo Frontend** | **Tipo** | **Obrigatório** | **Tabela Backend** | **Coluna Backend** | **Hook** |
+| --- | --- | --- | --- | --- | --- |
+| razao social | string | ✅ SIM | public.applicants | primary_name | Auto-save / Realtime |
+| fantasia | string | ✅ SIM | public.pj_fichas | **nome_fantasia** | Auto-save / Realtime |
+| cnpj | string | ✅ SIM | public.applicants | cpf_cnpj | Auto-save / Realtime |
+| E-mail | string | ✅ SIM | public.applicants | email | Auto-save / Realtime |
+| Telefone | string | ✅ SIM | public.applicants | phone | Auto-save / Realtime |
+| Whatsapp | string | ✅ SIM | public.applicants | whatsapp | Auto-save / Realtime |
+- **Validação de duplicidade (CPF/CNPJ):** busca em `public.applicants.cpf_cnpj`; se já existir, **bloqueia** “Continuar” e mostra aviso.
+- **CTAs:**
+    - **Voltar** → retorna ao PersonTypeModal.
+    - **Cancelar** → fecha tudo e volta ao Kanban.
+    - **Continuar** → valida; abre **Expanded** (PF ou PJ) em outra aba **e** cria/atualiza card em **Feitas/Cadastrar no MK** (realtime).
+
+**Expanded (PF/PJ)**
+
+- Abre em **outra aba do navegador** ao “Continuar” de **BasicInfoModal**
+- Todos os campos mapeados com **auto-save** e **realtime**.
+- Campos especiais (ex.: “End no PS”, “Fones no PS”, “Informações SPC/Serasa”) seguem estilo destacado (bg/bordas).

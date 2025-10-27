@@ -1,0 +1,360 @@
+# **Anexos:**
+
+O que será: CTA  que abrirá um modal para que Analistas, Gestores e Vendedores possam fazer upload de arquivos (PDFs, imagens, documentos, planilhas) relacionados ao campo cujo Action foi chamada. 
+
+Como chamar função: Digitar “/Anexo” nos campos de digitação cujo CTA está ativo.
+- Campos nos quais colocaremos CTA para ser ativo (Ser chamado) : 
+
+    - Aba “Editar Ficha”: Campos de parecer e Conversas co-relacionadas, seja o campo principal ou respostas e Sub-respostas dos mesmos
+    - **Expanded Ficha: Campo de parecer,** seja o campo principal ou respostas e Sub-respostas dos mesmos 
+
+### **O que abre:**
+
+- Abre um **modal de upload** centralizado na tela
+    
+    ## Features para criar no Modal:
+    
+    ### **1. Upload de Arquivos**
+    
+    - ✅ Seleção de arquivos por **clique** no botão
+    - ✅ **Drag & Drop** (arrastar e soltar) diretamente na área
+    - ✅ Upload de **múltiplos arquivos** simultaneamente
+    - ✅ Adicionar mais arquivos após a seleção inicial
+    
+    ### **2. Validações Automáticas**
+    
+    - ✅ **Tamanho máximo**: 10MB por arquivo
+    - Rejeita arquivos maiores com alerta
+    - ✅ **Tipos permitidos**:
+    - Imagens: JPG, JPEG, PNG, GIF, WEBP, HEIC, HEIF
+    - Documentos: PDF
+    - Office: DOC, DOCX, XLS, XLSX
+    - Texto: TXT
+    - Compactados: ZIP, RAR
+    - ✅ **Duplicatas**: Detecta e impede upload de arquivo já selecionado
+    
+    ### **3. Personalização de Arquivos**
+    
+    - ✅ **Nome personalizado obrigatório** para cada arquivo
+    - Placeholder sugestivo: "Ex: CNH do titular, Comprovante de renda"
+    - ✅ **Descrição opcional** compartilhada para todos os arquivos
+    - Textarea com 3 linhas
+    - Placeholder com exemplo real de uso
+    - Aceita informações contextuais
+    
+    ### **4. Gerenciamento Visual**
+    
+    - ✅ **Ícones por tipo de arquivo**:
+    - 📄 PDF
+    - 🖼️ Imagens
+    - 📊 Excel
+    - 📝 Word
+    - 📦 Compactados
+    - ✅ **Tamanho formatado**: Exibe tamanho em MB/KB (ex: "2.5 MB")
+    - ✅ **Remover arquivos individuais**: Botão [X] em cada card
+    - ✅ **Lista organizada**: Cards empilhados verticalmente
+    
+    ### **5. Feedback Visual em Tempo Real**
+    
+    - ✅ **Indicador de Drag Over**: Borda verde e fundo claro quando arrasta arquivo
+    - ✅ **Alerta de validação**:
+    - ⚠️ Banner amarelo quando falta nome
+    - ✅ Banner verde quando tudo está OK
+    - ✅ **Loading State**: Spinner e texto "Enviando..." durante upload
+    - ✅ **Desabilita botões** durante processo de upload
+    
+    ### **6. Confirmação de Saída**
+    
+    - ✅ **Modal de confirmação** ao tentar fechar com alterações não salvas
+    - Opções: "Cancelar", "Sair sem Salvar", "Salvar e Sair"
+    - ✅ **Detecção automática** de mudanças (arquivo adicionado, nome alterado)
+    
+    ### **7. Upload Inteligente**
+    
+    - ✅ **Upload sequencial**: Processa arquivos um por um
+    - ✅ **Aguarda processamento**: Delay de 700ms antes de fechar o modal
+    - ✅ **Reset automático**: Limpa formulário após upload bem-sucedido
+    - ✅ **Fecha automaticamente** após conclusão
+    
+    ### **8. Organização no Storage**
+    
+    - ✅ **Path estruturado**: card_id/nome_arquivo_2025-01-15_abc123.pdf
+    - ✅ **Timestamp único**: Evita conflito de nomes
+    - ✅ **Sanitização**: Remove caracteres especiais do nome
+    - ✅ **Extensão preservada**: Mantém tipo original do arquivo
+    
+    ### **9. Metadados Salvos**
+    
+    - ✅ Salva automaticamente:
+    - Nome personalizado
+    - Descrição (se fornecida)
+    - Autor (ID, nome, função)
+    - Caminho no Storage
+    - Tamanho, tipo MIME, extensão
+    - Data/hora de criação
+    
+    ### **10. Acessibilidade**
+    
+    - ✅ **Input file oculto**: Interface customizada mais amigável
+    - ✅ **Tooltips descritivos** em todos os botões
+    - ✅ **ARIA labels** nos elementos principais
+    - ✅ **Múltiplas formas de seleção**: Clique, drag & drop, botão adicionar
+    
+
+<aside>
+💡
+
+Estrutura do Modal: 
+
+╔══════════════════════════════════════════════════════════════════╗
+║  🔼 HEADER (Gradiente Verde #018942)                         [X] ║
+║  ┌────────────────────────────────────────────────────────────┐  ║
+║  │  [📤]  Anexar Arquivo                                      │  ║
+║  │        Envie documentos e imagens para a ficha             │  ║
+║  └────────────────────────────────────────────────────────────┘  ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                   ║
+║  🔹 SEÇÃO 1: ARQUIVOS                                            ║
+║  ┌──────────────────────────────────────────────────────────┐   ║
+║  │ ┌────────────────────────────────────────────────────┐   │   ║
+║  │ │  [ÁREA DE DRAG & DROP - Borda Tracejada]          │   │   ║
+║  │ │                                                    │   │   ║
+║  │ │  ┌──────┐                                          │   │   ║
+║  │ │  │ 📤  │  (Ícone Grande de Upload)                │   │   ║
+║  │ │  └──────┘                                          │   │   ║
+║  │ │                                                    │   │   ║
+║  │ │  Arraste um arquivo aqui ou [clique para          │   │   ║
+║  │ │  selecionar]                                      │   │   ║
+║  │ │                                                    │   │   ║
+║  │ │  ● Máximo: 10MB por arquivo                       │   │   ║
+║  │ │  ● Tipos: Imagens, PDF, Documentos, Planilhas     │   │   ║
+║  │ └────────────────────────────────────────────────────┘   │   ║
+║  └──────────────────────────────────────────────────────────┘   ║
+║                                                                   ║
+║  ┌─── QUANDO ARQUIVO(S) SELECIONADO(S) ───────────────────┐     ║
+║  │                                                         │     ║
+║  │  ┌───────────────────────────────────────────────┐     │     ║
+║  │  │ [📄] contrato.pdf                        [X]  │     │     ║
+║  │  │      ● 2.5 MB                                 │     │     ║
+║  │  │                                               │     │     ║
+║  │  │  Nome do documento (obrigatório):            │     │     ║
+║  │  │  [Contrato de Adesão                    ]    │     │     ║
+║  │  │   └─> Input de texto                         │     │     ║
+║  │  └───────────────────────────────────────────────┘     │     ║
+║  │                                                         │     ║
+║  │  ┌───────────────────────────────────────────────┐     │     ║
+║  │  │ [🖼️] foto-rg.jpg                         [X]  │     │     ║
+║  │  │      ● 1.2 MB                                 │     │     ║
+║  │  │                                               │     │     ║
+║  │  │  Nome do documento (obrigatório):            │     │     ║
+║  │  │  [RG do Titular                         ]    │     │     ║
+║  │  └───────────────────────────────────────────────┘     │     ║
+║  │                                                         │     ║
+║  │  ┌─────────────────────────────────────────────┐       │     ║
+║  │  │  [📤] Adicionar Outro Arquivo               │       │     ║
+║  │  │  └─> Botão tracejado verde                  │       │     ║
+║  │  └─────────────────────────────────────────────┘       │     ║
+║  └─────────────────────────────────────────────────────────┘     ║
+║                                                                   ║
+║  🔹 SEÇÃO 2: DESCRIÇÃO                                           ║
+║  ┌──────────────────────────────────────────────────────────┐   ║
+║  │  Observações (opcional):                                 │   ║
+║  │  ┌────────────────────────────────────────────────────┐  │   ║
+║  │  │ Ex: Enviou CNH consta CPF + Comprovante...       │  │   ║
+║  │  │                                                  │  │   ║
+║  │  │                                                  │  │   ║
+║  │  └────────────────────────────────────────────────────┘  │   ║
+║  │  Adicione informações contextuais sobre os documentos    │   ║
+║  └──────────────────────────────────────────────────────────┘   ║
+║                                                                   ║
+║  🔹 VALIDAÇÃO (Condicional)                                      ║
+║  ┌──────────────────────────────────────────────────────────┐   ║
+║  │  ⚠️  Atenção!                                            │   ║
+║  │     Por favor, dê um nome para todos os arquivos         │   ║
+║  │     antes de enviar.                                     │   ║
+║  └──────────────────────────────────────────────────────────┘   ║
+║           OU (quando tudo OK)                                    ║
+║  ┌──────────────────────────────────────────────────────────┐   ║
+║  │  ✅  Tudo pronto!                                         │   ║
+║  │     Todos os arquivos têm nomes definidos e podem        │   ║
+║  │     ser enviados.                                        │   ║
+║  └──────────────────────────────────────────────────────────┘   ║
+║                                                                   ║
+║  ─────────────────────────────────────────────────────────────  ║
+║                                                                   ║
+║  AÇÕES (Rodapé)                                                  ║
+║  ┌─────────────┐  ┌──────────────────────────────┐             ║
+║  │  Cancelar   │  │  [📤] Enviar Arquivos        │             ║
+║  │  (Cinza)    │  │  (Verde com gradiente)       │             ║
+║  └─────────────┘  └──────────────────────────────┘             ║
+║                                                                   ║
+╚══════════════════════════════════════════════════════════════════╝
+
+</aside>
+
+**Ao confirmar (Upload):**
+
+- **Valida o arquivo:**
+- Tamanho máximo: **10MB por arquivo**
+- Tipos permitidos: **Imagens (JPG, PNG, GIF), PDF, Documentos (DOC, DOCX), Planilhas (XLS, XLSX), TXT, ZIP, RAR**
+- **Exibe notificação de sucesso** ("Arquivo enviado com sucesso!")
+- **Aparece na lista de anexos** com ícone do tipo de arquivo, nome, tamanho, autor e data
+- **Faz upload para o Storage** (card-attachments/[card_id]/[arquivo])
+- **Salva metadados no banco** (tabela card_attachments)
+- **Atualiza em tempo real** para quem estiver com a ficha aberta
+
+<aside>
+💡
+
+**Hook Realtime de salvamento:**
+
+**Arquivo Físico** —Hook—> **Supabase Storage** (card-attachments bucket)
+
+**Metadados** —Hook—> **public.card_attachments** (tabela)
+
+- **O que fica salvo (por anexo):**
+- **id**: identificador único do anexo (UUID)
+- **card_id**: ID da ficha vinculada
+- **author_id, author_name, author_role**: quem enviou
+- **file_name**: nome personalizado dado pelo usuário
+- **file_path**: caminho no Storage (card_id/arquivo.pdf)
+- **file_size**: tamanho em bytes
+- **file_type**: tipo MIME (application/pdf, image/jpeg, etc.)
+- **file_extension**: extensão (pdf, jpg, docx, etc.)
+- **description**: descrição opcional
+- **comment_id**: (opcional) vincula a um comentário/parecer específico
+- **created_at**: data/hora de criação
+- **updated_at**: data/hora da última atualização
+- **Soft-delete** (se usado): deleted_at, deleted_by
+- **Resultado:** Quando há 2+ anexos, todos permanecem na lista. O sistema apenas adiciona o novo como mais um item. Em caso de exclusão, marca como deletado (soft-delete) ou remove permanentemente dependendo da configuração.
+</aside>
+
+# **Após: “Enviar arquivos” Como esse campo deve aparecer no Front (UI):**
+
+## **1 - Features do Campo Visual**
+
+1.1 **Pré-visualização (Modal):** 
+
+- ✅ **Abertura por clique**: No botão de tipo
+- ✅ **Modal fullscreen**: Largura máxima 4xl
+- ✅ **Header informativo**: Nome do arquivo + ícone 👁️
+- ✅ **Visualizador de PDF**: Embedded com <object>
+- ✅ **Fallback para imagens**: Preview de imagens
+- ✅ **Loading state**: Spinner durante carregamento
+- ✅ **Mensagem de erro**: Se falhar o carregamento
+- ✅ **Botão "Tentar novamente" (cor cinza)**: Em caso de erro
+- ✅ **Altura controlada**: 70vh para o preview
+- ✅ **Botão fechar**: [X] no header
+- ✅ **Botão baixar**: No rodapé do modal
+- ✅ **ESC para fechar**: Atalho de teclado
+
+### **1.2 Download**
+
+- ✅ **Clique no botão ↗️**: Abre em nova aba
+- ✅ **Busca recursiva**: Lista todos os arquivos do storage
+- ✅ **Match por nome**: Compara nomes sanitizados
+- ✅ **Mensagem de erro**: Toast se falhar
+- ✅ **Log no console**: Para debug
+
+### 1.3 **Exclusão:**
+
+- ✅ **Menu dropdown**: Clique nos três pontos
+- ✅ **Opção vermelha**: "🗑️ Excluir anexo"
+- ✅ **Modal de confirmação**: Antes de excluir
+- ✅ **Título do modal**: "⚠️ Confirmar Exclusão"
+- ✅ **Mensagem clara**: Mostra nome do arquivo
+- ✅ **Aviso de irreversibilidade**: "Esta ação não pode ser desfeita"
+- ✅ **Botão Cancelar**: Cinza, cancela a ação
+- ✅ **Botão Excluir**: Vermelho, confirma exclusão
+- ✅ **Loading state**: Spinner durante exclusão
+- ✅ **Feedback visual**: Toast de sucesso/erro
+
+## **2. Quando é chamado /Anexo dentro de um Campo de parecer:**
+
+**Visualização/Preview (Campo visual) dentro de um campo parecer, como se fosse criado uma resposta mesmo:** 
+
+**Desenho do Campo Visual:** 
+
+<aside>
+💡
+
+┌────────────────────────────────────────────────────────┐
+│ [📄 PDF] [Nome do Arquivo]              [↗️] [Lixeira (Excluir]      │
+│          [há X tempo]                                  │
+└───────────────────────────────────────────────────────┘
+
+</aside>
+
+**LAYOUT GERAL:** 
+
+┌──────────────────────────────────—                                                                                                                                                                                    | 
+│ [Botão Tipo] [Nome + Info]                               [↗️]   [⋮]         │
+└────────────────────────────────────
+▲                          ▲                                                      ▲    ▲
+│                           │                                                       │    │
+Ícone             Conteúdo                                 Baixar Menu
+
+Menu: 
+
+┌────────────────────────────┐
+│  🗑️ Excluir anexo          │  ← Opção vermelha   |
+└────────────────────────────┘
+
+<aside>
+💡
+
+Segue confirmação de exclusão descrita acima em Campo visual (Features) / Exclusão: 
+
+- ✅ **Modal de confirmação**: Antes de excluir
+- ✅ **Título do modal**: "⚠️ Confirmar Exclusão"
+- ✅ **Mensagem clara**: Mostra nome do arquivo
+- ✅ **Aviso de irreversibilidade**: "Esta ação não pode ser desfeita"
+- ✅ **Botão Cancelar**: Cinza, cancela a ação
+- ✅ **Botão Excluir**: Vermelho, confirma exclusão
+- ✅ **Loading state**: Spinner durante exclusão
+- ✅ **Feedback visual**: Toast de sucesso/erro
+</aside>
+
+## **3. Quando chamado /Anexo dentro de um Campo de Conversa Co-relacionada (Trheads ou Comentário:**
+
+**Visualização/Preview (Campo visual) dentro de um campo de conversa co-relacionada, seja uma trhead ou um comentário (Resposta / Subresosta, como se fosse criado uma resposta mesmo:** 
+
+**Desenho do Campo Visual:** 
+
+<aside>
+💡
+
+┌────────────────────────────────────────────────────────┐
+│ [📄 PDF] [Nome do Arquivo]              [↗️] [Lixeira (Excluir]      │
+│          [há X tempo]                                  │
+└───────────────────────────────────────────────────────┘
+
+</aside>
+
+**LAYOUT GERAL:** 
+
+┌──────────────────────────────────—                                                                                                                                                                                   | 
+│ [Botão Tipo] [Nome + Info]                               [↗️]   [⋮]         │
+└────────────────────────────────────
+▲                          ▲                                                      ▲    ▲
+│                           │                                                       │    │
+Ícone             Conteúdo                                 Baixar Menu
+
+┌────────────────────────────┐
+│  🗑️ Excluir anexo          │  ← Opção vermelha
+└────────────────────────────┘
+
+<aside>
+💡
+
+Segue confirmação de exclusão descrita acima em Campo visual (Features) / Exclusão: 
+
+- ✅ **Modal de confirmação**: Antes de excluir
+- ✅ **Título do modal**: "⚠️ Confirmar Exclusão"
+- ✅ **Mensagem clara**: Mostra nome do arquivo
+- ✅ **Aviso de irreversibilidade**: "Esta ação não pode ser desfeita"
+- ✅ **Botão Cancelar**: Cinza, cancela a ação
+- ✅ **Botão Excluir**: Vermelho, confirma exclusão
+- ✅ **Loading state**: Spinner durante exclusão
+- ✅ **Feedback visual**: Toast de sucesso/erro
+</aside>

@@ -1,0 +1,13 @@
+### 🧭 Páginas
+
+- `/kanban/analise` → Kanban completo com colunas.
+
+### 💬 Campos Visíveis nos Cards
+
+- Nome / Razão Social
+- CPF / CNPJ
+- Telefone / WhatsApp
+- Bairro
+- Data e Hora (prazo)
+- 3 Pontinhos (Lado superior direito) → “Mover” + “Excluir” (Ícone de Lixeira (exclusão auditada))
+- Foguinho (Lado superior Direito, esquerda de “3 Pontinhos”

@@ -1,0 +1,2 @@
+- `PUT /api/cadastro/pf/:id` (patch por seção).
+- Validações Zod por seção; resposta `{ ok:true }`

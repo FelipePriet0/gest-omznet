@@ -1,0 +1,7 @@
+- [ ]  CTA **Nova Ficha** aparece nos dois Kanbans.
+- [ ]  **PersonTypeModal** abre para direcionar corretamente para PF ou PJ, ao escolher PF envia para `public.applicants.**person_type`  como PF, ao escolher PJ envia para** `public.applicants.**person_type` como PJ.**
+- [ ]  **Abre BasicInfoModal** (PF/PJ), conforme `public.applicants.**person_type` entende se é PF ou PJ e abre** **BasicInfoModal do fluxo correto +** valida obrigatórios e bloqueia **Continuar** se CPF/CNPJ existir e o card aparece em **Feitas/Cadastrar no MK**.
+- [ ]  Ao **Continuar**, abre **Expanded** do fluxo correto (PF ou PJ, seguindo ainda: `public.applicants.**person_type**` em outra aba.
+- [ ]  **Auto-save/realtime** funciona em todos os campos dos Expanded.
+- [ ]  Campos condicionais exibem/obrigam corretamente (ex.: “Locador” quando “Alugada”; “Tipo/Nome do comprovante” quando “Enviou comprovante = Sim”).
+- [ ]  Cancelamento exige **motivo**; log/auditoria gravados; card em **Canceladas**.

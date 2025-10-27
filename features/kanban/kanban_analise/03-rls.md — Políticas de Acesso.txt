@@ -1,0 +1,16 @@
+| Papel | Permissões |
+| --- | --- |
+| **Vendedor** | Somente leitura (cards próprios).  |
+| **Analista** | - Ler, editar e moviemtnar todos os cards e Expanded ficha |
+| **Gestor** | - Ler, editar e moviemtnar todos os cards e Expanded ficha |
+
+---
+
+### ⚙️ Policies (Simplificado)
+
+| Nome | Operação | Regra |
+| --- | --- | --- |
+| `select_analysis_view` | SELECT | `area='analise' AND auth.role() IN ('analista','gestor')` |
+| `update_analysis_move` | UPDATE | `auth.role() IN ('analista','gestor')` |
+| `insert_analysis_cards` | INSERT | `auth.role()='gestor'` |
+| `delete_analysis_cards` | DELETE | `auth.role()='gestor'` |
