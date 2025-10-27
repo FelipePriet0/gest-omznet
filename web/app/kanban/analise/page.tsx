@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { KanbanBoard } from "@/features/kanban/components/KanbanBoard";
-import { FilterBar } from "@/features/kanban/components/FilterBar";
 import { supabase } from "@/lib/supabaseClient";
+import { FilterBar } from "@/features/kanban/components/FilterBar";
+import { KanbanBoardAnalise } from "@/features/kanban/components/KanbanBoardAnalise";
 
-export default function KanbanPage() {
+export default function KanbanAnalisePage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -26,18 +26,16 @@ export default function KanbanPage() {
     };
   }, [router]);
 
-  if (loading) {
-    return <div className="text-sm text-zinc-600 dark:text-zinc-400">Carregando…</div>;
-  }
+  if (loading) return <div className="text-sm text-zinc-600">Carregando…</div>;
 
   return (
-    <div className="bg-[#ECF4FA] -mx-4 sm:-mx-6 -my-4 sm:-my-6 min-h-[calc(100dvh-56px)] px-4 py-4 sm:px-6 sm:py-6">
-      <div className="space-y-4 sm:space-y-6">
+    <div className="bg-[#ECF4FA] -mx-6 -my-6 min-h-[calc(100dvh-56px)] px-6 py-6">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Kanban Comercial</h1>
+          <h1 className="text-xl font-semibold text-zinc-900">Kanban Análise</h1>
         </div>
         <FilterBar />
-        <KanbanBoard />
+        <KanbanBoardAnalise />
       </div>
     </div>
   );
