@@ -1,5 +1,14 @@
 import { KanbanCard as CardType } from "@/features/kanban/types";
 
+function formatDateUTC(iso?: string) {
+  if (!iso) return null;
+  try {
+    return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(iso));
+  } catch {
+    return null;
+  }
+}
+
 export function KanbanColumn({ title, cards }: { title: string; cards: CardType[] }) {
   return (
     <div className="flex min-h-64 w-72 flex-col gap-3 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3 dark:border-zinc-800 dark:bg-zinc-900/40">
@@ -13,7 +22,7 @@ export function KanbanColumn({ title, cards }: { title: string; cards: CardType[
               {c.phone && <span>Tel: {c.phone}</span>}
               {c.whatsapp && <span>Whats: {c.whatsapp}</span>}
               {c.bairro && <span>Bairro: {c.bairro}</span>}
-              {c.dueAt && <span>Ag.: {new Date(c.dueAt).toLocaleDateString()}</span>}
+              {c.dueAt && <span>Ag.: {formatDateUTC(c.dueAt)}</span>}
             </div>
           </div>
         ))}
@@ -21,4 +30,3 @@ export function KanbanColumn({ title, cards }: { title: string; cards: CardType[
     </div>
   );
 }
-

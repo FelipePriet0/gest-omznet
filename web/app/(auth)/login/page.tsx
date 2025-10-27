@@ -32,9 +32,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full max-w-xl rounded-[28px] border border-emerald-300/30 bg-gradient-to-r from-emerald-900/80 to-black/80 p-8 shadow-2xl shadow-emerald-900/40">
+    <div className="w-full max-w-xl rounded-[30px] bg-gradient-to-r from-emerald-600 to-black p-4 sm:p-6 md:p-8 shadow-2xl shadow-[#FFFFFF]/30">
       <div className="mb-6 flex flex-col items-center">
-        <div className="mb-3 rounded-lg bg-white/5 px-3 py-1 text-2xl font-extrabold tracking-tight text-white">MZ<span className="text-emerald-400">net</span></div>
+        <div className="mb-3 h-10 sm:h-12 md:h-14 flex items-center justify-center rounded-lg bg-white/5 px-3 py-1 text-2xl font-extrabold tracking-tight text-white">MZ<span className="text-emerald-400">net</span></div>
         <h1 className="text-lg font-semibold text-white">Entrar</h1>
       </div>
 
@@ -69,9 +69,9 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-4 w-full rounded-full bg-white py-2.5 text-sm font-semibold text-emerald-800 shadow hover:bg-zinc-50 disabled:opacity-70"
+          className="mt-4 w-full h-11 rounded-full bg-emerald-500 text-base font-semibold text-white shadow hover:bg-emerald-600 disabled:opacity-70"
         >
-          {loading ? "Entrando..." : "Entrar"}
+          {loading ? "Processando..." : "Entrar"}
         </button>
         <div className="flex justify-end">
           <a href="/forgot-password" className="text-xs text-white/80 underline underline-offset-2 hover:text-white">Esqueci minha senha</a>

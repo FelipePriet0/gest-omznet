@@ -21,8 +21,8 @@ export default function AuthLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-dvh bg-gradient-to-br from-emerald-800 to-black`}> 
-        <div className="grid min-h-dvh place-items-center px-6 py-10">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gradient-to-br from-emerald-600 to-black`}> 
+        <div className="grid min-h-screen place-items-center px-6 py-10">
           {children}
         </div>
       </body>
