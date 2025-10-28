@@ -263,6 +263,46 @@ export default function CadastroPFPage() {
     return () => { active = false; };
   }, [applicantId]);
 
+  // Realtime: applicants + pf_fichas
+  useEffect(() => {
+    let ch1:any; let ch2:any;
+    try {
+      ch1 = supabase
+        .channel(`rt-pf-app-${applicantId}`)
+        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'applicants', filter:`id=eq.${applicantId}` }, (payload:any) => {
+          const a = payload.new || {};
+          const a2:any = { ...(app||{}) };
+          Object.assign(a2, a);
+          if (a2 && typeof a2.meio !== 'undefined' && a2.meio !== null) a2.meio = meioToUI(a2.meio);
+          if (a2 && typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
+          setApp(a2);
+        })
+        .subscribe();
+      ch2 = supabase
+        .channel(`rt-pf-fichas-${applicantId}`)
+        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'pf_fichas', filter:`applicant_id=eq.${applicantId}` }, (payload:any) => {
+          const p = payload.new || {};
+          const pfix:any = { ...(pf||{}), ...p };
+          if (pfix && pfix.birth_date) pfix.birth_date = isoToBR(pfix.birth_date);
+          if (typeof pfix?.idade !== 'undefined' && pfix.idade !== null) pfix.idade = String(pfix.idade);
+          if (typeof pfix?.conjuge_idade !== 'undefined' && pfix.conjuge_idade !== null) pfix.conjuge_idade = String(pfix.conjuge_idade);
+          // Booleans → UI
+          ['tem_contrato','enviou_contrato','enviou_comprovante','tem_internet_fixa','unica_no_lote'].forEach((k:any)=>{
+            if (k in pfix && typeof pfix[k] !== 'string') pfix[k] = boolToUI(pfix[k]);
+          });
+          // Enums → UI
+          if (typeof pfix.tipo_moradia !== 'undefined') pfix.tipo_moradia = tipoMoradiaToUI(pfix.tipo_moradia as any);
+          if (typeof pfix.nas_outras !== 'undefined') pfix.nas_outras = nasOutrasToUI(pfix.nas_outras as any);
+          if (typeof pfix.tipo_comprovante !== 'undefined') pfix.tipo_comprovante = tipoComprovToUI(pfix.tipo_comprovante as any);
+          if (typeof pfix.vinculo !== 'undefined') pfix.vinculo = vinculoToUI(pfix.vinculo as any);
+          if (typeof pfix.estado_civil !== 'undefined') pfix.estado_civil = estadoCivilToUI(pfix.estado_civil as any);
+          setPf(pfix);
+        })
+        .subscribe();
+    } catch {}
+    return () => { try { if (ch1) supabase.removeChannel(ch1); if (ch2) supabase.removeChannel(ch2); } catch {} };
+  }, [applicantId]);
+
   async function flushAutosave() {
     if (!applicantId) return;
     const appPayload = pendingApp.current;
@@ -441,8 +481,8 @@ export default function CadastroPFPage() {
           <Field label="Data de Nascimento" value={pf.birth_date ? formatDateBR(pf.birth_date as any) : ""} onChange={(v)=>{ setPf({...pf, birth_date: v}); queueSave("pf","birth_date", v); }} />
           <Field label="Idade" value={pf.idade || ""} onChange={(v)=>{ setPf({...pf, idade:v}); queueSave('pf','idade', v); }} maxLength={2} />
           {/* Linha 2 */}
-          <Field label="Telefone" value={app.phone || ""} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, phone:m}); queueSave("app","phone", m); }} />
-          <Field label="WhatsApp" value={app.whatsapp || ""} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, whatsapp:m}); queueSave("app","whatsapp", m); }} />
+          <Field label="Telefone" value={app.phone || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave("app","phone", m); }} />
+          <Field label="WhatsApp" value={app.whatsapp || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave("app","whatsapp", m); }} />
           <Textarea label="Do PS" value={pf.do_ps || ""} onChange={(v)=>{ setPf({...pf, do_ps:v}); queueSave("pf","do_ps", v); }} red />
           <div />
           {/* Linha 3 */}

@@ -64,6 +64,10 @@ function maskPhone(input: string) {
   if (len <= 10) return `(${ddd}) ${d.slice(2,6)}-${d.slice(6)}`;
   return `(${ddd}) ${d.slice(2,7)}-${d.slice(7)}`;
 }
+function maskPhoneLoose(input: string) {
+  if (/[A-Za-z]/.test(input)) return input;
+  return maskPhone(input);
+}
 function formatCurrencyBR(input: string) {
   const d = digitsOnly(input);
   if (!d) return "";
@@ -242,6 +246,41 @@ export default function CadastroPJPage() {
     return () => { active = false; };
   }, [applicantId]);
 
+  // Realtime: applicants + pj_fichas
+  useEffect(() => {
+    let ch1:any; let ch2:any;
+    try {
+      ch1 = supabase
+        .channel(`rt-pj-app-${applicantId}`)
+        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'applicants', filter:`id=eq.${applicantId}` }, (payload:any) => {
+          const a = payload.new || {};
+          const a2:any = { ...(app||{}) };
+          Object.assign(a2, a);
+          if (a2 && typeof a2.meio !== 'undefined' && a2.meio !== null) a2.meio = meioToUI(a2.meio);
+          if (a2 && typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
+          setApp(a2);
+        })
+        .subscribe();
+      ch2 = supabase
+        .channel(`rt-pj-fichas-${applicantId}`)
+        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'pj_fichas', filter:`applicant_id=eq.${applicantId}` }, (payload:any) => {
+          const p = payload.new || {};
+          const p2:any = { ...(pj||{}), ...p };
+          // Booleans → UI
+          ['enviou_comprovante','possui_internet','contrato_social'].forEach((k:any)=>{
+            if (k in p2 && typeof p2[k] !== 'string') p2[k] = boolToUI(p2[k]);
+          });
+          // Enums: map canônico → UI
+          if (typeof p2.tipo_imovel !== 'undefined') p2.tipo_imovel = tipoImovelToUI(p2.tipo_imovel as any);
+          if (typeof p2.tipo_estabelecimento !== 'undefined') p2.tipo_estabelecimento = tipoEstabToUI(p2.tipo_estabelecimento as any);
+          if (typeof p2.tipo_comprovante !== 'undefined') p2.tipo_comprovante = tipoComprovToUI(p2.tipo_comprovante as any);
+          setPj(p2);
+        })
+        .subscribe();
+    } catch {}
+    return () => { try { if (ch1) supabase.removeChannel(ch1); if (ch2) supabase.removeChannel(ch2); } catch {} };
+  }, [applicantId]);
+
   async function flushAutosave() {
     if (!applicantId) return;
     const appPayload = pendingApp.current; const pjPayload = pendingPj.current;
@@ -330,8 +369,8 @@ export default function CadastroPJPage() {
       {/* Seção 3: Contatos e Documentos */}
       <Card title="Contatos e Documentos">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, phone:m}); queueSave('app','phone', m); }} />
-          <Field label="WhatsApp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, whatsapp:m}); queueSave('app','whatsapp', m); }} />
+          <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave('app','phone', m); }} />
+          <Field label="WhatsApp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave('app','whatsapp', m); }} />
           <Field label="Fones no PS" value={pj.fones_ps||''} onChange={(v)=>{ setPj({...pj, fones_ps:v}); queueSave('pj','fones_ps', v); }} red />
           <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queueSave('app','email', v); }} className="md:col-span-3" />
           <Select label="Enviou Comprovante" value={pj.enviou_comprovante as any || ''} onChange={(v)=>{ setPj({...pj, enviou_comprovante:v}); queueSave('pj','enviou_comprovante', v); if (v==='Não'){ setPj(prev=>({ ...prev, tipo_comprovante:'', nome_comprovante:'' })); queueSave('pj','tipo_comprovante',''); queueSave('pj','nome_comprovante',''); } }} options={["Sim","Não"]} />
