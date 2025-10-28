@@ -17,13 +17,13 @@ const columnConfig = [
   { key: "concluidas", title: "Concluídas", color: "purple", icon: "🟣" },
 ];
 
-export function KanbanBoard({ hora }: { hora?: string }) {
+export function KanbanBoard({ hora, prazo, date }: { hora?: string; prazo?: 'hoje'|'amanha'|'atrasado'|'data'; date?: string }) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
   const [del, setDel] = useState<{id:string,name:string,cpf:string}|null>(null);
   const [actions, setActions] = useState<{id:string,name:string,cpf:string}|null>(null);
 
-  useEffect(() => { (async () => { try { setCards(await listCards('comercial', { hora })); } catch {} })(); }, [hora]);
+  useEffect(() => { (async () => { try { setCards(await listCards('comercial', { hora, prazo, date })); } catch {} })(); }, [hora, prazo, date]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = { entrada:[], feitas:[], aguardando:[], canceladas:[], concluidas:[] };
@@ -62,8 +62,8 @@ export function KanbanBoard({ hora }: { hora?: string }) {
           </div>
         </div>
       </DndContext>
-      <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={async ()=> setCards(await listCards('comercial'))} />
-      <DeleteFlow open={!!del} onClose={()=>setDel(null)} cardId={del?.id||''} applicantName={del?.name||''} cpfCnpj={del?.cpf||''} onDeleted={async ()=> setCards(await listCards('comercial'))} />
+      <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
+      <DeleteFlow open={!!del} onClose={()=>setDel(null)} cardId={del?.id||''} applicantName={del?.name||''} cpfCnpj={del?.cpf||''} onDeleted={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
       <QuickActionsModal
         open={!!actions}
         onClose={() => setActions(null)}

@@ -16,6 +16,8 @@ export function FilterBar() {
   const setor = useMemo(() => (pathname?.includes("analise") ? "analise" : "comercial"), [pathname]);
   const [responsaveis, setResponsaveis] = useState<{ value: string; label: string }[]>([]);
   const [horaSel, setHoraSel] = useState<string>("");
+  const [prazoSel, setPrazoSel] = useState<string>("");
+  const [dataSel, setDataSel] = useState<string>("");
   // Cadastro modals
   const [openPersonType, setOpenPersonType] = useState(false);
   const [openBasicInfo, setOpenBasicInfo] = useState(false);
@@ -54,6 +56,10 @@ export function FilterBar() {
     try {
       const v = searchParams.get("hora") || "";
       setHoraSel(v);
+      const p = searchParams.get("prazo") || "";
+      setPrazoSel(p);
+      const d = searchParams.get("data") || "";
+      setDataSel(d);
     } catch {}
   }, [searchParams, pathname]);
 
@@ -65,6 +71,22 @@ export function FilterBar() {
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname);
     } catch {}
+  }
+
+  function onChangePrazo(v: string) {
+    setPrazoSel(v);
+    const params = new URLSearchParams(searchParams?.toString());
+    if (v) params.set('prazo', v); else { params.delete('prazo'); params.delete('data'); setDataSel(''); }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }
+
+  function onChangeData(v: string) {
+    setDataSel(v);
+    const params = new URLSearchParams(searchParams?.toString());
+    if (v) { params.set('prazo','data'); params.set('data', v); } else { params.delete('data'); }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
   }
 
   return (
@@ -103,7 +125,7 @@ export function FilterBar() {
           <Select label="👤 Resp." placeholder="Todos" options={responsaveis} />
         </div>
 
-        <div className="flex items-end">
+        <div className="flex items-end gap-3">
           <Select
             label="📅 Prazo"
             placeholder="Todos"
@@ -113,7 +135,20 @@ export function FilterBar() {
               { value: "atrasado", label: "Atrasado" },
               { value: "data", label: "Escolher data" },
             ]}
+            value={prazoSel}
+            onChange={onChangePrazo}
           />
+          {prazoSel === 'data' && (
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-white/90">Data</label>
+              <input
+                type="date"
+                value={dataSel}
+                onChange={(e)=> onChangeData(e.target.value)}
+                className="bg-white/10 backdrop-blur-sm text-white border-white/20 focus:border-white/40 focus:bg-white/20 w-full h-11 rounded-full outline-none px-3"
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex items-end">

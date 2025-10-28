@@ -1,7 +1,6 @@
 export type KanbanStage =
   | "entrada"
   | "feitas"
-  | "cadastrar_no_mk"
   | "recebidos"
   | "em_analise"
   | "reanalise"

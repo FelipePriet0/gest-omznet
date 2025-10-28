@@ -9,6 +9,10 @@ import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
 export default function KanbanAnalisePage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const sp = useSearchParams();
+  const hora = sp.get('hora') || undefined;
+  const prazo = (sp.get('prazo') as any) || undefined;
+  const date = sp.get('data') || undefined;
 
   useEffect(() => {
     let mounted = true;
@@ -41,9 +45,8 @@ export default function KanbanAnalisePage() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Kanban Análise</h1>
         </div>
         <FilterBar />
-        <KanbanBoardAnalise />
+        <KanbanBoardAnalise hora={hora as any} prazo={prazo} date={date} />
       </div>
     </div>
   );
 }
-

@@ -20,7 +20,7 @@ const columns = [
   { key: "canceladas", title: "Canceladas", color: "red", icon: "🔴" },
 ];
 
-export function KanbanBoardAnalise() {
+export function KanbanBoardAnalise({ hora, prazo, date }: { hora?: string; prazo?: 'hoje'|'amanha'|'atrasado'|'data'; date?: string }) {
   const router = useRouter();
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
@@ -29,10 +29,10 @@ export function KanbanBoardAnalise() {
   useEffect(() => {
     (async () => {
       try {
-        setCards(await listCards("analise"));
+        setCards(await listCards("analise", { hora, prazo, date }));
       } catch {}
     })();
-  }, []);
+  }, [hora, prazo, date]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = {
@@ -120,7 +120,7 @@ export function KanbanBoardAnalise() {
         onClose={() => setMove(null)}
         cardId={move?.id || ""}
         presetArea={move?.area}
-        onMoved={async () => setCards(await listCards("analise"))}
+        onMoved={async () => setCards(await listCards("analise", { hora, prazo, date }))}
       />
       <DeleteFlow
         open={!!del}
@@ -128,7 +128,7 @@ export function KanbanBoardAnalise() {
         cardId={del?.id || ""}
         applicantName={del?.name || ""}
         cpfCnpj={del?.cpf || ""}
-        onDeleted={async () => setCards(await listCards("analise"))}
+        onDeleted={async () => setCards(await listCards("analise", { hora, prazo, date }))}
       />
     </div>
   );
