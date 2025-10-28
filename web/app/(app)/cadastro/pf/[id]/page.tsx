@@ -32,6 +32,7 @@ type AppModel = {
 
 type PfModel = {
   birth_date?: string | null;
+  idade?: string;
   naturalidade?: string;
   uf_naturalidade?: string;
   do_ps?: string;
@@ -70,7 +71,7 @@ type PfModel = {
   conjuge_cpf?: string;
   conjuge_naturalidade?: string;
   conjuge_uf?: string;
-  conjuge_idade?: number | null;
+  conjuge_idade?: string | null;
   conjuge_do_ps?: string;
   pai_nome?: string;
   pai_reside?: string;
@@ -178,6 +179,12 @@ export default function CadastroPFPage() {
         if (pfix && pfix.birth_date) {
           pfix.birth_date = isoToBR(pfix.birth_date);
         }
+        if (typeof pfix?.idade !== 'undefined' && pfix.idade !== null) {
+          pfix.idade = String(pfix.idade);
+        }
+        if (typeof pfix?.conjuge_idade !== 'undefined' && pfix.conjuge_idade !== null) {
+          pfix.conjuge_idade = String(pfix.conjuge_idade);
+        }
         setPf(pfix || {});
       } finally {
         if (active) setLoading(false);
@@ -208,6 +215,14 @@ export default function CadastroPFPage() {
           // map 'Sim'/'Não' → boolean, else pass-through
           if (patch.unica_no_lote === 'Sim') patch.unica_no_lote = true;
           else if (patch.unica_no_lote === 'Não') patch.unica_no_lote = false;
+        }
+        if (typeof patch.idade !== 'undefined') {
+          const only = digitsOnly(String(patch.idade||''));
+          patch.idade = only ? parseInt(only,10) : null;
+        }
+        if (typeof patch.conjuge_idade !== 'undefined') {
+          const onlyc = digitsOnly(String(patch.conjuge_idade||''));
+          patch.conjuge_idade = onlyc ? parseInt(onlyc,10) : null;
         }
         await supabase.from("pf_fichas").update(patch).eq("applicant_id", applicantId);
       }
@@ -332,7 +347,7 @@ export default function CadastroPFPage() {
           <Field label="Nome do Cliente" value={app.primary_name || ""} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave("app","primary_name", v); }} />
           <Field label="CPF" value={app.cpf_cnpj || ""} onChange={(v)=>{ setApp({...app, cpf_cnpj:v}); queueSave("app","cpf_cnpj", v); }} />
           <Field label="Data de Nascimento" value={pf.birth_date ? formatDateBR(pf.birth_date as any) : ""} onChange={(v)=>{ setPf({...pf, birth_date: v}); queueSave("pf","birth_date", v); }} />
-          <Field label="ID" value={applicantId} onChange={()=>{}} className="opacity-60" />
+          <Field label="Idade" value={pf.idade || ""} onChange={(v)=>{ setPf({...pf, idade:v}); queueSave('pf','idade', v); }} maxLength={2} />
           {/* Linha 2 */}
           <Field label="Telefone" value={app.phone || ""} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, phone:m}); queueSave("app","phone", m); }} />
           <Field label="WhatsApp" value={app.whatsapp || ""} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, whatsapp:m}); queueSave("app","whatsapp", m); }} />
@@ -373,9 +388,15 @@ export default function CadastroPFPage() {
           <Field label="Com quem reside" value={pf.com_quem_reside || ""} onChange={(v)=>{ setPf({...pf, com_quem_reside:v}); queueSave("pf","com_quem_reside", v); }} className="md:col-span-2" />
           <Select label="Nas outras" value={pf.nas_outras || ""} onChange={(v)=>{ setPf({...pf, nas_outras:v}); queueSave("pf","nas_outras", v); }} options={["Parentes","Locador(a)","Só conhecidos","Não conhece"]} />
           {/* Linha 3 */}
-          <Select label="Tem Contrato" value={pf.tem_contrato || ""} onChange={(v)=>{ setPf({...pf, tem_contrato:v}); queueSave("pf","tem_contrato", v); if (v === 'Não') { setPf(prev=>({ ...prev, enviou_contrato:'', nome_de:'' })); queueSave('pf','enviou_contrato',''); queueSave('pf','nome_de',''); } }} options={["Sim","Não"]} />
-          <Select label="Enviou Contrato" value={pf.enviou_contrato || ""} onChange={(v)=>{ setPf({...pf, enviou_contrato:v}); queueSave("pf","enviou_contrato", v); if (v !== 'Sim') { setPf(prev=>({ ...prev, nome_de:'' })); queueSave('pf','nome_de',''); } }} options={["Sim","Não"]} error={errs.enviou_contrato} requiredMark={reqEnviouContrato} disabled={!reqEnviouContrato} />
-          <Field label="Nome De" value={pf.nome_de || ""} onChange={(v)=>{ setPf({...pf, nome_de:v}); queueSave("pf","nome_de", v); }} error={errs.nome_de} requiredMark={reqNomeDe} disabled={!reqNomeDe} />
+          <Select label="Tem Contrato" value={pf.tem_contrato || ""} onChange={(v)=>{ setPf({...pf, tem_contrato:v}); queueSave("pf","tem_contrato", v); if (v === 'Não') { setPf(prev=>({ ...prev, enviou_contrato:'', nome_de:'' })); queueSave('pf','enviou_contrato',''); queueSave('pf','nome_de',''); } else if (v === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { // força comprovante
+              const nomeDe = (pf.nome_de || '');
+              setPf(prev=>({ ...prev, enviou_comprovante:'Sim', tipo_comprovante:'Outro', nome_comprovante: nomeDe }));
+              queueSave('pf','enviou_comprovante','Sim');
+              queueSave('pf','tipo_comprovante','Outro');
+              queueSave('pf','nome_comprovante', nomeDe);
+            } }} options={["Sim","Não"]} />
+          <Select label="Enviou Contrato" value={pf.enviou_contrato || ""} onChange={(v)=>{ setPf({...pf, enviou_contrato:v}); queueSave("pf","enviou_contrato", v); if (v !== 'Sim') { setPf(prev=>({ ...prev, nome_de:'' })); queueSave('pf','nome_de',''); } else if ((pf.tem_contrato||'') === 'Sim') { const nomeDe = (pf.nome_de || ''); setPf(prev=>({ ...prev, enviou_comprovante:'Sim', tipo_comprovante:'Outro', nome_comprovante: nomeDe })); queueSave('pf','enviou_comprovante','Sim'); queueSave('pf','tipo_comprovante','Outro'); queueSave('pf','nome_comprovante', nomeDe); } }} options={["Sim","Não"]} error={errs.enviou_contrato} requiredMark={reqEnviouContrato} disabled={!reqEnviouContrato} />
+          <Field label="Nome De" value={pf.nome_de || ""} onChange={(v)=>{ setPf({...pf, nome_de:v}); queueSave("pf","nome_de", v); if ((pf.tem_contrato||'') === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { setPf(prev=>({ ...prev, nome_comprovante: v })); queueSave('pf','nome_comprovante', v); } }} error={errs.nome_de} requiredMark={reqNomeDe} disabled={!reqNomeDe} />
           {/* Linha 4 */}
           <Select label="Enviou Comprovante" value={pf.enviou_comprovante || ""} onChange={(v)=>{ setPf({...pf, enviou_comprovante:v}); queueSave("pf","enviou_comprovante", v); if (v === 'Não') { setPf(prev=>({ ...prev, tipo_comprovante:'', nome_comprovante:'' })); queueSave('pf','tipo_comprovante',''); queueSave('pf','nome_comprovante',''); } }} options={["Sim","Não"]} requiredMark={reqComprovante} />
           <Select label="Tipo de Comprovante" value={pf.tipo_comprovante || ""} onChange={(v)=>{ setPf({...pf, tipo_comprovante:v}); queueSave("pf","tipo_comprovante", v); }} options={["Energia","Agua","Internet","Outro"]} error={errs.tipo_comprovante} requiredMark={reqComprovante} disabled={!reqComprovante} />
@@ -418,7 +439,7 @@ export default function CadastroPFPage() {
           <Field label="CPF" value={pf.conjuge_cpf || ""} onChange={(v)=>{ setPf({...pf, conjuge_cpf:v}); queueSave("pf","conjuge_cpf", v); }} />
           <Field label="Naturalidade" value={pf.conjuge_naturalidade || ""} onChange={(v)=>{ setPf({...pf, conjuge_naturalidade:v}); queueSave("pf","conjuge_naturalidade", v); }} />
           <Field label="UF" value={pf.conjuge_uf || ""} onChange={(v)=>{ setPf({...pf, conjuge_uf:v}); queueSave("pf","conjuge_uf", v); }} />
-          <Field label="Idade" value={pf.conjuge_idade?.toString() || ""} onChange={(v)=>{ const n = v ? parseInt(v,10) : null; setPf({...pf, conjuge_idade:n}); queueSave("pf","conjuge_idade", n); }} />
+          <Field label="Idade" value={pf.conjuge_idade || ""} onChange={(v)=>{ setPf({...pf, conjuge_idade:v}); queueSave("pf","conjuge_idade", v); }} maxLength={2} />
           {/* Linha 4 */}
           <Field label="Do PS" value={pf.conjuge_do_ps || ""} onChange={(v)=>{ setPf({...pf, conjuge_do_ps:v}); queueSave("pf","conjuge_do_ps", v); }} red className="lg:col-span-4" />
         </div>
@@ -511,7 +532,7 @@ function Grid({ cols, children }: { cols: 1|2|3|4; children: React.ReactNode }) 
   return <div className={`grid gap-4 ${cls}`}>{children}</div>;
 }
 
-function Field({ label, value, onChange, className, error, red, requiredMark, disabled }: { label: string; value: string; onChange: (v: string)=>void; className?: string; error?: boolean; red?: boolean; requiredMark?: boolean; disabled?: boolean }) {
+function Field({ label, value, onChange, className, error, red, requiredMark, disabled, maxLength }: { label: string; value: string; onChange: (v: string)=>void; className?: string; error?: boolean; red?: boolean; requiredMark?: boolean; disabled?: boolean; maxLength?: number }) {
   return (
     <div className={className}>
       <label className="mb-1 block text-xs font-medium text-gray-700">
@@ -526,6 +547,7 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
         value={value}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
         disabled={disabled}
+        maxLength={maxLength}
         className={`h-10 w-full rounded-lg border px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-emerald-700'} placeholder:text-emerald-600 placeholder:opacity-60 ${error || red ? 'border-red-500 bg-red-500/10 focus:border-red-500 focus:ring-2 focus:ring-red-300' : 'border-gray-300 focus:border-emerald-500'}`}
         placeholder=""
         autoComplete="off"
