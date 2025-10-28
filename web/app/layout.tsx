@@ -1,16 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -19,23 +8,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-50`}>
-        <header className="sticky top-0 z-20 border-b border-zinc-200/70 bg-white/80 backdrop-blur-md dark:border-zinc-800 dark:bg-black/60">
-          <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-            <a href="/" className="font-semibold">Mznet</a>
-            <div className="flex items-center gap-4 text-sm">
-              <a className="hover:underline" href="/login">Login</a>
-              <a className="hover:underline" href="/perfil">Perfil</a>
-              <a className="hover:underline" href="/kanban">Kanban</a>
-            </div>
-          </nav>
-        </header>
-        <main className="mx-auto min-h-[calc(100dvh-56px)] max-w-6xl px-6 py-6">{children}</main>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className="antialiased font-sans text-zinc-900 dark:text-zinc-50" suppressHydrationWarning>
+        {children}
       </body>
     </html>
   );

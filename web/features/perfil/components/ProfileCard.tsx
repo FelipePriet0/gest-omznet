@@ -21,7 +21,15 @@ export function ProfileCard({ profile }: { profile: ProfileView }) {
         </div>
         <div>
           <dt className="text-zinc-500">Criado em</dt>
-          <dd className="font-medium">{profile.created_at ? new Date(profile.created_at).toLocaleString() : "—"}</dd>
+          <dd className="font-medium">
+            {profile.created_at
+              ? new Intl.DateTimeFormat("pt-BR", {
+                  timeZone: "UTC",
+                  dateStyle: "short",
+                  timeStyle: "short",
+                }).format(new Date(profile.created_at))
+              : "—"}
+          </dd>
         </div>
         <div>
           <dt className="text-zinc-500">Telefone</dt>
