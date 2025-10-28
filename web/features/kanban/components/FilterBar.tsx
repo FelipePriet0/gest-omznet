@@ -3,6 +3,9 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { PersonTypeModal } from "@/features/cadastro/components/PersonTypeModal";
+import { BasicInfoModal } from "@/features/cadastro/components/BasicInfoModal";
+import type { PessoaTipo } from "@/features/cadastro/types";
 
 export function FilterBar() {
   const router = useRouter();
@@ -13,6 +16,12 @@ export function FilterBar() {
   const setor = useMemo(() => (pathname?.includes("analise") ? "analise" : "comercial"), [pathname]);
   const [responsaveis, setResponsaveis] = useState<{ value: string; label: string }[]>([]);
   const [horaSel, setHoraSel] = useState<string>("");
+  const [prazoSel, setPrazoSel] = useState<string>("");
+  const [dataSel, setDataSel] = useState<string>("");
+  // Cadastro modals
+  const [openPersonType, setOpenPersonType] = useState(false);
+  const [openBasicInfo, setOpenBasicInfo] = useState(false);
+  const [tipoSel, setTipoSel] = useState<PessoaTipo | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -47,6 +56,10 @@ export function FilterBar() {
     try {
       const v = searchParams.get("hora") || "";
       setHoraSel(v);
+      const p = searchParams.get("prazo") || "";
+      setPrazoSel(p);
+      const d = searchParams.get("data") || "";
+      setDataSel(d);
     } catch {}
   }, [searchParams, pathname]);
 
@@ -58,6 +71,22 @@ export function FilterBar() {
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname);
     } catch {}
+  }
+
+  function onChangePrazo(v: string) {
+    setPrazoSel(v);
+    const params = new URLSearchParams(searchParams?.toString());
+    if (v) params.set('prazo', v); else { params.delete('prazo'); params.delete('data'); setDataSel(''); }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }
+
+  function onChangeData(v: string) {
+    setDataSel(v);
+    const params = new URLSearchParams(searchParams?.toString());
+    if (v) { params.set('prazo','data'); params.set('data', v); } else { params.delete('data'); }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
   }
 
   return (
@@ -96,7 +125,7 @@ export function FilterBar() {
           <Select label="👤 Resp." placeholder="Todos" options={responsaveis} />
         </div>
 
-        <div className="flex items-end">
+        <div className="flex items-end gap-3">
           <Select
             label="📅 Prazo"
             placeholder="Todos"
@@ -106,7 +135,20 @@ export function FilterBar() {
               { value: "atrasado", label: "Atrasado" },
               { value: "data", label: "Escolher data" },
             ]}
+            value={prazoSel}
+            onChange={onChangePrazo}
           />
+          {prazoSel === 'data' && (
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-white/90">Data</label>
+              <input
+                type="date"
+                value={dataSel}
+                onChange={(e)=> onChangeData(e.target.value)}
+                className="bg-white/10 backdrop-blur-sm text-white border-white/20 focus:border-white/40 focus:bg-white/20 w-full h-11 rounded-full outline-none px-3"
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex items-end">
@@ -126,7 +168,10 @@ export function FilterBar() {
       </div>
 
       <div className="mt-6 flex items-center justify-end">
-        <button className="hover-scale group flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition-all hover:border-white/50 hover:bg-white/30">
+        <button
+          onClick={() => setOpenPersonType(true)}
+          className="hover-scale group flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition-all hover:border-white/50 hover:bg-white/30"
+        >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
@@ -134,6 +179,28 @@ export function FilterBar() {
           <span className="sm:hidden">Nova</span>
         </button>
       </div>
+      {/* Modals de Cadastro */}
+      <PersonTypeModal
+        open={openPersonType}
+        onClose={() => setOpenPersonType(false)}
+        onSelect={(tipo) => {
+          setTipoSel(tipo);
+          setOpenPersonType(false);
+          setOpenBasicInfo(true);
+        }}
+      />
+      <BasicInfoModal
+        open={openBasicInfo}
+        tipo={tipoSel}
+        onBack={() => {
+          setOpenBasicInfo(false);
+          setOpenPersonType(true);
+        }}
+        onClose={() => {
+          setOpenBasicInfo(false);
+          setTipoSel(null);
+        }}
+      />
     </div>
   );
 }

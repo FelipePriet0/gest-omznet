@@ -1,6 +1,7 @@
 "use client";
 
 import { KanbanColumn } from "@/features/kanban/components/KanbanColumn";
+import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { KanbanCard } from "@/features/kanban/types";
 import { useEffect, useMemo, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
@@ -17,13 +18,14 @@ const columnConfig = [
   { key: "concluidas", title: "Concluídas", color: "purple", icon: "🟣" },
 ];
 
-export function KanbanBoard({ hora }: { hora?: string }) {
+export function KanbanBoard({ hora, prazo, date }: { hora?: string; prazo?: 'hoje'|'amanha'|'atrasado'|'data'; date?: string }) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
   const [del, setDel] = useState<{id:string,name:string,cpf:string}|null>(null);
   const [actions, setActions] = useState<{id:string,name:string,cpf:string}|null>(null);
+  const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
 
-  useEffect(() => { (async () => { try { setCards(await listCards('comercial', { hora })); } catch {} })(); }, [hora]);
+  useEffect(() => { (async () => { try { setCards(await listCards('comercial', { hora, prazo, date })); } catch {} })(); }, [hora, prazo, date]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = { entrada:[], feitas:[], aguardando:[], canceladas:[], concluidas:[] };
@@ -53,7 +55,7 @@ export function KanbanBoard({ hora }: { hora?: string }) {
                 key={column.key}
                 droppableId={column.key}
                 title={column.title}
-                cards={(grouped[column.key as keyof typeof grouped] || []).map(c => ({...c, onOpen: ()=>{}, onMenu: ()=>openMenu(c)}))}
+                cards={(grouped[column.key as keyof typeof grouped] || []).map(c => ({...c, onOpen: ()=> setEdit({ cardId: c.id, applicantId: c.applicantId }), onMenu: ()=>openMenu(c)}))}
                 color={column.color}
                 icon={column.icon}
                 count={(grouped[column.key as keyof typeof grouped] || []).length}
@@ -62,14 +64,15 @@ export function KanbanBoard({ hora }: { hora?: string }) {
           </div>
         </div>
       </DndContext>
-      <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={async ()=> setCards(await listCards('comercial'))} />
-      <DeleteFlow open={!!del} onClose={()=>setDel(null)} cardId={del?.id||''} applicantName={del?.name||''} cpfCnpj={del?.cpf||''} onDeleted={async ()=> setCards(await listCards('comercial'))} />
+      <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
+      <DeleteFlow open={!!del} onClose={()=>setDel(null)} cardId={del?.id||''} applicantName={del?.name||''} cpfCnpj={del?.cpf||''} onDeleted={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
       <QuickActionsModal
         open={!!actions}
         onClose={() => setActions(null)}
         onMove={() => { if(actions) setMove({ id: actions.id, area: 'comercial' }); setActions(null); }}
         onDelete={() => { if(actions) setDel(actions); setActions(null); }}
       />
+      <EditarFichaModal open={!!edit} onClose={()=> setEdit(null)} cardId={edit?.cardId||''} applicantId={edit?.applicantId||''} />
     </div>
   );
 }

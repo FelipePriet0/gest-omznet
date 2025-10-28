@@ -17,7 +17,7 @@ export async function softDeleteCard(cardId: string, reason?: string) {
 
 export async function listCards(
   area: 'comercial' | 'analise',
-  opts?: { hora?: string }
+  opts?: { hora?: string; prazo?: 'hoje' | 'amanha' | 'atrasado' | 'data'; date?: string }
 ): Promise<KanbanCard[]> {
   let q = supabase
     .from('kanban_cards')
@@ -30,6 +30,29 @@ export async function listCards(
     const hhmm = opts.hora.trim();
     const hhmmss = hhmm.length === 5 ? `${hhmm}:00` : hhmm; // 08:30 -> 08:30:00
     q = q.eq('hora_at', hhmmss);
+  }
+
+  // Prazo por due_at
+  const now = new Date();
+  function isoAt(d: Date, h: number, m=0, s=0) { const x = new Date(d); x.setHours(h, m, s, 0); return x.toISOString(); }
+  if (opts?.prazo === 'hoje') {
+    const start = isoAt(now, 0,0,0); const end = isoAt(now, 23,59,59);
+    q = q.gte('due_at', start).lte('due_at', end);
+  } else if (opts?.prazo === 'amanha') {
+    const d = new Date(now); d.setDate(d.getDate()+1);
+    const start = new Date(d); start.setHours(0,0,0,0);
+    const end = new Date(d); end.setHours(23,59,59,0);
+    q = q.gte('due_at', start.toISOString()).lte('due_at', end.toISOString());
+  } else if (opts?.prazo === 'atrasado') {
+    q = q.lt('due_at', now.toISOString());
+  } else if (opts?.prazo === 'data' && opts?.date) {
+    const [y,m,d] = opts.date.split('-').map(Number);
+    if (y && m && d) {
+      const day = new Date(Date.UTC(y, m-1, d));
+      const start = new Date(day); start.setUTCHours(0,0,0,0);
+      const end = new Date(day); end.setUTCHours(23,59,59,0);
+      q = q.gte('due_at', start.toISOString()).lte('due_at', end.toISOString());
+    }
   }
 
   const { data, error } = await q;
