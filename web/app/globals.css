@@ -24,3 +24,59 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Kanban helpers */
+.hover-scale{transition:transform .2s ease}
+.hover-scale:hover{transform:scale(1.02)}
+.kanban-card{transition:all .25s cubic-bezier(0.4,0,0.2,1);box-shadow:0 12px 30px -12px hsl(148 98% 27% / 0.35)}
+.kanban-card:hover{box-shadow:0 0 40px hsl(149 80% 40% / 0.35)}
+
+/* Custom scrollbars */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+}
+
+.scrollbar-track-gray-100::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+/* Kanban custom styles */
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.kanban-card {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 12px 30px -12px hsl(148 98% 27% / 0.35);
+}
+
+.kanban-card:hover {
+  box-shadow: 0 0 40px hsl(149 80% 40% / 0.35);
+}
