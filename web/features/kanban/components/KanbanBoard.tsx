@@ -1,6 +1,7 @@
 "use client";
 
 import { KanbanColumn } from "@/features/kanban/components/KanbanColumn";
+import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { KanbanCard } from "@/features/kanban/types";
 import { useEffect, useMemo, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
@@ -22,6 +23,7 @@ export function KanbanBoard({ hora, prazo, date }: { hora?: string; prazo?: 'hoj
   const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
   const [del, setDel] = useState<{id:string,name:string,cpf:string}|null>(null);
   const [actions, setActions] = useState<{id:string,name:string,cpf:string}|null>(null);
+  const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
 
   useEffect(() => { (async () => { try { setCards(await listCards('comercial', { hora, prazo, date })); } catch {} })(); }, [hora, prazo, date]);
 
@@ -53,7 +55,7 @@ export function KanbanBoard({ hora, prazo, date }: { hora?: string; prazo?: 'hoj
                 key={column.key}
                 droppableId={column.key}
                 title={column.title}
-                cards={(grouped[column.key as keyof typeof grouped] || []).map(c => ({...c, onOpen: ()=>{}, onMenu: ()=>openMenu(c)}))}
+                cards={(grouped[column.key as keyof typeof grouped] || []).map(c => ({...c, onOpen: ()=> setEdit({ cardId: c.id, applicantId: c.applicantId }), onMenu: ()=>openMenu(c)}))}
                 color={column.color}
                 icon={column.icon}
                 count={(grouped[column.key as keyof typeof grouped] || []).length}
@@ -70,6 +72,7 @@ export function KanbanBoard({ hora, prazo, date }: { hora?: string; prazo?: 'hoj
         onMove={() => { if(actions) setMove({ id: actions.id, area: 'comercial' }); setActions(null); }}
         onDelete={() => { if(actions) setDel(actions); setActions(null); }}
       />
+      <EditarFichaModal open={!!edit} onClose={()=> setEdit(null)} cardId={edit?.cardId||''} applicantId={edit?.applicantId||''} />
     </div>
   );
 }
