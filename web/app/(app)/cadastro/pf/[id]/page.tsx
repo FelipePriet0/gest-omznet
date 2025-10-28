@@ -118,6 +118,34 @@ function maskPhone(input: string) {
   if (len <= 10) return `(${ddd}) ${d.slice(2,6)}-${d.slice(6)}`;
   return `(${ddd}) ${d.slice(2,7)}-${d.slice(7)}`;
 }
+// Mapeamentos UI <-> Canônico (após migration)
+const BOOL_UI = { Sim: true, Não: false } as const;
+function uiToBool(v: any): boolean|null { if (v === 'Sim') return true; if (v === 'Não') return false; return null; }
+function boolToUI(b: any): string { return b === true ? 'Sim' : b === false ? 'Não' : ''; }
+
+const TIPO_MORADIA_UI = ['Própria','Alugada','Cedida','Outros'] as const;
+function uiToTipoMoradia(v: string): string|null { const m: any = { 'Própria':'propria','Alugada':'alugada','Cedida':'cedida','Outros':'outros' }; return m[v] ?? null; }
+function tipoMoradiaToUI(v: string|null): string { const m: any = { propria:'Própria', alugada:'Alugada', cedida:'Cedida', outros:'Outros' }; return v ? (m[v] ?? '') : ''; }
+
+const NAS_OUTRAS_UI = ['Parentes','Locador(a)','Só conhecidos','Não conhece'] as const;
+function uiToNasOutras(v: string): string|null { const m:any={ 'Parentes':'parentes','Locador(a)':'locador','Só conhecidos':'so_conhecidos','Não conhece':'nao_conhece' }; return m[v] ?? null; }
+function nasOutrasToUI(v: string|null): string { const m:any={ parentes:'Parentes',locador:'Locador(a)','so_conhecidos':'Só conhecidos','nao_conhece':'Não conhece' }; return v ? (m[v] ?? '') : ''; }
+
+const TIPO_COMPROV_UI = ['Energia','Agua','Internet','Outro'] as const;
+function uiToTipoComprov(v:string): string|null { const m:any={ Energia:'energia',Agua:'agua',Internet:'internet',Outro:'outro' }; return m[v] ?? null; }
+function tipoComprovToUI(v:string|null): string { const m:any={ energia:'Energia',agua:'Agua',internet:'Internet',outro:'Outro' }; return v ? (m[v] ?? '') : ''; }
+
+const VINCULO_UI = ['Carteira Assinada','Presta Serviços','Contrato de Trabalho','Autonômo','Concursado','Outro'] as const;
+function uiToVinculo(v:string): string|null { const m:any={ 'Carteira Assinada':'carteira_assinada','Presta Serviços':'presta_servicos','Contrato de Trabalho':'contrato_trabalho','Autonômo':'autonomo','Concursado':'concursado','Outro':'outro' }; return m[v] ?? null; }
+function vinculoToUI(v:string|null): string { const m:any={ carteira_assinada:'Carteira Assinada',presta_servicos:'Presta Serviços',contrato_trabalho:'Contrato de Trabalho',autonomo:'Autonômo',concursado:'Concursado',outro:'Outro' }; return v ? (m[v] ?? '') : ''; }
+
+const ESTADO_CIVIL_UI = ['Solteiro(a)','Casado(a)','Amasiado(a)','Separado(a)','Viuvo(a)'] as const;
+function uiToEstadoCivil(v:string): string|null { const m:any={ 'Solteiro(a)':'solteiro','Casado(a)':'casado','Amasiado(a)':'amasiado','Separado(a)':'separado','Viuvo(a)':'viuvo' }; return m[v] ?? null; }
+function estadoCivilToUI(v:string|null): string { const m:any={ solteiro:'Solteiro(a)',casado:'Casado(a)',amasiado:'Amasiado(a)',separado:'Separado(a)',viuvo:'Viuvo(a)' }; return v ? (m[v] ?? '') : ''; }
+
+const MEIO_UI = ['Ligação','Whatspp','Presensicial','Whats - Uber'] as const;
+function uiToMeio(v:string): string|null { const m:any={ 'Ligação':'ligacao','Whatspp':'whatsapp','Presensicial':'presencial','Whats - Uber':'whats_uber' }; return m[v] ?? null; }
+function meioToUI(v:string|null): string { const m:any={ ligacao:'Ligação',whatsapp:'Whatspp',presencial:'Presensicial',whats_uber:'Whats - Uber' }; return v ? (m[v] ?? '') : ''; }
 function formatCurrencyBR(input: string) {
   const d = digitsOnly(input);
   if (!d) return "";
@@ -134,6 +162,11 @@ function formatCurrencyBR(input: string) {
   }
   const intWithSep = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return `R$ ${intWithSep},${cents}`;
+}
+function formatCep(input: string) {
+  const d = digitsOnly(input).slice(0,8);
+  if (d.length <= 5) return d;
+  return `${d.slice(0,5)}-${d.slice(5)}`;
 }
 
 export default function CadastroPFPage() {
@@ -152,6 +185,9 @@ export default function CadastroPFPage() {
     (async () => {
       try {
         setLoading(true);
+        // ensure auth
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData?.user?.id || null;
         // Load applicants
         const { data: a, error: errA } = await supabase
           .from("applicants")
@@ -159,7 +195,10 @@ export default function CadastroPFPage() {
           .eq("id", applicantId)
           .single();
         if (!active) return;
-        setApp(a || {});
+        const a2: any = { ...(a||{}) };
+        if (a2 && typeof a2.meio !== 'undefined' && a2.meio !== null) a2.meio = meioToUI(a2.meio);
+        if (a2 && typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
+        setApp(a2 || {});
 
         // Load or create pf_fichas row
         let { data: p, error: errP } = await supabase
@@ -185,7 +224,38 @@ export default function CadastroPFPage() {
         if (typeof pfix?.conjuge_idade !== 'undefined' && pfix.conjuge_idade !== null) {
           pfix.conjuge_idade = String(pfix.conjuge_idade);
         }
+        // Booleans → UI Sim/Não
+        ['tem_contrato','enviou_contrato','enviou_comprovante','tem_internet_fixa'].forEach((k:any) => {
+          if (k in pfix && (pfix as any)[k] !== null && typeof (pfix as any)[k] !== 'string') {
+            (pfix as any)[k] = boolToUI((pfix as any)[k]);
+          }
+        });
+        // Enums → UI labels
+        if (typeof pfix.tipo_moradia !== 'undefined') pfix.tipo_moradia = tipoMoradiaToUI(pfix.tipo_moradia as any);
+        if (typeof pfix.nas_outras !== 'undefined') pfix.nas_outras = nasOutrasToUI(pfix.nas_outras as any);
+        if (typeof pfix.tipo_comprovante !== 'undefined') pfix.tipo_comprovante = tipoComprovToUI(pfix.tipo_comprovante as any);
+        if (typeof pfix.vinculo !== 'undefined') pfix.vinculo = vinculoToUI(pfix.vinculo as any);
+        if (typeof pfix.estado_civil !== 'undefined') pfix.estado_civil = estadoCivilToUI(pfix.estado_civil as any);
         setPf(pfix || {});
+
+        // Garantir card no Kanban (Comercial/Cadastrar no MK)
+        if (userId) {
+          const { data: existing } = await supabase
+            .from('kanban_cards')
+            .select('id')
+            .eq('applicant_id', applicantId)
+            .is('deleted_at', null)
+            .limit(1);
+          if (!existing || existing.length === 0) {
+            await supabase.from('kanban_cards').insert({
+              applicant_id: applicantId,
+              person_type: 'PF',
+              area: 'comercial',
+              stage: 'feitas',
+              created_by: userId,
+            });
+          }
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -203,7 +273,16 @@ export default function CadastroPFPage() {
     setSaving("saving");
     try {
       if (Object.keys(appPayload).length > 0) {
-        await supabase.from("applicants").update(appPayload).eq("id", applicantId);
+        const appPatch:any = { ...appPayload };
+        if (typeof appPatch.meio !== 'undefined') {
+          const canon = uiToMeio(String(appPatch.meio));
+          appPatch.meio = canon;
+        }
+        if (typeof appPatch.venc !== 'undefined') {
+          const n = parseInt(String(appPatch.venc),10);
+          appPatch.venc = Number.isFinite(n) ? n : null;
+        }
+        await supabase.from("applicants").update(appPatch).eq("id", applicantId);
       }
       if (Object.keys(pfPayload).length > 0) {
         const patch: any = { ...pfPayload };
@@ -216,6 +295,19 @@ export default function CadastroPFPage() {
           if (patch.unica_no_lote === 'Sim') patch.unica_no_lote = true;
           else if (patch.unica_no_lote === 'Não') patch.unica_no_lote = false;
         }
+        // Outros booleans (UI → canônico)
+        ['tem_contrato','enviou_contrato','enviou_comprovante','tem_internet_fixa'].forEach((k:any)=>{
+          if (typeof patch[k] !== 'undefined') {
+            const b = uiToBool(String(patch[k]));
+            patch[k] = (b === null ? null : b);
+          }
+        });
+        // Enums (UI → canônico)
+        if (typeof patch.tipo_moradia !== 'undefined') patch.tipo_moradia = uiToTipoMoradia(String(patch.tipo_moradia));
+        if (typeof patch.nas_outras !== 'undefined') patch.nas_outras = uiToNasOutras(String(patch.nas_outras));
+        if (typeof patch.tipo_comprovante !== 'undefined') patch.tipo_comprovante = uiToTipoComprov(String(patch.tipo_comprovante));
+        if (typeof patch.vinculo !== 'undefined') patch.vinculo = uiToVinculo(String(patch.vinculo));
+        if (typeof patch.estado_civil !== 'undefined') patch.estado_civil = uiToEstadoCivil(String(patch.estado_civil));
         if (typeof patch.idade !== 'undefined') {
           const only = digitsOnly(String(patch.idade||''));
           patch.idade = only ? parseInt(only,10) : null;
@@ -367,7 +459,11 @@ export default function CadastroPFPage() {
           <Field label="Endereço" value={app.address_line || ""} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave("app","address_line", v); }} className="col-span-2" />
           <Field label="Número" value={app.address_number || ""} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave("app","address_number", v); }} />
           <Field label="Complemento" value={app.address_complement || ""} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave("app","address_complement", v); }} />
-          <Field label="CEP" value={app.cep || ""} onChange={(v)=>{ setApp({...app, cep:v}); queueSave("app","cep", v); }} />
+          <Field label="CEP" value={app.cep || ""} onChange={(v)=>{
+            const m = formatCep(v);
+            setApp({...app, cep:m});
+            queueSave('app','cep', m);
+          }} />
           <Field label="Bairro" value={app.bairro || ""} onChange={(v)=>{ setApp({...app, bairro:v}); queueSave("app","bairro", v); }} />
           <Field label="Cond" value={pf.cond || ""} onChange={(v)=>{ setPf({...pf, cond:v}); queueSave("pf","cond", v); }} />
           <Field label="Endereço Do PS" value={pf.endereco_do_ps || ""} onChange={(v)=>{ setPf({...pf, endereco_do_ps:v}); queueSave("pf","endereco_do_ps", v); }} red className="md:col-span-3" />

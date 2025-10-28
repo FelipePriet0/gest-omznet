@@ -89,7 +89,7 @@ export async function criarFichaPF(basic: BasicInfoPF) {
       applicant_id: applicantId,
       person_type: "PF",
       area: "comercial",
-      stage: "cadastrar_no_mk",
+      stage: "feitas",
       created_by: userId,
     })
     .select("id")
@@ -138,7 +138,7 @@ export async function criarFichaPJ(basic: BasicInfoPJ) {
       applicant_id: applicantId,
       person_type: "PJ",
       area: "comercial",
-      stage: "cadastrar_no_mk",
+      stage: "feitas",
       created_by: userId,
     })
     .select("id")
