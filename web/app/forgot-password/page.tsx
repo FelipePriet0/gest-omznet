@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function ForgotPasswordPage() {
@@ -9,7 +9,7 @@ export default function ForgotPasswordPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMessage(null);
     setError(null);
@@ -66,4 +66,3 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
-

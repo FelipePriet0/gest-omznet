@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -30,7 +30,7 @@ export default function ResetPasswordPage() {
     };
   }, []);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setMessage(null);
@@ -107,4 +107,3 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
-

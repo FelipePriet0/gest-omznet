@@ -1,25 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { KanbanBoard } from "@/features/kanban/components/KanbanBoard";
 import { FilterBar } from "@/features/kanban/components/FilterBar";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
 
 export default function KanbanPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const sp = useSearchParams();
+  const hora = sp.get("hora") || undefined;
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!mounted) return;
-      if (!data.user) {
-        router.replace("/login");
-        return;
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!mounted) return;
+        if (!data.user) {
+          router.replace("/login");
+          return;
+        }
+        setLoading(false);
+      } catch {
+        clearStaleSupabaseSession();
       }
-      setLoading(false);
     })();
     return () => {
       mounted = false;
@@ -27,7 +33,7 @@ export default function KanbanPage() {
   }, [router]);
 
   if (loading) {
-    return <div className="text-sm text-zinc-600 dark:text-zinc-400">Carregando…</div>;
+    return <div className="text-sm text-zinc-600">Carregando…</div>;
   }
 
   return (
@@ -37,7 +43,7 @@ export default function KanbanPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Kanban Comercial</h1>
         </div>
         <FilterBar />
-        <KanbanBoard />
+        <KanbanBoard hora={hora as any} />
       </div>
     </div>
   );

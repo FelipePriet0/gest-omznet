@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -10,7 +10,19 @@ export default function LoginPage() {
   const [success, setSuccess] = useState(false);
   const router = useRouter();
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  // Em dev, se houver token antigo inválido no storage, limpa para evitar loops de refresh
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        await supabase.auth.getSession();
+      } catch {
+        clearStaleSupabaseSession();
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setSuccess(false);

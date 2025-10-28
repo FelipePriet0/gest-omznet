@@ -1,15 +1,18 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export function FilterBar() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [q, setQ] = useState("");
   const setor = useMemo(() => (pathname?.includes("analise") ? "analise" : "comercial"), [pathname]);
   const [responsaveis, setResponsaveis] = useState<{ value: string; label: string }[]>([]);
+  const [horaSel, setHoraSel] = useState<string>("");
 
   useEffect(() => {
     let active = true;
@@ -31,21 +34,48 @@ export function FilterBar() {
     };
   }, [setor]);
 
+  // Horários fixos conforme especificação
+  const horarios = [
+    { value: "08:30", label: "08:30" },
+    { value: "10:30", label: "10:30" },
+    { value: "13:30", label: "13:30" },
+    { value: "15:30", label: "15:30" },
+  ];
+
+  useEffect(() => {
+    // sincroniza valor inicial do ?hora com o select
+    try {
+      const v = searchParams.get("hora") || "";
+      setHoraSel(v);
+    } catch {}
+  }, [searchParams, pathname]);
+
+  function onChangeHora(v: string) {
+    setHoraSel(v);
+    try {
+      const params = new URLSearchParams(searchParams?.toString());
+      if (v) params.set("hora", v); else params.delete("hora");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    } catch {}
+  }
+
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-r from-[#018942] to-[#014d28] p-3 sm:p-4 shadow-lg">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+    <div className="relative mb-6 overflow-hidden rounded-xl bg-gradient-to-br from-[#018942] via-[#016b35] to-[#014d28] p-6 text-white shadow-xl">
+      <div className="pointer-events-none absolute inset-0 opacity-10" />
+      <div className="relative grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 items-end">
         <div className="sm:col-span-2 lg:col-span-2 xl:col-span-2">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar Titular (Nome da ficha)"
-              className="w-full rounded-full border-0 bg-white/90 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 outline-none focus:bg-white focus:ring-2 focus:ring-white/50"
+              placeholder="Buscar titular (nome da ficha)"
+              className="pl-9 bg-white/10 backdrop-blur-sm text-white placeholder-white/70 border-white/20 focus:border-white/40 focus:bg-white/20 w-full h-11 rounded-full outline-none"
             />
           </div>
         </div>
@@ -63,11 +93,7 @@ export function FilterBar() {
         </div>
 
         <div className="flex items-end">
-          <Select
-            label="👤 Resp."
-            placeholder="Todos"
-            options={responsaveis}
-          />
+          <Select label="👤 Resp." placeholder="Todos" options={responsaveis} />
         </div>
 
         <div className="flex items-end">
@@ -84,6 +110,10 @@ export function FilterBar() {
         </div>
 
         <div className="flex items-end">
+          <Select label="🕒 Horário" placeholder="Todos" options={horarios} value={horaSel} onChange={onChangeHora} />
+        </div>
+
+        <div className="flex items-end">
           <Select
             label="🎯 Atribuídas"
             placeholder="Todos"
@@ -94,13 +124,13 @@ export function FilterBar() {
           />
         </div>
       </div>
-      
-      <div className="mt-4 flex justify-center sm:justify-end">
-        <button className="flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#018942] shadow-md transition-all hover:scale-105 hover:shadow-lg sm:px-6">
+
+      <div className="mt-6 flex items-center justify-end">
+        <button className="hover-scale group flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition-all hover:border-white/50 hover:bg-white/30">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
-          <span className="hidden sm:inline">Nova Ficha</span>
+          <span className="hidden sm:inline">Nova ficha</span>
           <span className="sm:hidden">Nova</span>
         </button>
       </div>
@@ -122,17 +152,17 @@ function Select({
   placeholder?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1 w-full">
-      <label className="text-xs font-medium text-white/90 hidden sm:block">{label}</label>
-      <label className="text-xs font-medium text-white/90 sm:hidden">{label.split(' ')[0]}</label>
+    <div className="flex w-full flex-col gap-1">
+      <label className="hidden text-xs font-medium text-white/90 sm:block">{label}</label>
+      <label className="text-xs font-medium text-white/90 sm:hidden">{label.split(" ")[0]}</label>
       <select
-        className="rounded-full border-0 bg-white/90 px-3 py-2 text-sm text-gray-900 outline-none focus:bg-white focus:ring-2 focus:ring-white/50 w-full"
+        className="bg-white/10 backdrop-blur-sm text-white border-white/20 focus:border-white/40 focus:bg-white/20 w-full h-11 rounded-full outline-none px-3"
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
       >
         {placeholder && <option value="">{placeholder}</option>}
         {options.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option key={o.value} value={o.value} className="text-gray-900">
             {o.label}
           </option>
         ))}

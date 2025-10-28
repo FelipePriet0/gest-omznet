@@ -1,61 +1,75 @@
+"use client";
+
 import { KanbanColumn } from "@/features/kanban/components/KanbanColumn";
 import { KanbanCard } from "@/features/kanban/types";
-
-// Board Comercial
-const mockComercial: Record<string, KanbanCard[]> = {
-  entrada: [
-    {
-      id: "c1",
-      applicantName: "Maria Lima",
-      cpfCnpj: "987.654.321-00",
-      whatsapp: "(11) 9 8888-7777",
-      bairro: "Jardins",
-    },
-    {
-      id: "c2",
-      applicantName: "João Silva",
-      cpfCnpj: "123.456.789-00",
-      whatsapp: "(11) 9 9999-8888",
-      bairro: "Vila Madalena",
-    },
-  ],
-  feitas: [
-    {
-      id: "c3",
-      applicantName: "Ana Costa",
-      cpfCnpj: "456.789.123-00",
-      whatsapp: "(11) 9 7777-6666",
-      bairro: "Pinheiros",
-    },
-  ],
-  aguardando: [],
-  canceladas: [],
-  concluidas: [],
-};
+import { useEffect, useMemo, useState } from "react";
+import { listCards, changeStage } from "@/features/kanban/services";
+import { DndContext } from "@dnd-kit/core";
+import { MoveModal } from "@/features/kanban/components/MoveModal";
+import { DeleteFlow } from "@/features/kanban/components/DeleteModals";
+import { QuickActionsModal } from "@/features/kanban/components/QuickActionsModal";
 
 const columnConfig = [
   { key: "entrada", title: "Entrada", color: "blue", icon: "🔵" },
   { key: "feitas", title: "Feitas", color: "green", icon: "🟢" },
-  { key: "aguardando", title: "Aguardando", color: "yellow", icon: "🟡" },
+  { key: "aguardando", title: "Aguardando", color: "amber", icon: "🟡" },
   { key: "canceladas", title: "Canceladas", color: "red", icon: "🔴" },
   { key: "concluidas", title: "Concluídas", color: "purple", icon: "🟣" },
 ];
 
-export function KanbanBoard() {
+export function KanbanBoard({ hora }: { hora?: string }) {
+  const [cards, setCards] = useState<KanbanCard[]>([]);
+  const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
+  const [del, setDel] = useState<{id:string,name:string,cpf:string}|null>(null);
+  const [actions, setActions] = useState<{id:string,name:string,cpf:string}|null>(null);
+
+  useEffect(() => { (async () => { try { setCards(await listCards('comercial', { hora })); } catch {} })(); }, [hora]);
+
+  const grouped = useMemo(() => {
+    const g: Record<string, KanbanCard[]> = { entrada:[], feitas:[], aguardando:[], canceladas:[], concluidas:[] };
+    for (const c of cards) { const k = (c.stage||'').toLowerCase(); if (g[k as keyof typeof g]) g[k as keyof typeof g].push(c); }
+    return g;
+  }, [cards]);
+
+  async function handleDragEnd(event: any) {
+    const { active, over } = event;
+    if (!over) return;
+    const cardId = active.id as string;
+    const target = over.id as string;
+    if (target === 'entrada') { alert('Entrada não recebe cards.'); return; }
+    if (target === 'canceladas') { setMove({ id: cardId, area: 'comercial' }); return; }
+    try { await changeStage(cardId, 'comercial', target); setCards(await listCards('comercial')); } catch (e:any) { alert(e.message ?? 'Falha ao mover'); }
+  }
+
+  function openMenu(c: KanbanCard) { setActions({ id: c.id, name: c.applicantName, cpf: c.cpfCnpj }); }
+
   return (
-    <div className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 overflow-x-auto overflow-y-visible pb-2 -mx-2 px-2">
-      <div className="flex w-full flex-1 gap-4 sm:gap-6 pb-4 min-w-max">
-        {columnConfig.map((column) => (
-          <KanbanColumn
-            key={column.key}
-            title={column.title}
-            cards={mockComercial[column.key as keyof typeof mockComercial]}
-            color={column.color}
-            icon={column.icon}
-            count={mockComercial[column.key as keyof typeof mockComercial].length}
-          />
-        ))}
-      </div>
+    <div className="relative">
+      <DndContext onDragEnd={handleDragEnd}>
+        <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+          <div className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
+            {columnConfig.map((column) => (
+              <KanbanColumn
+                key={column.key}
+                droppableId={column.key}
+                title={column.title}
+                cards={(grouped[column.key as keyof typeof grouped] || []).map(c => ({...c, onOpen: ()=>{}, onMenu: ()=>openMenu(c)}))}
+                color={column.color}
+                icon={column.icon}
+                count={(grouped[column.key as keyof typeof grouped] || []).length}
+              />
+            ))}
+          </div>
+        </div>
+      </DndContext>
+      <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={async ()=> setCards(await listCards('comercial'))} />
+      <DeleteFlow open={!!del} onClose={()=>setDel(null)} cardId={del?.id||''} applicantName={del?.name||''} cpfCnpj={del?.cpf||''} onDeleted={async ()=> setCards(await listCards('comercial'))} />
+      <QuickActionsModal
+        open={!!actions}
+        onClose={() => setActions(null)}
+        onMove={() => { if(actions) setMove({ id: actions.id, area: 'comercial' }); setActions(null); }}
+        onDelete={() => { if(actions) setDel(actions); setActions(null); }}
+      />
     </div>
   );
 }
