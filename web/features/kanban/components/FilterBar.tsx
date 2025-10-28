@@ -3,6 +3,9 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { PersonTypeModal } from "@/features/cadastro/components/PersonTypeModal";
+import { BasicInfoModal } from "@/features/cadastro/components/BasicInfoModal";
+import type { PessoaTipo } from "@/features/cadastro/types";
 
 export function FilterBar() {
   const router = useRouter();
@@ -13,6 +16,10 @@ export function FilterBar() {
   const setor = useMemo(() => (pathname?.includes("analise") ? "analise" : "comercial"), [pathname]);
   const [responsaveis, setResponsaveis] = useState<{ value: string; label: string }[]>([]);
   const [horaSel, setHoraSel] = useState<string>("");
+  // Cadastro modals
+  const [openPersonType, setOpenPersonType] = useState(false);
+  const [openBasicInfo, setOpenBasicInfo] = useState(false);
+  const [tipoSel, setTipoSel] = useState<PessoaTipo | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -126,7 +133,10 @@ export function FilterBar() {
       </div>
 
       <div className="mt-6 flex items-center justify-end">
-        <button className="hover-scale group flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition-all hover:border-white/50 hover:bg-white/30">
+        <button
+          onClick={() => setOpenPersonType(true)}
+          className="hover-scale group flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition-all hover:border-white/50 hover:bg-white/30"
+        >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
@@ -134,6 +144,28 @@ export function FilterBar() {
           <span className="sm:hidden">Nova</span>
         </button>
       </div>
+      {/* Modals de Cadastro */}
+      <PersonTypeModal
+        open={openPersonType}
+        onClose={() => setOpenPersonType(false)}
+        onSelect={(tipo) => {
+          setTipoSel(tipo);
+          setOpenPersonType(false);
+          setOpenBasicInfo(true);
+        }}
+      />
+      <BasicInfoModal
+        open={openBasicInfo}
+        tipo={tipoSel}
+        onBack={() => {
+          setOpenBasicInfo(false);
+          setOpenPersonType(true);
+        }}
+        onClose={() => {
+          setOpenBasicInfo(false);
+          setTipoSel(null);
+        }}
+      />
     </div>
   );
 }
