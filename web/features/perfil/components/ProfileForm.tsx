@@ -46,7 +46,7 @@ export function ProfileForm({
   return (
     <div className="space-y-8">
       {/* Informações Pessoais */}
-      <section className="group relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
+      <section className="group relative overflow-hidden rounded-[50px] bg-white/80 backdrop-blur-sm p-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
         {/* Animated background gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/5 via-transparent to-[#8b5cf6]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         
@@ -68,10 +68,10 @@ export function ProfileForm({
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   autoComplete="name"
-                  className="peer w-full rounded-xl border-2 border-gray-200 bg-white/50 px-6 py-4 text-base text-gray-900 placeholder-gray-400 shadow-lg backdrop-blur-sm transition-all duration-300 focus:border-[#3b82f6] focus:bg-white focus:shadow-2xl focus:ring-4 focus:ring-[#3b82f6]/20 focus:outline-none group-hover/input:border-[#3b82f6]/50"
+                  className="peer w-full rounded-[50px] border-2 border-gray-200 bg-white/50 px-6 py-4 text-base text-[#018942] placeholder-[#018942]/60 shadow-lg backdrop-blur-sm transition-all duration-300 focus:border-[#3b82f6] focus:bg-white focus:shadow-2xl focus:ring-4 focus:ring-[#3b82f6]/20 focus:outline-none group-hover/input:border-[#3b82f6]/50"
                   placeholder="Seu nome completo"
                 />
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#3b82f6]/10 to-[#8b5cf6]/10 opacity-0 peer-focus:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                <div className="absolute inset-0 rounded-[50px] bg-gradient-to-r from-[#3b82f6]/10 to-[#8b5cf6]/10 opacity-0 peer-focus:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
               </div>
               <p className="mt-2 text-sm text-gray-500 flex items-center gap-2">
                 <span className="w-1 h-1 rounded-full bg-[#3b82f6]"></span>
@@ -83,7 +83,7 @@ export function ProfileForm({
       </section>
 
       {/* Informações da Conta */}
-      <section className="group relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
+      <section className="group relative overflow-hidden rounded-[50px] bg-white/80 backdrop-blur-sm p-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
         {/* Animated background gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#10b981]/5 via-transparent to-[#059669]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         
@@ -104,7 +104,7 @@ export function ProfileForm({
                   id="email"
                   value={email ?? ""}
                   readOnly
-                  className="w-full cursor-not-allowed rounded-xl border-2 border-gray-200 bg-gray-50/80 px-6 py-4 text-base text-gray-600 placeholder-gray-400 shadow-lg backdrop-blur-sm transition-all duration-300 focus:border-[#10b981] focus:bg-white focus:shadow-2xl focus:ring-4 focus:ring-[#10b981]/20 focus:outline-none"
+                  className="w-full cursor-not-allowed rounded-[50px] border-2 border-gray-200 bg-gray-50/80 px-6 py-4 text-base text-[#018942] placeholder-[#018942]/60 shadow-lg backdrop-blur-sm transition-all duration-300 focus:border-[#10b981] focus:bg-white focus:shadow-2xl focus:ring-4 focus:ring-[#10b981]/20 focus:outline-none"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
                   <div className="w-2 h-2 rounded-full bg-gray-400"></div>
@@ -120,7 +120,7 @@ export function ProfileForm({
                   id="role"
                   value={(role ?? "").toString()}
                   readOnly
-                  className="w-full cursor-not-allowed rounded-xl border-2 border-gray-200 bg-gray-50/80 px-6 py-4 text-base capitalize text-gray-600 placeholder-gray-400 shadow-lg backdrop-blur-sm transition-all duration-300 focus:border-[#10b981] focus:bg-white focus:shadow-2xl focus:ring-4 focus:ring-[#10b981]/20 focus:outline-none"
+                  className="w-full cursor-not-allowed rounded-[50px] border-2 border-gray-200 bg-gray-50/80 px-6 py-4 text-base capitalize text-[#018942] placeholder-[#018942]/60 shadow-lg backdrop-blur-sm transition-all duration-300 focus:border-[#10b981] focus:bg-white focus:shadow-2xl focus:ring-4 focus:ring-[#10b981]/20 focus:outline-none"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
                   <div className="w-2 h-2 rounded-full bg-gray-400"></div>
@@ -132,7 +132,7 @@ export function ProfileForm({
       </section>
 
       {/* Ações */}
-      <section className="group relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
+      <section className="group relative overflow-hidden rounded-[50px] bg-white/80 backdrop-blur-sm p-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
         {/* Animated background gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#ef4444]/5 via-transparent to-[#dc2626]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         
@@ -146,10 +146,24 @@ export function ProfileForm({
           
           <div className="flex flex-wrap items-center gap-4">
             <button
+              type="button"
+              onClick={() => onLogout?.()}
+              className="group/btn relative overflow-hidden rounded-[50px] border-2 border-gray-300 bg-white/80 px-7 py-3.5 text-base font-bold text-gray-700 shadow-xl backdrop-blur-sm transition-all duration-300 hover:bg-white hover:border-gray-400 hover:shadow-2xl hover:scale-105"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-gray-50/50 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+              <span className="relative flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sair da Conta
+              </span>
+            </button>
+            
+            <button
               type="submit"
               disabled={saving}
               onClick={onSubmit as any}
-              className="group/btn relative overflow-hidden rounded-xl bg-gradient-to-r from-[#018942] to-[#016b35] px-8 py-4 text-base font-bold text-white shadow-2xl transition-all duration-300 hover:from-[#016b35] hover:to-[#014d28] hover:shadow-3xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="group/btn relative overflow-hidden rounded-[50px] bg-gradient-to-r from-[#018942] to-black px-7 py-3.5 text-base font-bold text-white shadow-2xl transition-all duration-300 hover:from-black hover:to-[#018942] hover:shadow-3xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
               <span className="relative flex items-center gap-2">
@@ -166,20 +180,6 @@ export function ProfileForm({
                     Salvar Alterações
                   </>
                 )}
-              </span>
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => onLogout?.()}
-              className="group/btn relative overflow-hidden rounded-xl border-2 border-gray-300 bg-white/80 px-8 py-4 text-base font-bold text-gray-700 shadow-xl backdrop-blur-sm transition-all duration-300 hover:bg-white hover:border-gray-400 hover:shadow-2xl hover:scale-105"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-50/50 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-              <span className="relative flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Sair da Conta
               </span>
             </button>
             
@@ -205,7 +205,7 @@ export function ProfileForm({
             </div>
           </div>
           
-          <div className="mt-6 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border border-blue-200">
+          <div className="mt-6 rounded-[50px] bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border border-blue-200">
             <p className="text-sm text-gray-600 flex items-start gap-2">
               <svg className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
