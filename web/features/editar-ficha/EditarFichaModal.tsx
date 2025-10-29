@@ -216,8 +216,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#ECF4FA]">
+      <div className="absolute inset-0 bg-[#ECF4FA]/80" onClick={onClose} />
       <div className="relative w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Editar Ficha</h2>

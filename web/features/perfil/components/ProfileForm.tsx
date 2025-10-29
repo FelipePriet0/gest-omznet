@@ -52,10 +52,7 @@ export function ProfileForm({
         
         <div className="relative">
           <div className="mb-6 flex items-center gap-3">
-            <div className="relative">
-              <span className="h-3 w-3 rounded-full bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] shadow-lg"></span>
-              <div className="absolute -inset-1 h-3 w-3 rounded-full bg-[#3b82f6]/30 animate-ping"></div>
-            </div>
+            <span className="h-3 w-3 rounded-full bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] shadow-lg"></span>
             <h2 className="text-lg font-bold text-gray-800 bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
               Informações Pessoais
             </h2>
@@ -92,10 +89,7 @@ export function ProfileForm({
         
         <div className="relative">
           <div className="mb-6 flex items-center gap-3">
-            <div className="relative">
-              <span className="h-3 w-3 rounded-full bg-gradient-to-r from-[#10b981] to-[#059669] shadow-lg"></span>
-              <div className="absolute -inset-1 h-3 w-3 rounded-full bg-[#10b981]/30 animate-ping"></div>
-            </div>
+            <span className="h-3 w-3 rounded-full bg-gradient-to-r from-[#10b981] to-[#059669] shadow-lg"></span>
             <h2 className="text-lg font-bold text-gray-800 bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
               Informações da Conta
             </h2>
@@ -144,10 +138,7 @@ export function ProfileForm({
         
         <div className="relative">
           <div className="mb-6 flex items-center gap-3">
-            <div className="relative">
-              <span className="h-3 w-3 rounded-full bg-gradient-to-r from-[#ef4444] to-[#dc2626] shadow-lg"></span>
-              <div className="absolute -inset-1 h-3 w-3 rounded-full bg-[#ef4444]/30 animate-ping"></div>
-            </div>
+            <span className="h-3 w-3 rounded-full bg-gradient-to-r from-[#ef4444] to-[#dc2626] shadow-lg"></span>
             <h2 className="text-lg font-bold text-gray-800 bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
               Ações
             </h2>

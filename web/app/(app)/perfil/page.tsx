@@ -96,21 +96,23 @@ export default function PerfilPage() {
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 to-transparent rounded-2xl blur opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-300"></div>
           </div>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-white mb-2 bg-gradient-to-r from-white to-green-100 bg-clip-text text-transparent">
-              Seu Perfil
+            <h1 className="text-2xl font-bold text-white mb-2">
+              {profile?.full_name ? (
+                <>
+                  {profile.full_name}
+                  {profile.role && (
+                    <span className="text-green-100 font-normal"> ({profile.role.charAt(0).toUpperCase() + profile.role.slice(1).toLowerCase()})</span>
+                  )}
+                </>
+              ) : (
+                <span className="bg-gradient-to-r from-white to-green-100 bg-clip-text text-transparent">Seu Perfil</span>
+              )}
             </h1>
             <p className="text-green-100 text-base leading-relaxed">
               Gerencie suas informações pessoais e configurações com elegância
             </p>
           </div>
-          {email && (
-            <div className="hidden sm:flex items-center gap-3">
-              <span className="inline-flex items-center rounded-full bg-white/15 px-4 py-2 text-sm text-white/95 ring-2 ring-white/30 backdrop-blur-sm shadow-lg transition-all duration-300 hover:bg-white/25 hover:scale-105">
-                <div className="w-2 h-2 bg-green-300 rounded-full mr-2 animate-pulse"></div>
-                {email}
-              </span>
-            </div>
-          )}
+          {/* Email badge removido conforme solicitação */}
         </div>
       </section>
       {loading ? (
