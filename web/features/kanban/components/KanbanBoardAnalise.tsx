@@ -8,6 +8,7 @@ import { KanbanCard } from "@/features/kanban/types";
 import { listCards, changeStage } from "@/features/kanban/services";
 import { MoveModal } from "@/features/kanban/components/MoveModal";
 import { DeleteFlow } from "@/features/kanban/components/DeleteModals";
+import { QuickActionsModal } from "@/features/kanban/components/QuickActionsModal";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 
 const columns = [
@@ -21,11 +22,12 @@ const columns = [
   { key: "canceladas", title: "Canceladas", color: "red", icon: "🔴" },
 ];
 
-export function KanbanBoardAnalise({ hora, prazo, date }: { hora?: string; prazo?: 'hoje'|'amanha'|'atrasado'|'data'; date?: string }) {
+export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: string; prazo?: 'hoje'|'amanha'|'atrasado'|'data'; date?: string; openCardId?: string }) {
   const router = useRouter();
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
   const [del, setDel] = useState<{ id: string; name: string; cpf: string } | null>(null);
+  const [actions, setActions] = useState<{ id: string; name: string; cpf: string } | null>(null);
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
 
   useEffect(() => {
@@ -53,6 +55,12 @@ export function KanbanBoardAnalise({ hora, prazo, date }: { hora?: string; prazo
     }
     return g;
   }, [cards]);
+
+  useEffect(() => {
+    if (!openCardId) return;
+    const c = cards.find((x) => x.id === openCardId);
+    if (c) setEdit({ cardId: c.id, applicantId: c.applicantId });
+  }, [openCardId, cards]);
 
   async function handleDragEnd(event: any) {
     const { active, over } = event;
@@ -110,7 +118,7 @@ export function KanbanBoardAnalise({ hora, prazo, date }: { hora?: string; prazo
               cards={(grouped[c.key as keyof typeof grouped] || []).map((card) => ({
                 ...card,
                 onOpen: () => setEdit({ cardId: card.id, applicantId: card.applicantId }),
-                onMenu: () => setDel({ id: card.id, name: card.applicantName, cpf: card.cpfCnpj }),
+                onMenu: () => setActions({ id: card.id, name: card.applicantName, cpf: card.cpfCnpj }),
                 extraAction: c.key === "recebidos" ? extraForRecebidos(card) : undefined,
               }))}
             />
@@ -131,6 +139,12 @@ export function KanbanBoardAnalise({ hora, prazo, date }: { hora?: string; prazo
         applicantName={del?.name || ""}
         cpfCnpj={del?.cpf || ""}
         onDeleted={async () => setCards(await listCards("analise", { hora, prazo, date }))}
+      />
+      <QuickActionsModal
+        open={!!actions}
+        onClose={() => setActions(null)}
+        onMove={() => { if (actions) setMove({ id: actions.id, area: 'analise' }); setActions(null); }}
+        onDelete={() => { if (actions) setDel(actions); setActions(null); }}
       />
       <EditarFichaModal open={!!edit} onClose={()=> setEdit(null)} cardId={edit?.cardId||''} applicantId={edit?.applicantId||''} />
     </div>

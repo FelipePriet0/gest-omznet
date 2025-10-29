@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { Conversation } from "@/features/comments/Conversation";
+import { TaskDrawer } from "@/features/tasks/TaskDrawer";
+import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
+import { changeStage } from "@/features/kanban/services";
 
 type AppModel = {
   primary_name?: string; cpf_cnpj?: string; phone?: string; whatsapp?: string; email?: string;
@@ -56,7 +60,12 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [createdAt, setCreatedAt] = useState<string>("");
   const [pareceres, setPareceres] = useState<string[]>([]);
   const [novoParecer, setNovoParecer] = useState<string>("");
+  const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
+  const [cmdQueryParecer, setCmdQueryParecer] = useState("");
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
+  // UI: tarefas/anexos em conversas
+  const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
+  const [attachOpen, setAttachOpen] = useState<{open:boolean, parentId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
 
   const timer = useRef<NodeJS.Timeout | null>(null);
   const pendingApp = useRef<Partial<AppModel>>({});
@@ -125,6 +134,19 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
     return () => { try { channels.forEach((c:any)=> supabase.removeChannel(c)); } catch {} };
   }, [open, cardId, applicantId]);
 
+  // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)
+  useEffect(() => {
+    (window as any).mz_card_id = cardId;
+    function onOpenTask() { setTaskOpen({ open: true, parentId: null, taskId: null }); }
+    function onOpenAttach() { setAttachOpen({ open: true, parentId: null }); }
+    window.addEventListener('mz-open-task', onOpenTask);
+    window.addEventListener('mz-open-attach', onOpenAttach);
+    return () => {
+      window.removeEventListener('mz-open-task', onOpenTask);
+      window.removeEventListener('mz-open-attach', onOpenAttach);
+    };
+  }, []);
+
   async function flush() {
     if (!open) return;
     const ap = pendingApp.current; const cp = pendingCard.current;
@@ -151,13 +173,14 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
     timer.current = setTimeout(flush, 600);
   }
 
-  function addParecer() {
+  async function addParecer() {
     const txt = novoParecer.trim();
     if (!txt) return;
-    const next = [...pareceres, txt];
-    setPareceres(next);
     setNovoParecer('');
-    queue('card', 'reanalysis_notes', next);
+    try {
+      await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: txt, p_parent_id: null });
+      // Realtime vai atualizar a lista
+    } catch {}
   }
 
   const horarios = ["08:30","10:30","13:30","15:30"];
@@ -260,24 +283,93 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
             {/* Pareceres */}
             <Section title="Pareceres">
-              <div className="space-y-2">
-                {pareceres.length === 0 && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
-                {pareceres.map((p, idx) => (
-                  <div key={idx} className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800">{p}</div>
-                ))}
-                <div className="flex gap-2">
-                  <input value={novoParecer} onChange={(e)=> setNovoParecer(e.target.value)} placeholder="Escrever novo parecer" className="flex-1 rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500" />
-                  <button onClick={addParecer} className="rounded bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">+ Adicionar</button>
-                </div>
+              <PareceresList
+                cardId={cardId}
+                notes={pareceres as any}
+                onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: text, p_parent_id: pid }); }}
+                onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardId, p_note_id: id, p_text: text }); }}
+                onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
+              />
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={novoParecer}
+                  onChange={(e)=> setNovoParecer(e.target.value)}
+                  onKeyDown={(e)=>{
+                    const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                    const slashIdx = v.lastIndexOf('/');
+                    if (slashIdx>=0) { setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase()); } else { setCmdOpenParecer(false); }
+                    if (v.endsWith('/tarefa')) { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); }
+                    else if (v.endsWith('/anexo')) { setAttachOpen({ open:true, parentId:null, source:'parecer' }); }
+                  }}
+                  placeholder="Escrever novo parecer (use @Nome, /aprovado, /negado, /reanalise, /tarefa, /anexo)"
+                  className="flex-1 rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                />
+                {cmdOpenParecer && (
+                  <CmdDropdown
+                    items={[
+                      { key:'aprovado', label:'✅ Aprovado' },
+                      { key:'negado', label:'⛔ Negado' },
+                      { key:'reanalise', label:'🔁 Reanálise' },
+                      { key:'tarefa', label:'📋 Tarefa' },
+                      { key:'anexo', label:'📎 Anexo' },
+                    ].filter(i=> i.key.includes(cmdQueryParecer))}
+                    onPick={async (key)=>{
+                      setCmdOpenParecer(false); setCmdQueryParecer('');
+                      if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
+                      if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
+                      try {
+                        if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
+                        else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
+                        else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
+                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                    }}
+                  />
+                )}
+                <button onClick={addParecer} className="rounded bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">+ Adicionar</button>
               </div>
             </Section>
           </div>
         )}
 
+        {/* Conversas co-relacionadas */}
+        <div className="mt-4">
+          <Conversation
+            cardId={cardId}
+            onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
+            onOpenAttach={(parentId?: string) => setAttachOpen({ open: true, parentId: parentId ?? null, source: 'conversa' })}
+            onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
+          />
+        </div>
+
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-full border border-gray-300 px-4 py-2 text-sm text-gray-700">Fechar</button>
         </div>
       </div>
+      {/* Drawers/Modais auxiliares */}
+      <TaskDrawer
+        open={taskOpen.open}
+        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null})}
+        cardId={cardId}
+        commentId={taskOpen.parentId ?? null}
+        taskId={taskOpen.taskId ?? null}
+        onCreated={async (t)=> {
+          if (taskOpen.source === 'parecer') {
+            try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: `📋 Tarefa criada: ${t.description}`, p_parent_id: null }); } catch {}
+          }
+        }}
+      />
+      <AttachmentsModal
+        open={attachOpen.open}
+        onClose={()=> setAttachOpen({open:false})}
+        cardId={cardId}
+        commentId={attachOpen.parentId ?? null}
+        onCompleted={async (files)=> {
+          if (attachOpen.source === 'parecer' && files.length>0) {
+            const names = files.map(f=> f.name).join(', ');
+            try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: `📎 Anexo(s): ${names}`, p_parent_id: null }); } catch {}
+          }
+        }}
+      />
     </div>
   );
 }
@@ -324,4 +416,127 @@ function Select({ label, value, onChange, options }: { label: string; value: str
 
 function SelectAdv({ label, value, onChange, options }: { label: string; value: string; onChange: (v:string)=>void; options: Opt[] }) {
   return <Select label={label} value={value} onChange={onChange} options={options} />
+}
+
+function CmdDropdown({ items, onPick }: { items: { key: string; label: string }[]; onPick: (key: string) => void | Promise<void> }) {
+  return (
+    <div className="mt-2 max-h-48 w-full overflow-auto rounded border bg-white text-sm shadow">
+      {items.length === 0 ? (
+        <div className="px-3 py-2 text-zinc-500">Sem comandos</div>
+      ) : (
+        items.map((i) => (
+          <button key={i.key} onClick={() => onPick(i.key)} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-zinc-50">
+            <span>{i.label}</span>
+          </button>
+        ))
+      )}
+    </div>
+  );
+}
+
+type Note = { id: string; text: string; author_name?: string; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
+function buildTree(notes: Note[]): Note[] {
+  const byId = new Map<string, any>();
+  notes.forEach(n => byId.set(n.id, { ...n, children: [] as any[] }));
+  const roots: any[] = [];
+  notes.forEach(n => {
+    const node = byId.get(n.id)!;
+    if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node); else roots.push(node);
+  });
+  const sortFn = (a:any,b:any)=> new Date(a.created_at||'').getTime() - new Date(b.created_at||'').getTime();
+  const sortTree = (arr:any[]) => { arr.sort(sortFn); arr.forEach(x=> sortTree(x.children)); };
+  sortTree(roots);
+  return roots as any;
+}
+
+function PareceresList({ cardId, notes, onReply, onEdit, onDelete }: { cardId: string; notes: Note[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
+  const tree = useMemo(()=> buildTree(notes||[]), [notes]);
+  return (
+    <div className="space-y-2">
+      {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
+      {tree.map(n => <NoteItem key={n.id} node={n} depth={0} onReply={onReply} onEdit={onEdit} onDelete={onDelete} />)}
+    </div>
+  );
+}
+
+function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth: number; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isReplying, setIsReplying] = useState(false);
+  const [text, setText] = useState(node.text || '');
+  const [reply, setReply] = useState('');
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [cmdQuery, setCmdQuery] = useState('');
+  const ts = node.created_at ? new Date(node.created_at).toLocaleString() : '';
+  if (node.deleted) return null;
+  return (
+    <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800" style={{ marginLeft: depth*16 }}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate font-medium">{node.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{ts}</span></div>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <button className="text-emerald-700" onClick={()=> setIsReplying(v=>!v)}>→ Responder</button>
+          <button className="text-zinc-700" onClick={()=> setIsEditing(v=>!v)}>Editar</button>
+          <button className="text-red-600" onClick={async ()=> { if (confirm('Excluir este parecer?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir parecer'); } } }}>Excluir</button>
+        </div>
+      </div>
+      {!isEditing ? (
+        <div className="mt-1 whitespace-pre-line">{node.text}</div>
+      ) : (
+        <div className="mt-2 flex gap-2">
+          <input value={text} onChange={(e)=> setText(e.target.value)} className="flex-1 rounded border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500" />
+          <button className="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white" onClick={async ()=> { try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); } }}>Salvar</button>
+          <button className="rounded border border-zinc-300 px-2 py-1 text-xs" onClick={()=> { setText(node.text||''); setIsEditing(false); }}>Cancelar</button>
+        </div>
+      )}
+      {isReplying && (
+        <div className="mt-2 flex gap-2">
+          <div className="flex-1">
+            <input
+              value={reply}
+              onChange={(e)=> setReply(e.target.value)}
+              onKeyDown={(e)=>{
+                const v = (e.currentTarget.value || '') + (e.key.length===1 ? e.key : '');
+                const slashIdx = v.lastIndexOf('/');
+                if (slashIdx>=0) { setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setCmdOpen(false); }
+                if (e.key==='Enter' && !e.shiftKey) {
+                  e.preventDefault(); (async ()=>{ try { await onReply(node.id, reply); setReply(''); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); } })();
+                  return;
+                }
+              }}
+              placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+              className="w-full rounded border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500"
+            />
+            {cmdOpen && (
+              <CmdDropdown
+                items={[
+                  { key:'aprovado', label:'✅ Aprovado' },
+                  { key:'negado', label:'⛔ Negado' },
+                  { key:'reanalise', label:'🔁 Reanálise' },
+                  { key:'tarefa', label:'📋 Tarefa' },
+                  { key:'anexo', label:'📎 Anexo' },
+                ].filter(i=> i.key.includes(cmdQuery))}
+                onPick={async (key)=>{
+                  setCmdOpen(false); setCmdQuery('');
+                  if (key==='tarefa') { const ev = new CustomEvent('mz-open-task'); window.dispatchEvent(ev); return; }
+                  if (key==='anexo') { const ev = new CustomEvent('mz-open-attach'); window.dispatchEvent(ev); return; }
+                  try {
+                    if (key==='aprovado') await changeStage((window as any).mz_card_id || '', 'analise', 'aprovados');
+                    else if (key==='negado') await changeStage((window as any).mz_card_id || '', 'analise', 'negados');
+                    else if (key==='reanalise') await changeStage((window as any).mz_card_id || '', 'analise', 'reanalise');
+                  } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                }}
+              />
+            )}
+          </div>
+          <button className="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white" onClick={async ()=> { try { await onReply(node.id, reply); setReply(''); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); } }}>Enviar</button>
+        </div>
+      )}
+      {node.children && node.children.length>0 && (
+        <div className="mt-2 space-y-2">
+          {node.children.map((c:any)=> <NoteItem key={c.id} node={c} depth={depth+1} onReply={onReply} onEdit={onEdit} onDelete={onDelete} />)}
+        </div>
+      )}
+    </div>
+  );
 }

@@ -26,6 +26,11 @@ export async function listCards(
     .is('deleted_at', null)
     .order('created_at', { ascending: true });
 
+  // Ocultar itens já "arquivados" (Histórico) no Kanban de Análise
+  if (area === 'analise') {
+    q = q.is('archived_at', null);
+  }
+
   if (opts?.hora) {
     const hhmm = opts.hora.trim();
     const hhmmss = hhmm.length === 5 ? `${hhmm}:00` : hhmm; // 08:30 -> 08:30:00
@@ -75,7 +80,7 @@ export async function listCards(
 export async function listHours(area: 'comercial' | 'analise'): Promise<string[]> {
   const { data, error } = await supabase
     .from('kanban_cards')
-    .select('hora_at', { distinct: true })
+    .select('hora_at')
     .eq('area', area)
     .is('deleted_at', null)
     .not('hora_at', 'is', null)

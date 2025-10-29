@@ -5,9 +5,12 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <a href="/" className="font-semibold text-zinc-900">Mznet</a>
           <div className="flex items-center gap-4 text-sm">
-            <a className="text-zinc-700 hover:text-zinc-900 hover:underline" href="/login">Login</a>
             <a className="text-zinc-700 hover:text-zinc-900 hover:underline" href="/perfil">Perfil</a>
             <a className="text-zinc-700 hover:text-zinc-900 hover:underline" href="/kanban">Kanban</a>
+            <a className="text-zinc-700 hover:text-zinc-900 hover:underline" href="/historico">Histórico</a>
+            <a className="text-zinc-700 hover:text-zinc-900 hover:underline" href="/tarefas">Minhas Tarefas</a>
+            {/* Inbox (sino) */}
+            <InboxBellWrapper />
           </div>
         </nav>
       </header>
@@ -15,4 +18,12 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
       <footer className="border-t border-zinc-200 bg-white py-4 text-center text-xs text-zinc-500">© MZNET</footer>
     </div>
   );
+}
+
+function InboxBellWrapper() {
+  // Client-only component wrapper to avoid marking the whole layout as client
+  // eslint-disable-next-line @next/next/no-async-client-component
+  const Comp = require("@/features/inbox/InboxDrawer").InboxBell as React.ComponentType;
+  // @ts-ignore
+  return <Comp />;
 }

@@ -18,7 +18,7 @@ const columnConfig = [
   { key: "concluidas", title: "Concluídas", color: "purple", icon: "🟣" },
 ];
 
-export function KanbanBoard({ hora, prazo, date }: { hora?: string; prazo?: 'hoje'|'amanha'|'atrasado'|'data'; date?: string }) {
+export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; prazo?: 'hoje'|'amanha'|'atrasado'|'data'; date?: string; openCardId?: string }) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
   const [del, setDel] = useState<{id:string,name:string,cpf:string}|null>(null);
@@ -32,6 +32,12 @@ export function KanbanBoard({ hora, prazo, date }: { hora?: string; prazo?: 'hoj
     for (const c of cards) { const k = (c.stage||'').toLowerCase(); if (g[k as keyof typeof g]) g[k as keyof typeof g].push(c); }
     return g;
   }, [cards]);
+
+  useEffect(() => {
+    if (!openCardId) return;
+    const c = cards.find((x) => x.id === openCardId);
+    if (c) setEdit({ cardId: c.id, applicantId: c.applicantId });
+  }, [openCardId, cards]);
 
   async function handleDragEnd(event: any) {
     const { active, over } = event;

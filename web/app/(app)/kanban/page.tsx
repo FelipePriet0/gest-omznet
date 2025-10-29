@@ -13,6 +13,7 @@ export default function KanbanPage() {
   const hora = sp.get("hora") || undefined;
   const prazo = (sp.get("prazo") as any) || undefined;
   const date = sp.get("data") || undefined;
+  const openCardId = sp.get("card") || undefined;
 
   useEffect(() => {
     let mounted = true;
@@ -45,7 +46,7 @@ export default function KanbanPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Kanban Comercial</h1>
         </div>
         <FilterBar />
-        <KanbanBoard hora={hora as any} prazo={prazo} date={date} />
+        <KanbanBoard hora={hora as any} prazo={prazo} date={date} openCardId={openCardId} />
       </div>
     </div>
   );

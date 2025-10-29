@@ -54,7 +54,9 @@ Ao clicar, abrirá um **painel lateral fixo** (tipo *drawer*), dividido em três
 | 🚀 Nova Ficha | 🚀 | “Nova ficha disponível: Felipe Gonçalves Prieto.” |
 | 🔥 Atraso | 🔥 | “Você possui 3 fichas pendentes 🔥 Priorize-as.” |
 | 😅 Disputa | 😅 | “Poooxa, o colaborador Pedro foi mais rápido!” |
-| Resposta  |  |  |
+| Resposta  |↩️ |  | “Nome do colaborado”r
+                      ”Respondeu você - Nome da ficha”
+                          ”Descrição da resposta”
 
 ---
 
