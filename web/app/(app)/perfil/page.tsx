@@ -76,20 +76,21 @@ export default function PerfilPage() {
   const initial = (profile?.full_name || email || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl bg-gradient-to-r from-emerald-800 to-emerald-600 px-6 py-5 text-white shadow">
+    <div className="bg-[#ECF4FA] -mx-4 sm:-mx-6 -my-4 sm:-my-6 min-h-[calc(100dvh-56px)] px-4 py-4 sm:px-6 sm:py-6">
+      <div className="space-y-6">
+      <section className="rounded-xl bg-gradient-to-r from-[#018942] to-[#016b35] px-6 py-5 text-white shadow-md">
         <div className="flex items-center gap-4">
           <div className="grid h-12 w-12 place-items-center rounded-full bg-white/20 text-lg font-bold">
             {initial || "?"}
           </div>
           <div>
-            <h1 className="text-xl font-semibold">Seu Perfil</h1>
-            <p className="text-sm text-white/90">Gerencie suas informações pessoais e configurações</p>
+            <h1 className="text-lg font-semibold text-white">Seu Perfil</h1>
+            <p className="text-green-100 text-sm">Gerencie suas informações pessoais e configurações</p>
           </div>
         </div>
       </section>
       {loading ? (
-        <div className="text-sm text-white/80">Carregando…</div>
+        <div className="text-sm text-gray-600">Carregando…</div>
       ) : profile && userId ? (
         <>
           <ProfileForm
@@ -104,6 +105,7 @@ export default function PerfilPage() {
       ) : (
         <div className="text-sm text-red-600">Não foi possível carregar o perfil.</div>
       )}
+      </div>
     </div>
   );
 }
