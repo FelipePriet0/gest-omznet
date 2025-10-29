@@ -46,7 +46,7 @@ export function ProfileForm({
   return (
     <div className="space-y-8">
       {/* Informações Pessoais */}
-      <section className="group relative overflow-hidden rounded-[50px] bg-white/80 backdrop-blur-sm p-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
+      <section className="group relative overflow-hidden rounded-[50px] bg-white/80 backdrop-blur-sm px-6 py-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
         {/* Animated background gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/5 via-transparent to-[#8b5cf6]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         
@@ -83,7 +83,7 @@ export function ProfileForm({
       </section>
 
       {/* Informações da Conta */}
-      <section className="group relative overflow-hidden rounded-[50px] bg-white/80 backdrop-blur-sm p-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
+      <section className="group relative overflow-hidden rounded-[50px] bg-white/80 backdrop-blur-sm px-6 py-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
         {/* Animated background gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#10b981]/5 via-transparent to-[#059669]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         
@@ -132,7 +132,7 @@ export function ProfileForm({
       </section>
 
       {/* Ações */}
-      <section className="group relative overflow-hidden rounded-[50px] bg-white/80 backdrop-blur-sm p-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
+      <section className="group relative overflow-hidden rounded-[50px] bg-white/80 backdrop-blur-sm px-6 py-8 shadow-2xl ring-1 ring-white/50 transition-all duration-500 hover:shadow-3xl hover:scale-[1.01]">
         {/* Animated background gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#ef4444]/5 via-transparent to-[#dc2626]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         

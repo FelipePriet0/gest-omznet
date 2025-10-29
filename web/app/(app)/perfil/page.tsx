@@ -76,8 +76,8 @@ export default function PerfilPage() {
   const initial = (profile?.full_name || email || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <div className="bg-[#ECF4FA] -mx-4 sm:-mx-6 -my-4 sm:-my-6 min-h-[calc(100dvh-56px)] px-4 py-4 sm:px-6 sm:py-6">
-      <div className="space-y-8">
+    <div className="bg-[#ECF4FA] -mx-4 sm:-mx-6 -my-4 sm:-my-6 min-h-[calc(100dvh-100px)] px-4 py-4 sm:px-6 sm:py-6">
+      <div className="max-w-4xl mx-auto space-y-8">
       <section className="group relative overflow-hidden rounded-[50px] bg-gradient-to-br from-[#018942] to-black px-8 py-8 text-white shadow-2xl shadow-[#FFFFFF]/30 border-2 border-white/90 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02]">
         {/* Animated background pattern */}
         <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-white/5 opacity-50"></div>
