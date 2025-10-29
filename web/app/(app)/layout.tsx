@@ -15,7 +15,6 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
         </nav>
       </header>
       <main className="mx-auto min-h-[calc(100dvh-56px)] max-w-6xl px-6 py-6 bg-white rounded-t-xl">{children}</main>
-      <footer className="border-t border-zinc-200 bg-white py-4 text-center text-xs text-zinc-500">© MZNET</footer>
     </div>
   );
 }
