@@ -163,7 +163,7 @@ export function ProfileForm({
               type="submit"
               disabled={saving}
               onClick={onSubmit as any}
-              className="group/btn relative overflow-hidden rounded-[50px] bg-gradient-to-r from-[#018942] to-black px-7 py-3.5 text-base font-bold text-white shadow-2xl transition-all duration-300 hover:from-black hover:to-[#018942] hover:shadow-3xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="group/btn relative overflow-hidden rounded-full border-2 border-white/90 bg-gradient-to-r from-[#018942] to-black px-7 py-3.5 text-base font-bold text-white shadow-2xl shadow-[#FFFFFF]/30 transition-all duration-300 hover:from-black hover:to-[#018942] hover:shadow-3xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
               <span className="relative flex items-center gap-2">

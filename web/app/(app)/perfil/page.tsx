@@ -78,14 +78,14 @@ export default function PerfilPage() {
   return (
     <div className="bg-[#ECF4FA] -mx-4 sm:-mx-6 -my-4 sm:-my-6 min-h-[calc(100dvh-56px)] px-4 py-4 sm:px-6 sm:py-6">
       <div className="space-y-8">
-      <section className="group relative overflow-hidden rounded-[50px] bg-gradient-to-br from-[#018942] to-black px-8 py-8 text-white shadow-2xl transition-all duration-500 hover:shadow-3xl hover:scale-[1.02]" style={{boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'}}>
+      <section className="group relative overflow-hidden rounded-[50px] bg-gradient-to-br from-[#018942] to-black px-8 py-8 text-white shadow-2xl shadow-[#FFFFFF]/30 border-2 border-white/90 transition-all duration-500 hover:shadow-3xl hover:scale-[1.02]">
         {/* Animated background pattern */}
         <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-white/5 opacity-50"></div>
         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-white/20 to-transparent rounded-full -translate-y-32 translate-x-32 group-hover:scale-110 transition-transform duration-700"></div>
         
         <div className="relative flex items-center gap-6">
           <div className="relative group/avatar">
-            <div className="grid h-16 w-16 place-items-center rounded-[50px] bg-gradient-to-br from-white/30 to-white/10 text-2xl font-bold ring-4 ring-white/40 shadow-xl backdrop-blur-sm transition-all duration-300 group-hover/avatar:scale-110 group-hover/avatar:rotate-3">
+            <div className="grid h-16 w-16 place-items-center rounded-full border-2 border-white/90 bg-gradient-to-br from-white/30 to-white/10 text-2xl font-bold shadow-2xl shadow-[#FFFFFF]/30 backdrop-blur-sm transition-all duration-300 group-hover/avatar:scale-110 group-hover/avatar:rotate-3">
               {initial || "?"}
             </div>
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 to-transparent rounded-[50px] blur opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-300"></div>
