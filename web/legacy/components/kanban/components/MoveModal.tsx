@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Modal } from "@/features/kanban/components/Modal";
+import { Modal } from "@/legacy/components/kanban/components/Modal";
 import { changeStage } from "@/features/kanban/services";
 
 const COMERCIAL = [

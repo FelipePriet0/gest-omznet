@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Modal } from "@/features/kanban/components/Modal";
+import { Modal } from "@/legacy/components/kanban/components/Modal";
 import { softDeleteCard } from "@/features/kanban/services";
 
 export function DeleteFlow({ open, onClose, cardId, applicantName, cpfCnpj, onDeleted }: { open: boolean; onClose: () => void; cardId: string; applicantName: string; cpfCnpj: string; onDeleted?: () => void }) {

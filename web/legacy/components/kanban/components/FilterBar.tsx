@@ -3,8 +3,8 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { PersonTypeModal } from "@/features/cadastro/components/PersonTypeModal";
-import { BasicInfoModal } from "@/features/cadastro/components/BasicInfoModal";
+import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonTypeModal";
+import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
 import type { PessoaTipo } from "@/features/cadastro/types";
 
 export function FilterBar() {

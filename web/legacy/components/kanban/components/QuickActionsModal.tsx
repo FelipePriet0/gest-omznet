@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal } from "@/features/kanban/components/Modal";
+import { Modal } from "@/legacy/components/kanban/components/Modal";
 
 export function QuickActionsModal({ open, onClose, onMove, onDelete }: { open: boolean; onClose: () => void; onMove: () => void; onDelete: () => void }) {
   if (!open) return null;

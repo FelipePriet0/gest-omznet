@@ -1,6 +1,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import { KanbanCard as CardType } from "@/features/kanban/types";
-import { KanbanCard } from "@/features/kanban/components/KanbanCard";
+import { KanbanCard } from "@/legacy/components/kanban/components/KanbanCard";
 
 interface KanbanColumnProps {
   title: string;

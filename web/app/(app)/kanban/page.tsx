@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { KanbanBoard } from "@/features/kanban/components/KanbanBoard";
-import { FilterBar } from "@/features/kanban/components/FilterBar";
+import { KanbanBoard } from "@/legacy/components/kanban/components/KanbanBoard";
+import { FilterBar } from "@/legacy/components/kanban/components/FilterBar";
 import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
 
 export default function KanbanPage() {

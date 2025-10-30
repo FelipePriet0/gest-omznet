@@ -3,12 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { DndContext } from "@dnd-kit/core";
-import { KanbanColumn } from "@/features/kanban/components/KanbanColumn";
+import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
 import { KanbanCard } from "@/features/kanban/types";
 import { listCards, changeStage } from "@/features/kanban/services";
-import { MoveModal } from "@/features/kanban/components/MoveModal";
-import { DeleteFlow } from "@/features/kanban/components/DeleteModals";
-import { QuickActionsModal } from "@/features/kanban/components/QuickActionsModal";
+import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
+import { DeleteFlow } from "@/legacy/components/kanban/components/DeleteModals";
+import { QuickActionsModal } from "@/legacy/components/kanban/components/QuickActionsModal";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 
 const columns = [

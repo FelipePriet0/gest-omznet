@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { ProfileCard, type ProfileView } from "@/features/perfil/components/ProfileCard";
-import { ProfileForm } from "@/features/perfil/components/ProfileForm";
+import { ProfileCard, type ProfileView } from "@/legacy/components/perfil/components/ProfileCard";
+import { ProfileForm } from "@/legacy/components/perfil/components/ProfileForm";
 
 export default function PerfilPage() {
   const [email, setEmail] = useState<string | null>(null);
