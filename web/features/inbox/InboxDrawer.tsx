@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { listInbox, markRead, type InboxItem } from "@/features/inbox/services";
+import { isOnline } from "@/lib/utils";
 
 export function InboxBell() {
   const [open, setOpen] = useState(false);
@@ -13,20 +14,24 @@ export function InboxBell() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!mounted) return;
-      setUid(data.user?.id ?? null);
-      setItems(await listInbox());
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!mounted) return;
+        setUid(data.user?.id ?? null);
+        if (isOnline()) setItems(await listInbox());
+      } catch {
+        // Silencia erros de rede em dev/offline
+      }
     })();
     return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
-    if (!uid) return;
+    if (!uid || !isOnline()) return;
     const ch = supabase
       .channel(`inbox-${uid}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "inbox_notifications", filter: `user_id=eq.${uid}` }, async () => {
-        setItems(await listInbox());
+        try { setItems(await listInbox()); } catch {}
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -90,4 +95,3 @@ function InboxRow({ n, onRefresh }: { n: InboxItem; onRefresh: () => void }) {
     </div>
   );
 }
-

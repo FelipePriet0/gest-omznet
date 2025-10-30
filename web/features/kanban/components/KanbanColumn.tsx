@@ -27,13 +27,13 @@ export function KanbanColumn({ title, cards, color, icon, count, droppableId }: 
   return (
     <div className="min-w-[340px] w-[340px] max-w-[360px] flex-shrink-0" ref={setNodeRef}>
       <div className={`rounded-2xl border ${config.border} bg-white shadow-sm hover:shadow-md transition-all duration-200 h-full`}>
-        <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100 rounded-t-2xl">
+        <div className="px-6 py-4 border-b border-white/10 bg-gradient-to-br from-[#018942] to-black rounded-t-2xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className={`h-3 w-3 rounded-full ${config.dot}`} />
-              <h2 className="font-semibold text-gray-800 truncate">{title}</h2>
+              <h2 className="font-semibold text-white truncate">{title}</h2>
             </div>
-            <span className="rounded-full border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm">{count}</span>
+            <span className="rounded-full border border-white/30 bg-white/20 px-2 py-1 text-xs text-white shadow-sm">{count}</span>
           </div>
         </div>
         <div className="p-4 bg-gray-50/50">

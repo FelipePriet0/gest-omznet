@@ -16,29 +16,35 @@ export default function PerfilPage() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!mounted) return;
-      if (!data.user) {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!mounted) return;
+        if (!data.user) {
+          router.replace("/login");
+          return;
+        }
+        setUserId(data.user.id);
+        setEmail(data.user.email ?? null);
+        const { data: prof, error: profErr } = await supabase
+          .from("profiles")
+          .select("full_name, role, created_at")
+          .eq("id", data.user.id)
+          .single();
+        if (profErr) {
+          // evita ruído de log em dev
+        }
+        setProfile({
+          full_name: prof?.full_name ?? null,
+          role: prof?.role ?? null,
+          created_at: prof?.created_at ?? null,
+          email: data.user.email ?? null,
+        });
+      } catch {
         router.replace("/login");
         return;
+      } finally {
+        setLoading(false);
       }
-      setUserId(data.user.id);
-      setEmail(data.user.email ?? null);
-      const { data: prof, error: profErr } = await supabase
-        .from("profiles")
-        .select("full_name, role, created_at")
-        .eq("id", data.user.id)
-        .single();
-      if (profErr) {
-        console.error(profErr);
-      }
-      setProfile({
-        full_name: prof?.full_name ?? null,
-        role: prof?.role ?? null,
-        created_at: prof?.created_at ?? null,
-        email: data.user.email ?? null,
-      });
-      setLoading(false);
     })();
     return () => {
       mounted = false;
@@ -47,6 +53,7 @@ export default function PerfilPage() {
 
   useEffect(() => {
     if (!userId) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
     const channel = supabase
       .channel("profiles-updates")
       .on(

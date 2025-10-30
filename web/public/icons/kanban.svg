@@ -1,0 +1,32 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00C26F"/>
+      <stop offset="1" stop-color="#FFD34D"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.35"/>
+    </linearGradient>
+    <filter id="inner" x="-50%" y="-50%" width="200%" height="200%">
+      <feOffset dy="0"/>
+      <feGaussianBlur stdDeviation="1.5" result="b"/>
+      <feComposite in="SourceAlpha" in2="b" operator="arithmetic" k2="-1" k3="1" result="inner"/>
+      <feColorMatrix in="inner" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.45 0"/>
+      <feBlend in="SourceGraphic"/>
+    </filter>
+  </defs>
+  <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#bg)"/>
+  <!-- glossy top highlight -->
+  <path d="M3 5.5C3 4.12 4.12 3 5.5 3H18.5C19.88 3 21 4.12 21 5.5V8H3V5.5Z" fill="white" opacity="0.25"/>
+  <!-- glass board -->
+  <rect x="4.5" y="6.5" width="15" height="12.5" rx="3" fill="url(#glass)" filter="url(#inner)"/>
+  <!-- columns/cards -->
+  <rect x="6.2" y="8.2" width="3.6" height="6.2" rx="1.1" fill="#ffffff"/>
+  <rect x="10.6" y="8.2" width="6.8" height="2.8" rx="1.1" fill="#ffffff"/>
+  <rect x="10.6" y="11.8" width="6.8" height="5.0" rx="1.1" fill="#ffffff"/>
+  <rect x="6.2" y="15.0" width="3.6" height="1.8" rx="0.9" fill="#ffffff"/>
+  <!-- badge -->
+  <circle cx="17.8" cy="7.8" r="1.4" fill="#FFD34D"/>
+</svg>
+

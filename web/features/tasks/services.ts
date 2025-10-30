@@ -20,9 +20,10 @@ export type CardTask = {
 };
 
 export async function listTasks(cardId: string): Promise<CardTask[]> {
+  // Use '*' to avoid 400 when some optional columns don't exist in the DB
   const { data, error } = await supabase
     .from("card_tasks")
-    .select("id, card_id, card_title, created_by, assigned_to, description, status, deadline, comment_id, created_at, updated_at, completed_at")
+    .select("*")
     .eq("card_id", cardId)
     .order("created_at", { ascending: true });
   if (error) return [];

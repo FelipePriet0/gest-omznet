@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { addComment, deleteComment, editComment, listComments, listProfiles, type Comment, type ProfileLite } from "./services";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
+import { isOnline } from "@/lib/utils";
 import { listAttachments, removeAttachment, publicUrl, type CardAttachment } from "@/features/attachments/services";
 
 type TaskTrigger = { openTask: (parentCommentId?: string) => void };
@@ -37,18 +38,27 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "card_comments", filter: `card_id=eq.${cardId}` }, () => refresh())
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "card_comments", filter: `card_id=eq.${cardId}` }, () => refresh())
       .subscribe();
-    const chTasks = supabase
-      .channel(`card-tasks-${cardId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "card_tasks", filter: `card_id=eq.${cardId}` }, () => refreshTasks())
-      .subscribe();
-    const chAtt = supabase
-      .channel(`card-attachments-${cardId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "card_attachments", filter: `card_id=eq.${cardId}` }, () => refreshAtt())
-      .subscribe();
+    const chTasks = isOnline()
+      ? supabase
+          .channel(`card-tasks-${cardId}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "card_tasks", filter: `card_id=eq.${cardId}` }, () => refreshTasks())
+          .subscribe()
+      : null;
+    const chAtt = isOnline()
+      ? supabase
+          .channel(`card-attachments-${cardId}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "card_attachments", filter: `card_id=eq.${cardId}` }, () => refreshAtt())
+          .subscribe()
+      : null;
     async function refresh() { if (!active) return; setComments(await listComments(cardId)); }
     async function refreshTasks() { if (!active) return; setTasks(await listTasks(cardId)); }
     async function refreshAtt() { if (!active) return; setAttachments(await listAttachments(cardId)); }
-    return () => { active = false; supabase.removeChannel(channel); supabase.removeChannel(chTasks); supabase.removeChannel(chAtt); };
+    return () => {
+      active = false;
+      try { supabase.removeChannel(channel); } catch {}
+      try { if (chTasks) supabase.removeChannel(chTasks); } catch {}
+      try { if (chAtt) supabase.removeChannel(chAtt); } catch {}
+    };
   }, [cardId]);
 
   const tree = useMemo(() => buildTree(comments || []), [comments]);

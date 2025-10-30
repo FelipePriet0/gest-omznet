@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { isOnline } from "@/lib/utils";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
@@ -98,33 +99,35 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
         setHoraAt(c?.hora_at ? String(c.hora_at).slice(0,5) : "");
         setPareceres(Array.isArray(c?.reanalysis_notes) ? c!.reanalysis_notes as any : []);
 
-        // Realtime: applicants (payload.new) and kanban_cards
-        chApp = supabase
-          .channel(`rt-edit-app-${applicantId}`)
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applicants', filter: `id=eq.${applicantId}` }, (payload: any) => {
-            const row:any = payload.new || {};
-            const a3:any = { ...app };
-            ['primary_name','cpf_cnpj','phone','whatsapp','email','address_line','address_number','address_complement','cep','bairro','plano_acesso','sva_avulso','carne_impresso','venc','person_type'].forEach((k)=>{
-              if (k in row) (a3 as any)[k] = row[k];
-            });
-            if (typeof a3.venc !== 'undefined' && a3.venc !== null) a3.venc = String(a3.venc);
-            setApp(a3);
-            if (row.person_type) setPersonType(row.person_type);
-          })
-          .subscribe();
+        // Realtime: applicants (payload.new) and kanban_cards (somente online)
+        if (isOnline()) {
+          chApp = supabase
+            .channel(`rt-edit-app-${applicantId}`)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applicants', filter: `id=eq.${applicantId}` }, (payload: any) => {
+              const row:any = payload.new || {};
+              const a3:any = { ...app };
+              ['primary_name','cpf_cnpj','phone','whatsapp','email','address_line','address_number','address_complement','cep','bairro','plano_acesso','sva_avulso','carne_impresso','venc','person_type'].forEach((k)=>{
+                if (k in row) (a3 as any)[k] = row[k];
+              });
+              if (typeof a3.venc !== 'undefined' && a3.venc !== null) a3.venc = String(a3.venc);
+              setApp(a3);
+              if (row.person_type) setPersonType(row.person_type);
+            })
+            .subscribe();
 
-        chCard = supabase
-          .channel(`rt-edit-card-${cardId}`)
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `id=eq.${cardId}` }, (payload: any) => {
-            const row:any = payload.new || {};
-            if (row.due_at) setDueAt(new Date(row.due_at).toISOString().slice(0,10));
-            if (row.hora_at) setHoraAt(String(row.hora_at).slice(0,5));
-            if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
-          })
-          .subscribe();
+          chCard = supabase
+            .channel(`rt-edit-card-${cardId}`)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `id=eq.${cardId}` }, (payload: any) => {
+              const row:any = payload.new || {};
+              if (row.due_at) setDueAt(new Date(row.due_at).toISOString().slice(0,10));
+              if (row.hora_at) setHoraAt(String(row.hora_at).slice(0,5));
+              if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
+            })
+            .subscribe();
+        }
       } finally { if (active) setLoading(false); }
     })();
-    return () => { active = false; };
+    return () => { active = false; try { if (chApp) supabase.removeChannel(chApp); if (chCard) supabase.removeChannel(chCard); } catch {} };
     // cleanup channels on close/unmount
   }, [open, cardId, applicantId]);
 
