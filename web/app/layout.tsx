@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "./globals.css";
+// Depilation mode: sem estilos globais
 
 export const metadata: Metadata = {
   title: "Create Next App",
