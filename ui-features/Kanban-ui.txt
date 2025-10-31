@@ -1,0 +1,344 @@
+## 📏 Recomendação prática (usando Tailwind)
+
+### ✅ **Largura total do Kanban**
+
+Use **máximo de 1440px** em monitores grandes e **margens automáticas** para centralizar:
+
+```html
+<div class="mx-auto max-w-[1440px] px-8 md:px-12 lg:px-16 xl:px-20">
+  <!-- Kanban aqui -->
+</div>
+```
+
+**Explicação:**
+
+- `mx-auto` → centraliza horizontalmente.
+- `max-w-[1440px]` → limita a largura total.
+- `px-8 md:px-12 lg:px-16 xl:px-20` → cria **Sidemargins adaptativas**:
+    - `px-8` ≈ 32px (mobile)
+    - `px-12` ≈ 48px (tablet)
+    - `px-16` ≈ 64px (desktop)
+    - `px-20` ≈ 80px (telas grandes)
+
+Essas medidas equivalem a **margens laterais de 5–7%** do viewport, exatamente como na sua imagem.
+
+---
+
+## 💡 Alternativa proporcional (100% da largura)
+
+Se você quer **escala fluida** sem `max-width`, use:
+
+```html
+<section class="px-[5vw] lg:px-[7vw]">
+  <!-- Kanban -->
+</section>
+
+```
+
+👉 Isso mantém o Kanban sempre com **5–7% de respiro em cada lado**, proporcional ao tamanho da tela.
+
+---
+
+## 🧱 Estrutura base recomendada (para o layout do Kanban)
+
+```html
+<main class="min-h-screen bg-cinza-claro">
+  <header class="py-6 px-[5vw] border-b border-cinza-200">
+    <h1 class="text-4xl font-bold text-preto">Kanban Comercial</h1>
+  </header>
+
+  <section class="py-10 px-[5vw]">
+    <div class="rounded-xl bg-white shadow-md p-6">
+      <!-- Componente do Kanban aqui -->
+    </div>
+  </section>
+</main>
+
+```
+
+---
+
+## 📊 Resultado esperado
+
+- Visualmente idêntico ao seu print:
+    - Margens laterais → ~5–7% da tela cada.
+    - Kanban centralizado com respiro natural.
+    - Layout adaptativo e limpo para telas de qualquer tamanho.
+
+# Estrutura UI das Colunas do Kanban:
+
+## 🎨 1. Estrutura Hierárquica
+
+```
+📦 KanbanColumn
+ ├── 🧭 Header da Coluna
+ │     ├── Ícone de Status (dot color)
+ │     ├── Nome da Coluna (Título)
+ │     └── Contador de Fichas (badge)
+ │
+ ├── 🗂️ Corpo da Coluna
+ │     ├── Área de Drop (drag zone)
+ │     └── Mensagem de Estado (ex: Nenhuma ficha / Arraste aqui)
+ │
+ └── 🪶 Sombra + Espaçamento + Radius
+```
+
+## 🎯 2. Tokens Utilizados
+
+| Elemento | Token | Valor / Origem | Descrição |
+| --- | --- | --- | --- |
+| **Fundo da coluna** | `--branco` | `global.css` | Fundo base das colunas. |
+| **Borda externa** | `border-gray-200` | Tailwind default / DS neutral | Discreta e limpa. |
+| **Sombra** | `--shadow-sm` | `0 1px 2px rgba(0,0,0,.06)` | Profundidade leve. |
+| **Radius** | `--radius-xl` | `20px` | Arredondamento elegante. |
+| **Padding interno** | `--sp-6` | `24px` | Espaçamento interno padrão. |
+| **Cor do título** | `--preto` | `global.css` | Título sempre legível. |
+| **Cor do placeholder** | `--cinza` | `global.css` | Textos secundários. |
+| **Cor dos dots (status)** | `blue`, `green`, `yellow`, `red` | Token custom `--status-{color}` | Ícone visual da coluna. |
+
+## 🧭 3. Header da Coluna:
+
+**Composição:**
+
+- Fundo branco com leve sombra.
+- Padding vertical 12px / horizontal 16px.
+- Flex horizontal com gap 8px.
+- Border-bottom cinza clara (#e5e7eb).
+- Ícone circular colorido representando o status da coluna.
+- Título (H4 → `.as-t4`).
+- Contador de fichas (badge minimalista).
+
+**Exemplo visual:** 
+
+```
+🟢  Feitas / Cadastrar no MK      [ 0 ]
+```
+
+**Props:**
+
+| Prop | Tipo | Exemplo | Descrição |
+| --- | --- | --- | --- |
+| `colorDot` | string | `verde`, `amarelo`, `azul`, `vermelho` 
+
+*Cores normais, retiradas de outros locais. Não é vinculado a nosso Tailwild.  | Cor do status da coluna. |
+| `title` | string | `"Feitas / Cadastrar no MK"` | Nome da coluna. |
+| `count` | number | `0` | Quantidade de fichas. |
+| `countVariant` | UI | `.badge-neutral` | Badge com background cinza claro. |
+
+## 🗂️ 4. Corpo da Coluna
+
+**Composição:**
+
+- Fundo branco.
+- Altura mínima: `min-h-[400px]`.
+- Conteúdo centralizado (flex + justify-center + items-center).
+- Mensagem com ícone central (gray 300).
+- Texto principal (`Nenhuma ficha`) → `.as-t4`.
+- Subtexto (`Arraste fichas aqui`) → `.as-t8`.
+
+**Estado vazio:**
+
+```
+⬜
+Nenhuma ficha
+Arraste fichas aqui
+
+```
+
+**Estado com cards:**
+
+- Cards listados verticalmente com espaçamento entre eles (`gap-3`).
+- Cada card herda a UI `.card-select`.
+
+## 🪶 5. Interações
+
+| Ação | Efeito |
+| --- | --- |
+| **Hover na coluna** | Elevação leve: `shadow-md` + transição 200ms. |
+| **Drag over (ao arrastar ficha)** | Borda muda para `--verde`  |
+| **Drop** | Fundo volta ao branco e executa animação de fade-in no card. |
+
+## 🔢 6. Estrutura semântica (HTML base)
+
+```tsx
+<div class="kanban-col bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col gap-4">
+  <!-- Header -->
+  <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+    <div class="flex items-center gap-2">
+      <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+      <h4 class="as-t4 font-semibold text-preto">Entrada</h4>
+    </div>
+    <span class="text-xs font-medium bg-gray-100 text-gray-700 px-2 py-1 rounded-full">0</span>
+  </div>
+
+  <!-- Body -->
+  <div class="flex-1 flex flex-col justify-center items-center text-center text-cinza">
+    <div class="w-10 h-10 bg-gray-200 rounded-full mb-3"></div>
+    <h4 class="as-t4 font-semibold text-cinza">Nenhuma ficha</h4>
+    <p class="as-t8 text-cinza/80">Arraste fichas aqui</p>
+  </div>
+</div>
+
+```
+
+## Responsividade
+
+| Tela | Ajustes |
+| --- | --- |
+| `sm:` | Colunas empilhadas verticalmente (1 por linha). |
+| `md:` | 2 colunas lado a lado (`grid-cols-2`). |
+| `lg:` | 4 colunas lado a lado (`grid-cols-4 gap-6`). |
+| `xl:` | Padding lateral reduzido, mantendo espaçamento consistente. |
+
+---
+
+## 🧩 9. Classe utilitária Tailwind sugerida
+
+```html
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-[5vw] py-8 bg-cinza">
+  <!-- Cada coluna -->
+</div>
+
+```
+
+---
+
+## ✅ Resultado esperado
+
+- Colunas flutuam dentro da área útil do Kanban, com espaçamento respirando igual ao seu print.
+- Visual clean e consistente com o **Design System MZNET**.
+- A estrutura está semanticamente pronta para integração de **drag & drop** (React DnD ou SortableJS).
+
+# Estrutura UI dos Cards nas colunas:
+
+## 1) Estrutura visual
+
+```
+📦 Card (container)
+ ├─ Linha 1: Public.applicantes.primary_name + Menu (⋮) 
+ ├─ Linha 2: CPF ou CNPJ (Conforme public.Applicants.person_type): public.applicants.cpf_cnpj 
+ ├─ Linha 3: Icone de Telefone: Public.applicantes.phone  | Icone de Whatsapp: Public.applicantes.whatsapp 
+ ├─ Linha 4: Data de Agendamento: public.kanban_cards.due_at | Horário: public.kanban_cards.hora_at
+ └─ Linha 5: Bairro: Public.applicantes.bairro
+```
+
+**Layout geral**
+
+- Fundo: `base.white`
+- Borda: 1px `#e5e7eb`
+- Radius: `-radius-xl` (20px)
+- Sombra: `-shadow-sm` (elevado no hover para `-shadow-md`)
+- Padding: 16px interno
+- Gap vertical entre linhas: 6–8px
+- Linha divisória opcional (hairline) antes do rodapé/“chips”, se houver
+
+## 2) Tipografia (usa seus “T-tokens”)
+
+- **Nome (Linha 1):** `.as-t4` **+** `font-semibold` (cor `brand.secondary` `#000`)
+- **Demais rótulos/valores:** `.as-t8` para rótulo, `.as-t4` light/regular para valor
+    
+    (cores neutras: `#6b7280` para rótulo, `#111827` para valores)
+    
+- Espaçamento de linhas: use line-height dos tokens (`-t4-line`, `-t8-line`)
+
+---
+
+## 3) Cores & ícones
+
+- Ícones (telefone, whatsapp, calendário, relógio, mapa): `#6b7280`
+- Links/ações (telefone/whats clicáveis): hover em `brand.primary` cor:`Primária`
+- Menu (⋮): ícone `#9ca3af`, hover `#6b7280`
+
+---
+
+## 4) Estados e interações
+
+- **Hover do Card:** `shadow-md`, translateY(-2px), borda mantém `#e5e7eb`
+- **Focus (via teclado):** outline com halo `brand.primary` (0 0 0 3px)
+- **Dragging (arrastando):** opacidade 0.92 + `shadow-lg`
+
+---
+
+## 5) Variantes (opcionais)
+
+- **Sem algum campo:** esconde Linha, responsiva outras linhas para o lugar da linha escondido, priorizando o UX
+
+---
+
+## 6) Acessibilidade
+
+- Botão de menu (⋮) com `aria-label="Ações da ficha: {Nome}"`
+- Links de telefone/WhatsApp com `aria-label` claro
+- Títulos com `<h3>` semântico dentro do card
+
+---
+
+## 7) Grid/Medidas
+
+- Largura da coluna define o card.
+- Largura mínima do card: `min-w-[280px]` para mobile.
+- Espaço entre cards: `gap-3`/`gap-4`.
+
+## Exemplo visual (HTML + classes utilitárias)
+
+```html
+<articleclass="bg-white border border-gray-200 rounded-[20px] shadow-sm p-4 transition
+         hover:shadow-md hover:-translate-y-0.5 focus-within:outline-none
+         focus-within:ring-2 focus-within:ring-[#018942]/30"
+  role="group"
+>
+  <!-- Linha 1: Nome + menu -->
+  <header class="flex items-start justify-between gap-2">
+    <h3 class="as-t4 font-semibold text-black leading-tight">
+      Marcella Carolina Silva
+    </h3>
+    <buttonclass="p-1 rounded-md text-gray-400 hover:text-gray-600"
+      aria-label="Ações da ficha: Marcella Carolina Silva"
+    >
+      ⋮
+    </button>
+  </header>
+
+  <!-- Linha 2: CPF -->
+  <div class="mt-1">
+    <span class="as-t8 text-[#6b7280]">CPF:</span>
+    <span class="as-t4 text-[#111827] ml-1">12992129191</span>
+  </div>
+
+  <!-- Linha 3: Telefone | WhatsApp -->
+  <div class="mt-1 flex items-center gap-4 flex-wrap">
+    <a href="tel:+5534919109090"
+       class="flex items-center gap-2 as-t4 text-[#111827] hover:text-[#018942]">
+      <span class="text-[#6b7280]">📞</span>
+      (34) 99190-9090
+    </a>
+    <a href="https://wa.me/5534991909090"
+       target="_blank" rel="noopener noreferrer"
+       class="flex items-center gap-2 as-t4 text-[#111827] hover:text-[#018942]">
+      <span class="text-[#6b7280]">💬</span>
+      WhatsApp
+    </a>
+  </div>
+
+  <!-- Linha 4: Data | Horário (opcional) -->
+  <div class="mt-1 flex items-center gap-4 flex-wrap">
+    <div class="flex items-center gap-2">
+      <span class="text-[#6b7280]">📅</span>
+      <span class="as-t4 text-[#111827]">12/10/2025</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-[#6b7280]">⏰</span>
+      <span class="as-t4 text-[#111827]">14:00</span>
+    </div>
+  </div>
+
+  <!-- Linha 5: Bairro -->
+  <div class="mt-1 flex items-center gap-2">
+    <span class="text-[#6b7280]">📍</span>
+    <span class="as-t4 text-[#111827]">Bairro: Jardim Europa</span>
+  </div>
+</article>
+
+```
+
+---

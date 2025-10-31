@@ -1,9 +1,18 @@
-export default function AuthLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Login - MZNET",
+  description: "Acesse sua conta MZNET",
+};
+
+export default function AuthLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="min-h-dvh bg-gradient-to-br from-emerald-800 to-black">
-      <div className="grid min-h-dvh place-items-center px-6 py-10">
-        {children}
-      </div>
+    <div className="min-h-screen bg-white">
+      {children}
     </div>
   );
 }

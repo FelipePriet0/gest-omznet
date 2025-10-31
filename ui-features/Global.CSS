@@ -1,0 +1,218 @@
+## 📘 Propósito do Documento
+
+Este documento define **as regras visuais principais** do software da MZNET.
+
+Tudo aqui é pensado para garantir **coerência, leveza e escalabilidade** na interface.
+
+Ao ler, imagine que este arquivo é o “DNA visual” do sistema.
+
+---
+
+## 1️⃣ Tokens (a fonte da verdade)
+
+Os **tokens** são as variáveis-base do design.
+
+Eles definem **cores, tipografia, espaçamento, sombras e movimento**.
+
+Toda interface nasce dessas variáveis — e se algo mudar aqui, **o design inteiro se adapta.**
+
+### 🎨 Paleta de cores
+
+| Nome | Cor |  |
+| --- | --- | --- |
+| Primária | `#018942` | Verde |
+| Secundária | `#000000` | Preto |
+| Neutro | `#bdbdbd` | Cinza |
+| Branco | `#ffffff` | Branco |
+| Gradient Linear | `#018942` + `#000000` | Gradiente |
+| Red  | `#ef4444` | Vermelho |
+
+### 🅰️ Tipografia (fonte base)
+
+- Família única: **Poppins**
+- Pesos disponíveis: `400, 500, 600, 700, 800`
+- Usada em **tudo**: títulos, botões, cards, inputs e textos corridos.
+
+### 🔠 Estilos tipográficos (variantes T)
+
+| Código | Nome comum | Uso principal | Tamanho | Peso | Espaçamento |
+| --- | --- | --- | --- | --- | --- |
+| **T1** | Título Principal | Títulos de página | 36–48 px (clamp) | 800 | -0.02em |
+| **T2** | Subtítulo | Cabeçalhos internos | 30 px | 700 | -0.01em |
+| **T4** | Subtexto / Placeholder | Campos e modais | 16 px | 600 | 0 |
+| **T8** | Label / Microtexto | Nomes de campo e legendas | 14 px | 500 | 0 |
+
+### 🧱 Espaçamentos
+
+| Nome | Valor | Uso |
+| --- | --- | --- |
+| sp-1 | 4 px | pequenos respiros |
+| sp-2 | 8 px | margens e ícones |
+| sp-3 | 12 px | textos curtos |
+| sp-4 | 16 px | espaçamento padrão |
+| sp-6 | 24 px | blocos |
+| sp-8 | 32 px | seções grandes |
+
+### 🟢 Radius (bordas arredondadas)
+
+| Token | Valor | Aplicação |
+| --- | --- | --- |
+| radius-md | 12 px | inputs e chips |
+| radius-lg | 16 px | botões |
+| radius-xl | 20 px | cards e modais |
+| radius-pill | 9999 px | botões ovais |
+
+### ☁️ Sombras
+
+| Token | Efeito |
+| --- | --- |
+| shadow-sm | Suave, para elementos leves |
+| shadow-md | Padrão, para botões e modais |
+| shadow-lg | Destaque, para cards flutuantes |
+
+### ⚡ Motion
+
+- **Curva de movimento:** `cubic-bezier(.2,.8,.2,1)`
+    
+    → Acelera suave, desacelera suave.
+    
+- **Durações:** rápidas (180 ms) e normais (240 ms).
+
+---
+
+## 2️⃣ Tipografia semântica (usos reais)
+
+| Elemento | Significado | Onde usar |
+| --- | --- | --- |
+| **`<h1>`** | Título de página | “Kanban Comercial”, “Painel de Análise” |
+| **`<h2>`** | Subtítulo de bloco | “Minhas Fichas”, “Histórico” |
+| **`<h4>`** | Placeholder / Subtexto | Explicações curtas em modais e inputs |
+| **`<h8>`** | Label / Microtexto | Nomes de campo e pequenas legendas |
+| **`<p>`** | Texto corrido | Explicações ou parágrafos gerais |
+
+💡 Cada tipo já vem com tamanho, peso e cor definidos.
+
+Mudar **T1** em um único ponto atualiza todos os h1 e botões associados.
+
+---
+
+## 3️⃣ Classes “font-only” (herança de tipografia)
+
+Essas classes servem para **reaplicar estilos tipográficos sem duplicar código.**
+
+Use-as para que qualquer elemento (botão, link, texto) “herde” o mesmo visual.
+
+| Classe | Descrição | Exemplo de uso |
+| --- | --- | --- |
+| `.as-t1` | Aplica o estilo de título principal | Botões CTA |
+| `.as-t2` | Aplica o estilo de subtítulo | Cards de seção |
+| `.as-t4` | Aplica o estilo de placeholder | Textos auxiliares |
+| `.as-t8` | Aplica o estilo de label | Inputs e formulários |
+
+---
+
+## 4️⃣ Botões
+
+### Estrutura geral
+
+Todos os botões seguem 3 camadas de estilo:
+
+| Nível | Nome | O que faz |
+| --- | --- | --- |
+| **`.btn`** | Base | Define forma, espaçamento e animação |
+| **`.btn-cta`** | Variante principal | Pinta com a cor de marca |
+| **`.btn--as-t1`** | Herda a tipografia do T1 | Deixa o CTA com a “voz” dos títulos |
+
+### Exemplo prático
+
+```html
+<button class="btn btn-cta btn--as-t1">Salvar</button>
+
+```
+
+> Mudar T1 no global.css altera todos os botões CTA automaticamente.
+> 
+
+### Modo de herança por página
+
+Se quiser que **toda a página** use T1 em seus botões:
+
+```html
+<section class="uses-t1">
+  <h1>Kanban Comercial</h1>
+  <button class="btn btn-cta">Salvar</button>
+</section>
+
+```
+
+A classe `.uses-t1` faz qualquer botão dentro dela herdar T1.
+
+---
+
+## 5️⃣ Inputs e Labels (padrão MZNET)
+
+| Elemento | Classe | Função |
+| --- | --- | --- |
+| **Input** | `.input-mz` | Campos de texto com borda cinza clara, foco verde |
+| **Label** | `.label-std` | Nome do campo (14 px, peso 500, cor cinza escuro) |
+
+### Exemplo
+
+```html
+<label class="label-std">Nome completo *</label>
+<input class="input-mz" placeholder="Digite seu nome" />
+
+```
+
+Quando o campo está focado, o contorno fica verde e o fundo levemente realçado.
+
+---
+
+## 6️⃣ Cards interativos
+
+Os cards seguem um **padrão de seleção visual leve e fluido**.
+
+| Classe | Função |
+| --- | --- |
+| `.card-select` | Estrutura geral do card |
+| `.card-select__header` | Cabeçalho com ícone e título |
+| `.card-select__icon` | Ícone dentro do card (com cor e fundo) |
+| `.card-select__title` | Título do card (negrito, 18 px) |
+| `.card-select__desc` | Descrição curta (14 px, cinza) |
+| `.card-select__chevron` | Ícone lateral com movimento |
+
+💡 Efeitos visuais:
+
+- Ao passar o mouse, a borda fica verde, o card sobe levemente e ganha sombra.
+- O ícone cresce e o título muda de cor.
+
+---
+
+## 7️⃣ Filosofia geral do Design System
+
+1. **Tudo nasce dos tokens** – cores, tamanhos, pesos, radius, etc.
+2. **Nenhum componente tem cor fixa.** Tudo lê variáveis (`var(--nome)`).
+3. **As tipografias são herdáveis** – mudar um estilo (T1/T2/T4/T8) reflete em todos.
+4. **A consistência é mais importante que o detalhe.**
+5. **Documentação viva:** qualquer mudança neste arquivo deve vir com explicação clara no Notion.
+
+---
+
+## 8️⃣ Em resumo (mental model)
+
+```
+Tokens (cores, tamanhos, tipografia)
+        ↓
+Classes base (.btn, .input-mz, .card-select)
+        ↓
+Variedades semânticas (.as-t1, .as-t2, .uses-t1)
+        ↓
+Componentes visuais (botões, inputs, cards, modais)
+        ↓
+Páginas e features (Kanban, Tarefas, Perfil)
+
+```
+
+Troque **um token** → o sistema inteiro se adapta.
+
+Nenhum redesign precisa começar do zero.

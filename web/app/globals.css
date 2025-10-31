@@ -3,6 +3,38 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* MZNET Design System Tokens */
+  --verde-primario: #018942;
+  --preto: #000000;
+  --cinza: #bdbdbd;
+  --branco: #ffffff;
+  --vermelho: #ef4444;
+  
+  /* Tipografia */
+  --t1-size: clamp(36px, 5vw, 48px);
+  --t2-size: 30px;
+  --t4-size: 16px;
+  --t8-size: 14px;
+  
+  /* Espaçamentos */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  
+  /* Radius */
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
+  
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.15);
 }
 
 @theme inline {
@@ -10,6 +42,20 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  /* Cores MZNET */
+  --color-emerald-600: var(--verde-primario);
+  --color-emerald-700: #016835;
+  --color-zinc-900: var(--preto);
+  --color-zinc-800: #27272a;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-600: #52525b;
+  --color-zinc-500: #71717a;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-50: #fafafa;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -79,4 +125,83 @@ body {
 
 .kanban-card:hover {
   box-shadow: 0 0 40px hsl(149 80% 40% / 0.35);
+}
+
+/* Animações para Login */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0px);
+  }
+}
+
+@keyframes slideRightIn {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateX(0px);
+  }
+}
+
+.animate-element {
+  opacity: 0;
+  animation: fadeSlideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-right {
+  opacity: 0;
+  animation: slideRightIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-delay-100 {
+  animation-delay: 100ms;
+}
+
+.animate-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animate-delay-300 {
+  animation-delay: 300ms;
+}
+
+.animate-delay-400 {
+  animation-delay: 400ms;
+}
+
+.animate-delay-500 {
+  animation-delay: 500ms;
+}
+
+.animate-delay-600 {
+  animation-delay: 600ms;
+}
+
+.animate-delay-1000 {
+  animation-delay: 1000ms;
+}
+
+/* Pulse animation personalizada */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
