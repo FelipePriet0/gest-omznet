@@ -92,7 +92,7 @@ export default function PerfilPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#bdbdbd]">
+      <div className="flex items-center justify-center min-h-screen bg-[#e4e4e4]">
         <div className="text-center space-y-3">
           <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-sm text-zinc-600">Carregando seu perfil...</p>
@@ -102,7 +102,7 @@ export default function PerfilPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#bdbdbd]">
+    <div className="min-h-screen bg-[#e4e4e4]">
       {/* Content Section */}
       <div className="max-w-3xl mx-auto pt-8 pb-12 px-8 md:px-12 lg:px-16">
           {/* Profile Header Card */}
