@@ -154,15 +154,15 @@ const FilterIcon = ({
 }) => {
   switch (type) {
     case FilterType.AREA:
-      return <MapPin className="size-3.5" />;
+      return <MapPin className="size-4 text-muted-foreground" />;
     case FilterType.RESPONSAVEL:
-      return <UserCircle className="size-3.5" />;
+      return <UserCircle className="size-4 text-muted-foreground" />;
     case FilterType.PRAZO:
-      return <Calendar className="size-3.5" />;
+      return <Calendar className="size-4 text-muted-foreground" />;
     case FilterType.HORARIO:
-      return <Clock className="size-3.5" />;
+      return <Clock className="size-4 text-muted-foreground" />;
     case FilterType.ATRIBUIDAS:
-      return <Tag className="size-3.5" />;
+      return <Tag className="size-4 text-muted-foreground" />;
     case Area.COMERCIAL:
       return <div className="bg-blue-400 rounded-full size-2.5" />;
     case Area.ANALISE:
@@ -307,7 +307,7 @@ const FilterOperatorDropdown = ({
       <DropdownMenuTrigger className="bg-muted hover:bg-muted/50 px-1.5 py-1 text-muted-foreground hover:text-primary transition shrink-0">
         {operator}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-fit min-w-fit">
+      <DropdownMenuContent align="start" className="w-fit min-w-fit bg-white border-0 shadow-lg rounded-lg">
         {operators.map((operator) => (
           <DropdownMenuItem
             key={operator}
@@ -374,12 +374,12 @@ const FilterValueCombobox = ({
             : `${filterValues?.length} selecionados`}
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className="w-[200px] p-0 bg-white border-0 shadow-lg rounded-lg">
         <AnimateChangeInHeight>
-          <Command>
+          <Command className="rounded-lg">
             <CommandInput
               placeholder={filterType}
-              className="h-9"
+              className="h-9 !border-0 !border-b-0"
               value={commandInput}
               onInputCapture={(e) => {
                 setCommandInput(e.currentTarget.value);

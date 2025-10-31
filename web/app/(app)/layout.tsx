@@ -6,7 +6,6 @@ import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/s
 import { LayoutGrid, CheckSquare, History, UserCircle } from "lucide-react";
 import { Logo, LogoIcon } from "@/components/app/sidebar-logo";
 import { SidebarUser } from "@/components/app/sidebar-user";
-import { SidebarNovaFicha } from "@/components/app/sidebar-nova-ficha";
 import { motion } from "framer-motion";
 
 function SidebarContent() {
@@ -39,9 +38,6 @@ function SidebarContent() {
     <SidebarBody className="justify-between gap-10">
       <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
         {open ? <Logo /> : <LogoIcon />}
-        <div className="mt-6">
-          <SidebarNovaFicha />
-        </div>
         <div className="mt-6 flex flex-col gap-2">
           {links.map((link, idx) => (
             <SidebarLink key={idx} link={link} />

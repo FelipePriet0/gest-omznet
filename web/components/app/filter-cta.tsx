@@ -66,39 +66,39 @@ export function FilterCTA() {
       >
         <PopoverTrigger asChild>
           <Button
-            variant="secondary"
+            variant="ghost"
             role="combobox"
             aria-expanded={open}
             size="sm"
             className={cn(
-              "transition group h-6 text-xs items-center rounded-sm flex gap-1.5",
+              "transition-all duration-200 group h-6 text-xs items-center rounded-sm flex gap-1.5 hover:bg-neutral-100 hover:text-neutral-700",
               filters.length > 0 && "w-6"
             )}
           >
-            <ListFilter className="size-3 shrink-0 transition-all text-muted-foreground group-hover:text-primary" />
-            {filters.length === 0 && "Filter"}
+            <ListFilter className="size-3 shrink-0 transition-all text-muted-foreground group-hover:text-neutral-700" />
+            {filters.length === 0 && "Filtros"}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0">
+        <PopoverContent className="w-[200px] p-0 bg-white border-0 shadow-lg rounded-lg">
           <AnimateChangeInHeight>
-            <Command>
+            <Command className="rounded-lg">
               <CommandInput
-                placeholder={selectedView ? selectedView : "Filtrar..."}
-                className="h-9"
+                placeholder="Filtros..."
+                className="h-9 !border-0 !border-b-0"
                 value={commandInput}
                 onInputCapture={(e) => {
                   setCommandInput(e.currentTarget.value);
                 }}
                 ref={commandInputRef}
               />
-              <CommandList>
+              <CommandList className="p-1">
                 <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
                 {selectedView ? (
-                  <CommandGroup>
+                  <CommandGroup className="p-0">
                     {filterViewToFilterOptions[selectedView].map(
                       (filter: FilterOption) => (
                         <CommandItem
-                          className="group text-muted-foreground flex gap-2 items-center"
+                          className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
                           key={filter.name}
                           value={filter.name}
                           onSelect={(currentValue) => {
@@ -119,7 +119,7 @@ export function FilterCTA() {
                           }}
                         >
                           {filter.icon}
-                          <span className="text-accent-foreground">
+                          <span className="text-sm font-medium">
                             {filter.name}
                           </span>
                           {filter.label && (
@@ -132,34 +132,25 @@ export function FilterCTA() {
                     )}
                   </CommandGroup>
                 ) : (
-                  filterViewOptions.map(
-                    (group: FilterOption[], index: number) => (
-                      <React.Fragment key={index}>
-                        <CommandGroup>
-                          {group.map((filter: FilterOption) => (
-                            <CommandItem
-                              className="group text-muted-foreground flex gap-2 items-center"
-                              key={filter.name}
-                              value={filter.name}
-                              onSelect={(currentValue) => {
-                                setSelectedView(currentValue as FilterType);
-                                setCommandInput("");
-                                commandInputRef.current?.focus();
-                              }}
-                            >
-                              {filter.icon}
-                              <span className="text-accent-foreground">
-                                {filter.name}
-                              </span>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                        {index < filterViewOptions.length - 1 && (
-                          <CommandSeparator />
-                        )}
-                      </React.Fragment>
-                    )
-                  )
+                  <CommandGroup className="p-0">
+                    {filterViewOptions.flat().map((filter: FilterOption) => (
+                      <CommandItem
+                        className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
+                        key={filter.name}
+                        value={filter.name}
+                        onSelect={(currentValue) => {
+                          setSelectedView(currentValue as FilterType);
+                          setCommandInput("");
+                          commandInputRef.current?.focus();
+                        }}
+                      >
+                        {filter.icon}
+                        <span className="text-sm font-medium">
+                          {filter.name}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
                 )}
               </CommandList>
             </Command>

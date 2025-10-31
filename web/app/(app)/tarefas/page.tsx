@@ -2,6 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { TaskFilterCTA } from "@/components/app/task-filter-cta";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { useState as useModalState } from "react";
+import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonTypeModal";
+import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
+import type { PessoaTipo } from "@/features/cadastro/types";
 
 type TaskRow = {
   id: string;
@@ -24,6 +31,11 @@ export default function MinhasTarefasPage() {
   const [due, setDue] = useState<'all'|'hoje'|'amanha'|'atrasado'|'intervalo'>('all');
   const [ds, setDs] = useState('');
   const [de, setDe] = useState('');
+  
+  // Nova ficha modals
+  const [openPersonType, setOpenPersonType] = useModalState(false);
+  const [openBasicInfo, setOpenBasicInfo] = useModalState(false);
+  const [tipoSel, setTipoSel] = useModalState<PessoaTipo | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -60,59 +72,34 @@ export default function MinhasTarefasPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl bg-gradient-to-r from-emerald-800 to-emerald-600 px-6 py-5 text-white shadow">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Minhas Tarefas</h1>
-            <p className="text-sm text-white/90">Acompanhe e conclua suas tarefas</p>
-          </div>
-        </div>
-      </section>
-
-      <div className="rounded-xl border bg-white p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700">Busca</label>
-            <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Descrição ou nome do cliente" className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
-            <select value={status} onChange={(e)=> setStatus(e.target.value as any)} className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500">
-              <option value="all">Todos</option>
-              <option value="pending">Pendentes</option>
-              <option value="completed">Concluídas</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700">Prazo</label>
-            <select value={due} onChange={(e)=> setDue(e.target.value as any)} className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500">
-              <option value="all">Todos</option>
-              <option value="hoje">Hoje</option>
-              <option value="amanha">Amanhã</option>
-              <option value="atrasado">Atrasadas</option>
-              <option value="intervalo">Intervalo</option>
-            </select>
-          </div>
-          {due==='intervalo' && (
-            <div className="flex items-end gap-2">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">De</label>
-                <input type="date" value={ds} onChange={(e)=> setDs(e.target.value)} className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Até</label>
-                <input type="date" value={de} onChange={(e)=> setDe(e.target.value)} className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500" />
-              </div>
-            </div>
-          )}
-          <div className="ml-auto">
-            <button disabled={loading} onClick={load} className="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Aplicar</button>
-          </div>
-        </div>
+    <>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Minhas Tarefas</h1>
       </div>
 
-      <div className="rounded-xl border bg-white">
+      <div className="relative">
+        <div className="absolute top-0 left-0 z-10">
+          <TaskFilterCTA 
+            q={q} setQ={setQ}
+            status={status} setStatus={setStatus}
+            due={due} setDue={setDue}
+            ds={ds} setDs={setDs}
+            de={de} setDe={setDe}
+            onApply={load}
+            loading={loading}
+          />
+        </div>
+        <div className="absolute top-0 right-0 z-10">
+          <Button
+            onClick={() => setOpenPersonType(true)}
+            className="h-6 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Plus className="size-3 mr-1" />
+            Nova ficha
+          </Button>
+        </div>
+        <div className="pt-12">
+          <div className="rounded-xl border bg-white">
         <div className="border-b px-4 py-2 text-sm font-semibold text-gray-800">Tarefas</div>
         <div className="divide-y">
           {items.length===0 ? (
@@ -135,14 +122,39 @@ export default function MinhasTarefasPage() {
                 <div className="text-sm">{t.status==='completed' ? 'Concluída' : 'Pendente'}</div>
               </div>
               <div className="sm:col-span-2 flex justify-end gap-2">
-                <a href={`${(t.area||'analise')==='analise' ? '/kanban/analise' : '/kanban'}?card=${t.card_id}`} className="rounded border border-zinc-300 px-3 py-1.5 text-sm">Abrir Ficha</a>
-                <button onClick={()=> remove(t.id)} className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700">Excluir</button>
+                <a href={`${(t.area||'analise')==='analise' ? '/kanban/analise' : '/kanban'}?card=${t.card_id}`} className="rounded-md border border-gray-200 px-3 py-1.5 text-sm hover:bg-gray-50 transition-colors">Abrir Ficha</a>
+                <button onClick={()=> remove(t.id)} className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors">Excluir</button>
               </div>
             </div>
           ))}
+          </div>
+        </div>
         </div>
       </div>
-    </div>
+      
+      {/* Modals de Cadastro */}
+      <PersonTypeModal
+        open={openPersonType}
+        onClose={() => setOpenPersonType(false)}
+        onSelect={(tipo) => {
+          setTipoSel(tipo);
+          setOpenPersonType(false);
+          setOpenBasicInfo(true);
+        }}
+      />
+      <BasicInfoModal
+        open={openBasicInfo}
+        tipo={tipoSel}
+        onBack={() => {
+          setOpenBasicInfo(false);
+          setOpenPersonType(true);
+        }}
+        onClose={() => {
+          setOpenBasicInfo(false);
+          setTipoSel(null);
+        }}
+      />
+    </>
   );
 }
 
