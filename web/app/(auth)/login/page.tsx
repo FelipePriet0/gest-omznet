@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, clearStaleSupabaseSession } from '@/lib/supabaseClient';
@@ -25,7 +26,6 @@ export default function LoginPage() {
     const form = new FormData(e.currentTarget);
     const email = String(form.get('email') || '').trim();
     const password = String(form.get('password') || '');
-    const rememberMe = !!form.get('rememberMe');
 
     try {
       // Opcional: limpar sessão antiga quebrada
@@ -94,31 +94,21 @@ export default function LoginPage() {
                       className="absolute inset-y-0 right-3 flex items-center"
                       aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                     >
-                      <span className="text-xs text-black/80 hover:text-black/70">
-                        {showPassword ? 'Ocultar' : 'Mostrar'}
-                      </span>
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5 text-black hover:text-black/70 transition-colors" />
+                      ) : (
+                        <Eye className="w-5 h-5 text-black hover:text-black/70 transition-colors" />
+                      )}
                     </button>
                   </div>
                 </GlassInputWrapper>
-              </div>
-
-              {/* Remember Me */}
-              <div className="animate-element animate-delay-500 flex items-center justify-end text-sm">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    name="rememberMe" 
-                    className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-600/20 cursor-pointer transition-all"
-                  />
-                  <span className="text-zinc-300">Manter-me conectado</span>
-                </label>
               </div>
 
               {/* Botão Entrar */}
               <button 
                 type="submit" 
                 disabled={isLoading}
-                className="animate-element animate-delay-600 w-full rounded-2xl bg-emerald-600 py-4 font-semibold text-white hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+                className="animate-element animate-delay-500 w-full rounded-2xl bg-emerald-600 py-4 font-semibold text-white hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
               >
                 {isLoading ? 'Entrando...' : 'Entrar'}
               </button>
