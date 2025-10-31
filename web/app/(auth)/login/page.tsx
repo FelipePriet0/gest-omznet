@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, clearStaleSupabaseSession } from '@/lib/supabaseClient';
@@ -95,11 +94,9 @@ export default function LoginPage() {
                       className="absolute inset-y-0 right-3 flex items-center"
                       aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                     >
-                      {showPassword ? (
-                        <EyeOff className="w-5 h-5 text-black hover:text-black/70 transition-colors" />
-                      ) : (
-                        <Eye className="w-5 h-5 text-black hover:text-black/70 transition-colors" />
-                      )}
+                      <span className="text-xs text-black/80 hover:text-black/70">
+                        {showPassword ? 'Ocultar' : 'Mostrar'}
+                      </span>
                     </button>
                   </div>
                 </GlassInputWrapper>
