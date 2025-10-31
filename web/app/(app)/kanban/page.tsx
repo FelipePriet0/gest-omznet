@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { KanbanBoard } from "@/legacy/components/kanban/components/KanbanBoard";
-import { FilterBar } from "@/legacy/components/kanban/components/FilterBar";
+import { FilterCTA } from "@/components/app/filter-cta";
 import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
 
 export default function KanbanPage() {
@@ -44,9 +44,13 @@ export default function KanbanPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Kanban Comercial</h1>
       </div>
-      <FilterBar />
-      <div className="mt-6">
-        <KanbanBoard hora={hora as any} prazo={prazo} date={date} openCardId={openCardId} />
+      <div className="relative">
+        <div className="absolute top-0 left-0 z-10">
+          <FilterCTA />
+        </div>
+        <div className="pt-12">
+          <KanbanBoard hora={hora as any} prazo={prazo} date={date} openCardId={openCardId} />
+        </div>
       </div>
     </>
   );
