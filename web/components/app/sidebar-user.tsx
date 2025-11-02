@@ -11,8 +11,8 @@ interface SidebarUserProps {
 
 export const SidebarUser = ({ name = "Usuário", email, avatar }: SidebarUserProps) => {
   return (
-    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer">
-      <div className="h-8 w-8 rounded-full bg-neutral-300 dark:bg-neutral-600 flex items-center justify-center flex-shrink-0 overflow-hidden">
+    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/20 transition-colors cursor-pointer">
+      <div className="h-8 w-8 rounded-full bg-white/30 flex items-center justify-center flex-shrink-0 overflow-hidden">
         {avatar ? (
           <Image 
             src={avatar} 
@@ -22,15 +22,15 @@ export const SidebarUser = ({ name = "Usuário", email, avatar }: SidebarUserPro
             className="object-cover"
           />
         ) : (
-          <User className="h-4 w-4 text-neutral-600 dark:text-neutral-300" />
+          <User className="h-4 w-4 text-white" />
         )}
       </div>
       <div className="flex flex-col overflow-hidden">
-        <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">
+        <span className="text-sm font-medium text-white truncate">
           {name}
         </span>
         {email && (
-          <span className="text-xs text-neutral-600 dark:text-neutral-400 truncate">
+          <span className="text-xs text-white/80 truncate">
             {email}
           </span>
         )}
