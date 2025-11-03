@@ -11,6 +11,7 @@ import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonT
 import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
 import type { PessoaTipo } from "@/features/cadastro/types";
 import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
+import { getKanbanDashboard, KanbanDashboard } from "@/features/kanban/services";
 
 export default function KanbanPage() {
   const [loading, setLoading] = useState(true);
@@ -20,6 +21,7 @@ export default function KanbanPage() {
   const prazo = (sp.get("prazo") as any) || undefined;
   const date = sp.get("data") || undefined;
   const openCardId = sp.get("card") || undefined;
+  const [dash, setDash] = useState<KanbanDashboard | null>(null);
   
   // Nova ficha modals
   const [openPersonType, setOpenPersonType] = useModalState(false);
@@ -37,6 +39,13 @@ export default function KanbanPage() {
           return;
         }
         setLoading(false);
+        // Carrega dashboard Comercial (backend-first)
+        try {
+          const d = await getKanbanDashboard('comercial');
+          if (mounted) setDash(d);
+        } catch (e) {
+          console.error('Falha ao carregar dashboard_kanban_counts(comercial):', e);
+        }
       } catch {
         clearStaleSupabaseSession();
       }
@@ -69,12 +78,10 @@ export default function KanbanPage() {
         <div className="pt-12">
           {/* Cards de dashboard (placeholder) */}
           <div className="grid grid-cols-4 gap-3 sm:gap-4 md:gap-6 w-full">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[200px] w-full bg-white rounded-[12px] border border-zinc-200 shadow-sm"
-              />
-            ))}
+            <DashboardCard title="Fichas feitas" value={dash?.feitasAguardando} />
+            <DashboardCard title="Canceladas" value={dash?.canceladas} />
+            <DashboardCard title="Concluídas" value={dash?.concluidas} />
+            <DashboardCard title="Atrasadas" value={dash?.atrasadas} highlight />
           </div>
           {/* Espaçamento igual ao usado entre filtros/CTA e colunas */}
           <div className="mt-12">
@@ -106,5 +113,16 @@ export default function KanbanPage() {
         }}
       />
     </>
+  );
+}
+
+function DashboardCard({ title, value, highlight }: { title: string; value?: number | null; highlight?: boolean }) {
+  return (
+    <div className={["h-[200px] w-full rounded-[12px] border shadow-sm p-4 flex flex-col justify-between",
+      highlight ? "bg-red-50 border-red-200" : "bg-white border-zinc-200"].join(" ")}
+    >
+      <div className="text-sm text-zinc-600">{title}</div>
+      <div className="text-4xl font-bold text-zinc-900">{typeof value === 'number' ? value : '—'}</div>
+    </div>
   );
 }

@@ -50,19 +50,19 @@ export function Breadcrumbs() {
       {items.map((it, idx) => (
         <React.Fragment key={it.href}>
           {it.isLast ? (
-            <span className="text-h2 font-semibold text-[var(--color-primary)] truncate">
+            <span className="text-h4 font-semibold text-[var(--color-primary)] truncate">
               {it.label}
             </span>
           ) : (
             <Link
               href={it.href}
-              className="text-h2 font-semibold text-[color-mix(in oklab, var(--color-primary) 70%, black)] hover:underline truncate"
+              className="text-h4 font-semibold text-[color-mix(in oklab, var(--color-primary) 70%, black)] hover:underline truncate"
             >
               {it.label}
             </Link>
           )}
           {idx < items.length - 1 && (
-            <span className="text-h2 font-semibold text-[var(--color-primary)] opacity-60">/</span>
+            <span className="text-h4 font-semibold text-[var(--color-primary)] opacity-60">/</span>
           )}
         </React.Fragment>
       ))}

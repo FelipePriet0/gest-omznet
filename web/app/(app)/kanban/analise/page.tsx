@@ -11,6 +11,7 @@ import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonT
 import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
 import type { PessoaTipo } from "@/features/cadastro/types";
 import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
+import { getKanbanDashboard, KanbanDashboard } from "@/features/kanban/services";
 
 export default function KanbanAnalisePage() {
   const [loading, setLoading] = useState(true);
@@ -20,6 +21,7 @@ export default function KanbanAnalisePage() {
   const prazo = (sp.get('prazo') as any) || undefined;
   const date = sp.get('data') || undefined;
   const openCardId = sp.get('card') || undefined;
+  const [dash, setDash] = useState<KanbanDashboard | null>(null);
   
   // Nova ficha modals
   const [openPersonType, setOpenPersonType] = useModalState(false);
@@ -37,6 +39,11 @@ export default function KanbanAnalisePage() {
           return;
         }
         setLoading(false);
+        // Carrega dashboard Análise (backend-first)
+        try {
+          const d = await getKanbanDashboard('analise');
+          if (mounted) setDash(d);
+        } catch {}
       } catch {
         clearStaleSupabaseSession();
       }
@@ -67,14 +74,13 @@ export default function KanbanAnalisePage() {
           </Button>
         </div>
         <div className="pt-12">
-          {/* Cards de dashboard (placeholder) */}
+          {/* Cards de dashboard (dados reais) */}
           <div className="grid grid-cols-5 gap-3 sm:gap-4 md:gap-6 w-full">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[200px] w-full bg-white rounded-[12px] border border-zinc-200 shadow-sm"
-              />
-            ))}
+            <DashboardCard title="Recebidos" value={dash?.recebidos} />
+            <DashboardCard title="Em análise" value={dash?.emAnalise} />
+            <DashboardCard title="Reanálise" value={dash?.reanalise} />
+            <DashboardCard title="Finalizados" value={dash?.finalizados} />
+            <DashboardCard title="Canceladas" value={dash?.analiseCanceladas} />
           </div>
           {/* Espaçamento igual ao usado entre filtros/CTA e colunas */}
           <div className="mt-12">
@@ -106,5 +112,16 @@ export default function KanbanAnalisePage() {
         }}
       />
     </>
+  );
+}
+
+function DashboardCard({ title, value, highlight }: { title: string; value?: number | null; highlight?: boolean }) {
+  return (
+    <div className={["h-[200px] w-full rounded-[12px] border shadow-sm p-4 flex flex-col justify-between",
+      highlight ? "bg-red-50 border-red-200" : "bg-white border-zinc-200"].join(" ")}
+    >
+      <div className="text-sm text-zinc-600">{title}</div>
+      <div className="text-4xl font-bold text-zinc-900">{typeof value === 'number' ? value : '—'}</div>
+    </div>
   );
 }
