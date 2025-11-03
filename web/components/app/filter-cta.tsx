@@ -29,6 +29,22 @@ import {
   filterViewOptions,
   filterViewToFilterOptions,
 } from "@/components/ui/filters";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+// Mapeamentos entre labels de Prazo e valores usados na URL
+const PrazoUrlMap: Record<string, string> = {
+  "Agendada para hoje": "hoje",
+  "Agendada para amanhã": "amanha",
+  "Atrasado": "atrasado",
+  "Escolher data": "data",
+};
+
+const UrlPrazoToLabel: Record<string, string> = {
+  hoje: "Agendada para hoje",
+  amanha: "Agendada para amanhã",
+  atrasado: "Atrasado",
+  data: "Escolher data",
+};
 
 export function FilterCTA() {
   const [open, setOpen] = React.useState(false);
@@ -38,16 +54,104 @@ export function FilterCTA() {
   const [commandInput, setCommandInput] = React.useState("");
   const commandInputRef = React.useRef<HTMLInputElement>(null);
   const [filters, setFilters] = React.useState<Filter[]>([]);
+  const [customDate, setCustomDate] = React.useState<string>("");
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Inicializa a UI a partir da URL (?hora, ?prazo, ?data)
+  React.useEffect(() => {
+    const initial: Filter[] = [];
+    const hora = searchParams.get("hora");
+    const prazo = searchParams.get("prazo");
+    const data = searchParams.get("data") || "";
+
+    if (hora) {
+      initial.push({
+        id: "hora",
+        type: FilterType.HORARIO,
+        operator: FilterOperator.IS,
+        value: [hora.length === 5 ? hora : hora.slice(0, 5)],
+      });
+    }
+
+    if (prazo && UrlPrazoToLabel[prazo]) {
+      initial.push({
+        id: "prazo",
+        type: FilterType.PRAZO,
+        operator: FilterOperator.IS,
+        value: [UrlPrazoToLabel[prazo]],
+      });
+    }
+    setCustomDate(data);
+    setFilters(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Aplica efeitos dos filtros na URL (igual ao FilterBar antigo)
+  React.useEffect(() => {
+    const params = new URLSearchParams(searchParams?.toString());
+
+    // Hora (pega o primeiro valor caso o usuário selecione mais de um)
+    const horaFilter = filters.find((f) => f.type === FilterType.HORARIO);
+    const hora = horaFilter?.value?.[0];
+    if (hora) {
+      params.set("hora", hora);
+    } else {
+      params.delete("hora");
+    }
+
+    // Prazo/Data
+    const prazoFilter = filters.find((f) => f.type === FilterType.PRAZO);
+    const prazoLabel = prazoFilter?.value?.[0];
+    const prazoUrl = prazoLabel ? PrazoUrlMap[prazoLabel] : undefined;
+    if (prazoUrl) {
+      params.set("prazo", prazoUrl);
+      if (prazoUrl === "data") {
+        if (customDate) params.set("data", customDate);
+      } else {
+        // Se não é data específica, remove ?data
+        params.delete("data");
+      }
+    } else {
+      params.delete("prazo");
+      params.delete("data");
+    }
+
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [filters, customDate, router, pathname, searchParams]);
 
   return (
     <div className="flex gap-2 flex-wrap items-center">
       <Filters filters={filters} setFilters={setFilters} />
+      {/* Campo de data quando o filtro de Prazo = "Escolher data" estiver ativo */}
+      {filters.some((f) => f.type === FilterType.PRAZO && f.value?.includes("Escolher data")) && (
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={customDate}
+            onChange={(e) => setCustomDate(e.target.value)}
+            className="h-9 rounded-md border px-2 text-sm"
+          />
+        </div>
+      )}
       {filters.filter((filter) => filter.value?.length > 0).length > 0 && (
         <Button
           variant="outline"
           className="transition group h-9 text-sm items-center"
           style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
-          onClick={() => setFilters([])}
+          onClick={() => {
+            // Limpa filtros e URL (mantém outros params como ?card)
+            setFilters([]);
+            const params = new URLSearchParams(searchParams?.toString());
+            params.delete("hora");
+            params.delete("prazo");
+            params.delete("data");
+            const qs = params.toString();
+            router.replace(qs ? `${pathname}?${qs}` : pathname);
+          }}
         >
           Limpar
         </Button>
@@ -101,7 +205,12 @@ export function FilterCTA() {
                           className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1 command-item"
                           key={filter.name}
                           value={filter.name}
-                          onSelect={(currentValue) => {
+                        onSelect={(currentValue) => {
+                          // Área muda a rota; os demais entram como filtro
+                          if (selectedView === FilterType.AREA) {
+                            const toAnalise = String(currentValue).toLowerCase().includes("análise") || String(currentValue).toLowerCase().includes("analise");
+                            router.push(toAnalise ? "/kanban/analise" : "/kanban");
+                          } else {
                             setFilters((prev) => [
                               ...prev,
                               {
@@ -111,11 +220,12 @@ export function FilterCTA() {
                                 value: [currentValue],
                               },
                             ]);
-                            setTimeout(() => {
-                              setSelectedView(null);
-                              setCommandInput("");
-                            }, 200);
-                            setOpen(false);
+                          }
+                          setTimeout(() => {
+                            setSelectedView(null);
+                            setCommandInput("");
+                          }, 200);
+                          setOpen(false);
                           }}
                         >
                           {filter.icon}

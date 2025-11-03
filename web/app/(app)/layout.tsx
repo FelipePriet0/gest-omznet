@@ -68,14 +68,9 @@ function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <motion.div
-        animate={{ display: open ? "block" : "none", opacity: open ? 1 : 0 }}
-        transition={{ duration: 0.2 }}
-      >
-        <SidebarFooter>
-          <SidebarUser name="Usuário" email="usuario@mznet.com" />
-        </SidebarFooter>
-      </motion.div>
+      <SidebarFooter>
+        <SidebarUser />
+      </SidebarFooter>
     </SidebarBody>
   );
 }

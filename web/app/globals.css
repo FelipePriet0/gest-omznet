@@ -256,34 +256,75 @@ body {
 }
 
 .glass-title {
-  background: rgba(1, 137, 66, 0.15);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: none;
-  border-radius: 25px;
-  padding: 12px 24px;
+  background: linear-gradient(135deg, 
+    rgba(1, 137, 66, 0.25) 0%, 
+    rgba(1, 137, 66, 0.15) 50%, 
+    rgba(1, 137, 66, 0.3) 100%);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 28px;
+  padding: 16px 28px;
   position: relative;
   overflow: hidden;
   color: white !important;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+    0 8px 32px rgba(1, 137, 66, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-title h1 {
   color: white !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .glass-title::before {
   content: '';
   position: absolute;
   top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transition: left 0.5s;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.2) 0%, 
+    transparent 50%, 
+    rgba(255, 255, 255, 0.1) 100%);
+  border-radius: 28px;
+  pointer-events: none;
 }
 
-.glass-title:hover::before {
-  left: 100%;
+.glass-title::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, 
+    transparent 30%, 
+    rgba(255, 255, 255, 0.1) 50%, 
+    transparent 70%);
+  transform: rotate(-45deg);
+  transition: transform 0.6s ease;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.glass-title:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+    0 12px 40px rgba(1, 137, 66, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.glass-title:hover::after {
+  transform: rotate(-45deg) translate(50%, 50%);
+  opacity: 1;
 }
 
 /* Filter CTA Styling */
