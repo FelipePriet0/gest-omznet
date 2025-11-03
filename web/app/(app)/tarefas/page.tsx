@@ -73,9 +73,6 @@ export default function MinhasTarefasPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Minhas Tarefas</h1>
-      </div>
 
       <div className="relative">
         <div className="absolute top-0 left-0 z-10">

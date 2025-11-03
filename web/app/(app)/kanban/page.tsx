@@ -52,11 +52,6 @@ export default function KanbanPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
-        <div className="glass-title">
-          <h1 className="text-xl sm:text-2xl font-bold relative z-10">Kanban Comercial</h1>
-        </div>
-      </div>
       <div className="relative">
         <div className="absolute top-0 left-0 z-10">
           <FilterCTA />

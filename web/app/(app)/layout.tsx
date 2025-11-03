@@ -7,6 +7,7 @@ import { LayoutGrid, CheckSquare, History } from "lucide-react";
 import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
 import { motion } from "framer-motion";
+import Breadcrumbs from "@/components/app/Breadcrumbs";
 
 function AppSidebar() {
   const { open } = useSidebar();
@@ -98,8 +99,9 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
             }}
           >
             <main className="p-2 md:p-6 rounded-tl-3xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex flex-col gap-2 flex-1 w-full min-h-screen overflow-auto">
-              <div className="mb-2">
+              <div className="mb-2 flex items-center gap-3">
                 <SidebarTrigger className="hidden md:inline-flex" />
+                <Breadcrumbs />
               </div>
               {children}
             </main>
