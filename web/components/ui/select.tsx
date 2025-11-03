@@ -21,11 +21,7 @@ export function SimpleSelect({
   contentClassName,
   triggerStyle,
   contentStyle,
-  groups,
-  enableCtrlMergeHover,
-  onCtrlMergedSelect,
   overrideLabel,
-  showMergeButton,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -36,35 +32,15 @@ export function SimpleSelect({
   contentClassName?: string;
   triggerStyle?: React.CSSProperties;
   contentStyle?: React.CSSProperties;
-  groups?: string[][];
-  enableCtrlMergeHover?: boolean;
-  onCtrlMergedSelect?: (values: string[]) => void;
   overrideLabel?: string;
-  showMergeButton?: boolean;
 }) {
   const current = options.find((o) => getLabel(o).value === value) as SelectOption | undefined;
   const currentLabel = overrideLabel ?? (current ? getLabel(current).label : (value || placeholder || ""));
 
-  const [ctrl, setCtrl] = React.useState(false);
-  const [mergedHover, setMergedHover] = React.useState<string[] | null>(null);
-  const [open, setOpen] = React.useState(false);
-  React.useEffect(() => {
-    if (!enableCtrlMergeHover) return;
-    const onDown = (e: KeyboardEvent) => { if (e.key === 'Control') setCtrl(true); };
-    const onUp = (e: KeyboardEvent) => { if (e.key === 'Control') { setCtrl(false); setMergedHover(null); } };
-    window.addEventListener('keydown', onDown);
-    window.addEventListener('keyup', onUp);
-    return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp); };
-  }, [enableCtrlMergeHover]);
-
-  const gmap = React.useMemo(() => {
-    const m = new Map<string,string[]>();
-    (groups||[]).forEach(g => g.forEach(v => m.set(v, g)));
-    return m;
-  }, [groups]);
+  
 
   return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+    <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
@@ -96,7 +72,7 @@ export function SimpleSelect({
           )}
           style={contentStyle}
         >
-          <div className="max-h-[260px] overflow-auto p-1" onMouseLeave={() => setMergedHover(null)}>
+          <div className="max-h-[260px] overflow-auto p-1">
             {options.map((o, idx) => {
               const { label, value: val, disabled } = getLabel(o);
               if (!val || disabled) {
@@ -110,42 +86,14 @@ export function SimpleSelect({
               return (
                 <DropdownMenu.Item
                   key={val + idx}
-                  onMouseEnter={() => {
-                    if (enableCtrlMergeHover && ctrl && Array.isArray(groups) && groups.length > 0) {
-                      const g = groups.find(gp => gp.includes(val));
-                      setMergedHover(g || null);
-                    }
-                  }}
-                  onSelect={() => {
-                    if (enableCtrlMergeHover && ctrl && mergedHover && mergedHover.includes(val)) {
-                      // Mesclagem ativa: dispara seleção mesclada e NÃO chama onChange do item único
-                      onCtrlMergedSelect?.(mergedHover);
-                      setOpen(false);
-                      return;
-                    }
-                    // Seleção normal
-                    onChange(val);
-                  }}
+                  onSelect={() => { onChange(val); }}
                   className={cn(
                     "relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
                     "hover:bg-[var(--verde-primario)] hover:text-white",
-                    isActive ? "bg-emerald-50 text-emerald-700" : mergedHover?.includes(val) ? "bg-[var(--verde-primario)] text-white" : "text-zinc-800",
+                    isActive ? "bg-emerald-50 text-emerald-700" : "text-zinc-800",
                   )}
                 >
                   <span className="truncate">{label}</span>
-                  {showMergeButton && gmap.get(val) && (
-                    <button
-                      className="ml-auto text-[var(--verde-primario)] hover:underline"
-                      title="Mesclar horários"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const g = gmap.get(val)!;
-                        onCtrlMergedSelect?.(g);
-                        setOpen(false);
-                      }}
-                    >⇄</button>
-                  )}
                 </DropdownMenu.Item>
               );
             })}

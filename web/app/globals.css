@@ -1265,3 +1265,10 @@ input[placeholder*="Buscar"]::placeholder {
   box-shadow: none !important;
   outline: none !important;
 }
+[data-radix-popper-content-wrapper] .mz-time-popover .mz-time-item--active,
+[data-radix-popper-content-wrapper] .mz-time-popover .mz-time-item--active * {
+  color: white !important;
+}
+[data-radix-popper-content-wrapper] .mz-time-popover .mz-time-item--active .mz-time-checkbox {
+  border-color: white !important;
+}

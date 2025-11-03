@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarReady } from "@/components/ui/calendar-ready";
 import { SimpleSelect } from "@/components/ui/select";
+import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
 
 type AppModel = {
@@ -63,6 +64,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [app, setApp] = useState<AppModel>({});
   const [dueAt, setDueAt] = useState<string>("");
   const [horaAt, setHoraAt] = useState<string>("");
+  const [horaArr, setHoraArr] = useState<string[]>([]);
   const [createdAt, setCreatedAt] = useState<string>("");
   const [pareceres, setPareceres] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -108,10 +110,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
         setDueAt(c?.due_at ? (()=>{ const d=new Date(c.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; })() : "");
         if (Array.isArray((c as any)?.hora_at)) {
           const arr:any[] = (c as any).hora_at;
-          setHoraAt(arr[0] ? String(arr[0]).slice(0,5) : "");
-          if (arr.length > 1) setHoraOverride(arr.map(h=> String(h).slice(0,5)).join(' e '));
+          const list = arr.map(h => String(h).slice(0,5));
+          setHoraArr(list);
+          setHoraAt(list[0] || "");
         } else {
-          setHoraAt(c?.hora_at ? String(c.hora_at).slice(0,5) : "");
+          const v = c?.hora_at ? String(c.hora_at).slice(0,5) : "";
+          setHoraAt(v);
+          setHoraArr(v ? [v] : []);
         }
         setPareceres(Array.isArray(c?.reanalysis_notes) ? c!.reanalysis_notes as any : []);
         setCreatedBy((c as any)?.created_by || "");
@@ -143,8 +148,9 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             if (row.due_at) { const d=new Date(row.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); setDueAt(`${y}-${m}-${day}`); }
             if (row.hora_at) {
               const arr = Array.isArray(row.hora_at) ? row.hora_at : [row.hora_at];
-              setHoraAt(arr[0] ? String(arr[0]).slice(0,5) : "");
-              setHoraOverride(arr.length>1 ? arr.map((h:any)=> String(h).slice(0,5)).join(' e ') : "");
+              const list = arr.map((h:any)=> String(h).slice(0,5));
+              setHoraAt(list[0] || "");
+              setHoraArr(list);
             }
             if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
             if (typeof row.created_by !== 'undefined') setCreatedBy(row.created_by || "");
@@ -214,7 +220,6 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
   const horarios = ["08:30","10:30","13:30","15:30"];
   const statusText = useMemo(()=> saving==='saving'? 'Salvando…' : saving==='saved'? 'Salvo' : saving==='error'? 'Erro ao salvar' : '', [saving]);
-  const [horaOverride, setHoraOverride] = useState<string>("");
 
   // Helpers de máscara (sem restringir a entrada de texto)
   function digitsOnly(s: string) { return (s || '').replace(/\D+/g, ''); }
@@ -352,15 +357,17 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   value={dueAt}
                   onChange={(val)=> { setDueAt(val); queue('card','due_at', new Date(val).toISOString()); }}
                 />
-                <Select label="Horário" value={horaAt} onChange={(v)=>{ setHoraOverride(""); setHoraAt(v); queue('card','hora_at', v ? [`${v}:00`] : null); }} options={horarios as any}
-                  triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
-                  contentClassName="border-0 bg-white shadow-none"
-                  triggerStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
-                  contentStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
-                  groups={[["08:30","10:30"],["13:30","15:30"]]}
-                  enableCtrlMergeHover
-                  overrideLabel={horaOverride || undefined}
-                  onCtrlMergedSelect={(vals)=> { const txt = `${vals[0]} e ${vals[1]}`; setHoraOverride(txt); queue('card','hora_at', [`${vals[0]}:00`, `${vals[1]}:00`]); }}
+                <TimeMultiSelect
+                  label="Horário"
+                  times={horarios}
+                  value={horaArr}
+                  onApply={(vals)=> {
+                    setHoraArr(vals);
+                    setHoraAt(vals[0] || "");
+                    if (vals.length === 0) queue('card','hora_at', null);
+                    else queue('card','hora_at', vals.map(v=> `${v}:00`));
+                  }}
+                  allowedPairs={[['08:30','10:30'],['13:30','15:30']]}
                 />
               </Grid>
             </Section>
