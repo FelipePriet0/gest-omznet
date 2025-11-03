@@ -1,37 +1,37 @@
 "use client";
 
 import * as React from "react";
-import { DayPicker } from "react-day-picker";
-import "react-day-picker/dist/style.css";
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+export interface CalendarProps {
+  selected?: Date;
+  onSelect?: (date: Date | undefined) => void;
+  className?: string;
+}
 
-export function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+export function Calendar({ selected, onSelect, className }: CalendarProps) {
+  const value = React.useMemo(() => {
+    if (!selected) return "";
+    const y = selected.getFullYear();
+    const m = String(selected.getMonth() + 1).padStart(2, "0");
+    const d = String(selected.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, [selected]);
+
   return (
-    <DayPicker
-      showOutsideDays={showOutsideDays}
-      className={["p-2", className || ""].join(" ")}
-      classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
-        nav: "space-x-1 flex items-center",
-        table: "w-full border-collapse space-y-1",
-        head_row: "flex",
-        head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
-        row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm p-0 relative",
-        day: "h-9 w-9 p-0 font-normal",
-        day_selected: "bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white focus:bg-emerald-600",
-        day_today: "bg-gray-100 text-gray-900",
-        day_outside: "text-gray-400 opacity-50",
-        ...classNames,
-      }}
-      {...props}
-    />
+    <div className={["p-2", className || ""].join(" ")}> 
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => {
+          const v = e.currentTarget.value;
+          if (!v) { onSelect?.(undefined); return; }
+          const d = new Date(v + "T00:00:00");
+          onSelect?.(d);
+        }}
+        className="w-[260px] rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20"
+      />
+    </div>
   );
 }
 
 Calendar.displayName = "Calendar";
-
