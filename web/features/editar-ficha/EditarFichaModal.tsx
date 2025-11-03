@@ -106,7 +106,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
         setPersonType((a as any)?.person_type ?? null);
         setCreatedAt(c?.created_at ? new Date(c.created_at).toLocaleString() : "");
         setDueAt(c?.due_at ? (()=>{ const d=new Date(c.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; })() : "");
-        setHoraAt(c?.hora_at ? String(c.hora_at).slice(0,5) : "");
+        if (Array.isArray((c as any)?.hora_at)) {
+          const arr:any[] = (c as any).hora_at;
+          setHoraAt(arr[0] ? String(arr[0]).slice(0,5) : "");
+          if (arr.length > 1) setHoraOverride(arr.map(h=> String(h).slice(0,5)).join(' e '));
+        } else {
+          setHoraAt(c?.hora_at ? String(c.hora_at).slice(0,5) : "");
+        }
         setPareceres(Array.isArray(c?.reanalysis_notes) ? c!.reanalysis_notes as any : []);
         setCreatedBy((c as any)?.created_by || "");
         setAssigneeId((c as any)?.assignee_id || "");
@@ -135,7 +141,11 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `id=eq.${cardId}` }, (payload: any) => {
             const row:any = payload.new || {};
             if (row.due_at) { const d=new Date(row.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); setDueAt(`${y}-${m}-${day}`); }
-            if (row.hora_at) setHoraAt(String(row.hora_at).slice(0,5));
+            if (row.hora_at) {
+              const arr = Array.isArray(row.hora_at) ? row.hora_at : [row.hora_at];
+              setHoraAt(arr[0] ? String(arr[0]).slice(0,5) : "");
+              setHoraOverride(arr.length>1 ? arr.map((h:any)=> String(h).slice(0,5)).join(' e ') : "");
+            }
             if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
             if (typeof row.created_by !== 'undefined') setCreatedBy(row.created_by || "");
             if (typeof row.assignee_id !== 'undefined') setAssigneeId(row.assignee_id || "");
@@ -204,6 +214,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
   const horarios = ["08:30","10:30","13:30","15:30"];
   const statusText = useMemo(()=> saving==='saving'? 'Salvando…' : saving==='saved'? 'Salvo' : saving==='error'? 'Erro ao salvar' : '', [saving]);
+  const [horaOverride, setHoraOverride] = useState<string>("");
 
   // Helpers de máscara (sem restringir a entrada de texto)
   function digitsOnly(s: string) { return (s || '').replace(/\D+/g, ''); }
@@ -318,14 +329,14 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                 <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ setApp({...app, plano_acesso:v}); queue('app','plano_acesso', v); }} options={PLANO_OPTIONS as any} />
                 <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queue('app','venc', v); }} options={VENC_OPTIONS as any}
                   triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
-                  contentClassName="border-0 bg-transparent shadow-none"
+                  contentClassName="border-0 bg-white shadow-none"
                   triggerStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
                   contentStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
                 />
                 <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ setApp({...app, sva_avulso:v}); queue('app','sva_avulso', v); }} options={SVA_OPTIONS as any} />
                 <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queue('app','carne_impresso', val); }} options={["Sim","Não"]}
                   triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
-                  contentClassName="border-0 bg-transparent shadow-none"
+                  contentClassName="border-0 bg-white shadow-none"
                   triggerStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
                   contentStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
                 />
@@ -341,13 +352,15 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   value={dueAt}
                   onChange={(val)=> { setDueAt(val); queue('card','due_at', new Date(val).toISOString()); }}
                 />
-                <Select label="Horário" value={horaAt} onChange={(v)=>{ setHoraAt(v); queue('card','hora_at', v ? `${v}:00` : null); }} options={horarios as any}
+                <Select label="Horário" value={horaAt} onChange={(v)=>{ setHoraOverride(""); setHoraAt(v); queue('card','hora_at', v ? [`${v}:00`] : null); }} options={horarios as any}
                   triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
-                  contentClassName="border-0 bg-transparent shadow-none"
+                  contentClassName="border-0 bg-white shadow-none"
                   triggerStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
                   contentStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
                   groups={[["08:30","10:30"],["13:30","15:30"]]}
                   enableCtrlMergeHover
+                  overrideLabel={horaOverride || undefined}
+                  onCtrlMergedSelect={(vals)=> { const txt = `${vals[0]} e ${vals[1]}`; setHoraOverride(txt); queue('card','hora_at', [`${vals[0]}:00`, `${vals[1]}:00`]); }}
                 />
               </Grid>
             </Section>

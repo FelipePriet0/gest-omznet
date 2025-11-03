@@ -31,7 +31,8 @@ export async function listCards(
   if (opts?.hora) {
     const hhmm = opts.hora.trim();
     const hhmmss = hhmm.length === 5 ? `${hhmm}:00` : hhmm; // 08:30 -> 08:30:00
-    q = q.eq('hora_at', hhmmss);
+    // hora_at agora é time[]; usamos contains
+    q = q.contains('hora_at', [hhmmss]);
   }
 
   // Prazo por due_at
@@ -59,7 +60,12 @@ export async function listCards(
 
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []).map((row: any) => ({
+  return (data ?? []).map((row: any) => {
+    const hours = Array.isArray(row.hora_at) ? row.hora_at : (row.hora_at ? [row.hora_at] : []);
+    const horaLabel = hours.length > 1
+      ? hours.map((h: any) => String(h).slice(0,5)).join(' e ')
+      : (hours[0] ? String(hours[0]).slice(0,5) : undefined);
+    return ({
     id: row.id,
     applicantId: row.applicant_id,
     applicantName: row.applicants?.primary_name ?? '-',
@@ -68,10 +74,11 @@ export async function listCards(
     whatsapp: row.applicants?.whatsapp ?? undefined,
     bairro: row.applicants?.bairro ?? undefined,
     dueAt: row.due_at ?? undefined,
-    horaAt: row.hora_at ? row.hora_at.toString().slice(0,5) : undefined,
+    horaAt: horaLabel,
     area: row.area,
     stage: row.stage,
-  }));
+  });
+  });
 }
 
 export async function listHours(area: 'comercial' | 'analise'): Promise<string[]> {
@@ -80,13 +87,15 @@ export async function listHours(area: 'comercial' | 'analise'): Promise<string[]
     .select('hora_at')
     .eq('area', area)
     .is('deleted_at', null)
-    .not('hora_at', 'is', null)
-    .order('hora_at', { ascending: true });
+    .not('hora_at', 'is', null);
   if (error) return [];
   const set = new Set<string>();
   (data ?? []).forEach((r: any) => {
-    const v = (r?.hora_at ?? '').toString().slice(0,5);
-    if (v) set.add(v);
+    const hours = Array.isArray(r?.hora_at) ? r.hora_at : (r?.hora_at ? [r.hora_at] : []);
+    hours.forEach((h: any) => {
+      const v = (h ?? '').toString().slice(0,5);
+      if (v) set.add(v);
+    });
   });
   const values = Array.from(set);
   if (values.length === 0) return ['08:30','10:30','13:30','15:30'];

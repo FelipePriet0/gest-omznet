@@ -24,6 +24,7 @@ export function SimpleSelect({
   groups,
   enableCtrlMergeHover,
   onCtrlMergedSelect,
+  overrideLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -37,9 +38,10 @@ export function SimpleSelect({
   groups?: string[][];
   enableCtrlMergeHover?: boolean;
   onCtrlMergedSelect?: (values: string[]) => void;
+  overrideLabel?: string;
 }) {
   const current = options.find((o) => getLabel(o).value === value) as SelectOption | undefined;
-  const currentLabel = current ? getLabel(current).label : (value || placeholder || "");
+  const currentLabel = overrideLabel ?? (current ? getLabel(current).label : (value || placeholder || ""));
 
   const [ctrl, setCtrl] = React.useState(false);
   const [mergedHover, setMergedHover] = React.useState<string[] | null>(null);
