@@ -724,6 +724,40 @@ body {
   margin-top: 4px;
 }
 
+/* Pareceres Section Styling - Visual Areas */
+.pareceres .section-header {
+  /* Red Box Area - Header */
+  background: rgba(239, 68, 68, 0.1);
+  border: 2px dashed rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.pareceres .section-content {
+  /* Yellow Box Area - Content */
+  background: rgba(251, 191, 36, 0.1);
+  border: 2px dashed rgba(251, 191, 36, 0.4);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.pareceres .section-title {
+  color: #dc2626;
+  font-weight: 600;
+  margin: 0;
+}
+
+.pareceres .btn-primary-mznet {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.pareceres .btn-primary-mznet:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
 @container section-container (min-width: 481px) and (max-width: 640px) {
   .endereco div[class*="grid-cols-3"] {
     grid-template-columns: 1fr 1fr !important;

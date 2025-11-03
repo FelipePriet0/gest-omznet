@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarReady } from "@/components/ui/calendar-ready";
 import { SimpleSelect } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
 
@@ -381,52 +382,60 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Pareceres */}
-            <Section title="Pareceres" className="pareceres">
-              <PareceresList
-                cardId={cardId}
-                notes={pareceres as any}
-                onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: text, p_parent_id: pid }); }}
-                onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardId, p_note_id: id, p_text: text }); }}
-                onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
-              />
-              <div className="mt-3 flex gap-2">
-                <input
-                  value={novoParecer}
-                  onChange={(e)=> setNovoParecer(e.target.value)}
-                  onKeyDown={(e)=>{
-                    const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
-                    const slashIdx = v.lastIndexOf('/');
-                    if (slashIdx>=0) { setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase()); } else { setCmdOpenParecer(false); }
-                    if (v.endsWith('/tarefa')) { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); }
-                    else if (v.endsWith('/anexo')) { setAttachOpen({ open:true, parentId:null, source:'parecer' }); }
-                  }}
-                  placeholder="Escrever novo parecer (use @Nome, /aprovado, /negado, /reanalise, /tarefa, /anexo)"
-                  className="flex-1 field-input"
-                />
-                {cmdOpenParecer && (
-                  <CmdDropdown
-                    items={[
-                      { key:'aprovado', label:'✅ Aprovado' },
-                      { key:'negado', label:'⛔ Negado' },
-                      { key:'reanalise', label:'🔁 Reanálise' },
-                      { key:'tarefa', label:'📋 Tarefa' },
-                      { key:'anexo', label:'📎 Anexo' },
-                    ].filter(i=> i.key.includes(cmdQueryParecer))}
-                    onPick={async (key)=>{
-                      setCmdOpenParecer(false); setCmdQueryParecer('');
-                      if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
-                      if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
-                      try {
-                        if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
-                        else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
-                        else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
-                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
-                    }}
-                  />
-                )}
-                <button onClick={addParecer} className="btn-primary-mznet">+ Adicionar</button>
+            <div className="section-card rounded-xl p-4 sm:p-6">
+              {/* Header Area - Red Box */}
+              <div className="section-header mb-4 sm:mb-6 flex items-center justify-between">
+                <h3 className="section-title text-sm font-semibold pareceres">Pareceres</h3>
+                <button onClick={addParecer} className="btn-primary-mznet">+ Adicionar Parecer</button>
               </div>
-            </Section>
+              
+              {/* Content Area - Yellow Box */}
+              <div className="section-content">
+                <PareceresList
+                  cardId={cardId}
+                  notes={pareceres as any}
+                  onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: text, p_parent_id: pid }); }}
+                  onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardId, p_note_id: id, p_text: text }); }}
+                  onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
+                />
+                <div className="mt-3">
+                  <Textarea
+                    value={novoParecer}
+                    onChange={(e)=> setNovoParecer(e.target.value)}
+                    onKeyDown={(e)=>{
+                      const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                      const slashIdx = v.lastIndexOf('/');
+                      if (slashIdx>=0) { setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase()); } else { setCmdOpenParecer(false); }
+                      if (v.endsWith('/tarefa')) { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); }
+                      else if (v.endsWith('/anexo')) { setAttachOpen({ open:true, parentId:null, source:'parecer' }); }
+                    }}
+                    placeholder="Escreva um novo parecer… Use @ para mencionar"
+                    rows={4}
+                  />
+                  {cmdOpenParecer && (
+                    <CmdDropdown
+                      items={[
+                        { key:'aprovado', label:'✅ Aprovado' },
+                        { key:'negado', label:'⛔ Negado' },
+                        { key:'reanalise', label:'🔁 Reanálise' },
+                        { key:'tarefa', label:'📋 Tarefa' },
+                        { key:'anexo', label:'📎 Anexo' },
+                      ].filter(i=> i.key.includes(cmdQueryParecer))}
+                      onPick={async (key)=>{
+                        setCmdOpenParecer(false); setCmdQueryParecer('');
+                        if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
+                        if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
+                        try {
+                          if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
+                          else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
+                          else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
+                        } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
