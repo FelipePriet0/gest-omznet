@@ -308,7 +308,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
               <Grid cols={3}>
                 <Field label="Feito em" value={createdAt} onChange={()=>{}} disabled />
                 <Field label="Instalação agendada para" value={dueAt} onChange={(v)=>{ setDueAt(v); queue('card','due_at', v ? new Date(v).toISOString() : null); }} placeholder="YYYY-MM-DD" />
-                <Field label="Horário" value={horaAt} onChange={(v)=>{ setHoraAt(v); queue('card','hora_at', v ? `${v}:00` : null); }} placeholder="HH:MM" />
+                <Select label="Horário" value={horaAt} onChange={(v)=>{ setHoraAt(v); queue('card','hora_at', v ? `${v}:00` : null); }} options={horarios as any} />
               </Grid>
             </Section>
 
