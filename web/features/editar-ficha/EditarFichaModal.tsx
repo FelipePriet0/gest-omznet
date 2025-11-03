@@ -319,11 +319,15 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                 <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queue('app','venc', v); }} options={VENC_OPTIONS as any}
                   triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
                   contentClassName="border-0 bg-transparent shadow-none"
+                  triggerStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
+                  contentStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
                 />
                 <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ setApp({...app, sva_avulso:v}); queue('app','sva_avulso', v); }} options={SVA_OPTIONS as any} />
                 <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queue('app','carne_impresso', val); }} options={["Sim","Não"]}
                   triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
                   contentClassName="border-0 bg-transparent shadow-none"
+                  triggerStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
+                  contentStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
                 />
               </Grid>
             </Section>
@@ -340,6 +344,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                 <Select label="Horário" value={horaAt} onChange={(v)=>{ setHoraAt(v); queue('card','hora_at', v ? `${v}:00` : null); }} options={horarios as any}
                   triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
                   contentClassName="border-0 bg-transparent shadow-none"
+                  triggerStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
+                  contentStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
                 />
               </Grid>
             </Section>

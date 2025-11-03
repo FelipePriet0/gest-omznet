@@ -19,6 +19,8 @@ export function SimpleSelect({
   className,
   triggerClassName,
   contentClassName,
+  triggerStyle,
+  contentStyle,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -27,6 +29,8 @@ export function SimpleSelect({
   className?: string;
   triggerClassName?: string;
   contentClassName?: string;
+  triggerStyle?: React.CSSProperties;
+  contentStyle?: React.CSSProperties;
 }) {
   const current = options.find((o) => getLabel(o).value === value) as SelectOption | undefined;
   const currentLabel = current ? getLabel(current).label : (value || placeholder || "");
@@ -42,6 +46,7 @@ export function SimpleSelect({
             className,
             triggerClassName,
           )}
+          style={triggerStyle}
         >
           <span className="truncate text-left">{currentLabel}</span>
           <span
@@ -61,6 +66,7 @@ export function SimpleSelect({
             "z-50 min-w-[12rem] overflow-hidden rounded-md border bg-white text-zinc-900 shadow-md",
             contentClassName,
           )}
+          style={contentStyle}
         >
           <div className="max-h-[260px] overflow-auto p-1">
             {options.map((o, idx) => {
