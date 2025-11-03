@@ -109,8 +109,11 @@ export function SimpleSelect({
                   }}
                   onSelect={() => {
                     if (enableCtrlMergeHover && ctrl && mergedHover && mergedHover.includes(val)) {
+                      // Mesclagem ativa: dispara seleção mesclada e NÃO chama onChange do item único
                       onCtrlMergedSelect?.(mergedHover);
+                      return;
                     }
+                    // Seleção normal
                     onChange(val);
                   }}
                   className={cn(
