@@ -222,7 +222,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto overflow-x-hidden bg-white shadow-2xl" style={{ borderRadius: '28px' }}>
-        <div className="p-4 sm:p-6">
+        <div className="p-6">
         <div className="mb-6">
           <div className="header-editar-ficha">
             <div className="header-content">
@@ -399,24 +399,24 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
 function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className="section-card">
-      <div className="section-header">
-        <h3 className={`section-title ${className || ''}`}>{title}</h3>
+    <div className="section-card rounded-xl p-4 sm:p-6">
+      <div className="section-header mb-4 sm:mb-6">
+        <h3 className={`section-title text-sm font-semibold ${className || ''}`}>{title}</h3>
       </div>
-      <div className="section-content">{children}</div>
+      <div>{children}</div>
     </div>
   );
 }
 
 function Grid({ cols, children }: { cols: 1|2|3; children: React.ReactNode }) {
   const cls = cols===1? 'grid-cols-1' : cols===2? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
-  return <div className={`grid gap-3 sm:gap-4 ${cls}`}>{children}</div>;
+  return <div className={`grid gap-4 sm:gap-6 ${cls}`}>{children}</div>;
 }
 
 function Field({ label, value, onChange, disabled, placeholder, maxLength, inputMode }: { label: string; value: string; onChange: (v:string)=>void; disabled?: boolean; placeholder?: string; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"] }) {
   const id = `fld-${label.replace(/\s+/g,'-').toLowerCase()}`;
   return (
-    <div className="grid w-full items-center gap-1.5">
+    <div className="w-full space-y-2">
       <Label htmlFor={id} className="field-label text-h1">{label}</Label>
       <Input
         id={id}
@@ -426,7 +426,7 @@ function Field({ label, value, onChange, disabled, placeholder, maxLength, input
         placeholder={placeholder}
         maxLength={maxLength}
         inputMode={inputMode}
-        className={`h-12 rounded-[16px] px-4 ${disabled ? 'field-input-disabled' : ''}`}
+        className={`mt-1 h-12 rounded-lg px-5 py-3 ${disabled ? 'field-input-disabled' : ''}`}
       />
     </div>
   );
