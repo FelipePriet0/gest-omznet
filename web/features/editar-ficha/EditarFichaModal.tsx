@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
@@ -217,11 +218,30 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Editar Ficha</h2>
-          <div className="text-xs text-zinc-600">{statusText}</div>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto bg-white shadow-2xl" style={{ borderRadius: '28px' }}>
+        <div className="p-6">
+        <div className="mb-6">
+          <div className="header-editar-ficha">
+            <div className="header-content">
+              <div className="flex items-center gap-3">
+                <Image
+                  src="/mznet-logo.png"
+                  alt="MZNET Logo"
+                  width={36}
+                  height={36}
+                  priority
+                  style={{ width: '36px', height: '36px', objectFit: 'contain' }}
+                />
+                <div className="header-title">
+                  <h2>Editar Ficha</h2>
+                </div>
+              </div>
+            </div>
+          </div>
+          {statusText && (
+            <div className="mt-3 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
+          )}
         </div>
 
         {loading ? (
@@ -302,7 +322,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                     else if (v.endsWith('/anexo')) { setAttachOpen({ open:true, parentId:null, source:'parecer' }); }
                   }}
                   placeholder="Escrever novo parecer (use @Nome, /aprovado, /negado, /reanalise, /tarefa, /anexo)"
-                  className="flex-1 rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                  className="flex-1 field-input"
                 />
                 {cmdOpenParecer && (
                   <CmdDropdown
@@ -325,7 +345,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                     }}
                   />
                 )}
-                <button onClick={addParecer} className="rounded bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">+ Adicionar</button>
+                <button onClick={addParecer} className="btn-primary-mznet">+ Adicionar</button>
               </div>
             </Section>
           </div>
@@ -341,8 +361,9 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
           />
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-full border border-gray-300 px-4 py-2 text-sm text-gray-700">Fechar</button>
+        <div className="mt-6 flex justify-end gap-3">
+          <button onClick={onClose} className="btn-secondary-mznet">Fechar</button>
+        </div>
         </div>
       </div>
       {/* Drawers/Modais auxiliares */}
@@ -376,9 +397,11 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border bg-white">
-      <div className="border-b px-4 py-2 text-sm font-semibold text-gray-800">{title}</div>
-      <div className="p-4">{children}</div>
+    <div className="section-card">
+      <div className="section-header">
+        <h3 className="section-title">{title}</h3>
+      </div>
+      <div className="section-content">{children}</div>
     </div>
   );
 }
@@ -390,10 +413,17 @@ function Grid({ cols, children }: { cols: 1|2|3; children: React.ReactNode }) {
 
 function Field({ label, value, onChange, disabled, placeholder, maxLength, inputMode }: { label: string; value: string; onChange: (v:string)=>void; disabled?: boolean; placeholder?: string; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"] }) {
   return (
-    <div>
-      <label className="mb-1 block text-xs font-medium text-gray-700">{label}</label>
-      <input value={value} onChange={(e)=> onChange(e.target.value)} disabled={disabled} placeholder={placeholder} maxLength={maxLength} inputMode={inputMode}
-        className={`h-10 w-full rounded-lg border px-3 text-sm outline-none ${disabled? 'bg-gray-100 text-gray-400':'text-emerald-700'} border-gray-300 focus:border-emerald-500`} />
+    <div className="field-group">
+      <label className="field-label">{label}</label>
+      <input 
+        value={value} 
+        onChange={(e)=> onChange(e.target.value)} 
+        disabled={disabled} 
+        placeholder={placeholder} 
+        maxLength={maxLength} 
+        inputMode={inputMode}
+        className={`field-input ${disabled ? 'field-input-disabled' : ''}`} 
+      />
     </div>
   );
 }
@@ -401,9 +431,9 @@ function Field({ label, value, onChange, disabled, placeholder, maxLength, input
 type Opt = string | { label: string; value: string; disabled?: boolean };
 function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (v:string)=>void; options: Opt[] }) {
   return (
-    <div>
-      <label className="mb-1 block text-xs font-medium text-gray-700">{label}</label>
-      <select value={value} onChange={(e)=> onChange(e.target.value)} className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500 text-emerald-700">
+    <div className="field-group">
+      <label className="field-label">{label}</label>
+      <select value={value} onChange={(e)=> onChange(e.target.value)} className="field-select">
         <option value=""></option>
         {options.map((o, idx) => {
           if (typeof o === 'string') return <option key={o} value={o}>{o}</option>;
@@ -485,8 +515,8 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
       ) : (
         <div className="mt-2 flex gap-2">
           <input value={text} onChange={(e)=> setText(e.target.value)} className="flex-1 rounded border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500" />
-          <button className="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white" onClick={async ()=> { try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); } }}>Salvar</button>
-          <button className="rounded border border-zinc-300 px-2 py-1 text-xs" onClick={()=> { setText(node.text||''); setIsEditing(false); }}>Cancelar</button>
+          <button className="btn-small-primary" onClick={async ()=> { try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); } }}>Salvar</button>
+          <button className="btn-small-secondary" onClick={()=> { setText(node.text||''); setIsEditing(false); }}>Cancelar</button>
         </div>
       )}
       {isReplying && (
@@ -529,7 +559,7 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
               />
             )}
           </div>
-          <button className="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white" onClick={async ()=> { try { await onReply(node.id, reply); setReply(''); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); } }}>Enviar</button>
+          <button className="btn-small-primary" onClick={async ()=> { try { await onReply(node.id, reply); setReply(''); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); } }}>Enviar</button>
         </div>
       )}
       {node.children && node.children.length>0 && (

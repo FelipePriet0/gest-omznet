@@ -89,9 +89,11 @@ export function FilterCTA() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const searchParamsStr = React.useMemo(() => searchParams?.toString() ?? "", [searchParams]);
+
   // Aplica efeitos dos filtros na URL (igual ao FilterBar antigo)
   React.useEffect(() => {
-    const params = new URLSearchParams(searchParams?.toString());
+    const params = new URLSearchParams(searchParamsStr);
 
     // Hora (pega o primeiro valor caso o usuário selecione mais de um)
     const horaFilter = filters.find((f) => f.type === FilterType.HORARIO);
@@ -120,8 +122,12 @@ export function FilterCTA() {
     }
 
     const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
-  }, [filters, customDate, router, pathname, searchParams]);
+    const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+    const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '';
+    if (nextUrl !== currentUrl) {
+      router.replace(nextUrl);
+    }
+  }, [filters, customDate, router, pathname, searchParamsStr]);
 
   return (
     <div className="flex gap-2 flex-wrap items-center">

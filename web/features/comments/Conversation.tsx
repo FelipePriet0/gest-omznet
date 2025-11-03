@@ -91,9 +91,11 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border bg-white">
-        <div className="border-b px-4 py-2 text-sm font-semibold text-gray-800">Conversas Co-relacionadas</div>
-        <div className="p-3 space-y-2">
+      <div className="section-card">
+        <div className="section-header">
+          <h3 className="section-title">Conversas Co-relacionadas</h3>
+        </div>
+        <div className="section-content space-y-3">
           {loading && <div className="text-xs text-zinc-500">Carregando…</div>}
           {!loading && comments.length === 0 && <div className="text-xs text-zinc-500">Nenhuma conversa iniciada</div>}
           {tree.map((n) => (
@@ -113,16 +115,16 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
             />
           ))}
         </div>
-        <div className="border-t p-3">
-          <div className="flex gap-2">
+        <div className="border-t border-zinc-100 pt-4 mt-4">
+          <div className="flex gap-3">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
-              className="flex-1 rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              className="flex-1 field-input"
             />
-            <button onClick={() => submitNew()} className="rounded bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Enviar</button>
+            <button onClick={() => submitNew()} className="btn-primary-mznet">Enviar</button>
           </div>
           {cmdOpen && (
             <CmdDropdown
@@ -231,15 +233,15 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
     else if (val.endsWith("/anexo")) { onOpenAttach(node.id); }
   }
   return (
-    <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800" style={{ marginLeft: depth * 16 }}>
+    <div className="comment-card" style={{ marginLeft: depth * 16 }}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate font-medium">{node.author_name || "—"} {node.author_role ? <span className="text-xs text-zinc-500">({node.author_role})</span> : null} <span className="ml-2 text-[11px] text-zinc-500">{ts}</span></div>
+          <div className="truncate font-medium comment-author">{node.author_name || "—"} {node.author_role ? <span className="comment-role">({node.author_role})</span> : null} <span className="comment-timestamp">{ts}</span></div>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <button className="text-emerald-700" onClick={() => setIsReplying((v) => !v)}>→ Responder</button>
-          <button className="text-zinc-700" onClick={() => onOpenAttach(node.id)}>Anexo</button>
-          <button className="text-zinc-700" onClick={() => onOpenTask(node.id)}>Tarefa</button>
+          <button className="comment-action-btn comment-action-reply" onClick={() => setIsReplying((v) => !v)}>→ Responder</button>
+          <button className="comment-action-btn" onClick={() => onOpenAttach(node.id)}>Anexo</button>
+          <button className="comment-action-btn" onClick={() => onOpenTask(node.id)}>Tarefa</button>
           <CommentMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }} />
         </div>
       </div>
@@ -247,9 +249,9 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
         <div className="mt-1 whitespace-pre-line">{node.text}</div>
       ) : (
         <div className="mt-2 flex gap-2">
-          <input value={text} onChange={(e) => setText(e.target.value)} className="flex-1 rounded border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500" />
-          <button className="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white" onClick={async () => { try { await onEdit(node.id, text); setIsEditing(false); } catch (e:any) { alert(e?.message||'Falha ao editar'); } }}>Salvar</button>
-          <button className="rounded border border-zinc-300 px-2 py-1 text-xs" onClick={() => { setText(node.text || ""); setIsEditing(false); }}>Cancelar</button>
+          <input value={text} onChange={(e) => setText(e.target.value)} className="flex-1 field-input" />
+          <button className="btn-small-primary" onClick={async () => { try { await onEdit(node.id, text); setIsEditing(false); } catch (e:any) { alert(e?.message||'Falha ao editar'); } }}>Salvar</button>
+          <button className="btn-small-secondary" onClick={() => { setText(node.text || ""); setIsEditing(false); }}>Cancelar</button>
         </div>
       )}
       {tasks && tasks.length > 0 && (
@@ -269,7 +271,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       {isReplying && (
         <div className="mt-2 flex gap-2 items-start">
           <div className="flex-1">
-            <input value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={onReplyKeyDown} placeholder="Responder... (/tarefa, /anexo, @mencionar)" className="w-full rounded border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500" />
+            <input value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={onReplyKeyDown} placeholder="Responder... (/tarefa, /anexo, @mencionar)" className="w-full field-input" />
             {mentionOpen2 && (
               <MentionDropdown
                 items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter2.toLowerCase()))}
@@ -288,7 +290,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               onPick={(key)=> { if (key==='tarefa') onOpenTask(node.id); if (key==='anexo') onOpenAttach(node.id); setCmdOpen2(false); setCmdQuery2(''); }}
             />
           )}
-          <button className="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white" onClick={async () => { try { await onReply(node.id, reply); setReply(""); setIsReplying(false); } catch (e:any) { alert(e?.message||'Falha ao responder'); } }}>Enviar</button>
+          <button className="btn-small-primary" onClick={async () => { try { await onReply(node.id, reply); setReply(""); setIsReplying(false); } catch (e:any) { alert(e?.message||'Falha ao responder'); } }}>Enviar</button>
         </div>
       )}
       {node.children && node.children.length > 0 && (
