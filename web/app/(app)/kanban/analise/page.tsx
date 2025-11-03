@@ -53,7 +53,9 @@ export default function KanbanAnalisePage() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Kanban Análise</h1>
+        <div className="glass-title">
+          <h1 className="text-xl sm:text-2xl font-bold relative z-10">Kanban Análise</h1>
+        </div>
       </div>
       <div className="relative">
         <div className="absolute top-0 left-0 z-10">
@@ -62,9 +64,10 @@ export default function KanbanAnalisePage() {
         <div className="absolute top-0 right-0 z-10">
           <Button
             onClick={() => setOpenPersonType(true)}
-            className="h-6 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="h-9 text-sm bg-emerald-600 hover:bg-emerald-700 text-white"
+            style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
           >
-            <Plus className="size-3 mr-1" />
+            <Plus className="size-6 mr-2" />
             Nova ficha
           </Button>
         </div>

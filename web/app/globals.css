@@ -244,3 +244,162 @@ body {
 .animate-pulse {
   animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* Glass Effect Styles */
+.glass-effect {
+  background: rgba(1, 137, 66, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(1, 137, 66, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(1, 137, 66, 0.1);
+}
+
+.glass-title {
+  background: rgba(1, 137, 66, 0.15);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: none;
+  border-radius: 25px;
+  padding: 12px 24px;
+  position: relative;
+  overflow: hidden;
+  color: white !important;
+}
+
+.glass-title h1 {
+  color: white !important;
+}
+
+.glass-title::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s;
+}
+
+.glass-title:hover::before {
+  left: 100%;
+}
+
+/* Filter CTA Styling */
+.filter-cta-hover {
+  color: var(--verde-primario) !important;
+}
+
+.filter-cta-hover .filter-icon {
+  color: var(--verde-primario) !important;
+}
+
+/* Filter CTA Hover Effect */
+.filter-cta-hover:hover {
+  background-color: var(--verde-primario) !important;
+  color: white !important;
+}
+
+.filter-cta-hover:hover .filter-icon {
+  color: white !important;
+}
+
+/* Global Popover Styling - All Popovers */
+[data-radix-popper-content-wrapper] {
+  color: var(--verde-primario) !important;
+}
+
+/* Popover Content - Universal */
+[role="dialog"],
+.popover-content,
+[data-radix-popper-content-wrapper] > div {
+  color: var(--verde-primario) !important;
+}
+
+/* Command Menu Items - Universal */
+[cmdk-item],
+.command-item,
+[role="option"] {
+  color: var(--verde-primario) !important;
+}
+
+[cmdk-item] span,
+.command-item span,
+[role="option"] span {
+  color: var(--verde-primario) !important;
+}
+
+[cmdk-item] svg,
+.command-item svg,
+[role="option"] svg {
+  color: var(--verde-primario) !important;
+}
+
+/* Command Input - Universal */
+[cmdk-input],
+.command-input,
+input[placeholder*="Filtros"],
+input[placeholder*="Buscar"] {
+  color: var(--verde-primario) !important;
+}
+
+[cmdk-input]::placeholder,
+.command-input::placeholder,
+input[placeholder*="Filtros"]::placeholder,
+input[placeholder*="Buscar"]::placeholder {
+  color: rgba(1, 137, 66, 0.6) !important;
+}
+
+/* Popover Text Elements - Universal */
+[data-radix-popper-content-wrapper] p,
+[data-radix-popper-content-wrapper] span,
+[data-radix-popper-content-wrapper] div,
+[data-radix-popper-content-wrapper] label {
+  color: var(--verde-primario) !important;
+}
+
+/* Popover Icons - Universal */
+[data-radix-popper-content-wrapper] svg {
+  color: var(--verde-primario) !important;
+}
+
+/* Popover Hover Effects - Universal */
+[cmdk-item]:hover,
+.command-item:hover,
+[role="option"]:hover {
+  background-color: var(--verde-primario) !important;
+  color: white !important;
+}
+
+[cmdk-item]:hover span,
+.command-item:hover span,
+[role="option"]:hover span {
+  color: white !important;
+}
+
+[cmdk-item]:hover svg,
+.command-item:hover svg,
+[role="option"]:hover svg {
+  color: white !important;
+}
+
+/* Additional hover states for other popover elements */
+[data-radix-popper-content-wrapper] [role="menuitem"]:hover,
+[data-radix-popper-content-wrapper] .menu-item:hover,
+[data-radix-popper-content-wrapper] button:hover {
+  background-color: var(--verde-primario) !important;
+  color: white !important;
+}
+
+[data-radix-popper-content-wrapper] [role="menuitem"]:hover svg,
+[data-radix-popper-content-wrapper] .menu-item:hover svg,
+[data-radix-popper-content-wrapper] button:hover svg {
+  color: white !important;
+}
+
+[data-radix-popper-content-wrapper] [role="menuitem"]:hover span,
+[data-radix-popper-content-wrapper] .menu-item:hover span,
+[data-radix-popper-content-wrapper] button:hover span {
+  color: white !important;
+}

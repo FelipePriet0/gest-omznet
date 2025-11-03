@@ -45,8 +45,8 @@ export function FilterCTA() {
       {filters.filter((filter) => filter.value?.length > 0).length > 0 && (
         <Button
           variant="outline"
-          size="sm"
-          className="transition group h-6 text-xs items-center rounded-sm"
+          className="transition group h-9 text-sm items-center"
+          style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
           onClick={() => setFilters([])}
         >
           Limpar
@@ -69,22 +69,22 @@ export function FilterCTA() {
             variant="ghost"
             role="combobox"
             aria-expanded={open}
-            size="sm"
             className={cn(
-              "transition-all duration-200 group h-6 text-xs items-center rounded-sm flex gap-1.5 hover:bg-neutral-100 hover:text-neutral-700",
-              filters.length > 0 && "w-6"
+              "transition-all duration-200 group h-9 text-sm items-center flex gap-1.5 filter-cta-hover",
+              filters.length > 0 && "w-9"
             )}
+            style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
           >
-            <ListFilter className="size-3 shrink-0 transition-all text-muted-foreground group-hover:text-neutral-700" />
+            <ListFilter className="size-6 shrink-0 transition-all text-muted-foreground filter-icon" />
             {filters.length === 0 && "Filtros"}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0 bg-white border-0 shadow-lg rounded-lg">
+        <PopoverContent className="w-[200px] p-0 bg-white border-0 shadow-lg rounded-lg popover-content">
           <AnimateChangeInHeight>
             <Command className="rounded-lg">
               <CommandInput
                 placeholder="Filtros..."
-                className="h-9 !border-0 !border-b-0"
+                className="h-9 !border-0 !border-b-0 command-input"
                 value={commandInput}
                 onInputCapture={(e) => {
                   setCommandInput(e.currentTarget.value);
@@ -98,7 +98,7 @@ export function FilterCTA() {
                     {filterViewToFilterOptions[selectedView].map(
                       (filter: FilterOption) => (
                         <CommandItem
-                          className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
+                          className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1 command-item"
                           key={filter.name}
                           value={filter.name}
                           onSelect={(currentValue) => {
@@ -135,7 +135,7 @@ export function FilterCTA() {
                   <CommandGroup className="p-0">
                     {filterViewOptions.flat().map((filter: FilterOption) => (
                       <CommandItem
-                        className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
+                        className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1 command-item"
                         key={filter.name}
                         value={filter.name}
                         onSelect={(currentValue) => {
