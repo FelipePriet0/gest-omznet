@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { User as UserIcon } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
@@ -567,7 +568,7 @@ function CmdDropdown({ items, onPick }: { items: { key: string; label: string }[
   );
 }
 
-type Note = { id: string; text: string; author_name?: string; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
+type Note = { id: string; text: string; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
 function buildTree(notes: Note[]): Note[] {
   const byId = new Map<string, any>();
   notes.forEach(n => byId.set(n.id, { ...n, children: [] as any[] }));
@@ -604,8 +605,12 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
   return (
     <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-6 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" style={{ marginLeft: depth*16 }}>
       <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate font-medium">{node.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{ts}</span></div>
+        <div className="min-w-0 flex items-center gap-2">
+          <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+          <div className="min-w-0">
+            <div className="truncate font-medium">{node.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{ts}</span></div>
+            {node.author_role && <div className="text-[11px] text-zinc-500 truncate">{node.author_role}</div>}
+          </div>
         </div>
         <div className="flex items-center gap-2 text-xs">
           <button className="text-emerald-700" onClick={()=> setIsReplying(v=>!v)}>→ Responder</button>
