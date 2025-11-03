@@ -9,6 +9,9 @@ import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
 import { changeStage } from "@/features/kanban/services";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { SimpleSelect } from "@/components/ui/select";
 
 type AppModel = {
@@ -311,7 +314,36 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             <Section title="Agendamento" className="agendamento">
               <Grid cols={3}>
                 <Field label="Feito em" value={createdAt} onChange={()=>{}} disabled />
-                <Field label="Instalação agendada para" value={dueAt} onChange={(v)=>{ setDueAt(v); queue('card','due_at', v ? new Date(v).toISOString() : null); }} placeholder="YYYY-MM-DD" />
+                <div className="w-full space-y-2">
+                  <Label className="field-label text-h1">Instalação agendada para</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="mt-1 flex h-12 w-full items-center justify-between rounded-lg border border-zinc-300 bg-white px-5 py-3 text-left text-sm text-zinc-900 shadow-sm outline-none focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20"
+                      >
+                        <span className="truncate">{dueAt ? new Date(dueAt).toLocaleDateString() : "Selecionar data"}</span>
+                        <CalendarIcon className="ml-2 h-4 w-4 text-zinc-500" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white border rounded-md shadow-md">
+                      <Calendar
+                        mode="single"
+                        selected={dueAt ? new Date(dueAt) : undefined}
+                        onSelect={(d: Date | undefined) => {
+                          if (d) {
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, '0');
+                            const day = String(d.getDate()).padStart(2, '0');
+                            const val = `${y}-${m}-${day}`;
+                            setDueAt(val);
+                            queue('card','due_at', new Date(val).toISOString());
+                          }
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <Select label="Horário" value={horaAt} onChange={(v)=>{ setHoraAt(v); queue('card','hora_at', v ? `${v}:00` : null); }} options={horarios as any} />
               </Grid>
             </Section>
