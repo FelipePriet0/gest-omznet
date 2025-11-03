@@ -386,32 +386,31 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
               {/* Header Area - Red Box */}
               <div className="section-header mb-4 sm:mb-6 flex items-center justify-between">
                 <h3 className="section-title text-sm font-semibold pareceres">Pareceres</h3>
-                <button onClick={addParecer} className="btn-primary-mznet">+ Adicionar Parecer</button>
               </div>
               
               {/* Content Area - Yellow Box */}
               <div className="section-content">
-                <PareceresList
-                  cardId={cardId}
-                  notes={pareceres as any}
-                  onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: text, p_parent_id: pid }); }}
-                  onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardId, p_note_id: id, p_text: text }); }}
-                  onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
+                <div className="mb-3">
+                <Textarea
+                  value={novoParecer}
+                  onChange={(e)=> setNovoParecer(e.target.value)}
+                  onKeyDown={(e)=>{
+                    // Enviar via Enter (sem Shift), anexando abaixo
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      addParecer();
+                      return;
+                    }
+                    // Atalhos /tarefa e /anexo + menções
+                    const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                    const slashIdx = v.lastIndexOf('/');
+                    if (slashIdx>=0) { setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase()); } else { setCmdOpenParecer(false); }
+                    if (v.endsWith('/tarefa')) { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); }
+                    else if (v.endsWith('/anexo')) { setAttachOpen({ open:true, parentId:null, source:'parecer' }); }
+                  }}
+                  placeholder="Escreva um novo parecer… Use @ para mencionar"
+                  rows={4}
                 />
-                <div className="mt-3">
-                  <Textarea
-                    value={novoParecer}
-                    onChange={(e)=> setNovoParecer(e.target.value)}
-                    onKeyDown={(e)=>{
-                      const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
-                      const slashIdx = v.lastIndexOf('/');
-                      if (slashIdx>=0) { setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase()); } else { setCmdOpenParecer(false); }
-                      if (v.endsWith('/tarefa')) { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); }
-                      else if (v.endsWith('/anexo')) { setAttachOpen({ open:true, parentId:null, source:'parecer' }); }
-                    }}
-                    placeholder="Escreva um novo parecer… Use @ para mencionar"
-                    rows={4}
-                  />
                   {cmdOpenParecer && (
                     <CmdDropdown
                       items={[
@@ -434,6 +433,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                     />
                   )}
                 </div>
+                <PareceresList
+                  cardId={cardId}
+                  notes={pareceres as any}
+                  onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: text, p_parent_id: pid }); }}
+                  onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardId, p_note_id: id, p_text: text }); }}
+                  onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
+                />
               </div>
             </div>
           </div>
@@ -596,7 +602,7 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : '';
   if (node.deleted) return null;
   return (
-    <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800" style={{ marginLeft: depth*16 }}>
+    <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-6 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" style={{ marginLeft: depth*16 }}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate font-medium">{node.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{ts}</span></div>
@@ -611,7 +617,7 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
         <div className="mt-1 whitespace-pre-line">{node.text}</div>
       ) : (
         <div className="mt-2 flex gap-2">
-          <input value={text} onChange={(e)=> setText(e.target.value)} className="flex-1 rounded border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500" />
+          <input value={text} onChange={(e)=> setText(e.target.value)} className="flex-1 rounded-xl border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" />
           <button className="btn-small-primary" onClick={async ()=> { try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); } }}>Salvar</button>
           <button className="btn-small-secondary" onClick={()=> { setText(node.text||''); setIsEditing(false); }}>Cancelar</button>
         </div>
@@ -632,7 +638,7 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
                 }
               }}
               placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
-              className="w-full rounded border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500"
+              className="w-full rounded-xl border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]"
             />
             {cmdOpen && (
               <CmdDropdown
