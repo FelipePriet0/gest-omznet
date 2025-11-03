@@ -25,6 +25,7 @@ export function SimpleSelect({
   enableCtrlMergeHover,
   onCtrlMergedSelect,
   overrideLabel,
+  showMergeButton,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -39,12 +40,14 @@ export function SimpleSelect({
   enableCtrlMergeHover?: boolean;
   onCtrlMergedSelect?: (values: string[]) => void;
   overrideLabel?: string;
+  showMergeButton?: boolean;
 }) {
   const current = options.find((o) => getLabel(o).value === value) as SelectOption | undefined;
   const currentLabel = overrideLabel ?? (current ? getLabel(current).label : (value || placeholder || ""));
 
   const [ctrl, setCtrl] = React.useState(false);
   const [mergedHover, setMergedHover] = React.useState<string[] | null>(null);
+  const [open, setOpen] = React.useState(false);
   React.useEffect(() => {
     if (!enableCtrlMergeHover) return;
     const onDown = (e: KeyboardEvent) => { if (e.key === 'Control') setCtrl(true); };
@@ -54,8 +57,14 @@ export function SimpleSelect({
     return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp); };
   }, [enableCtrlMergeHover]);
 
+  const gmap = React.useMemo(() => {
+    const m = new Map<string,string[]>();
+    (groups||[]).forEach(g => g.forEach(v => m.set(v, g)));
+    return m;
+  }, [groups]);
+
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
@@ -111,6 +120,7 @@ export function SimpleSelect({
                     if (enableCtrlMergeHover && ctrl && mergedHover && mergedHover.includes(val)) {
                       // Mesclagem ativa: dispara seleção mesclada e NÃO chama onChange do item único
                       onCtrlMergedSelect?.(mergedHover);
+                      setOpen(false);
                       return;
                     }
                     // Seleção normal
@@ -123,6 +133,19 @@ export function SimpleSelect({
                   )}
                 >
                   <span className="truncate">{label}</span>
+                  {showMergeButton && gmap.get(val) && (
+                    <button
+                      className="ml-auto text-[var(--verde-primario)] hover:underline"
+                      title="Mesclar horários"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const g = gmap.get(val)!;
+                        onCtrlMergedSelect?.(g);
+                        setOpen(false);
+                      }}
+                    >⇄</button>
+                  )}
                 </DropdownMenu.Item>
               );
             })}
