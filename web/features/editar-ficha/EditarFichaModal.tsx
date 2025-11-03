@@ -346,6 +346,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   contentClassName="border-0 bg-transparent shadow-none"
                   triggerStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
                   contentStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
+                  groups={[["08:30","10:30"],["13:30","15:30"]]}
+                  enableCtrlMergeHover
                 />
               </Grid>
             </Section>
@@ -488,7 +490,7 @@ function Field({ label, value, onChange, disabled, placeholder, maxLength, input
 }
 
 type Opt = string | { label: string; value: string; disabled?: boolean };
-function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (v:string)=>void; options: Opt[] }) {
+function Select({ label, value, onChange, options, groups, enableCtrlMergeHover, triggerClassName, contentClassName, triggerStyle, contentStyle }: { label: string; value: string; onChange: (v:string)=>void; options: Opt[]; groups?: string[][]; enableCtrlMergeHover?: boolean; triggerClassName?: string; contentClassName?: string; triggerStyle?: React.CSSProperties; contentStyle?: React.CSSProperties }) {
   const id = `sel-${label.replace(/\s+/g,'-').toLowerCase()}`;
   return (
     <div className="w-full space-y-2">
@@ -499,6 +501,12 @@ function Select({ label, value, onChange, options }: { label: string; value: str
         options={options}
         placeholder=""
         className="mt-1"
+        triggerClassName={triggerClassName}
+        contentClassName={contentClassName}
+        triggerStyle={triggerStyle}
+        contentStyle={contentStyle}
+        groups={groups}
+        enableCtrlMergeHover={enableCtrlMergeHover}
       />
     </div>
   );
