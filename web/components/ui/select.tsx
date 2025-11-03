@@ -63,7 +63,7 @@ export function SimpleSelect({
           align="start"
           sideOffset={6}
           className={cn(
-            "z-50 min-w-[12rem] overflow-hidden rounded-md border bg-white text-zinc-900 shadow-md",
+            "z-50 min-w-[12rem] overflow-hidden rounded-md border bg-white text-zinc-900 shadow-md mz-select-content",
             contentClassName,
           )}
           style={contentStyle}

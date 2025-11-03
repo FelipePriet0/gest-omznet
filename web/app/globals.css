@@ -1260,3 +1260,8 @@ input[placeholder*="Buscar"]::placeholder {
 [data-radix-popper-content-wrapper] button:hover span {
   color: white !important;
 }
+[data-radix-popper-content-wrapper] .mz-select-content {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
