@@ -68,6 +68,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [createdBy, setCreatedBy] = useState<string>("");
   const [assigneeId, setAssigneeId] = useState<string>("");
+  const vendorName = useMemo(()=> profiles.find(p=> p.id===createdBy)?.full_name || "—", [profiles, createdBy]);
+  const analystName = useMemo(()=> profiles.find(p=> p.id===assigneeId)?.full_name || "—", [profiles, assigneeId]);
   const [novoParecer, setNovoParecer] = useState<string>("");
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
@@ -336,18 +338,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             {/* Equipe Responsável */}
             <Section title="Equipe Responsável" className="info-contato">
               <Grid cols={2}>
-                <Select
-                  label="Vendedor"
-                  value={createdBy}
-                  onChange={(v)=>{ setCreatedBy(v); queue('card','created_by', v || null); }}
-                  options={profiles.length ? profiles.map(p=> ({ label: p.full_name, value: p.id })) : []}
-                />
-                <Select
-                  label="Analistas"
-                  value={assigneeId}
-                  onChange={(v)=>{ setAssigneeId(v); queue('card','assignee_id', v || null); }}
-                  options={profiles.length ? profiles.map(p=> ({ label: p.full_name, value: p.id })) : []}
-                />
+                <Field label="Vendedor" value={vendorName} onChange={()=>{}} disabled />
+                <Field label="Analistas" value={analystName} onChange={()=>{}} disabled />
               </Grid>
             </Section>
 
