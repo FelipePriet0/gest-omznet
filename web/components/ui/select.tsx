@@ -17,12 +17,16 @@ export function SimpleSelect({
   options,
   placeholder,
   className,
+  triggerClassName,
+  contentClassName,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: SelectOption[];
   placeholder?: string;
   className?: string;
+  triggerClassName?: string;
+  contentClassName?: string;
 }) {
   const current = options.find((o) => getLabel(o).value === value) as SelectOption | undefined;
   const currentLabel = current ? getLabel(current).label : (value || placeholder || "");
@@ -36,6 +40,7 @@ export function SimpleSelect({
             "flex h-12 w-full items-center justify-between rounded-lg border border-zinc-300 bg-white px-5 py-3 text-sm text-zinc-900 shadow-sm outline-none",
             "focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20",
             className,
+            triggerClassName,
           )}
         >
           <span className="truncate text-left">{currentLabel}</span>
@@ -54,6 +59,7 @@ export function SimpleSelect({
           sideOffset={6}
           className={cn(
             "z-50 min-w-[12rem] overflow-hidden rounded-md border bg-white text-zinc-900 shadow-md",
+            contentClassName,
           )}
         >
           <div className="max-h-[260px] overflow-auto p-1">

@@ -316,9 +316,15 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             <Section title="Planos e Serviços" className="planos-servicos">
               <Grid cols={2}>
                 <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ setApp({...app, plano_acesso:v}); queue('app','plano_acesso', v); }} options={PLANO_OPTIONS as any} />
-                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queue('app','venc', v); }} options={VENC_OPTIONS as any} />
+                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queue('app','venc', v); }} options={VENC_OPTIONS as any}
+                  triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
+                  contentClassName="border-0 bg-transparent shadow-none"
+                />
                 <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ setApp({...app, sva_avulso:v}); queue('app','sva_avulso', v); }} options={SVA_OPTIONS as any} />
-                <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queue('app','carne_impresso', val); }} options={["Sim","Não"]} />
+                <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queue('app','carne_impresso', val); }} options={["Sim","Não"]}
+                  triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
+                  contentClassName="border-0 bg-transparent shadow-none"
+                />
               </Grid>
             </Section>
 
@@ -331,7 +337,10 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   value={dueAt}
                   onChange={(val)=> { setDueAt(val); queue('card','due_at', new Date(val).toISOString()); }}
                 />
-                <Select label="Horário" value={horaAt} onChange={(v)=>{ setHoraAt(v); queue('card','hora_at', v ? `${v}:00` : null); }} options={horarios as any} />
+                <Select label="Horário" value={horaAt} onChange={(v)=>{ setHoraAt(v); queue('card','hora_at', v ? `${v}:00` : null); }} options={horarios as any}
+                  triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
+                  contentClassName="border-0 bg-transparent shadow-none"
+                />
               </Grid>
             </Section>
 
