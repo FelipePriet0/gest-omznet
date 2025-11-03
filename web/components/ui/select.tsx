@@ -39,7 +39,13 @@ export function SimpleSelect({
           )}
         >
           <span className="truncate text-left">{currentLabel}</span>
-          <span className="ml-2 text-zinc-500">▾</span>
+          <span
+            aria-hidden
+            className="ml-2 inline-block align-middle"
+            style={{ color: 'var(--verde-primario)', transform: 'rotate(90deg)' }}
+          >
+            &gt;
+          </span>
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
@@ -81,4 +87,3 @@ export function SimpleSelect({
     </DropdownMenu.Root>
   );
 }
-
