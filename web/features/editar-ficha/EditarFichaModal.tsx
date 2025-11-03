@@ -9,6 +9,7 @@ import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
 import { changeStage } from "@/features/kanban/services";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/select";
 
 type AppModel = {
   primary_name?: string; cpf_cnpj?: string; phone?: string; whatsapp?: string; email?: string;
@@ -278,9 +279,11 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
               <Grid cols={2}>
                 <Field label="Logradouro" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queue('app','address_line', v); }} />
                 <Field label="Número" value={app.address_number||''} onChange={(v)=>{ setApp({...app, address_number:v}); queue('app','address_number', v); }} />
+              </Grid>
+              <Grid cols={3}>
                 <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queue('app','address_complement', v); }} />
-                <Field label="CEP" value={app.cep||''} onChange={(v)=>{ setApp({...app, cep:v}); queue('app','cep', v); }} />
                 <Field label="Bairro" value={app.bairro||''} onChange={(v)=>{ setApp({...app, bairro:v}); queue('app','bairro', v); }} />
+                <Field label="CEP" value={app.cep||''} onChange={(v)=>{ setApp({...app, cep:v}); queue('app','cep', v); }} />
               </Grid>
             </Section>
 
@@ -299,7 +302,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
               <Grid cols={3}>
                 <Field label="Feito em" value={createdAt} onChange={()=>{}} disabled />
                 <Field label="Instalação agendada para" value={dueAt} onChange={(v)=>{ setDueAt(v); queue('card','due_at', v ? new Date(v).toISOString() : null); }} placeholder="YYYY-MM-DD" />
-                <Select label="Horário" value={horaAt} onChange={(v)=>{ setHoraAt(v); queue('card','hora_at', v ? `${v}:00` : null); }} options={horarios} />
+                <Field label="Horário" value={horaAt} onChange={(v)=>{ setHoraAt(v); queue('card','hora_at', v ? `${v}:00` : null); }} placeholder="HH:MM" />
               </Grid>
             </Section>
 
@@ -434,16 +437,17 @@ function Field({ label, value, onChange, disabled, placeholder, maxLength, input
 
 type Opt = string | { label: string; value: string; disabled?: boolean };
 function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (v:string)=>void; options: Opt[] }) {
+  const id = `sel-${label.replace(/\s+/g,'-').toLowerCase()}`;
   return (
-    <div className="field-group">
-      <label className="field-label">{label}</label>
-      <select value={value} onChange={(e)=> onChange(e.target.value)} className="field-select">
-        <option value=""></option>
-        {options.map((o, idx) => {
-          if (typeof o === 'string') return <option key={o} value={o}>{o}</option>;
-          return <option key={o.value+idx} value={o.value} disabled={!!o.disabled}>{o.label}</option>;
-        })}
-      </select>
+    <div className="w-full space-y-2">
+      <Label htmlFor={id} className="field-label text-h1">{label}</Label>
+      <SimpleSelect
+        value={value}
+        onChange={(v)=> onChange(v)}
+        options={options}
+        placeholder=""
+        className="mt-1"
+      />
     </div>
   );
 }
