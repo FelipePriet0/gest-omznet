@@ -269,9 +269,11 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                 <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queue('app','phone', m); }} />
                 <Field label="Whatsapp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queue('app','whatsapp', m); }} />
               </Grid>
-              <Grid cols={1}>
-                <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queue('app','email', v); }} />
-              </Grid>
+              <div className="mt-4 sm:mt-6">
+                <Grid cols={1}>
+                  <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queue('app','email', v); }} />
+                </Grid>
+              </div>
             </Section>
 
             {/* Endereço */}
