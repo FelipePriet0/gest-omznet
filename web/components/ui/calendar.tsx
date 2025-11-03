@@ -42,41 +42,47 @@ export function Calendar({ selected, onSelect, className }: CalendarProps) {
   const monthLabel = view.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   const weekdayShort = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; // simples
 
-  function sameDate(a?: Date, b?: Date) {
-    if (!a || !b) return false;
-    return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+  const selectedKey = React.useMemo(() => {
+    if (!selected) return null;
+    const y = selected.getFullYear();
+    const m = selected.getMonth();
+    const d = selected.getDate();
+    return `${y}-${m}-${d}`;
+  }, [selected]);
+
+  function keyFor(date: Date) {
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
   }
 
   return (
     <div className={[
-      "rounded-xl border border-zinc-200 bg-white shadow-sm p-3 w-[260px]",
+      "rounded-xl bg-white shadow-sm p-3 w-[260px]",
       className || "",
     ].join(" ")}
     >
       <div className="flex items-center justify-between mb-2">
-        <button aria-label="Previous month" className="h-8 w-8 flex items-center justify-center rounded-md border text-zinc-700 hover:bg-zinc-50" onClick={() => setView(new Date(year, month - 1, 1))}>‹</button>
+        <button aria-label="Previous month" className="h-8 w-8 flex items-center justify-center rounded-md text-[var(--verde-primario)] hover:bg-[var(--verde-primario)]/10" onClick={() => setView(new Date(year, month - 1, 1))}>‹</button>
         <div className="text-sm font-semibold text-zinc-900 capitalize">{monthLabel}</div>
-        <button aria-label="Next month" className="h-8 w-8 flex items-center justify-center rounded-md border text-zinc-700 hover:bg-zinc-50" onClick={() => setView(new Date(year, month + 1, 1))}>›</button>
+        <button aria-label="Next month" className="h-8 w-8 flex items-center justify-center rounded-md text-[var(--verde-primario)] hover:bg-[var(--verde-primario)]/10" onClick={() => setView(new Date(year, month + 1, 1))}>›</button>
       </div>
       <div className="grid grid-cols-7 text-center text-[11px] text-zinc-500 mb-1">
         {weekdayShort.map((w) => (<div key={w} className="py-1">{w}</div>))}
       </div>
       <div className="grid grid-cols-7 gap-y-1">
         {cells.map(({ d, inMonth }, idx) => {
-          const isSelected = selected ? sameDate(d, selected) : false;
-          const isToday = sameDate(d, today);
+          const isSelected = selectedKey ? keyFor(d) === selectedKey : false;
+          const isToday = keyFor(d) === keyFor(today);
           const base = "mx-auto h-8 w-8 flex items-center justify-center rounded text-sm";
           const state = isSelected
-            ? "bg-black text-white"
+            ? "bg-[var(--verde-primario)] text-white"
             : inMonth
-              ? "text-zinc-800 hover:bg-zinc-100"
-              : "text-zinc-300";
-          const ring = isToday && !isSelected ? "ring-1 ring-zinc-300" : "";
+              ? "text-[var(--verde-primario)] hover:bg-[var(--verde-primario)]/40"
+              : "text-[color:rgba(1,137,66,0.35)]";
           return (
             <button
               key={idx}
               disabled={!inMonth}
-              className={[base, state, ring].join(" ")}
+              className={[base, state].join(" ")}
               onClick={() => { onSelect?.(new Date(d)); }}
             >
               {d.getDate()}

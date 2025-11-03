@@ -101,7 +101,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
         setApp(a2||{});
         setPersonType((a as any)?.person_type ?? null);
         setCreatedAt(c?.created_at ? new Date(c.created_at).toLocaleString() : "");
-        setDueAt(c?.due_at ? new Date(c.due_at).toISOString().slice(0,10) : "");
+        setDueAt(c?.due_at ? (()=>{ const d=new Date(c.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; })() : "");
         setHoraAt(c?.hora_at ? String(c.hora_at).slice(0,5) : "");
         setPareceres(Array.isArray(c?.reanalysis_notes) ? c!.reanalysis_notes as any : []);
 
@@ -124,7 +124,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
           .channel(`rt-edit-card-${cardId}`)
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `id=eq.${cardId}` }, (payload: any) => {
             const row:any = payload.new || {};
-            if (row.due_at) setDueAt(new Date(row.due_at).toISOString().slice(0,10));
+            if (row.due_at) { const d=new Date(row.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); setDueAt(`${y}-${m}-${day}`); }
             if (row.hora_at) setHoraAt(String(row.hora_at).slice(0,5));
             if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
           })
@@ -322,13 +322,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                         type="button"
                         className="mt-1 flex h-12 w-full items-center justify-between rounded-lg border border-zinc-300 bg-white px-5 py-3 text-left text-sm text-zinc-900 shadow-sm outline-none focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20"
                       >
-                        <span className="truncate">{dueAt ? new Date(dueAt).toLocaleDateString() : "Selecionar data"}</span>
+                        <span className="truncate">{dueAt ? new Date(dueAt + 'T00:00:00').toLocaleDateString() : "Selecionar data"}</span>
                         <CalendarIcon className="ml-2 h-4 w-4 text-zinc-500" />
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0 bg-white border rounded-md shadow-md" align="start" sideOffset={6}>
                       <Calendar
-                        selected={dueAt ? new Date(dueAt) : undefined}
+                        selected={dueAt ? new Date(dueAt + 'T00:00:00') : undefined}
                         onSelect={(d: Date | undefined) => {
                           if (d) {
                             const y = d.getFullYear();
