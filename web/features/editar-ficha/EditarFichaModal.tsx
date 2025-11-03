@@ -7,6 +7,8 @@ import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
 import { changeStage } from "@/features/kanban/services";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type AppModel = {
   primary_name?: string; cpf_cnpj?: string; phone?: string; whatsapp?: string; email?: string;
@@ -219,8 +221,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto bg-white shadow-2xl" style={{ borderRadius: '28px' }}>
-        <div className="p-6">
+      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto overflow-x-hidden bg-white shadow-2xl" style={{ borderRadius: '28px' }}>
+        <div className="p-4 sm:p-6">
         <div className="mb-6">
           <div className="header-editar-ficha">
             <div className="header-content">
@@ -249,9 +251,9 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
         ) : (
           <div className="space-y-6">
             {/* Informações Pessoais */}
-            <Section title="Informações Pessoais">
+            <Section title="Informações Pessoais" className="info-pessoais">
               <Grid cols={2}>
-                <Field label={personType==='PJ' ? 'Razão Social' : 'Nome completo'} value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queue('app','primary_name', v); }} />
+                <Field label={personType==='PJ' ? 'Razão Social' : 'Nome do Cliente'} value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queue('app','primary_name', v); }} />
                 {personType === 'PJ' ? (
                   <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queue('app','cpf_cnpj', m); }} inputMode="numeric" maxLength={18} />
                 ) : (
@@ -261,7 +263,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Contato */}
-            <Section title="Informações de Contato">
+            <Section title="Informações de Contato" className="info-contato">
               <Grid cols={2}>
                 <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queue('app','phone', m); }} />
                 <Field label="Whatsapp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queue('app','whatsapp', m); }} />
@@ -272,7 +274,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Endereço */}
-            <Section title="Endereço">
+            <Section title="Endereço" className="endereco">
               <Grid cols={2}>
                 <Field label="Logradouro" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queue('app','address_line', v); }} />
                 <Field label="Número" value={app.address_number||''} onChange={(v)=>{ setApp({...app, address_number:v}); queue('app','address_number', v); }} />
@@ -283,17 +285,17 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Preferências e serviços */}
-            <Section title="Preferências e Serviços">
+            <Section title="Planos e Serviços" className="planos-servicos">
               <Grid cols={2}>
-                <SelectAdv label="Plano" value={app.plano_acesso||''} onChange={(v)=>{ setApp({...app, plano_acesso:v}); queue('app','plano_acesso', v); }} options={PLANO_OPTIONS as any} />
-                <Select label="Vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queue('app','venc', v); }} options={VENC_OPTIONS as any} />
-                <Select label="Carnê Impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queue('app','carne_impresso', val); }} options={["Sim","Não"]} />
+                <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ setApp({...app, plano_acesso:v}); queue('app','plano_acesso', v); }} options={PLANO_OPTIONS as any} />
+                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queue('app','venc', v); }} options={VENC_OPTIONS as any} />
                 <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ setApp({...app, sva_avulso:v}); queue('app','sva_avulso', v); }} options={SVA_OPTIONS as any} />
+                <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queue('app','carne_impresso', val); }} options={["Sim","Não"]} />
               </Grid>
             </Section>
 
             {/* Agendamento */}
-            <Section title="Agendamento">
+            <Section title="Agendamento" className="agendamento">
               <Grid cols={3}>
                 <Field label="Feito em" value={createdAt} onChange={()=>{}} disabled />
                 <Field label="Instalação agendada para" value={dueAt} onChange={(v)=>{ setDueAt(v); queue('card','due_at', v ? new Date(v).toISOString() : null); }} placeholder="YYYY-MM-DD" />
@@ -302,7 +304,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Pareceres */}
-            <Section title="Pareceres">
+            <Section title="Pareceres" className="pareceres">
               <PareceresList
                 cardId={cardId}
                 notes={pareceres as any}
@@ -395,11 +397,11 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
     <div className="section-card">
       <div className="section-header">
-        <h3 className="section-title">{title}</h3>
+        <h3 className={`section-title ${className || ''}`}>{title}</h3>
       </div>
       <div className="section-content">{children}</div>
     </div>
@@ -408,21 +410,23 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Grid({ cols, children }: { cols: 1|2|3; children: React.ReactNode }) {
   const cls = cols===1? 'grid-cols-1' : cols===2? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
-  return <div className={`grid gap-4 ${cls}`}>{children}</div>;
+  return <div className={`grid gap-3 sm:gap-4 ${cls}`}>{children}</div>;
 }
 
 function Field({ label, value, onChange, disabled, placeholder, maxLength, inputMode }: { label: string; value: string; onChange: (v:string)=>void; disabled?: boolean; placeholder?: string; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"] }) {
+  const id = `fld-${label.replace(/\s+/g,'-').toLowerCase()}`;
   return (
-    <div className="field-group">
-      <label className="field-label">{label}</label>
-      <input 
-        value={value} 
-        onChange={(e)=> onChange(e.target.value)} 
-        disabled={disabled} 
-        placeholder={placeholder} 
-        maxLength={maxLength} 
+    <div className="grid w-full items-center gap-1.5">
+      <Label htmlFor={id} className="field-label text-h1">{label}</Label>
+      <Input
+        id={id}
+        value={value}
+        onChange={(e)=> onChange(e.target.value)}
+        disabled={disabled}
+        placeholder={placeholder}
+        maxLength={maxLength}
         inputMode={inputMode}
-        className={`field-input ${disabled ? 'field-input-disabled' : ''}`} 
+        className={`h-12 rounded-[16px] px-4 ${disabled ? 'field-input-disabled' : ''}`}
       />
     </div>
   );

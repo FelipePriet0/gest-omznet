@@ -93,7 +93,7 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
     <div className="space-y-3">
       <div className="section-card">
         <div className="section-header">
-          <h3 className="section-title">Conversas Co-relacionadas</h3>
+          <h3 className="section-title conversas">Conversas Co-relacionadas</h3>
         </div>
         <div className="section-content space-y-3">
           {/* Campo para nova conversa (Thread Pai) no topo */}
