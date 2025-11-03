@@ -30,7 +30,7 @@ export function CalendarReady({ label, value, onChange, placeholder }: { label: 
             <CalendarIcon className="ml-2 h-4 w-4 text-zinc-500" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 bg-white rounded-md shadow-md" align="start" sideOffset={6}>
+        <PopoverContent className="w-auto p-0 bg-transparent border-0 shadow-none" align="start" sideOffset={6}>
           <Calendar
             selected={date}
             onSelect={(d) => {
@@ -45,4 +45,3 @@ export function CalendarReady({ label, value, onChange, placeholder }: { label: 
     </div>
   );
 }
-

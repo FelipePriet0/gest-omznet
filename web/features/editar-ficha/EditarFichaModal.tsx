@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarReady } from "@/components/ui/calendar-ready";
 import { SimpleSelect } from "@/components/ui/select";
+import { listProfiles, type ProfileLite } from "@/features/comments/services";
 
 type AppModel = {
   primary_name?: string; cpf_cnpj?: string; phone?: string; whatsapp?: string; email?: string;
@@ -64,6 +65,9 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [horaAt, setHoraAt] = useState<string>("");
   const [createdAt, setCreatedAt] = useState<string>("");
   const [pareceres, setPareceres] = useState<string[]>([]);
+  const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const [createdBy, setCreatedBy] = useState<string>("");
+  const [assigneeId, setAssigneeId] = useState<string>("");
   const [novoParecer, setNovoParecer] = useState<string>("");
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
@@ -90,7 +94,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
           .single();
         const { data: c } = await supabase
           .from('kanban_cards')
-          .select('created_at, due_at, hora_at, reanalysis_notes')
+          .select('created_at, due_at, hora_at, reanalysis_notes, created_by, assignee_id')
           .eq('id', cardId)
           .single();
         if (!active) return;
@@ -102,6 +106,12 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
         setDueAt(c?.due_at ? (()=>{ const d=new Date(c.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; })() : "");
         setHoraAt(c?.hora_at ? String(c.hora_at).slice(0,5) : "");
         setPareceres(Array.isArray(c?.reanalysis_notes) ? c!.reanalysis_notes as any : []);
+        setCreatedBy((c as any)?.created_by || "");
+        setAssigneeId((c as any)?.assignee_id || "");
+
+        try {
+          setProfiles(await listProfiles());
+        } catch {}
 
         // Realtime: applicants (payload.new) and kanban_cards
         chApp = supabase
@@ -125,6 +135,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             if (row.due_at) { const d=new Date(row.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); setDueAt(`${y}-${m}-${day}`); }
             if (row.hora_at) setHoraAt(String(row.hora_at).slice(0,5));
             if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
+            if (typeof row.created_by !== 'undefined') setCreatedBy(row.created_by || "");
+            if (typeof row.assignee_id !== 'undefined') setAssigneeId(row.assignee_id || "");
           })
           .subscribe();
       } finally { if (active) setLoading(false); }
@@ -318,6 +330,24 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   onChange={(val)=> { setDueAt(val); queue('card','due_at', new Date(val).toISOString()); }}
                 />
                 <Select label="Horário" value={horaAt} onChange={(v)=>{ setHoraAt(v); queue('card','hora_at', v ? `${v}:00` : null); }} options={horarios as any} />
+              </Grid>
+            </Section>
+
+            {/* Equipe Responsável */}
+            <Section title="Equipe Responsável" className="info-contato">
+              <Grid cols={2}>
+                <Select
+                  label="Vendedor"
+                  value={createdBy}
+                  onChange={(v)=>{ setCreatedBy(v); queue('card','created_by', v || null); }}
+                  options={profiles.length ? profiles.map(p=> ({ label: p.full_name, value: p.id })) : []}
+                />
+                <Select
+                  label="Analistas"
+                  value={assigneeId}
+                  onChange={(v)=>{ setAssigneeId(v); queue('card','assignee_id', v || null); }}
+                  options={profiles.length ? profiles.map(p=> ({ label: p.full_name, value: p.id })) : []}
+                />
               </Grid>
             </Section>
 
