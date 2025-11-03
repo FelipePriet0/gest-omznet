@@ -96,6 +96,42 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
           <h3 className="section-title">Conversas Co-relacionadas</h3>
         </div>
         <div className="section-content space-y-3">
+          {/* Campo para nova conversa (Thread Pai) no topo */}
+          <div className="border-b border-zinc-100 pb-4 mb-4">
+            <div className="flex gap-3">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
+                className="flex-1 field-input"
+              />
+              <button onClick={() => submitNew()} className="btn-primary-mznet">Enviar</button>
+            </div>
+            {cmdOpen && (
+              <CmdDropdown
+                items={[{key:'tarefa',label:'📋 Tarefa'},{key:'anexo',label:'📎 Anexo'}].filter(i=> i.key.includes(cmdQuery))}
+                onPick={(key)=> {
+                  if (key==='tarefa') onOpenTask();
+                  if (key==='anexo') onOpenAttach();
+                  setCmdOpen(false); setCmdQuery('');
+                }}
+              />
+            )}
+            {mentionOpen && (
+              <MentionDropdown
+                items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
+                onPick={(p) => {
+                  // Substitui o trecho após o último @
+                  const idx = input.lastIndexOf("@");
+                  const newVal = input.slice(0, idx + 1) + p.full_name + " ";
+                  setInput(newVal);
+                  setMentionOpen(false);
+                }}
+              />
+            )}
+          </div>
+
           {loading && <div className="text-xs text-zinc-500">Carregando…</div>}
           {!loading && comments.length === 0 && <div className="text-xs text-zinc-500">Nenhuma conversa iniciada</div>}
           {tree.map((n) => (
@@ -115,7 +151,8 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
             />
           ))}
         </div>
-        <div className="border-t border-zinc-100 pt-4 mt-4">
+        {/* Nova conversa agora está no topo; removido bloco inferior */}
+        <div className="hidden">
           <div className="flex gap-3">
             <input
               value={input}
