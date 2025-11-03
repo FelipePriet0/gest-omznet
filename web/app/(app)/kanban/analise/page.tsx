@@ -72,7 +72,19 @@ export default function KanbanAnalisePage() {
           </Button>
         </div>
         <div className="pt-12">
-          <KanbanBoardAnalise hora={hora as any} prazo={prazo} date={date} openCardId={openCardId} />
+          {/* Cards de dashboard (placeholder) */}
+          <div className="grid grid-cols-5 gap-3 sm:gap-4 md:gap-6 w-full">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[200px] w-full bg-white rounded-[12px] border border-zinc-200 shadow-sm"
+              />
+            ))}
+          </div>
+          {/* Espaçamento igual ao usado entre filtros/CTA e colunas */}
+          <div className="mt-12">
+            <KanbanBoardAnalise hora={hora as any} prazo={prazo} date={date} openCardId={openCardId} />
+          </div>
         </div>
       </div>
       

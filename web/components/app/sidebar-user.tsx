@@ -95,7 +95,7 @@ export const SidebarUser = ({ name, email, avatar }: SidebarUserProps) => {
   }
 
   // Calcula posição do menu em portal para ficar acima de qualquer margem/overflow
-  // Alinhando a BASE do popover com a linha INFERIOR do hover do usuário
+  // Alinhando a BASE do popover com a linha INFERIOR do hover do usuário (estado anterior)
   useEffect(() => {
     if (!open) return;
     const el = containerRef.current;
@@ -104,10 +104,9 @@ export const SidebarUser = ({ name, email, avatar }: SidebarUserProps) => {
     const compute = () => {
       const rect = el.getBoundingClientRect();
       const mh = menuRef.current?.offsetHeight ?? 0;
-      const mw = menuRef.current?.offsetWidth ?? 0;
+      const mw = menuRef.current?.offsetWidth ?? 220;
       let left = rect.right + 8;
       let top = rect.bottom - mh; // base alinhada ao fim do hover do usuário
-      // Guarda margem de 8px e impede overflow da janela
       const minTop = 8;
       const maxTop = Math.max(minTop, (window.innerHeight || 0) - mh - 8);
       if (!Number.isNaN(top)) {
@@ -115,7 +114,6 @@ export const SidebarUser = ({ name, email, avatar }: SidebarUserProps) => {
       } else {
         top = Math.max(minTop, Math.min(rect.top, maxTop));
       }
-      // Evita overflow lateral à direita. Se faltar espaço, abre à esquerda
       const viewportW = window.innerWidth || 0;
       if (left + mw > viewportW - 8) {
         left = Math.max(8, rect.left - mw - 8);
@@ -123,11 +121,10 @@ export const SidebarUser = ({ name, email, avatar }: SidebarUserProps) => {
       setMenuPos({ top, left });
     };
 
-    // Posição inicial (antes de medir altura, aproximação)
-    const rect0 = el.getBoundingClientRect();
-    setMenuPos({ top: rect0.top, left: rect0.right + 8 });
+    // posição inicial aproximada antes de medir
+    const r0 = el.getBoundingClientRect();
+    setMenuPos({ top: r0.top, left: r0.right + 8 });
 
-    // Após render do menu, mede e realinha pela base
     const raf = requestAnimationFrame(compute);
     window.addEventListener("resize", compute);
     window.addEventListener("scroll", compute, true);

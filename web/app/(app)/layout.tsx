@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import RouteBg from "./RouteBg";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
-import { LayoutGrid, CheckSquare, History, UserCircle } from "lucide-react";
+import { LayoutGrid, CheckSquare, History } from "lucide-react";
 import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
 import { motion } from "framer-motion";
@@ -26,11 +26,6 @@ function AppSidebar() {
       label: "Histórico",
       href: "/historico",
       icon: <History className="h-5 w-5 text-white flex-shrink-0" />,
-    },
-    {
-      label: "Meu Perfil",
-      href: "/perfil",
-      icon: <UserCircle className="h-5 w-5 text-white flex-shrink-0" />,
     },
   ];
 
