@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type AppModel = {
@@ -55,7 +55,6 @@ type PjModel = {
   socio3_nome?: string; socio3_cpf?: string; socio3_telefone?: string;
 };
 
-function digitsOnly(s: string) { return (s || "").replace(/\D+/g, ""); }
 function maskPhone(input: string) {
   const d = digitsOnly(input).slice(0, 11);
   const len = d.length; const ddd = d.slice(0,2);
@@ -168,6 +167,7 @@ function tipoComprovToUI(v:string|null): string { const m:any={ energia:'Energia
 
 export default function CadastroPJPage() {
   const params = useParams();
+  const search = useSearchParams();
   const applicantId = params?.id as string;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"idle"|"saving"|"saved"|"error">("idle");
@@ -326,10 +326,21 @@ export default function CadastroPJPage() {
 
   const reqComprov = (pj.enviou_comprovante||'') === 'Sim';
 
+  const from = (search?.get('from') || '').toLowerCase();
+  const cardId = search?.get('card') || '';
+  const showAnalyzeCrumb = from === 'analisar' && !!cardId;
   return (
     <div className="pj-form p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Ficha PJ — Expanded</h1>
+        {!showAnalyzeCrumb ? (
+          <h1 className="text-xl font-bold">Ficha PJ — Expanded</h1>
+        ) : (
+          <div className="text-sm">
+            <a href={`/kanban/analise?card=${cardId}`} className="text-emerald-700 hover:underline">Editar Ficha</a>
+            <span className="mx-1 text-zinc-500">/</span>
+            <span className="text-zinc-800 font-medium">{params?.id as any}</span>
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <div className="text-xs text-zinc-600">{statusText}</div>
           <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Baixar PDF</button>

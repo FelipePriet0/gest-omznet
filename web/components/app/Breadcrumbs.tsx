@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import React from "react";
 
 function labelFor(segment: string): string {
@@ -36,6 +36,9 @@ export function Breadcrumbs() {
   const pathname = usePathname() || "/";
   const parts = pathname.split("/").filter(Boolean);
 
+  const search = useSearchParams();
+  const from = (search?.get('from') || '').toLowerCase();
+  const cardId = search?.get('card') || '';
   // Constrói caminhos acumulados para links
   const items = parts.map((seg, idx) => {
     const href = "/" + parts.slice(0, idx + 1).join("/");
@@ -44,6 +47,19 @@ export function Breadcrumbs() {
   });
 
   if (items.length === 0) return null;
+
+  // Caso especial: Expanded aberta via CTA "Analisar" → ocultar Cadastro/PF|PJ
+  const isExpandedCadastro = parts[0] === 'cadastro' && (parts[1] === 'pf' || parts[1] === 'pj') && parts.length >= 3;
+  if (isExpandedCadastro && from === 'analisar' && !!cardId) {
+    const id = parts[2];
+    return (
+      <nav aria-label="breadcrumb" className="inline-flex items-center gap-2">
+        <a href={`/kanban/analise?card=${cardId}`} className="text-h4 font-semibold text-[color-mix(in oklab, var(--color-primary) 70%, black)] hover:underline truncate">Editar Ficha</a>
+        <span className="text-h4 font-semibold text-[var(--color-primary)] opacity-60">/</span>
+        <span className="text-h4 font-semibold text-[var(--color-primary)] truncate">{id}</span>
+      </nav>
+    );
+  }
 
   return (
     <nav aria-label="breadcrumb" className="inline-flex items-center gap-2">

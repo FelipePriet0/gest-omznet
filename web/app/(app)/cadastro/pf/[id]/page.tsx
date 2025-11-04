@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type AppModel = {
@@ -179,6 +179,10 @@ export default function CadastroPFPage() {
   const timer = useRef<NodeJS.Timeout | null>(null);
   const pendingApp = useRef<Partial<AppModel>>({});
   const pendingPf = useRef<Partial<PfModel>>({});
+  const search = useSearchParams();
+  const from = (search?.get('from') || '').toLowerCase();
+  const cardId = search?.get('card') || '';
+  const showAnalyzeCrumb = from === 'analisar' && !!cardId;
 
   useEffect(() => {
     let active = true;
@@ -441,11 +445,18 @@ export default function CadastroPFPage() {
     try { window.close(); } catch {}
     try { history.back(); } catch {}
   }
-
   return (
     <div className="mz-form p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Ficha PF — Expanded</h1>
+        {!showAnalyzeCrumb ? (
+          <h1 className="text-xl font-bold">Ficha PF — Expanded</h1>
+        ) : (
+          <div className="text-sm">
+            <a href={`/kanban/analise?card=${cardId}`} className="text-emerald-700 hover:underline">Editar Ficha</a>
+            <span className="mx-1 text-zinc-500">/</span>
+            <span className="text-zinc-800 font-medium">{params?.id as any}</span>
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <div className="text-xs text-zinc-600">{statusText}</div>
           <button

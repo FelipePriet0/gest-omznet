@@ -231,7 +231,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   function openExpanded() {
     if (!applicantId) return;
     const isPJ = personType === 'PJ';
-    const url = isPJ ? `/cadastro/pj/${applicantId}` : `/cadastro/pf/${applicantId}`;
+    const url = isPJ ? `/cadastro/pj/${applicantId}?card=${cardId}&from=analisar` : `/cadastro/pf/${applicantId}?card=${cardId}&from=analisar`;
     try { window.open(url, '_blank', 'noopener,noreferrer'); } catch {}
   }
 
