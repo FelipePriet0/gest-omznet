@@ -244,6 +244,21 @@ function CmdDropdown({ items, onPick }: { items: { key: string; label: string }[
 function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
+  const editRef = useRef<HTMLDivElement | null>(null);
+  const replyRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    function onDocMouseDown(e: MouseEvent) {
+      const t = e.target as Node | null;
+      if (isEditing && editRef.current && t && !editRef.current.contains(t)) {
+        setIsEditing(false);
+      }
+      if (isReplying && replyRef.current && t && !replyRef.current.contains(t)) {
+        setIsReplying(false);
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [isEditing, isReplying]);
   const [text, setText] = useState(node.text || "");
   const [reply, setReply] = useState("");
   const [mentionOpen2, setMentionOpen2] = useState(false);
@@ -258,7 +273,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       e.preventDefault();
       const t = reply.trim();
       if (!t) return;
-      (async () => { try { await onReply(node.id, t); setReply(""); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder'); } })();
+      (async () => { try { await onReply(node.id, t); setReply(""); } catch(e:any){ alert(e?.message||'Falha ao responder'); } })();
       return;
     }
     const val = (e.currentTarget.value || "") + (e.key.length === 1 ? e.key : "");
@@ -289,7 +304,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       {!isEditing ? (
         <div className="mt-1 whitespace-pre-line break-words">{node.text}</div>
       ) : (
-        <div className="mt-2">
+        <div className="mt-2" ref={editRef}>
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -298,9 +313,8 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               if (e.nativeEvent && e.nativeEvent.isComposing) return;
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
+                try { await onEdit(node.id, text); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
               }
-              if (e.key === 'Escape') { setText(node.text || ''); setIsEditing(false); }
             }}
             rows={3}
           />
@@ -321,7 +335,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
         </div>
       )}
       {isReplying && (
-        <div className="mt-2 flex gap-2 items-start">
+        <div className="mt-2 flex gap-2 items-start" ref={replyRef}>
           <div className="flex-1">
             <Textarea value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={onReplyKeyDown} placeholder="Responder... (/tarefa, /anexo, @mencionar)" rows={3} />
             {mentionOpen2 && (
