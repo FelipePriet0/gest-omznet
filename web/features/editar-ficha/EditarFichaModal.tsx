@@ -649,7 +649,7 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
               if (e.nativeEvent && e.nativeEvent.isComposing) return;
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                try { await onEdit(node.id, text); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); }
+                try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); }
               }
             }}
             rows={3}
@@ -673,7 +673,7 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
                   e.preventDefault();
                   const t = reply.trim();
                   if (!t) return;
-                  (async ()=>{ try { await onReply(node.id, t); setReply(''); } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); } })();
+                  (async ()=>{ try { await onReply(node.id, t); setReply(''); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); } })();
                   return;
                 }
               }}
@@ -715,8 +715,17 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
 
 function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void | Promise<void> }) {
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    function onDocMouseDown(e: MouseEvent) {
+      const t = e.target as Node | null;
+      if (open && menuRef.current && t && !menuRef.current.contains(t)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [open]);
   return (
-    <div className="relative">
+    <div className="relative" ref={menuRef}>
       <button 
         aria-label="Mais ações" 
         className="parecer-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duration-200" 
@@ -726,8 +735,8 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="parecer-menu-dropdown absolute right-0 top-10 z-20 w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="parecer-menu-dropdown absolute right-0 top-10 z-50 w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
             <button 
               className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" 
               onClick={()=> { setOpen(false); onEdit(); }}

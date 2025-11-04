@@ -814,8 +814,8 @@ body {
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06),
     0 0 0 1px rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(8px);
-  background: rgba(255, 255, 255, 0.95);
+  /* Remove translucência para ficar firme acima dos CTAs */
+  background: #ffffff;
 }
 
 @keyframes parecer-menu-appear {
@@ -926,8 +926,8 @@ body {
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06),
     0 0 0 1px rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(8px);
-  background: rgba(255, 255, 255, 0.95);
+  /* Remove translucência para ficar firme acima dos CTAs */
+  background: #ffffff;
 }
 
 @keyframes comment-menu-appear {
