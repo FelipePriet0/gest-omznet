@@ -332,15 +332,7 @@ export default function CadastroPJPage() {
   return (
     <div className="pj-form p-6">
       <div className="mb-4 flex items-center justify-between">
-        {!showAnalyzeCrumb ? (
-          <h1 className="text-xl font-bold">Ficha PJ — Expanded</h1>
-        ) : (
-          <div className="text-sm">
-            <a href={`/kanban/analise?card=${cardId}`} className="text-emerald-700 hover:underline">Editar Ficha</a>
-            <span className="mx-1 text-zinc-500">/</span>
-            <span className="text-zinc-800 font-medium">{params?.id as any}</span>
-          </div>
-        )}
+        <h1 className="text-xl font-bold">Ficha PJ — Expanded</h1>
         <div className="flex items-center gap-3">
           <div className="text-xs text-zinc-600">{statusText}</div>
           <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Baixar PDF</button>
@@ -352,8 +344,8 @@ export default function CadastroPJPage() {
       <Card title="Dados da Empresa">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Field label="Razão Social" value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave('app','primary_name',v); }} className="lg:col-span-2" />
-          <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queueSave('app','cpf_cnpj',m); }} inputMode="numeric" maxLength={18} />
-          <Field label="Data de Abertura" value={pj.data_abertura||''} onChange={(v)=>{ const m=formatDateBR(v); setPj({...pj, data_abertura:m}); queueSave('pj','data_abertura', m); }} inputMode="numeric" maxLength={10} />
+          <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queueSave('app','cpf_cnpj',m); }} inputMode="numeric" maxLength={18} className="max-w-[240px]" />
+          <Field label="Data de Abertura" value={pj.data_abertura||''} onChange={(v)=>{ const m=formatDateBR(v); setPj({...pj, data_abertura:m}); queueSave('pj','data_abertura', m); }} inputMode="numeric" maxLength={10} className="max-w-[160px]" />
           <Field label="Nome Fantasia" value={pj.nome_fantasia||''} onChange={(v)=>{ setPj({...pj, nome_fantasia:v}); queueSave('pj','nome_fantasia', v); }} />
           <Field label="Nome de Fachada" value={pj.nome_fachada||''} onChange={(v)=>{ setPj({...pj, nome_fachada:v}); queueSave('pj','nome_fachada', v); }} />
           <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} />
@@ -458,8 +450,8 @@ export default function CadastroPJPage() {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mb-6 rounded-xl border bg-white shadow-sm">
-      <div className="border-b px-4 py-2 text-sm font-semibold text-gray-800">{title}</div>
+    <div className="mb-6 rounded-xl border border-zinc-200 bg-white shadow-[0_5.447px_5.447px_rgba(0,0,0,0.12)]">
+      <div className="px-4 py-2 text-sm font-semibold text-white bg-[var(--verde-primario)] border-b border-zinc-200 rounded-t-xl">{title}</div>
       <div className="p-4">{children}</div>
     </div>
   );
@@ -468,14 +460,14 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 function Field({ label, value, onChange, className, red, disabled, maxLength, inputMode }: { label: string; value: string; onChange: (v:string)=>void; className?: string; red?: boolean; disabled?: boolean; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"] }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-gray-700">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-zinc-700">{label}</label>
       <input
         value={value}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
         disabled={disabled}
         maxLength={maxLength}
         inputMode={inputMode}
-        className={`h-10 w-full rounded-lg border px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-emerald-700'} placeholder:text-emerald-600 placeholder:opacity-60 ${red ? 'border-red-500 bg-red-500/10 focus:border-red-500 focus:ring-2 focus:ring-red-300' : 'border-gray-300 focus:border-emerald-500'}`}
+        className={`h-10 w-full rounded-xl border ${red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 text-sm outline-none shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)]`}
       />
     </div>
   );
@@ -484,11 +476,11 @@ function Field({ label, value, onChange, className, red, disabled, maxLength, in
 function Textarea({ label, value, onChange, red }: { label: string; value: string; onChange: (v:string)=>void; red?: boolean }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-gray-700">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-zinc-700">{label}</label>
       <textarea
         value={value}
         onChange={(e)=> onChange(e.target.value)}
-        className={`min-h-[88px] w-full rounded-lg border px-3 py-2 text-sm outline-none text-emerald-700 placeholder:text-emerald-600 placeholder:opacity-60 ${red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-gray-300 focus:border-emerald-500'}`}
+        className={`min-h-[88px] w-full rounded-xl border ${red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 py-2 text-sm outline-none text-zinc-900 placeholder:text-[rgba(1,137,66,0.6)] shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
       />
     </div>
   );
@@ -502,19 +494,14 @@ function Select({ label, value, onChange, options, disabled, className, required
   const displayValue = disabled ? value : (hasValue ? value : (first?.value ?? ''));
   return (
     <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-gray-700">
+      <label className="mb-1 block text-xs font-medium text-zinc-700">
         <span>{label}</span>
-        {requiredMark && (
-          <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${disabled ? 'border-gray-300 bg-gray-100 text-gray-500' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
-            Obrigatório
-          </span>
-        )}
       </label>
       <select
         value={displayValue}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
         disabled={disabled}
-        className={`h-10 w-full rounded-lg border px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-emerald-700'} border-gray-300 focus:border-emerald-500`}
+        className={`h-10 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
       >
         {norm.map((opt, idx) => (
           <option key={opt.value+idx} value={opt.value} disabled={!!opt.disabled}>{opt.label}</option>

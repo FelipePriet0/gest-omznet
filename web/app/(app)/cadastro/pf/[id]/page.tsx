@@ -448,15 +448,7 @@ export default function CadastroPFPage() {
   return (
     <div className="mz-form p-6">
       <div className="mb-4 flex items-center justify-between">
-        {!showAnalyzeCrumb ? (
-          <h1 className="text-xl font-bold">Ficha PF — Expanded</h1>
-        ) : (
-          <div className="text-sm">
-            <a href={`/kanban/analise?card=${cardId}`} className="text-emerald-700 hover:underline">Editar Ficha</a>
-            <span className="mx-1 text-zinc-500">/</span>
-            <span className="text-zinc-800 font-medium">{params?.id as any}</span>
-          </div>
-        )}
+        <h1 className="text-xl font-bold">Ficha PF — Expanded</h1>
         <div className="flex items-center gap-3">
           <div className="text-xs text-zinc-600">{statusText}</div>
           <button
@@ -487,19 +479,18 @@ export default function CadastroPFPage() {
       <Card title="Dados do Cliente">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Linha 1 */}
-          <Field label="Nome do Cliente" value={app.primary_name || ""} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave("app","primary_name", v); }} />
-          <Field label="CPF" value={app.cpf_cnpj || ""} onChange={(v)=>{ setApp({...app, cpf_cnpj:v}); queueSave("app","cpf_cnpj", v); }} />
-          <Field label="Data de Nascimento" value={pf.birth_date ? formatDateBR(pf.birth_date as any) : ""} onChange={(v)=>{ setPf({...pf, birth_date: v}); queueSave("pf","birth_date", v); }} />
-          <Field label="Idade" value={pf.idade || ""} onChange={(v)=>{ setPf({...pf, idade:v}); queueSave('pf','idade', v); }} maxLength={2} />
+          <Field label="Nome do Cliente" value={app.primary_name || ""} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave("app","primary_name", v); }} className="lg:col-span-2" />
+          <Field label="CPF" value={app.cpf_cnpj || ""} onChange={(v)=>{ setApp({...app, cpf_cnpj:v}); queueSave("app","cpf_cnpj", v); }} className="max-w-[220px]" />
+          <Field label="Data de Nascimento" value={pf.birth_date ? formatDateBR(pf.birth_date as any) : ""} onChange={(v)=>{ setPf({...pf, birth_date: v}); queueSave("pf","birth_date", v); }} className="max-w-[160px]" />
+          <Field label="Idade" value={pf.idade || ""} onChange={(v)=>{ setPf({...pf, idade:v}); queueSave('pf','idade', v); }} maxLength={2} className="max-w-[96px]" />
           {/* Linha 2 */}
-          <Field label="Telefone" value={app.phone || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave("app","phone", m); }} />
-          <Field label="WhatsApp" value={app.whatsapp || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave("app","whatsapp", m); }} />
-          <Textarea label="Do PS" value={pf.do_ps || ""} onChange={(v)=>{ setPf({...pf, do_ps:v}); queueSave("pf","do_ps", v); }} red />
-          <div />
+          <Field label="Telefone" value={app.phone || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave("app","phone", m); }} className="max-w-[220px]" />
+          <Field label="WhatsApp" value={app.whatsapp || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave("app","whatsapp", m); }} className="max-w-[220px]" />
+          <Textarea label="Do PS" value={pf.do_ps || ""} onChange={(v)=>{ setPf({...pf, do_ps:v}); queueSave("pf","do_ps", v); }} red className="lg:col-span-2" />
           {/* Linha 3 */}
-          <Field label="Naturalidade" value={pf.naturalidade || ""} onChange={(v)=>{ setPf({...pf, naturalidade:v}); queueSave("pf","naturalidade", v); }} />
-          <Field label="UF" value={pf.uf_naturalidade || ""} onChange={(v)=>{ setPf({...pf, uf_naturalidade:v}); queueSave("pf","uf_naturalidade", v); }} />
-          <Field label="E-mail" value={app.email || ""} onChange={(v)=>{ setApp({...app, email:v}); queueSave("app","email", v); }} />
+          <Field label="Naturalidade" value={pf.naturalidade || ""} onChange={(v)=>{ setPf({...pf, naturalidade:v}); queueSave("pf","naturalidade", v); }} className="lg:col-span-2" />
+          <Field label="UF" value={pf.uf_naturalidade || ""} onChange={(v)=>{ setPf({...pf, uf_naturalidade:v}); queueSave("pf","uf_naturalidade", v); }} className="max-w-[96px]" />
+          <Field label="E-mail" value={app.email || ""} onChange={(v)=>{ setApp({...app, email:v}); queueSave("app","email", v); }} className="lg:col-span-2" />
           <div />
         </div>
       </Card>
@@ -667,8 +658,8 @@ export default function CadastroPFPage() {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mb-6 rounded-xl border bg-white shadow-sm">
-      <div className="border-b px-4 py-2 text-sm font-semibold text-gray-800">{title}</div>
+    <div className="mb-6 rounded-xl border border-zinc-200 bg-white shadow-[0_5.447px_5.447px_rgba(0,0,0,0.12)]">
+      <div className="border-b border-zinc-200 px-4 py-2 text-sm font-semibold text-white bg-[var(--verde-primario)] rounded-t-xl">{title}</div>
       <div className="p-4">{children}</div>
     </div>
   );
@@ -682,7 +673,7 @@ function Grid({ cols, children }: { cols: 1|2|3|4; children: React.ReactNode }) 
 function Field({ label, value, onChange, className, error, red, requiredMark, disabled, maxLength }: { label: string; value: string; onChange: (v: string)=>void; className?: string; error?: boolean; red?: boolean; requiredMark?: boolean; disabled?: boolean; maxLength?: number }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-gray-700">
+      <label className="mb-1 block text-xs font-medium text-zinc-700">
         <span>{label}</span>
         {requiredMark && (
           <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
@@ -695,7 +686,7 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
         disabled={disabled}
         maxLength={maxLength}
-        className={`h-10 w-full rounded-lg border px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-emerald-700'} placeholder:text-emerald-600 placeholder:opacity-60 ${error || red ? 'border-red-500 bg-red-500/10 focus:border-red-500 focus:ring-2 focus:ring-red-300' : 'border-gray-300 focus:border-emerald-500'}`}
+        className={`h-10 w-full rounded-xl border ${error || red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 text-sm outline-none shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)]`}
         placeholder=""
         autoComplete="off"
       />
@@ -706,7 +697,7 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
 function Textarea({ label, value, onChange, red, error, className, requiredMark, disabled }: { label: string; value: string; onChange: (v: string)=>void; red?: boolean; error?: boolean; className?: string; requiredMark?: boolean; disabled?: boolean }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-gray-700">
+      <label className="mb-1 block text-xs font-medium text-zinc-700">
         <span>{label}</span>
         {requiredMark && (
           <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
@@ -718,7 +709,7 @@ function Textarea({ label, value, onChange, red, error, className, requiredMark,
         value={value}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
         disabled={disabled}
-        className={`min-h-[88px] w-full rounded-lg border px-3 py-2 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-emerald-700'} placeholder:text-emerald-600 placeholder:opacity-60 ${error || red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-gray-300 focus:border-emerald-500'}`}
+        className={`min-h-[88px] w-full rounded-xl border ${error || red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 py-2 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)] shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
         placeholder=""
       />
     </div>
@@ -729,7 +720,7 @@ type Opt = string | { label: string; value: string; disabled?: boolean };
 function Select({ label, value, onChange, options, error, requiredMark, disabled }: { label: string; value: string; onChange: (v:string)=>void; options: Opt[]; error?: boolean; requiredMark?: boolean; disabled?: boolean }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-gray-700">
+      <label className="mb-1 block text-xs font-medium text-zinc-700">
         <span>{label}</span>
         {requiredMark && (
           <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
@@ -747,7 +738,7 @@ function Select({ label, value, onChange, options, error, requiredMark, disabled
             value={displayValue}
             onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
             disabled={disabled}
-            className={`h-10 w-full rounded-lg border px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-emerald-700'} ${error ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-300' : 'border-gray-300 focus:border-emerald-500'}`}
+            className={`h-10 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} ${error ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-300' : 'focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
           >
             {norm.map((opt, idx) => (
               <option key={opt.value+idx} value={opt.value} disabled={!!opt.disabled}>{opt.label}</option>
