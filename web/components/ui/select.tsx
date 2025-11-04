@@ -22,6 +22,7 @@ export function SimpleSelect({
   triggerStyle,
   contentStyle,
   overrideLabel,
+  flat,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -33,6 +34,10 @@ export function SimpleSelect({
   triggerStyle?: React.CSSProperties;
   contentStyle?: React.CSSProperties;
   overrideLabel?: string;
+  /**
+   * Flat visual style used in EditarFicha (no border/shadow on trigger/content)
+   */
+  flat?: boolean;
 }) {
   const current = options.find((o) => getLabel(o).value === value) as SelectOption | undefined;
   const currentLabel = overrideLabel ?? (current ? getLabel(current).label : (value || placeholder || ""));
@@ -45,8 +50,8 @@ export function SimpleSelect({
         <button
           type="button"
           className={cn(
-            "flex h-12 w-full items-center justify-between rounded-lg border border-zinc-300 bg-white px-5 py-3 text-sm text-zinc-900 shadow-sm outline-none",
-            "focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20",
+            "flex h-12 w-full items-center justify-between rounded-lg bg-white px-5 py-3 text-sm text-zinc-900 outline-none",
+            flat ? "border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent" : "border border-zinc-300 shadow-sm focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20",
             className,
             triggerClassName,
           )}
@@ -67,7 +72,8 @@ export function SimpleSelect({
           align="start"
           sideOffset={6}
           className={cn(
-            "z-50 min-w-[12rem] overflow-hidden rounded-md border bg-white text-zinc-900 shadow-md mz-select-content",
+            "z-50 min-w-[12rem] overflow-hidden rounded-md bg-white text-zinc-900 mz-select-content",
+            flat ? "border-0 shadow-none" : "border shadow-md",
             contentClassName,
           )}
           style={contentStyle}

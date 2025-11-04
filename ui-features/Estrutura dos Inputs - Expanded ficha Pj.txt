@@ -1,0 +1,16 @@
+Dados da Empresa
+
+Razão Social | CNPJ | Data de Abertura 
+Nome Fantasia | Nome Nome de Fachada 
+Área de Atuação
+
+Endereço
+
+Endereço | Número | Complemento 
+Tipo de Imóvel | Obs Tipo de Imóvel | 
+CEP | Bairro | Tempo no Endereço
+Tipo de Estabelecimento  | Obs Estabelecimento
+Endereço do PS
+
+
+

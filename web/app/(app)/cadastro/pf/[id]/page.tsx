@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { SimpleSelect } from "@/components/ui/select";
 import { supabase } from "@/lib/supabaseClient";
+import { Textarea as UITTextarea } from "@/components/ui/textarea";
+import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, ArrowRight } from "lucide-react";
+import { changeStage } from "@/features/kanban/services";
+import { listProfiles, type ProfileLite } from "@/features/comments/services";
+import { TaskDrawer } from "@/features/tasks/TaskDrawer";
+import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
 
 type AppModel = {
   primary_name?: string;
@@ -183,6 +190,18 @@ export default function CadastroPFPage() {
   const from = (search?.get('from') || '').toLowerCase();
   const cardId = search?.get('card') || '';
   const showAnalyzeCrumb = from === 'analisar' && !!cardId;
+  // Parecer states
+  const [pareceres, setPareceres] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const [novoParecer, setNovoParecer] = useState("");
+  const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
+  const [mentionFilterParecer, setMentionFilterParecer] = useState("");
+  const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
+  const [cmdQueryParecer, setCmdQueryParecer] = useState("");
+  const [cmdAnchorParecer, setCmdAnchorParecer] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  const parecerRef = useRef<HTMLTextAreaElement|null>(null);
+  const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
+  const [attachOpen, setAttachOpen] = useState<{open:boolean, parentId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
 
   useEffect(() => {
     let active = true;
@@ -260,16 +279,27 @@ export default function CadastroPFPage() {
             });
           }
         }
+
+        // Carregar Pareceres e perfis
+        if (cardId) {
+          const { data: card } = await supabase
+            .from('kanban_cards')
+            .select('reanalysis_notes')
+            .eq('id', cardId)
+            .maybeSingle();
+          if (card && Array.isArray((card as any).reanalysis_notes)) setPareceres((card as any).reanalysis_notes);
+          try { setProfiles(await listProfiles()); } catch {}
+        }
       } finally {
         if (active) setLoading(false);
       }
     })();
     return () => { active = false; };
-  }, [applicantId]);
+  }, [applicantId, cardId]);
 
-  // Realtime: applicants + pf_fichas
+  // Realtime: applicants + pf_fichas + kanban_cards (pareceres)
   useEffect(() => {
-    let ch1:any; let ch2:any;
+    let ch1:any; let ch2:any; let ch3:any;
     try {
       ch1 = supabase
         .channel(`rt-pf-app-${applicantId}`)
@@ -303,9 +333,18 @@ export default function CadastroPFPage() {
           setPf(pfix);
         })
         .subscribe();
+      if (cardId) {
+        ch3 = supabase
+          .channel(`rt-pf-card-${cardId}`)
+          .on('postgres_changes', { event:'UPDATE', schema:'public', table:'kanban_cards', filter:`id=eq.${cardId}` }, (payload:any) => {
+            const row:any = payload.new || {};
+            if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
+          })
+          .subscribe();
+      }
     } catch {}
-    return () => { try { if (ch1) supabase.removeChannel(ch1); if (ch2) supabase.removeChannel(ch2); } catch {} };
-  }, [applicantId]);
+    return () => { try { if (ch1) supabase.removeChannel(ch1); if (ch2) supabase.removeChannel(ch2); if (ch3) supabase.removeChannel(ch3); } catch {} };
+  }, [applicantId, cardId]);
 
   async function flushAutosave() {
     if (!applicantId) return;
@@ -399,6 +438,7 @@ export default function CadastroPFPage() {
   ];
 
   const SVA_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
+    { label: 'XXXXX', value: 'XXXXX' },
     { label: '— Streaming e TV —', value: '__hdr_stream', disabled: true },
     { label: 'MZ TV+ (MZPLAY PLUS - ITTV): R$ 29,90 (01 TELA)', value: 'MZ TV+ (MZPLAY PLUS - ITTV): R$ 29,90 (01 TELA)' },
     { label: 'DEZZER: R$ 15,00', value: 'DEZZER: R$ 15,00' },
@@ -477,27 +517,30 @@ export default function CadastroPFPage() {
 
       {/* Seção 1: Dados do Cliente */}
       <Card title="Dados do Cliente">
+        {/* Linha 1: Nome | CPF | Data de Nascimento | Idade */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Linha 1 */}
-          <Field label="Nome do Cliente" value={app.primary_name || ""} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave("app","primary_name", v); }} className="lg:col-span-2" />
-          <Field label="CPF" value={app.cpf_cnpj || ""} onChange={(v)=>{ setApp({...app, cpf_cnpj:v}); queueSave("app","cpf_cnpj", v); }} className="max-w-[220px]" />
-          <Field label="Data de Nascimento" value={pf.birth_date ? formatDateBR(pf.birth_date as any) : ""} onChange={(v)=>{ setPf({...pf, birth_date: v}); queueSave("pf","birth_date", v); }} className="max-w-[160px]" />
-          <Field label="Idade" value={pf.idade || ""} onChange={(v)=>{ setPf({...pf, idade:v}); queueSave('pf','idade', v); }} maxLength={2} className="max-w-[96px]" />
-          {/* Linha 2 */}
-          <Field label="Telefone" value={app.phone || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave("app","phone", m); }} className="max-w-[220px]" />
-          <Field label="WhatsApp" value={app.whatsapp || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave("app","whatsapp", m); }} className="max-w-[220px]" />
-          <Textarea label="Do PS" value={pf.do_ps || ""} onChange={(v)=>{ setPf({...pf, do_ps:v}); queueSave("pf","do_ps", v); }} red className="lg:col-span-2" />
-          {/* Linha 3 */}
-          <Field label="Naturalidade" value={pf.naturalidade || ""} onChange={(v)=>{ setPf({...pf, naturalidade:v}); queueSave("pf","naturalidade", v); }} className="lg:col-span-2" />
-          <Field label="UF" value={pf.uf_naturalidade || ""} onChange={(v)=>{ setPf({...pf, uf_naturalidade:v}); queueSave("pf","uf_naturalidade", v); }} className="max-w-[96px]" />
-          <Field label="E-mail" value={app.email || ""} onChange={(v)=>{ setApp({...app, email:v}); queueSave("app","email", v); }} className="lg:col-span-2" />
-          <div />
+          <Field label="Nome do Cliente" value={app.primary_name || ""} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave("app","primary_name", v); }} />
+          <Field label="CPF" value={app.cpf_cnpj || ""} onChange={(v)=>{ setApp({...app, cpf_cnpj:v}); queueSave("app","cpf_cnpj", v); }} />
+          <Field label="Data de Nascimento" value={pf.birth_date ? formatDateBR(pf.birth_date as any) : ""} onChange={(v)=>{ setPf({...pf, birth_date: v}); queueSave("pf","birth_date", v); }} />
+          <Field label="Idade" value={pf.idade || ""} onChange={(v)=>{ setPf({...pf, idade:v}); queueSave('pf','idade', v); }} maxLength={2} />
+        </div>
+        {/* Linha 2: Telefone | WhatsApp | Do PS */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Field label="Telefone" value={app.phone || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave("app","phone", m); }} />
+          <Field label="WhatsApp" value={app.whatsapp || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave("app","whatsapp", m); }} />
+          <Textarea label="Do PS" value={pf.do_ps || ""} onChange={(v)=>{ setPf({...pf, do_ps:v}); queueSave("pf","do_ps", v); }} red />
+        </div>
+        {/* Linha 3: Naturalidade | UF | E-mail */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Field label="Naturalidade" value={pf.naturalidade || ""} onChange={(v)=>{ setPf({...pf, naturalidade:v}); queueSave("pf","naturalidade", v); }} />
+          <Field label="UF" value={pf.uf_naturalidade || ""} onChange={(v)=>{ setPf({...pf, uf_naturalidade:v}); queueSave("pf","uf_naturalidade", v); }} />
+          <Field label="E-mail" value={app.email || ""} onChange={(v)=>{ setApp({...app, email:v}); queueSave("app","email", v); }} />
         </div>
       </Card>
 
       {/* Seção 2: Endereço */}
       <Card title="Endereço">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <Field label="Endereço" value={app.address_line || ""} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave("app","address_line", v); }} className="col-span-2" />
           <Field label="Número" value={app.address_number || ""} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave("app","address_number", v); }} />
           <Field label="Complemento" value={app.address_complement || ""} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave("app","address_complement", v); }} />
@@ -508,10 +551,8 @@ export default function CadastroPFPage() {
           }} />
           <Field label="Bairro" value={app.bairro || ""} onChange={(v)=>{ setApp({...app, bairro:v}); queueSave("app","bairro", v); }} />
           <Field label="Cond" value={pf.cond || ""} onChange={(v)=>{ setPf({...pf, cond:v}); queueSave("pf","cond", v); }} />
-          <Field label="Endereço Do PS" value={pf.endereco_do_ps || ""} onChange={(v)=>{ setPf({...pf, endereco_do_ps:v}); queueSave("pf","endereco_do_ps", v); }} red className="md:col-span-3" />
           <Field label="Tempo" value={pf.tempo_endereco || ""} onChange={(v)=>{ setPf({...pf, tempo_endereco:v}); queueSave("pf","tempo_endereco", v); }} />
-          <Select label="Tipo de Moradia" value={pf.tipo_moradia || ""} onChange={(v)=>{ setPf({...pf, tipo_moradia:v}); queueSave("pf","tipo_moradia", v); }} options={["Própria","Alugada","Cedida","Outros"]} />
-          <Field label="Observações" value={pf.tipo_moradia_obs || ""} onChange={(v)=>{ setPf({...pf, tipo_moradia_obs:v}); queueSave("pf","tipo_moradia_obs", v); }} error={errs.tipo_moradia_obs} requiredMark={reqObs} />
+          <Field label="Endereço Do PS" value={pf.endereco_do_ps || ""} onChange={(v)=>{ setPf({...pf, endereco_do_ps:v}); queueSave("pf","endereco_do_ps", v); }} red className="md:col-span-4" />
         </div>
         {/* Checklist removido: agora marcamos no label dos campos obrigatórios */}
       </Card>
@@ -520,30 +561,138 @@ export default function CadastroPFPage() {
       <Card title="Relações de Residência">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {/* Linha 1 */}
-          <Select label="Única no lote" value={pf.unica_no_lote || ""} onChange={(v)=>{ setPf({...pf, unica_no_lote:v}); queueSave("pf","unica_no_lote", v); }} options={["Sim","Não"]} />
-          <Field label="Única no lote (Obs)" value={pf.unica_no_lote_obs || ""} onChange={(v)=>{ setPf({...pf, unica_no_lote_obs:v}); queueSave("pf","unica_no_lote_obs", v); }} error={errs.unica_no_lote_obs} requiredMark={reqUnicaObs} className="md:col-span-2" />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              <span>Tipo de Moradia</span>
+            </label>
+            <SimpleSelect
+              value={pf.tipo_moradia || ""}
+              onChange={(v)=>{ setPf({...pf, tipo_moradia:v}); queueSave("pf","tipo_moradia", v); }}
+              options={["Própria","Alugada","Cedida","Outros"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <Field label="Observações" value={pf.tipo_moradia_obs || ""} onChange={(v)=>{ setPf({...pf, tipo_moradia_obs:v}); queueSave("pf","tipo_moradia_obs", v); }} error={errs.tipo_moradia_obs} requiredMark={reqObs} className="md:col-span-2" />
           {/* Linha 2 */}
-          <Field label="Com quem reside" value={pf.com_quem_reside || ""} onChange={(v)=>{ setPf({...pf, com_quem_reside:v}); queueSave("pf","com_quem_reside", v); }} className="md:col-span-2" />
-          <Select label="Nas outras" value={pf.nas_outras || ""} onChange={(v)=>{ setPf({...pf, nas_outras:v}); queueSave("pf","nas_outras", v); }} options={["Parentes","Locador(a)","Só conhecidos","Não conhece"]} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              <span>Única no lote</span>
+            </label>
+            <SimpleSelect
+              value={pf.unica_no_lote || ""}
+              onChange={(v)=>{ setPf({...pf, unica_no_lote:v}); queueSave("pf","unica_no_lote", v); }}
+              options={["Sim","Não"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <Field label="Única no lote (Obs)" value={pf.unica_no_lote_obs || ""} onChange={(v)=>{ setPf({...pf, unica_no_lote_obs:v}); queueSave("pf","unica_no_lote_obs", v); }} error={errs.unica_no_lote_obs} requiredMark={reqUnicaObs} className="md:col-span-2" />
           {/* Linha 3 */}
-          <Select label="Tem Contrato" value={pf.tem_contrato || ""} onChange={(v)=>{ setPf({...pf, tem_contrato:v}); queueSave("pf","tem_contrato", v); if (v === 'Não') { setPf(prev=>({ ...prev, enviou_contrato:'', nome_de:'' })); queueSave('pf','enviou_contrato',''); queueSave('pf','nome_de',''); } else if (v === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { // força comprovante
-              const nomeDe = (pf.nome_de || '');
-              setPf(prev=>({ ...prev, enviou_comprovante:'Sim', tipo_comprovante:'Outro', nome_comprovante: nomeDe }));
-              queueSave('pf','enviou_comprovante','Sim');
-              queueSave('pf','tipo_comprovante','Outro');
-              queueSave('pf','nome_comprovante', nomeDe);
-            } }} options={["Sim","Não"]} />
-          <Select label="Enviou Contrato" value={pf.enviou_contrato || ""} onChange={(v)=>{ setPf({...pf, enviou_contrato:v}); queueSave("pf","enviou_contrato", v); if (v !== 'Sim') { setPf(prev=>({ ...prev, nome_de:'' })); queueSave('pf','nome_de',''); } else if ((pf.tem_contrato||'') === 'Sim') { const nomeDe = (pf.nome_de || ''); setPf(prev=>({ ...prev, enviou_comprovante:'Sim', tipo_comprovante:'Outro', nome_comprovante: nomeDe })); queueSave('pf','enviou_comprovante','Sim'); queueSave('pf','tipo_comprovante','Outro'); queueSave('pf','nome_comprovante', nomeDe); } }} options={["Sim","Não"]} error={errs.enviou_contrato} requiredMark={reqEnviouContrato} disabled={!reqEnviouContrato} />
+          <Field label="Com quem reside" value={pf.com_quem_reside || ""} onChange={(v)=>{ setPf({...pf, com_quem_reside:v}); queueSave("pf","com_quem_reside", v); }} className="md:col-span-2" />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              <span>Nas outras</span>
+            </label>
+            <SimpleSelect
+              value={pf.nas_outras || ""}
+              onChange={(v)=>{ setPf({...pf, nas_outras:v}); queueSave("pf","nas_outras", v); }}
+              options={["Parentes","Locador(a)","Só conhecidos","Não conhece"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          {/* Linha 4 */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              <span>Tem Contrato</span>
+            </label>
+            <SimpleSelect
+              value={pf.tem_contrato || ""}
+              onChange={(v)=>{ setPf({...pf, tem_contrato:v}); queueSave("pf","tem_contrato", v); if (v === 'Não') { setPf(prev=>({ ...prev, enviou_contrato:'', nome_de:'' })); queueSave('pf','enviou_contrato',''); queueSave('pf','nome_de',''); } else if (v === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { const nomeDe = (pf.nome_de || ''); setPf(prev=>({ ...prev, enviou_comprovante:'Sim', tipo_comprovante:'Outro', nome_comprovante: nomeDe })); queueSave('pf','enviou_comprovante','Sim'); queueSave('pf','tipo_comprovante','Outro'); queueSave('pf','nome_comprovante', nomeDe); } }}
+              options={["Sim","Não"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              <span>Enviou Contrato</span>
+              {reqEnviouContrato && (
+                <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${errs.enviou_contrato ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
+                  Obrigatório
+                </span>
+              )}
+            </label>
+            <SimpleSelect
+              value={pf.enviou_contrato || ""}
+              onChange={(v)=>{ setPf({...pf, enviou_contrato:v}); queueSave("pf","enviou_contrato", v); if (v !== 'Sim') { setPf(prev=>({ ...prev, nome_de:'' })); queueSave('pf','nome_de',''); } else if ((pf.tem_contrato||'') === 'Sim') { const nomeDe = (pf.nome_de || ''); setPf(prev=>({ ...prev, enviou_comprovante:'Sim', tipo_comprovante:'Outro', nome_comprovante: nomeDe })); queueSave('pf','enviou_comprovante','Sim'); queueSave('pf','tipo_comprovante','Outro'); queueSave('pf','nome_comprovante', nomeDe); } }}
+              options={["Sim","Não"]}
+              className="mt-0"
+              triggerClassName={`h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 ${!reqEnviouContrato ? 'opacity-50 pointer-events-none cursor-not-allowed bg-gray-100 text-gray-400' : ''}`}
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Nome De" value={pf.nome_de || ""} onChange={(v)=>{ setPf({...pf, nome_de:v}); queueSave("pf","nome_de", v); if ((pf.tem_contrato||'') === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { setPf(prev=>({ ...prev, nome_comprovante: v })); queueSave('pf','nome_comprovante', v); } }} error={errs.nome_de} requiredMark={reqNomeDe} disabled={!reqNomeDe} />
           {/* Linha 4 */}
-          <Select label="Enviou Comprovante" value={pf.enviou_comprovante || ""} onChange={(v)=>{ setPf({...pf, enviou_comprovante:v}); queueSave("pf","enviou_comprovante", v); if (v === 'Não') { setPf(prev=>({ ...prev, tipo_comprovante:'', nome_comprovante:'' })); queueSave('pf','tipo_comprovante',''); queueSave('pf','nome_comprovante',''); } }} options={["Sim","Não"]} requiredMark={reqComprovante} />
-          <Select label="Tipo de Comprovante" value={pf.tipo_comprovante || ""} onChange={(v)=>{ setPf({...pf, tipo_comprovante:v}); queueSave("pf","tipo_comprovante", v); }} options={["Energia","Agua","Internet","Outro"]} error={errs.tipo_comprovante} requiredMark={reqComprovante} disabled={!reqComprovante} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              <span>Enviou Comprovante</span>
+              {reqComprovante && (
+                <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle border-emerald-300 bg-emerald-100 text-emerald-700`}>
+                  Obrigatório
+                </span>
+              )}
+            </label>
+            <SimpleSelect
+              value={pf.enviou_comprovante || ""}
+              onChange={(v)=>{ setPf({...pf, enviou_comprovante:v}); queueSave("pf","enviou_comprovante", v); if (v === 'Não') { setPf(prev=>({ ...prev, tipo_comprovante:'', nome_comprovante:'' })); queueSave('pf','tipo_comprovante',''); queueSave('pf','nome_comprovante',''); } }}
+              options={["Sim","Não"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              <span>Tipo de Comprovante</span>
+              {reqComprovante && (
+                <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${errs.tipo_comprovante ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
+                  Obrigatório
+                </span>
+              )}
+            </label>
+            <SimpleSelect
+              value={pf.tipo_comprovante || ""}
+              onChange={(v)=>{ setPf({...pf, tipo_comprovante:v}); queueSave("pf","tipo_comprovante", v); }}
+              options={["Energia","Agua","Internet","Outro"]}
+              className="mt-0"
+              triggerClassName={`h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 ${!reqComprovante ? 'opacity-50 pointer-events-none cursor-not-allowed bg-gray-100 text-gray-400' : ''}`}
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Nome do Comprovante" value={pf.nome_comprovante || ""} onChange={(v)=>{ setPf({...pf, nome_comprovante:v}); queueSave("pf","nome_comprovante", v); }} error={errs.nome_comprovante} requiredMark={reqComprovante} disabled={!reqComprovante} />
           {/* Linha 5 */}
           <Field label="Nome Locador" value={pf.nome_locador || ""} onChange={(v)=>{ setPf({...pf, nome_locador:v}); queueSave("pf","nome_locador", v); }} error={errs.nome_locador} requiredMark={reqLocador} className="md:col-span-2" />
           <Field label="Telefone Locador" value={pf.telefone_locador || ""} onChange={(v)=>{ setPf({...pf, telefone_locador:v}); queueSave("pf","telefone_locador", v); }} error={errs.telefone_locador} requiredMark={reqLocador} />
           {/* Linha 6 */}
-          <Select label="Tem internet fixa atualmente?" value={pf.tem_internet_fixa || ""} onChange={(v)=>{ setPf({...pf, tem_internet_fixa:v}); queueSave("pf","tem_internet_fixa", v); }} options={["Sim","Não"]} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              <span>Tem internet fixa atualmente?</span>
+            </label>
+            <SimpleSelect
+              value={pf.tem_internet_fixa || ""}
+              onChange={(v)=>{ setPf({...pf, tem_internet_fixa:v}); queueSave("pf","tem_internet_fixa", v); }}
+              options={["Sim","Não"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Empresa Internet" value={pf.empresa_internet || ""} onChange={(v)=>{ setPf({...pf, empresa_internet:v}); queueSave("pf","empresa_internet", v); }} />
           <Field label="Plano Internet" value={pf.plano_internet || ""} onChange={(v)=>{ setPf({...pf, plano_internet:v}); queueSave("pf","plano_internet", v); }} />
           <Field label="Valor Internet" value={pf.valor_internet || ""} onChange={(v)=>{ const m = formatCurrencyBR(v); setPf({...pf, valor_internet:m}); queueSave("pf","valor_internet", m); }} />
@@ -558,7 +707,19 @@ export default function CadastroPFPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Field label="Profissão" value={pf.profissao || ""} onChange={(v)=>{ setPf({...pf, profissao:v}); queueSave("pf","profissao", v); }} />
           <Field label="Empresa" value={pf.empresa || ""} onChange={(v)=>{ setPf({...pf, empresa:v}); queueSave("pf","empresa", v); }} />
-          <Select label="Vínculo" value={pf.vinculo || ""} onChange={(v)=>{ setPf({...pf, vinculo:v}); queueSave("pf","vinculo", v); }} options={["Carteira Assinada","Presta Serviços","Contrato de Trabalho","Autonômo","Concursado","Outro"]} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              <span>Vínculo</span>
+            </label>
+            <SimpleSelect
+              value={pf.vinculo || ""}
+              onChange={(v)=>{ setPf({...pf, vinculo:v}); queueSave("pf","vinculo", v); }}
+              options={["Carteira Assinada","Presta Serviços","Contrato de Trabalho","Autonômo","Concursado","Outro"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Vínculo (Obs)" value={pf.vinculo_obs || ""} onChange={(v)=>{ setPf({...pf, vinculo_obs:v}); queueSave("pf","vinculo_obs", v); }} error={errs.vinculo_obs} requiredMark={reqVinculoObs} />
           <Field label="Emprego do PS" value={pf.emprego_do_ps || ""} onChange={(v)=>{ setPf({...pf, emprego_do_ps:v}); queueSave("pf","emprego_do_ps", v); }} red className="lg:col-span-4" />
         </div>
@@ -567,7 +728,19 @@ export default function CadastroPFPage() {
       <Card title="Cônjuge">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Linha 1 */}
-          <Select label="Estado Civil" value={pf.estado_civil || ""} onChange={(v)=>{ setPf({...pf, estado_civil:v}); queueSave("pf","estado_civil", v); }} options={["Solteiro(a)","Casado(a)","Amasiado(a)","Separado(a)","Viuvo(a)"]} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              <span>Estado Civil</span>
+            </label>
+            <SimpleSelect
+              value={pf.estado_civil || ""}
+              onChange={(v)=>{ setPf({...pf, estado_civil:v}); queueSave("pf","estado_civil", v); }}
+              options={["Solteiro(a)","Casado(a)","Amasiado(a)","Separado(a)","Viuvo(a)"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Observações" value={pf.conjuge_obs || ""} onChange={(v)=>{ setPf({...pf, conjuge_obs:v}); queueSave("pf","conjuge_obs", v); }} className="lg:col-span-3" />
           {/* Linha 2 */}
           <Field label="Nome" value={pf.conjuge_nome || ""} onChange={(v)=>{ setPf({...pf, conjuge_nome:v}); queueSave("pf","conjuge_nome", v); }} className="lg:col-span-2" />
@@ -617,41 +790,179 @@ export default function CadastroPFPage() {
       <Card title="Outras Informações / MK">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="col-span-2">
-            <Select
-              label="Plano escolhido"
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Plano escolhido</label>
+            <SimpleSelect
               value={app.plano_acesso || ""}
               onChange={(v)=>{ setApp({...app, plano_acesso:v}); queueSave("app","plano_acesso", v); }}
               options={PLANO_OPTIONS as any}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
 
-          <Select
-            label="Vencimento"
-            value={app.venc || ""}
-            onChange={(v)=>{ setApp({...app, venc:v}); queueSave("app","venc", v); }}
-            options={["5","10","15","20","25"]}
-          />
-          <Select
-            label="SVA Avulso"
-            value={app.sva_avulso || ""}
-            onChange={(v)=>{ setApp({...app, sva_avulso:v}); queueSave("app","sva_avulso", v); }}
-            options={SVA_OPTIONS as any}
-          />
-          <Select label="Carnê impresso" value={app.carne_impresso ? "Sim" : "Não"} onChange={(v)=>{ const val = (v === 'Sim'); setApp({...app, carne_impresso: val}); queueSave("app","carne_impresso", val); }} options={["Sim","Não"]} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Vencimento</label>
+            <SimpleSelect
+              value={app.venc || ""}
+              onChange={(v)=>{ setApp({...app, venc:v}); queueSave("app","venc", v); }}
+              options={["5","10","15","20","25"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">SVA Avulso</label>
+            <SimpleSelect
+              value={app.sva_avulso || ""}
+              onChange={(v)=>{ setApp({...app, sva_avulso:v}); queueSave("app","sva_avulso", v); }}
+              options={SVA_OPTIONS as any}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Carnê impresso</label>
+            <SimpleSelect
+              value={app.carne_impresso ? "Sim" : "Não"}
+              onChange={(v)=>{ const val = (v === 'Sim'); setApp({...app, carne_impresso: val}); queueSave("app","carne_impresso", val); }}
+              options={["Sim","Não"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+
           <Field label="Quem solicitou" value={app.quem_solicitou || ""} onChange={(v)=>{ setApp({...app, quem_solicitou:v}); queueSave("app","quem_solicitou", v); }} />
           <Field label="Telefone do solicitante" value={app.telefone_solicitante || ""} onChange={(v)=>{ setApp({...app, telefone_solicitante:v}); queueSave("app","telefone_solicitante", v); }} />
           <Field label="Protocolo MK" value={app.protocolo_mk || ""} onChange={(v)=>{ setApp({...app, protocolo_mk:v}); queueSave("app","protocolo_mk", v); }} />
-          <Select label="Meio" value={app.meio || ""} onChange={(v)=>{ setApp({...app, meio:v}); queueSave("app","meio", v); }} options={["Ligação","Whatspp","Presensicial","Whats - Uber"]} />
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Meio</label>
+            <SimpleSelect
+              value={app.meio || ""}
+              onChange={(v)=>{ setApp({...app, meio:v}); queueSave("app","meio", v); }}
+              options={["Ligação","Whatspp","Presensicial","Whats - Uber"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Textarea label="Informações relevantes" value={app.info_relevantes || ""} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave("app","info_relevantes", v); }} className="lg:col-span-4" />
           <Textarea label="Informações Relevantes do MK" value={app.info_mk || ""} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave("app","info_mk", v); }} red className="lg:col-span-4" />
         </div>
       </Card>
 
-      <Card title="Parecer">
-        <Grid cols={1}>
-          <Textarea label="Parecer" value={app.parecer_analise || ""} onChange={(v)=>{ setApp({...app, parecer_analise:v}); queueSave("app","parecer_analise", v); }} />
-        </Grid>
-      </Card>
+      {cardId && (
+        <Card title="Parecer">
+          <div className="space-y-4">
+            <div className="relative">
+              <UITTextarea
+                ref={parecerRef as any}
+                value={novoParecer}
+                onChange={(e)=> {
+                  const v = e.target.value || '';
+                  setNovoParecer(v);
+                  const atIdx = v.lastIndexOf('@');
+                  if (atIdx >= 0) { setMentionFilterParecer(v.slice(atIdx + 1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
+                  const slashIdx = v.lastIndexOf('/');
+                  if (slashIdx>=0) {
+                    setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
+                    if (parecerRef.current) {
+                      const ta = parecerRef.current!;
+                      const c = getCaretCoordinates(ta, slashIdx + 1);
+                      const rect = ta.getBoundingClientRect();
+                      const top = rect.top + window.scrollY + c.top + c.height + 6;
+                      const left = rect.left + window.scrollX + c.left;
+                      setCmdAnchorParecer({ top, left });
+                    }
+                  } else { setCmdOpenParecer(false); }
+                }}
+                onKeyDown={async (e:any)=>{
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const txt = (novoParecer || '').trim();
+                    if (!txt || !cardId) return;
+                    const tempNote:any = { id: `tmp-${Date.now()}`, text: txt, author_name: '', author_role: '', created_at: new Date().toISOString(), parent_id: null };
+                    setPareceres(prev => [...(prev||[]), tempNote]);
+                    setNovoParecer('');
+                    try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: txt, p_parent_id: null }); } catch {}
+                    return;
+                  }
+                }}
+                placeholder="Escreva um novo parecer… Use @ para mencionar"
+                rows={4}
+              />
+              {mentionOpenParecer && (
+                <div className="absolute z-50 left-0 bottom-full mb-2">
+                  <MentionDropdownParecer
+                    items={profiles}
+                    onPick={(p)=> {
+                      const idx = (novoParecer || '').lastIndexOf('@');
+                      const newVal = (novoParecer || '').slice(0, idx + 1) + p.full_name + ' ';
+                      setNovoParecer(newVal);
+                      setMentionOpenParecer(false);
+                    }}
+                  />
+                </div>
+              )}
+              {cmdOpenParecer && (
+                <div className="absolute z-50 left-0 bottom-full mb-2">
+                  <CmdDropdown
+                    items={[{ key:'aprovado', label:'Aprovado' },{ key:'negado', label:'Negado' },{ key:'reanalise', label:'Reanálise' },{ key:'tarefa', label:'Tarefa' },{ key:'anexo', label:'Anexo' }].filter(i=> i.key.includes(cmdQueryParecer))}
+                    onPick={async (key)=>{
+                      setCmdOpenParecer(false); setCmdQueryParecer('');
+                      if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
+                      if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
+                      try {
+                        if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
+                        else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
+                        else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
+                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                    }}
+                    initialQuery={cmdQueryParecer}
+                  />
+                </div>
+              )}
+            </div>
+            <PareceresList
+              cardId={cardId}
+              notes={pareceres as any}
+              onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: text, p_parent_id: pid }); }}
+              onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardId, p_note_id: id, p_text: text }); }}
+              onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
+            />
+          </div>
+        </Card>
+      )}
+      <TaskDrawer
+        open={taskOpen.open}
+        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null})}
+        cardId={cardId}
+        commentId={taskOpen.parentId ?? null}
+        taskId={taskOpen.taskId ?? null}
+        onCreated={async (t)=> {
+          if (taskOpen.source === 'parecer') {
+            try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: `📋 Tarefa criada: ${t.description}`, p_parent_id: null }); } catch {}
+          }
+        }}
+      />
+      <AttachmentsModal
+        open={attachOpen.open}
+        onClose={()=> setAttachOpen({open:false})}
+        cardId={cardId}
+        commentId={attachOpen.parentId ?? null}
+        onCompleted={async (files)=> {
+          if (attachOpen.source === 'parecer' && files.length>0) {
+            const names = files.map(f=> f.name).join(', ');
+            try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: `📎 Anexo(s): ${names}`, p_parent_id: null }); } catch {}
+          }
+        }}
+      />
     </div>
   );
 }
@@ -686,7 +997,7 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
         disabled={disabled}
         maxLength={maxLength}
-        className={`h-10 w-full rounded-xl border ${error || red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 text-sm outline-none shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)]`}
+        className={`h-10 w-full rounded-[7px] border ${error || red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 text-sm outline-none shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)]`}
         placeholder=""
         autoComplete="off"
       />
@@ -738,7 +1049,7 @@ function Select({ label, value, onChange, options, error, requiredMark, disabled
             value={displayValue}
             onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
             disabled={disabled}
-            className={`h-10 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} ${error ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-300' : 'focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
+            className={`h-10 w-full rounded-[7px] border border-zinc-200 bg-zinc-50 px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} ${error ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-300' : 'focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
           >
             {norm.map((opt, idx) => (
               <option key={opt.value+idx} value={opt.value} disabled={!!opt.disabled}>{opt.label}</option>
@@ -748,6 +1059,236 @@ function Select({ label, value, onChange, options, error, requiredMark, disabled
       })()}
     </div>
   );
+}
+
+function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void | Promise<void>; initialQuery?: string }) {
+  const [q, setQ] = useState(initialQuery || "");
+  useEffect(()=> setQ(initialQuery || ""), [initialQuery]);
+  const iconFor = (key: string) => {
+    if (key === 'aprovado') return <CheckCircle className="w-4 h-4" />;
+    if (key === 'negado') return <XCircle className="w-4 h-4" />;
+    if (key === 'reanalise') return <RefreshCcw className="w-4 h-4" />;
+    if (key === 'tarefa') return <ClipboardList className="w-4 h-4" />;
+    if (key === 'anexo') return <Paperclip className="w-4 h-4" />;
+    return null;
+  };
+  const filtered = items.filter(i => i.key.includes(q) || i.label.toLowerCase().includes(q.toLowerCase()));
+  const decisions = filtered.filter(i => ['aprovado','negado','reanalise'].includes(i.key));
+  const actions = filtered.filter(i => ['tarefa','anexo'].includes(i.key));
+  return (
+    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
+        <Search className="w-4 h-4 text-zinc-500" />
+        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+      </div>
+      {decisions.length > 0 && (
+        <div className="py-1">
+          <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Decisão da análise</div>
+          {decisions.map((i) => (
+            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left">
+              {iconFor(i.key)}
+              <span>{i.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {actions.length > 0 && (
+        <div className="py-1 border-t border-zinc-100">
+          <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Ações</div>
+          {actions.map((i) => (
+            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left">
+              {iconFor(i.key)}
+              <span>{i.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {decisions.length === 0 && actions.length === 0 && (
+        <div className="px-3 py-2 text-zinc-500">Sem comandos</div>
+      )}
+    </div>
+  );
+}
+
+function MentionDropdownParecer({ items, onPick }: { items: ProfileLite[]; onPick: (p: ProfileLite) => void }) {
+  const [q, setQ] = useState("");
+  const filtered = items.filter((p) => (p.full_name||'').toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
+        <Search className="w-4 h-4 text-zinc-500" />
+        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar pessoas…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+      </div>
+      {filtered.length === 0 ? (
+        <div className="px-3 py-2 text-zinc-500">Sem resultados</div>
+      ) : (
+        <div className="py-1">
+          {filtered.map((p) => (
+            <button key={p.id} onClick={()=> onPick(p)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-zinc-50">
+              <span>{p.full_name}{p.role ? ` (${p.role})` : ''}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type Note = { id: string; text: string; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
+function buildTree(notes: Note[]): Note[] {
+  const byId = new Map<string, any>();
+  notes?.forEach((n:any) => byId.set(n.id, { ...n, children: [] as any[] }));
+  const roots: any[] = [];
+  notes?.forEach((n:any) => {
+    const node = byId.get(n.id)!;
+    if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node); else roots.push(node);
+  });
+  const sortFn = (a:any,b:any)=> new Date(a.created_at||'').getTime() - new Date(b.created_at||'').getTime();
+  const sortTree = (arr:any[]) => { arr.sort(sortFn); arr.forEach(x=> sortTree(x.children)); };
+  sortTree(roots);
+  return roots as any;
+}
+
+function PareceresList({ cardId, notes, onReply, onEdit, onDelete }: { cardId: string; notes: Note[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
+  const tree = useMemo(()=> buildTree(notes||[]), [notes]);
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [cmdQuery, setCmdQuery] = useState("");
+  const replyTaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  const [reply, setReply] = useState("");
+  const [isReplyingId, setIsReplyingId] = useState<string|null>(null);
+  const [isEditingId, setIsEditingId] = useState<string|null>(null);
+  const [editText, setEditText] = useState("");
+  return (
+    <div className="space-y-2">
+      {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
+      {tree.map((n:any) => (
+        <div key={n.id} className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex items-center gap-2">
+              <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+              <div className="min-w-0">
+                <div className="truncate font-medium">{n.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</span></div>
+                {n.author_role && <div className="text-[11px] text-zinc-500 truncate">{n.author_role}</div>}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===n.id ? null : n.id)} className="text-emerald-700 hover:opacity-90">
+                <ArrowRight className="w-5 h-5" strokeWidth={3} />
+              </button>
+              <ParecerMenu onEdit={()=> { setIsEditingId(n.id); setEditText(n.text||''); }} onDelete={()=> onDelete(n.id)} />
+            </div>
+          </div>
+          {isEditingId===n.id ? (
+            <div className="mt-2 space-y-2">
+              <UITTextarea value={editText} onChange={(e)=> setEditText(e.target.value)} rows={3} />
+              <div className="flex gap-2">
+                <button className="px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white" onClick={async ()=> { await onEdit(n.id, editText); setIsEditingId(null); }}>Salvar</button>
+                <button className="px-3 py-1.5 text-sm rounded-md bg-zinc-100" onClick={()=> setIsEditingId(null)}>Cancelar</button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-1 whitespace-pre-line break-words">{n.text}</div>
+          )}
+          <div className="mt-3">
+            {isReplyingId===n.id ? (
+              <div className="relative">
+                <UITTextarea
+                  ref={replyTaRef as any}
+                  value={reply}
+                  onChange={(e)=> setReply(e.target.value)}
+                  onKeyDown={async (e)=>{
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      const t = reply.trim();
+                      if (!t) return;
+                      await onReply(n.id, t);
+                      setReply('');
+                      setIsReplyingId(null);
+                      return;
+                    }
+                    if (e.key === 'Escape') { e.preventDefault(); setReply(''); setIsReplyingId(null); }
+                  }}
+                  onKeyUp={(e)=>{ const v=e.currentTarget.value||''; const slashIdx=v.lastIndexOf('/'); if (slashIdx>=0){ setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current){ const c=getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } } else setCmdOpen(false); }}
+                  rows={3}
+                  placeholder="Responder…"
+                />
+                {cmdOpen && (
+                  <div className="absolute z-50 left-0 bottom-full mb-2">
+                    <CmdDropdown
+                      items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery))}
+                      onPick={async (key)=>{ setCmdOpen(false); setCmdQuery(''); if (key==='tarefa'){ (window as any).dispatchEvent(new Event('mz-open-task')); } else if (key==='anexo'){ (window as any).dispatchEvent(new Event('mz-open-attach')); } }}
+                      initialQuery={cmdQuery}
+                    />
+                  </div>
+                )}
+                
+              </div>
+            ) : null}
+          </div>
+          {n.children && n.children.length>0 && (
+            <div className="mt-2 space-y-2 pl-4">
+              {n.children.map((c:any)=> (
+                <div
+                  key={c.id}
+                  className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800"
+                  style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px', borderLeftStyle: 'solid' }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{c.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span></div>
+                      {c.author_role && <div className="text-[11px] text-zinc-500 truncate">{c.author_role}</div>}
+                    </div>
+                  </div>
+                  <div className="mt-1 whitespace-pre-line break-words">{c.text}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void | Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button onClick={()=> setOpen(v=>!v)} className="parecer-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duration-200" aria-label="Abrir menu">
+        <svg className="w-5 h-5 text-zinc-700" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 14a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0" onClick={()=> setOpen(false)} />
+          <div className="parecer-menu-dropdown absolute right-0 top-10 z-50 w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
+            <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" onClick={()=> { setOpen(false); onEdit(); }}>
+              <svg className="w-4 h-4 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+              Editar
+            </button>
+            <div className="h-px bg-zinc-100 mx-2" />
+            <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" onClick={async ()=> { setOpen(false); await onDelete(); }}>
+              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              Excluir
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number) {
+  const style = window.getComputedStyle(textarea);
+  const mirror = document.createElement('div');
+  const props = ['direction','boxSizing','height','overflowX','overflowY','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth','paddingTop','paddingRight','paddingBottom','paddingLeft','fontStyle','fontVariant','fontWeight','fontStretch','fontSize','fontFamily','lineHeight','textAlign','textTransform','textIndent','textDecoration','letterSpacing','tabSize','MozTabSize'];
+  props.forEach((p:any)=> { (mirror.style as any)[p] = (style as any)[p] ?? style.getPropertyValue(p); });
+  mirror.style.position = 'absolute'; mirror.style.visibility = 'hidden'; mirror.style.whiteSpace = 'pre-wrap'; mirror.style.wordWrap = 'break-word'; mirror.style.width = `${textarea.clientWidth}px`;
+  mirror.textContent = textarea.value.substring(0, position);
+  const span = document.createElement('span'); span.textContent = textarea.value.substring(position) || '.'; mirror.appendChild(span);
+  document.body.appendChild(mirror);
+  const spRect = span.getBoundingClientRect(); const top = spRect.top + textarea.scrollTop; const left = spRect.left + textarea.scrollLeft; const height = spRect.height || parseFloat(style.lineHeight) || 16; document.body.removeChild(mirror);
+  return { top, left, height };
 }
 
 // (Removido) Segmented control; categorias agora ficam dentro do dropdown
