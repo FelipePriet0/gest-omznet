@@ -912,7 +912,7 @@ function PareceresList({ cardId, notes, onReply, onEdit, onDelete }: { cardId: s
                 {n.author_role && <div className="text-[11px] text-zinc-500 truncate">{n.author_role}</div>}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0 z-10">
               <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===n.id ? null : n.id)} className="text-emerald-700 hover:opacity-90">
                 <ArrowRight className="w-5 h-5" strokeWidth={3} />
               </button>
@@ -932,37 +932,38 @@ function PareceresList({ cardId, notes, onReply, onEdit, onDelete }: { cardId: s
           )}
           <div className="mt-3">
             {isReplyingId===n.id ? (
-              <div className="relative">
-                <UITTextarea
-                  ref={replyTaRef as any}
-                  value={reply}
-                  onChange={(e)=> setReply(e.target.value)}
-                  onKeyDown={async (e)=>{
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      const t = reply.trim();
-                      if (!t) return;
-                      await onReply(n.id, t);
-                      setReply('');
-                      setIsReplyingId(null);
-                      return;
-                    }
-                    if (e.key === 'Escape') { e.preventDefault(); setReply(''); setIsReplyingId(null); }
-                  }}
-                  onKeyUp={(e)=>{ const v=e.currentTarget.value||''; const slashIdx=v.lastIndexOf('/'); if (slashIdx>=0){ setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current){ const c=getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } } else setCmdOpen(false); }}
-                  rows={3}
-                  placeholder="Responder…"
-                />
-                {cmdOpen && (
-                  <div className="absolute z-50 left-0 bottom-full mb-2">
-                    <CmdDropdown
-                      items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery))}
-                      onPick={async (key)=>{ setCmdOpen(false); setCmdQuery(''); if (key==='tarefa'){ (window as any).dispatchEvent(new Event('mz-open-task')); } else if (key==='anexo'){ (window as any).dispatchEvent(new Event('mz-open-attach')); } }}
-                      initialQuery={cmdQuery}
-                    />
-                  </div>
-                )}
-                
+              <div className="mt-2 flex gap-2 relative">
+                <div className="flex-1">
+                  <UITTextarea
+                   ref={replyTaRef as any}
+                   value={reply}
+                   onChange={(e)=> setReply(e.target.value)}
+                   onKeyDown={async (e)=>{
+                     if (e.key === 'Enter' && !e.shiftKey) {
+                       e.preventDefault();
+                       const t = reply.trim();
+                       if (!t) return;
+                       await onReply(n.id, t);
+                       setReply('');
+                       setIsReplyingId(null);
+                       return;
+                     }
+                     if (e.key === 'Escape') { e.preventDefault(); setReply(''); setIsReplyingId(null); }
+                   }}
+                   onKeyUp={(e)=>{ const v=e.currentTarget.value||''; const slashIdx=v.lastIndexOf('/'); if (slashIdx>=0){ setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current){ const c=getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } } else setCmdOpen(false); }}
+                   rows={3}
+                    placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+                 />
+                 {cmdOpen && (
+                   <div className="absolute z-50 left-0 bottom-full mb-2">
+                     <CmdDropdown
+                       items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery))}
+                       onPick={async (key)=>{ setCmdOpen(false); setCmdQuery(''); if (key==='tarefa'){ (window as any).dispatchEvent(new Event('mz-open-task')); } else if (key==='anexo'){ (window as any).dispatchEvent(new Event('mz-open-attach')); } }}
+                       initialQuery={cmdQuery}
+                     />
+                   </div>
+                 )}
+                </div>
               </div>
             ) : null}
           </div>
@@ -979,8 +980,37 @@ function PareceresList({ cardId, notes, onReply, onEdit, onDelete }: { cardId: s
                       <div className="truncate font-medium">{c.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span></div>
                       {c.author_role && <div className="text-[11px] text-zinc-500 truncate">{c.author_role}</div>}
                     </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===c.id ? null : c.id)} className="text-emerald-700 hover:opacity-90">
+                        <ArrowRight className="w-5 h-5" strokeWidth={3} />
+                      </button>
+                      <ParecerMenu onEdit={()=> { setIsEditingId(c.id); setEditText(c.text||''); }} onDelete={()=> onDelete(c.id)} />
+                    </div>
                   </div>
                   <div className="mt-1 whitespace-pre-line break-words">{c.text}</div>
+                  {isReplyingId===c.id && (
+                    <div className="mt-2 flex gap-2 relative">
+                      <div className="flex-1">
+                        <UITTextarea
+                          value={reply}
+                          onChange={(e)=> setReply(e.target.value)}
+                          onKeyDown={async (e)=>{ if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); const t=reply.trim(); if(!t) return; await onReply(c.id, t); setReply(''); setIsReplyingId(null); return; } if (e.key==='Escape'){ e.preventDefault(); setReply(''); setIsReplyingId(null); } }}
+                          onKeyUp={(e)=>{ const v=e.currentTarget.value||''; const slashIdx=v.lastIndexOf('/'); if (slashIdx>=0){ setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current){ const rc=getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: rc.top + rc.height + 6, left: Math.max(0, Math.min(rc.left, replyTaRef.current.clientWidth - 256)) }); } } else setCmdOpen(false); }}
+                          rows={3}
+                          placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+                        />
+                        {cmdOpen && (
+                          <div className="absolute z-50 left-0 bottom-full mb-2">
+                            <CmdDropdown
+                              items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery))}
+                              onPick={async (key)=>{ setCmdOpen(false); setCmdQuery(''); if (key==='tarefa'){ (window as any).dispatchEvent(new Event('mz-open-task')); } else if (key==='anexo'){ (window as any).dispatchEvent(new Event('mz-open-attach')); } }}
+                              initialQuery={cmdQuery}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
