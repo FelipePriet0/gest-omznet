@@ -918,10 +918,13 @@ body {
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06),
     0 0 0 1px rgba(0, 0, 0, 0.05);
+  padding: 6px; /* reduzir área do hover com espaçamento interno */
 }
 .cmd-menu-item {
-  color: #27272a; /* zinc-800 */
+  color: var(--verde-primario, #34a853);
   transition: background-color 0.15s ease, color 0.15s ease;
+  border-radius: 8px; /* mesmo corner radius dos outros popovers/selects */
+  margin: 2px 0; /* separação para o hover não ocupar de ponta a ponta */
 }
 .cmd-menu-item:hover,
 .cmd-menu-item[aria-selected="true"],

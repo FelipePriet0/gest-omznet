@@ -42,6 +42,7 @@ const PLANO_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
 ];
 
 const SVA_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
+  { label: 'XXXXX', value: 'XXXXX' },
   { label: '— Streaming e TV —', value: '__hdr_stream', disabled: true },
   { label: 'MZ TV+ (MZPLAY PLUS - ITTV): R$ 29,90 (01 TELA)', value: 'MZ TV+ (MZPLAY PLUS - ITTV): R$ 29,90 (01 TELA)' },
   { label: 'DEZZER: R$ 15,00', value: 'DEZZER: R$ 15,00' },
@@ -70,6 +71,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [createdAt, setCreatedAt] = useState<string>("");
   const [pareceres, setPareceres] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
+  const [mentionFilterParecer, setMentionFilterParecer] = useState("");
   const [createdBy, setCreatedBy] = useState<string>("");
   const [assigneeId, setAssigneeId] = useState<string>("");
   const vendorName = useMemo(()=> profiles.find(p=> p.id===createdBy)?.full_name || "—", [profiles, createdBy]);
@@ -225,6 +228,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const horarios = ["08:30","10:30","13:30","15:30"];
   const statusText = useMemo(()=> saving==='saving'? 'Salvando…' : saving==='saved'? 'Salvo' : saving==='error'? 'Erro ao salvar' : '', [saving]);
 
+  function openExpanded() {
+    if (!applicantId) return;
+    const isPJ = personType === 'PJ';
+    const url = isPJ ? `/cadastro/pj/${applicantId}` : `/cadastro/pf/${applicantId}`;
+    try { window.open(url, '_blank', 'noopener,noreferrer'); } catch {}
+  }
+
   // Helpers de máscara (sem restringir a entrada de texto)
   function digitsOnly(s: string) { return (s || '').replace(/\D+/g, ''); }
   function formatCpf(d: string) {
@@ -261,7 +271,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
         <div className="p-6">
         <div className="mb-6">
           <div className="header-editar-ficha">
-            <div className="header-content">
+            <div className="header-content flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Image
                   src="/mznet-logo.png"
@@ -274,6 +284,11 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                 <div className="header-title">
                   <h2>Editar Ficha</h2>
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={openExpanded} className="btn-primary-mznet">
+                  Analisar
+                </button>
               </div>
             </div>
           </div>
@@ -400,6 +415,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   onChange={(e)=> {
                     const v = e.target.value || '';
                     setNovoParecer(v);
+                    const atIdx = v.lastIndexOf('@');
+                    if (atIdx >= 0) { setMentionFilterParecer(v.slice(atIdx + 1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
                     const slashIdx = v.lastIndexOf('/');
                     if (slashIdx>=0) {
                       setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
@@ -423,6 +440,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                     }
                     // Atalhos /tarefa e /anexo + menções
                     const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                    const atIdx = v.lastIndexOf('@');
+                    if (atIdx>=0) { setMentionFilterParecer(v.slice(atIdx+1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
                     const slashIdx = v.lastIndexOf('/');
                     if (slashIdx>=0) {
                       setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
@@ -456,6 +475,19 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   placeholder="Escreva um novo parecer… Use @ para mencionar"
                   rows={4}
                 />
+                  {mentionOpenParecer && (
+                    <div className="absolute z-50 left-0 bottom-full mb-2">
+                    <MentionDropdownParecer
+                      items={profiles.filter((p)=> p.full_name.toLowerCase().includes(mentionFilterParecer.toLowerCase()))}
+                      onPick={(p)=> {
+                        const idx = (novoParecer || '').lastIndexOf('@');
+                        const newVal = (novoParecer || '').slice(0, idx + 1) + p.full_name + ' ';
+                        setNovoParecer(newVal);
+                        setMentionOpenParecer(false);
+                      }}
+                    />
+                    </div>
+                  )}
                   {cmdOpenParecer && (
                     <div className="absolute z-50 left-0 bottom-full mb-2">
                       <CmdDropdown
@@ -623,7 +655,7 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
         <div className="py-1">
           <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Decisão da análise</div>
           {decisions.map((i) => (
-            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-3 py-2 text-left">
+            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left">
               {iconFor(i.key)}
               <span>{i.label}</span>
             </button>
@@ -634,7 +666,7 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
         <div className="py-1 border-t border-zinc-100">
           <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Ações</div>
           {actions.map((i) => (
-            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-3 py-2 text-left">
+            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left">
               {iconFor(i.key)}
               <span>{i.label}</span>
             </button>
@@ -697,6 +729,8 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
   const [reply, setReply] = useState('');
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState('');
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState('');
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : '';
   if (node.deleted) return null;
   return (
@@ -747,6 +781,8 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
               onChange={(e)=> {
                 const v = e.target.value || '';
                 setReply(v);
+                const atIdx = v.lastIndexOf('@');
+                if (atIdx>=0) { setMentionFilter(v.slice(atIdx+1).trim()); setMentionOpen(true); } else { setMentionOpen(false); }
                 const slashIdx = v.lastIndexOf('/');
                 if (slashIdx>=0) { setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current) { const c = getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } }
                 else { setCmdOpen(false); }
@@ -769,6 +805,19 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
               placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
               rows={3}
             />
+            {mentionOpen && (
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+              <MentionDropdownParecer
+                items={(profiles || []).filter((p)=> p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
+                onPick={(p)=> {
+                  const idx = (reply || '').lastIndexOf('@');
+                  const newVal = (reply || '').slice(0, idx + 1) + p.full_name + ' ';
+                  setReply(newVal);
+                  setMentionOpen(false);
+                }}
+              />
+              </div>
+            )}
             {cmdOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <CmdDropdown
@@ -879,4 +928,46 @@ function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number) {
   const height = spRect.height || parseFloat(style.lineHeight) || 16;
   document.body.removeChild(mirror);
   return { top, left, height };
+}
+
+function MentionDropdownParecer({ items, onPick }: { items: ProfileLite[]; onPick: (p: ProfileLite) => void }) {
+  const [q, setQ] = useState("");
+  const filtered = items.filter((p) => p.full_name.toLowerCase().includes(q.toLowerCase()));
+  const order: Array<{key: string; label: string}> = [
+    { key: 'vendedor', label: 'Vendedor' },
+    { key: 'analista', label: 'Analista' },
+    { key: 'gestor',   label: 'Gestor' },
+  ];
+  const byRole = (role: string) => filtered.filter((p) => (p.role || '').toLowerCase() === role);
+  const hasAny = order.some(({key}) => byRole(key).length > 0);
+  return (
+    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
+        <Search className="w-4 h-4 text-zinc-500" />
+        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar pessoas…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+      </div>
+      {!hasAny ? (
+        <div className="px-3 py-2 text-zinc-500">Sem resultados</div>
+      ) : (
+        order.map(({key,label}) => {
+          const list = byRole(key);
+          if (list.length === 0) return null;
+          return (
+            <div key={key} className="py-1">
+              <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">{label}</div>
+              {list.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => onPick(p)}
+                  className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left"
+                >
+                  <span>{p.full_name}{p.role ? ` (${p.role})` : ''}</span>
+                </button>
+              ))}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
 }
