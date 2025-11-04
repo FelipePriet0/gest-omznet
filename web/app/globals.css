@@ -758,6 +758,255 @@ body {
   border-color: #b91c1c;
 }
 
+/* Pareceres Pai e Respondidos - Borda Primária */
+.pareceres .rounded.border.border-zinc-200.bg-zinc-50 {
+  border-left: 4px solid var(--verde-primario, #34a853) !important;
+  border-radius: 8px !important;
+  background: rgba(52, 168, 83, 0.02) !important;
+  transition: all 0.2s ease;
+}
+
+.pareceres .rounded.border.border-zinc-200.bg-zinc-50:hover {
+  border-left-width: 6px !important;
+  background: rgba(52, 168, 83, 0.05) !important;
+  transform: translateX(2px);
+}
+
+/* Pareceres aninhados (respostas) - Borda mais sutil */
+.pareceres .rounded.border.border-zinc-200.bg-zinc-50[style*="margin-left"] {
+  border-left: 3px solid rgba(52, 168, 83, 0.6) !important;
+  background: rgba(52, 168, 83, 0.01) !important;
+}
+
+.pareceres .rounded.border.border-zinc-200.bg-zinc-50[style*="margin-left"]:hover {
+  border-left-width: 4px !important;
+  background: rgba(52, 168, 83, 0.03) !important;
+}
+
+/* Parecer Menu Dropdown - Professional UI */
+.parecer-menu-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.parecer-menu-trigger:hover {
+  background: rgba(0, 0, 0, 0.05);
+  transform: scale(1.05);
+}
+
+.parecer-menu-trigger:active {
+  transform: scale(0.95);
+}
+
+.parecer-menu-dropdown {
+  animation: parecer-menu-appear 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top right;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+@keyframes parecer-menu-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.parecer-menu-item {
+  position: relative;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.parecer-menu-item:first-child {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.parecer-menu-item:last-child {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.parecer-menu-item:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.parecer-menu-item:hover svg {
+  transform: scale(1.1);
+}
+
+.parecer-menu-item svg {
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+/* Hover específico para o item Excluir */
+.parecer-menu-item:hover:has(svg[stroke="currentColor"]:last-child) {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.parecer-menu-item:hover:has(svg[stroke="currentColor"]:last-child) svg {
+  color: #dc2626;
+}
+
+/* Separador entre itens */
+.parecer-menu-dropdown .h-px {
+  margin: 4px 8px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Responsividade do menu */
+@media (max-width: 480px) {
+  .parecer-menu-dropdown {
+    width: 44vw;
+    max-width: 200px;
+    right: -8px;
+  }
+  
+  .parecer-menu-item {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+  
+  .parecer-menu-item svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Comment Menu Dropdown - Same Professional UI as Parecer Menu */
+.comment-menu-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.comment-menu-trigger:hover {
+  background: rgba(0, 0, 0, 0.05);
+  transform: scale(1.05);
+}
+
+.comment-menu-trigger:active {
+  transform: scale(0.95);
+}
+
+.comment-menu-dropdown {
+  animation: comment-menu-appear 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top right;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+@keyframes comment-menu-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.comment-menu-item {
+  position: relative;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.comment-menu-item:first-child {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.comment-menu-item:last-child {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.comment-menu-item:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.comment-menu-item:hover svg {
+  transform: scale(1.1);
+}
+
+.comment-menu-item svg {
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+/* Hover específico para o item Excluir */
+.comment-menu-item:hover:has(svg[stroke="currentColor"]:last-child) {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.comment-menu-item:hover:has(svg[stroke="currentColor"]:last-child) svg {
+  color: #dc2626;
+}
+
+/* Separador entre itens */
+.comment-menu-dropdown .h-px {
+  margin: 4px 8px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Responsividade do comment menu */
+@media (max-width: 480px) {
+  .comment-menu-dropdown {
+    width: 44vw;
+    max-width: 200px;
+    right: -8px;
+  }
+  
+  .comment-menu-item {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+  
+  .comment-menu-item svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
 @container section-container (min-width: 481px) and (max-width: 640px) {
   .endereco div[class*="grid-cols-3"] {
     grid-template-columns: 1fr 1fr !important;
@@ -1299,6 +1548,7 @@ input[placeholder*="Buscar"]::placeholder {
   box-shadow: none !important;
   outline: none !important;
 }
+
 [data-radix-popper-content-wrapper] .mz-time-popover .mz-time-item--active,
 [data-radix-popper-content-wrapper] .mz-time-popover .mz-time-item--active * {
   color: white !important;

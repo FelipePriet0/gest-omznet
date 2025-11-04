@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { User as UserIcon } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { addComment, deleteComment, editComment, listComments, listProfiles, type Comment, type ProfileLite } from "./services";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
@@ -53,7 +55,7 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
 
   const tree = useMemo(() => buildTree(comments || []), [comments]);
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submitNew();
@@ -98,16 +100,13 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
         <div className="section-content space-y-3">
           {/* Campo para nova conversa (Thread Pai) no topo */}
           <div className="border-b border-zinc-100 pb-4 mb-4">
-            <div className="flex gap-3">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKeyDown}
-                placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
-                className="flex-1 field-input"
-              />
-              <button onClick={() => submitNew()} className="btn-primary-mznet">Enviar</button>
-            </div>
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
+              rows={3}
+            />
             {cmdOpen && (
               <CmdDropdown
                 items={[{key:'tarefa',label:'📋 Tarefa'},{key:'anexo',label:'📎 Anexo'}].filter(i=> i.key.includes(cmdQuery))}
@@ -153,16 +152,13 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
         </div>
         {/* Nova conversa agora está no topo; removido bloco inferior */}
         <div className="hidden">
-          <div className="flex gap-3">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
-              className="flex-1 field-input"
-            />
-            <button onClick={() => submitNew()} className="btn-primary-mznet">Enviar</button>
-          </div>
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
+            rows={3}
+          />
           {cmdOpen && (
             <CmdDropdown
               items={[{key:'tarefa',label:'📋 Tarefa'},{key:'anexo',label:'📎 Anexo'}].filter(i=> i.key.includes(cmdQuery))}
@@ -255,10 +251,14 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const [cmdOpen2, setCmdOpen2] = useState(false);
   const [cmdQuery2, setCmdQuery2] = useState("");
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : "";
-  function onReplyKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function onReplyKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // @ts-ignore
+    if (e.nativeEvent && e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      (async () => { try { await onReply(node.id, reply); setReply(""); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder'); } })();
+      const t = reply.trim();
+      if (!t) return;
+      (async () => { try { await onReply(node.id, t); setReply(""); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder'); } })();
       return;
     }
     const val = (e.currentTarget.value || "") + (e.key.length === 1 ? e.key : "");
@@ -270,25 +270,40 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
     else if (val.endsWith("/anexo")) { onOpenAttach(node.id); }
   }
   return (
-    <div className="comment-card" style={{ marginLeft: depth * 16 }}>
+    <div className="comment-card rounded-lg pl-3" style={{ marginLeft: depth * 16, borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
       <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate font-medium comment-author">{node.author_name || "—"} {node.author_role ? <span className="comment-role">({node.author_role})</span> : null} <span className="comment-timestamp">{ts}</span></div>
+        <div className="min-w-0 flex items-center gap-2">
+          <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+          <div className="min-w-0">
+            <div className="truncate font-medium comment-author text-zinc-900">{node.author_name || "—"} <span className="comment-timestamp">{ts}</span></div>
+            {node.author_role && <div className="text-[11px] text-zinc-900 truncate">{node.author_role}</div>}
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          <button className="comment-action-btn comment-action-reply" onClick={() => setIsReplying((v) => !v)}>→ Responder</button>
-          <button className="comment-action-btn" onClick={() => onOpenAttach(node.id)}>Anexo</button>
-          <button className="comment-action-btn" onClick={() => onOpenTask(node.id)}>Tarefa</button>
+        <div className="flex items-center gap-2">
+          <button aria-label="Responder" className="text-emerald-700 hover:opacity-90" onClick={() => setIsReplying((v) => !v)}>
+            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
           <CommentMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }} />
         </div>
       </div>
       {!isEditing ? (
-        <div className="mt-1 whitespace-pre-line">{node.text}</div>
+        <div className="mt-1 whitespace-pre-line break-words">{node.text}</div>
       ) : (
-        <div className="mt-2 flex gap-2">
-          <input value={text} onChange={(e) => setText(e.target.value)} className="flex-1 field-input" />
-          <button className="btn-small-primary" onClick={async () => { try { await onEdit(node.id, text); setIsEditing(false); } catch (e:any) { alert(e?.message||'Falha ao editar'); } }}>Salvar</button>
-          <button className="btn-small-secondary" onClick={() => { setText(node.text || ""); setIsEditing(false); }}>Cancelar</button>
+        <div className="mt-2">
+          <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={async (e)=>{
+              // @ts-ignore
+              if (e.nativeEvent && e.nativeEvent.isComposing) return;
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
+              }
+              if (e.key === 'Escape') { setText(node.text || ''); setIsEditing(false); }
+            }}
+            rows={3}
+          />
         </div>
       )}
       {tasks && tasks.length > 0 && (
@@ -308,7 +323,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       {isReplying && (
         <div className="mt-2 flex gap-2 items-start">
           <div className="flex-1">
-            <input value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={onReplyKeyDown} placeholder="Responder... (/tarefa, /anexo, @mencionar)" className="w-full field-input" />
+            <Textarea value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={onReplyKeyDown} placeholder="Responder... (/tarefa, /anexo, @mencionar)" rows={3} />
             {mentionOpen2 && (
               <MentionDropdown
                 items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter2.toLowerCase()))}
@@ -327,7 +342,6 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               onPick={(key)=> { if (key==='tarefa') onOpenTask(node.id); if (key==='anexo') onOpenAttach(node.id); setCmdOpen2(false); setCmdQuery2(''); }}
             />
           )}
-          <button className="btn-small-primary" onClick={async () => { try { await onReply(node.id, reply); setReply(""); setIsReplying(false); } catch (e:any) { alert(e?.message||'Falha ao responder'); } }}>Enviar</button>
         </div>
       )}
       {node.children && node.children.length > 0 && (
@@ -358,12 +372,40 @@ function CommentMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <button className="px-1 text-zinc-700" onClick={()=> setOpen(v=>!v)}>⋮</button>
+      <button 
+        aria-label="Mais ações" 
+        className="comment-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duration-200" 
+        onClick={()=> setOpen(v=>!v)}
+      >
+        <svg viewBox="0 0 24 24" className="w-4 h-4 text-zinc-600" strokeWidth={3}>
+          <path d="M6 12h.01M12 12h.01M18 12h.01" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
       {open && (
-        <div className="absolute right-0 top-6 z-10 w-36 rounded border bg-white text-xs shadow">
-          <button className="block w-full px-3 py-2 text-left hover:bg-zinc-50" onClick={()=> { setOpen(false); onEdit(); }}>Editar</button>
-          <button className="block w-full px-3 py-2 text-left text-red-600 hover:bg-zinc-50" onClick={async ()=> { setOpen(false); await onDelete(); }}>Excluir</button>
-        </div>
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="comment-menu-dropdown absolute right-0 top-10 z-20 w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
+            <button 
+              className="comment-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" 
+              onClick={()=> { setOpen(false); onEdit(); }}
+            >
+              <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Editar
+            </button>
+            <div className="h-px bg-zinc-100 mx-2" />
+            <button 
+              className="comment-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" 
+              onClick={async ()=> { setOpen(false); await onDelete(); }}
+            >
+              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Excluir
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { User as UserIcon } from "lucide-react";
+import { User as UserIcon, ArrowRight, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
@@ -603,7 +603,10 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : '';
   if (node.deleted) return null;
   return (
-    <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-6 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" style={{ marginLeft: depth*16 }}>
+    <div
+      className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-6 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] pl-3"
+      style={{ marginLeft: depth*16, borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
           <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
@@ -612,38 +615,56 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
             {node.author_role && <div className="text-[11px] text-zinc-500 truncate">{node.author_role}</div>}
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          <button className="text-emerald-700" onClick={()=> setIsReplying(v=>!v)}>→ Responder</button>
-          <button className="text-zinc-700" onClick={()=> setIsEditing(v=>!v)}>Editar</button>
-          <button className="text-red-600" onClick={async ()=> { if (confirm('Excluir este parecer?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir parecer'); } } }}>Excluir</button>
+        <div className="flex items-center gap-2">
+          <button aria-label="Responder" onClick={()=> setIsReplying(v=>!v)} className="text-emerald-700 hover:opacity-90">
+            <ArrowRight className="w-5 h-5" strokeWidth={3} />
+          </button>
+          <ParecerMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este parecer?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir parecer'); } } }} />
         </div>
       </div>
       {!isEditing ? (
-        <div className="mt-1 whitespace-pre-line">{node.text}</div>
+        <div className="mt-1 whitespace-pre-line break-words">{node.text}</div>
       ) : (
-        <div className="mt-2 flex gap-2">
-          <input value={text} onChange={(e)=> setText(e.target.value)} className="flex-1 rounded-xl border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" />
-          <button className="btn-small-primary" onClick={async ()=> { try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); } }}>Salvar</button>
-          <button className="btn-small-secondary" onClick={()=> { setText(node.text||''); setIsEditing(false); }}>Cancelar</button>
+        <div className="mt-2">
+          <Textarea
+            value={text}
+            onChange={(e)=> setText(e.target.value)}
+            onKeyDown={async (e)=>{
+              // @ts-ignore
+              if (e.nativeEvent && e.nativeEvent.isComposing) return;
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); }
+              }
+              if (e.key === 'Escape') { setText(node.text||''); setIsEditing(false); }
+            }}
+            rows={3}
+          />
         </div>
       )}
       {isReplying && (
         <div className="mt-2 flex gap-2">
           <div className="flex-1">
-            <input
+            <Textarea
               value={reply}
               onChange={(e)=> setReply(e.target.value)}
               onKeyDown={(e)=>{
+                // Evita enviar durante composição (IME)
+                // @ts-ignore
+                if (e.nativeEvent && e.nativeEvent.isComposing) return;
                 const v = (e.currentTarget.value || '') + (e.key.length===1 ? e.key : '');
                 const slashIdx = v.lastIndexOf('/');
                 if (slashIdx>=0) { setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setCmdOpen(false); }
                 if (e.key==='Enter' && !e.shiftKey) {
-                  e.preventDefault(); (async ()=>{ try { await onReply(node.id, reply); setReply(''); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); } })();
+                  e.preventDefault();
+                  const t = reply.trim();
+                  if (!t) return;
+                  (async ()=>{ try { await onReply(node.id, t); setReply(''); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); } })();
                   return;
                 }
               }}
               placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
-              className="w-full rounded-xl border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-emerald-500 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]"
+              rows={3}
             />
             {cmdOpen && (
               <CmdDropdown
@@ -667,13 +688,53 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
               />
             )}
           </div>
-          <button className="btn-small-primary" onClick={async ()=> { try { await onReply(node.id, reply); setReply(''); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); } }}>Enviar</button>
         </div>
       )}
       {node.children && node.children.length>0 && (
         <div className="mt-2 space-y-2">
           {node.children.map((c:any)=> <NoteItem key={c.id} node={c} depth={depth+1} onReply={onReply} onEdit={onEdit} onDelete={onDelete} />)}
         </div>
+      )}
+    </div>
+  );
+}
+
+function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void | Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button 
+        aria-label="Mais ações" 
+        className="parecer-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duration-200" 
+        onClick={()=> setOpen(v=>!v)}
+      >
+        <MoreHorizontal className="w-4 h-4 text-zinc-600" strokeWidth={2} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="parecer-menu-dropdown absolute right-0 top-10 z-20 w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
+            <button 
+              className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" 
+              onClick={()=> { setOpen(false); onEdit(); }}
+            >
+              <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Editar
+            </button>
+            <div className="h-px bg-zinc-100 mx-2" />
+            <button 
+              className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" 
+              onClick={async ()=> { setOpen(false); await onDelete(); }}
+            >
+              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Excluir
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
