@@ -910,6 +910,26 @@ body {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Slash Command Menu - Consistent popover and primary hover */
+.cmd-menu-dropdown {
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+.cmd-menu-item {
+  color: #27272a; /* zinc-800 */
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.cmd-menu-item:hover,
+.cmd-menu-item[aria-selected="true"],
+.cmd-menu-item:focus {
+  background: var(--verde-primario, #34a853);
+  color: #ffffff;
+}
+
 .comment-menu-trigger:hover {
   background: rgba(0, 0, 0, 0.05);
   transform: scale(1.05);

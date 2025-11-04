@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { User as UserIcon } from "lucide-react";
+import { User as UserIcon, ClipboardList, Paperclip, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { addComment, deleteComment, editComment, listComments, listProfiles, type Comment, type ProfileLite } from "./services";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
@@ -19,6 +19,8 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
   const [mentionFilter, setMentionFilter] = useState("");
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
+  const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  const inputRef = useRef<HTMLTextAreaElement|null>(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<CardTask[]>([]);
   const [attachments, setAttachments] = useState<CardAttachment[]>([]);
@@ -56,6 +58,18 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
   const tree = useMemo(() => buildTree(comments || []), [comments]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === '/') {
+      setCmdOpen(true);
+      const ta = inputRef.current || (e.currentTarget as HTMLTextAreaElement);
+      if (ta) {
+        const pos = (ta.selectionStart ?? ta.value.length) + 1;
+        const c = getCaretCoordinates(ta, pos);
+        const top = ta.offsetTop + c.top + c.height + 6;
+        const leftRaw = ta.offsetLeft + c.left;
+        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
+        setCmdAnchor({ top, left });
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submitNew();
@@ -75,6 +89,29 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
       const q = val.slice(slashIdx + 1);
       setCmdQuery(q.toLowerCase());
       setCmdOpen(true);
+      if (inputRef.current) {
+        const ta = inputRef.current;
+        setCmdAnchor({ top: (ta.offsetHeight || 0) + 8, left: 0 });
+      }
+    } else {
+      setCmdOpen(false);
+    }
+  }
+
+  function onKeyUp(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const v = (e.currentTarget.value || '');
+    const slashIdx = v.lastIndexOf('/');
+    if (slashIdx >= 0) {
+      setCmdQuery(v.slice(slashIdx + 1).toLowerCase());
+      setCmdOpen(true);
+      if (inputRef.current) {
+        const ta = inputRef.current;
+        const c = getCaretCoordinates(ta, slashIdx + 1);
+        const top = ta.offsetTop + c.top + c.height + 6;
+        const leftRaw = ta.offsetLeft + c.left;
+        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
+        setCmdAnchor({ top, left });
+      }
     } else {
       setCmdOpen(false);
     }
@@ -99,23 +136,41 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
         </div>
         <div className="section-content space-y-3">
           {/* Campo para nova conversa (Thread Pai) no topo */}
-          <div className="border-b border-zinc-100 pb-4 mb-4">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
-              rows={3}
-            />
-            {cmdOpen && (
-              <CmdDropdown
-                items={[{key:'tarefa',label:'📋 Tarefa'},{key:'anexo',label:'📎 Anexo'}].filter(i=> i.key.includes(cmdQuery))}
-                onPick={(key)=> {
-                  if (key==='tarefa') onOpenTask();
-                  if (key==='anexo') onOpenAttach();
-                  setCmdOpen(false); setCmdQuery('');
-                }}
+          <div className="border-b border-zinc-100 pb-4 mb-4 relative">
+              <Textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => {
+                  const v = e.target.value || '';
+                  setInput(v);
+                  const atIdx = v.lastIndexOf('@');
+                  if (atIdx >= 0) { setMentionFilter(v.slice(atIdx + 1).trim()); setMentionOpen(true); } else { setMentionOpen(false); }
+                  const slashIdx = v.lastIndexOf('/');
+                  if (slashIdx >= 0) {
+                    setCmdQuery(v.slice(slashIdx + 1).toLowerCase()); setCmdOpen(true);
+                    if (inputRef.current) {
+                    const ta = inputRef.current!;
+                    setCmdAnchor({ top: (ta.offsetHeight || 0) + 8, left: 0 });
+                  }
+                } else { setCmdOpen(false); }
+              }}
+                onKeyDown={onKeyDown}
+                onKeyUp={onKeyUp}
+                placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
+                rows={3}
               />
+            {cmdOpen && (
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+                <CmdDropdown
+                  items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery))}
+                  onPick={(key)=> {
+                    if (key==='tarefa') onOpenTask();
+                    if (key==='anexo') onOpenAttach();
+                    setCmdOpen(false); setCmdQuery('');
+                  }}
+                  initialQuery={cmdQuery}
+                />
+              </div>
             )}
             {mentionOpen && (
               <MentionDropdown
@@ -223,14 +278,31 @@ function MentionDropdown({ items, onPick }: { items: ProfileLite[]; onPick: (p: 
   );
 }
 
-function CmdDropdown({ items, onPick }: { items: { key: string; label: string }[]; onPick: (key: string) => void }) {
+function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void; initialQuery?: string }) {
+  const [q, setQ] = useState(initialQuery || "");
+  useEffect(()=> setQ(initialQuery||""), [initialQuery]);
+  const filtered = items.filter(i => i.key.includes(q) || i.label.toLowerCase().includes(q.toLowerCase()));
+  const iconFor = (key: string) => {
+    if (key === 'tarefa') return <ClipboardList className="w-4 h-4" />;
+    if (key === 'anexo') return <Paperclip className="w-4 h-4" />;
+    return null;
+  };
   return (
-    <div className="mt-2 max-h-48 w-full overflow-auto rounded border bg-white text-sm shadow">
-      {items.length === 0 ? (
+    <div className="cmd-menu-dropdown mt-2 max-h-48 w-56 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
+        <Search className="w-4 h-4 text-zinc-500" />
+        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar comando…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+      </div>
+      {filtered.length === 0 ? (
         <div className="px-3 py-2 text-zinc-500">Sem comandos</div>
       ) : (
-        items.map((i) => (
-          <button key={i.key} onClick={() => onPick(i.key)} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-zinc-50">
+        filtered.map((i) => (
+          <button
+            key={i.key}
+            onClick={() => onPick(i.key)}
+            className="cmd-menu-item flex w-full items-center gap-2 px-3 py-2 text-left"
+          >
+            {iconFor(i.key)}
             <span>{i.label}</span>
           </button>
         ))
@@ -265,10 +337,24 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const [mentionFilter2, setMentionFilter2] = useState("");
   const [cmdOpen2, setCmdOpen2] = useState(false);
   const [cmdQuery2, setCmdQuery2] = useState("");
+  const [cmdAnchor2, setCmdAnchor2] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  const replyTaRef = useRef<HTMLTextAreaElement|null>(null);
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : "";
   function onReplyKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     // @ts-ignore
     if (e.nativeEvent && e.nativeEvent.isComposing) return;
+    if (e.key === '/') {
+      setCmdOpen2(true);
+      const ta = replyTaRef.current || (e.currentTarget as HTMLTextAreaElement);
+      if (ta) {
+        const pos = (ta.selectionStart ?? ta.value.length) + 1;
+        const c = getCaretCoordinates(ta, pos);
+        const top = ta.offsetTop + c.top + c.height + 6;
+        const leftRaw = ta.offsetLeft + c.left;
+        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
+        setCmdAnchor2({ top, left });
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       const t = reply.trim();
@@ -280,9 +366,38 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
     const atIdx = val.lastIndexOf("@");
     if (atIdx >= 0) { setMentionFilter2(val.slice(atIdx + 1).trim()); setMentionOpen2(true); } else { setMentionOpen2(false); }
     const slashIdx = val.lastIndexOf("/");
-    if (slashIdx >= 0) { setCmdQuery2(val.slice(slashIdx + 1).toLowerCase()); setCmdOpen2(true); } else { setCmdOpen2(false); }
+    if (slashIdx >= 0) {
+      setCmdQuery2(val.slice(slashIdx + 1).toLowerCase()); setCmdOpen2(true);
+      if (replyTaRef.current) {
+        const ta = replyTaRef.current;
+        const c = getCaretCoordinates(ta, slashIdx + 1);
+        const rect = ta.getBoundingClientRect();
+        const top = rect.top + window.scrollY + c.top + c.height + 6;
+        const left = rect.left + window.scrollX + c.left;
+        setCmdAnchor2({ top, left });
+      }
+    } else { setCmdOpen2(false); }
     if (val.endsWith("/tarefa")) { onOpenTask(node.id); }
     else if (val.endsWith("/anexo")) { onOpenAttach(node.id); }
+  }
+
+  function onReplyKeyUp(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const v = (e.currentTarget.value || '');
+    const slashIdx = v.lastIndexOf('/');
+    if (slashIdx >= 0) {
+      setCmdQuery2(v.slice(slashIdx + 1).toLowerCase());
+      setCmdOpen2(true);
+      if (replyTaRef.current) {
+        const ta = replyTaRef.current;
+        const c = getCaretCoordinates(ta, slashIdx + 1);
+        const top = ta.offsetTop + c.top + c.height + 6;
+        const leftRaw = ta.offsetLeft + c.left;
+        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
+        setCmdAnchor2({ top, left });
+      }
+    } else {
+      setCmdOpen2(false);
+    }
   }
   return (
     <div className="comment-card rounded-lg pl-3" style={{ marginLeft: depth * 16, borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
@@ -335,9 +450,30 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
         </div>
       )}
       {isReplying && (
-        <div className="mt-2 flex gap-2 items-start" ref={replyRef}>
+        <div className="mt-2 flex gap-2 items-start relative" ref={replyRef}>
           <div className="flex-1">
-            <Textarea value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={onReplyKeyDown} placeholder="Responder... (/tarefa, /anexo, @mencionar)" rows={3} />
+            <Textarea
+              ref={replyTaRef}
+              value={reply}
+              onChange={(e) => {
+                const v = e.target.value || '';
+                setReply(v);
+                const atIdx = v.lastIndexOf('@');
+                if (atIdx >= 0) { setMentionFilter2(v.slice(atIdx + 1).trim()); setMentionOpen2(true); } else { setMentionOpen2(false); }
+                const slashIdx = v.lastIndexOf('/');
+                if (slashIdx >= 0) {
+                  setCmdQuery2(v.slice(slashIdx + 1).toLowerCase()); setCmdOpen2(true);
+                  if (replyTaRef.current) {
+                    const ta = replyTaRef.current;
+                    setCmdAnchor2({ top: (ta.offsetHeight || 0) + 8, left: 0 });
+                  }
+                } else { setCmdOpen2(false); }
+              }}
+              onKeyDown={onReplyKeyDown}
+              onKeyUp={onReplyKeyUp}
+              placeholder="Responder... (/tarefa, /anexo, @mencionar)"
+              rows={3}
+            />
             {mentionOpen2 && (
               <MentionDropdown
                 items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter2.toLowerCase()))}
@@ -351,10 +487,13 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
             )}
           </div>
           {cmdOpen2 && (
-            <CmdDropdown
-              items={[{key:'tarefa',label:'📋 Tarefa'},{key:'anexo',label:'📎 Anexo'}].filter(i=> i.key.includes(cmdQuery2))}
-              onPick={(key)=> { if (key==='tarefa') onOpenTask(node.id); if (key==='anexo') onOpenAttach(node.id); setCmdOpen2(false); setCmdQuery2(''); }}
-            />
+            <div className="absolute z-50 left-0 bottom-full mb-2">
+              <CmdDropdown
+                items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery2))}
+                onPick={(key)=> { if (key==='tarefa') onOpenTask(node.id); if (key==='anexo') onOpenAttach(node.id); setCmdOpen2(false); setCmdQuery2(''); }}
+                initialQuery={cmdQuery2}
+              />
+            </div>
           )}
         </div>
       )}
@@ -496,4 +635,30 @@ function iconFor(mime: string) {
   if (mime.includes("word")) return "📝";
   if (mime.includes("zip") || mime.includes("rar")) return "📦";
   return "📄";
+}
+
+// Utilitário para localizar posição do caret (ou índice específico) no textarea
+function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number) {
+  const style = window.getComputedStyle(textarea);
+  const mirror = document.createElement('div');
+  const props = [
+    'direction','boxSizing','height','overflowX','overflowY','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth','paddingTop','paddingRight','paddingBottom','paddingLeft','fontStyle','fontVariant','fontWeight','fontStretch','fontSize','fontFamily','lineHeight','textAlign','textTransform','textIndent','textDecoration','letterSpacing','tabSize','MozTabSize'
+  ];
+  props.forEach((p:any)=> { (mirror.style as any)[p] = (style as any)[p] ?? style.getPropertyValue(p); });
+  mirror.style.position = 'absolute';
+  mirror.style.visibility = 'hidden';
+  mirror.style.whiteSpace = 'pre-wrap';
+  mirror.style.wordWrap = 'break-word';
+  mirror.style.width = `${textarea.clientWidth}px`;
+  mirror.textContent = textarea.value.substring(0, position);
+  const span = document.createElement('span');
+  span.textContent = textarea.value.substring(position) || '.';
+  mirror.appendChild(span);
+  document.body.appendChild(mirror);
+  const spRect = span.getBoundingClientRect();
+  const top = spRect.top + textarea.scrollTop;
+  const left = spRect.left + textarea.scrollLeft;
+  const height = spRect.height || parseFloat(style.lineHeight) || 16;
+  document.body.removeChild(mirror);
+  return { top, left, height };
 }

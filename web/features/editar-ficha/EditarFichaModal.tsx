@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { User as UserIcon, ArrowRight, MoreHorizontal } from "lucide-react";
+import { User as UserIcon, ArrowRight, MoreHorizontal, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
@@ -77,6 +77,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [novoParecer, setNovoParecer] = useState<string>("");
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
+  const [cmdAnchorParecer, setCmdAnchorParecer] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  const parecerRef = useRef<HTMLTextAreaElement|null>(null);
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
   // UI: tarefas/anexos em conversas
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
@@ -391,10 +393,27 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
               
               {/* Content Area - Yellow Box */}
               <div className="section-content">
-                <div className="mb-3">
+                <div className="mb-3 relative">
                 <Textarea
+                  ref={parecerRef}
                   value={novoParecer}
-                  onChange={(e)=> setNovoParecer(e.target.value)}
+                  onChange={(e)=> {
+                    const v = e.target.value || '';
+                    setNovoParecer(v);
+                    const slashIdx = v.lastIndexOf('/');
+                    if (slashIdx>=0) {
+                      setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
+                      if (parecerRef.current) {
+                        const ta = parecerRef.current;
+                        const c = getCaretCoordinates(ta, slashIdx + 1);
+                        const rect = ta.getBoundingClientRect();
+                        const top = rect.top + window.scrollY + c.top + c.height + 6;
+                        const left = rect.left + window.scrollX + c.left;
+                        setCmdAnchorParecer({ top, left });
+                      }
+                    }
+                    else { setCmdOpenParecer(false); }
+                  }}
                   onKeyDown={(e)=>{
                     // Enviar via Enter (sem Shift), anexando abaixo
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -405,33 +424,61 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                     // Atalhos /tarefa e /anexo + menções
                     const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
                     const slashIdx = v.lastIndexOf('/');
-                    if (slashIdx>=0) { setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase()); } else { setCmdOpenParecer(false); }
+                    if (slashIdx>=0) {
+                      setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
+                      if (parecerRef.current) {
+                        const ta = parecerRef.current;
+                        const c = getCaretCoordinates(ta, slashIdx + 1);
+                        const rect = ta.getBoundingClientRect();
+                        const top = rect.top + window.scrollY + c.top + c.height + 6;
+                        const left = rect.left + window.scrollX + c.left;
+                        setCmdAnchorParecer({ top, left });
+                      }
+                    } else { setCmdOpenParecer(false); }
                     if (v.endsWith('/tarefa')) { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); }
                     else if (v.endsWith('/anexo')) { setAttachOpen({ open:true, parentId:null, source:'parecer' }); }
+                  }}
+                  onKeyUp={(e)=>{
+                    const v = e.currentTarget.value || '';
+                    const slashIdx = v.lastIndexOf('/');
+                    if (slashIdx>=0) {
+                      setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
+                      if (parecerRef.current) {
+                        const ta = parecerRef.current;
+                        const c = getCaretCoordinates(ta, slashIdx + 1);
+                        const top = ta.offsetTop + c.top + c.height + 6;
+                        const leftRaw = ta.offsetLeft + c.left;
+                        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 256));
+                        setCmdAnchorParecer({ top, left });
+                      }
+                    } else { setCmdOpenParecer(false); }
                   }}
                   placeholder="Escreva um novo parecer… Use @ para mencionar"
                   rows={4}
                 />
                   {cmdOpenParecer && (
-                    <CmdDropdown
-                      items={[
-                        { key:'aprovado', label:'✅ Aprovado' },
-                        { key:'negado', label:'⛔ Negado' },
-                        { key:'reanalise', label:'🔁 Reanálise' },
-                        { key:'tarefa', label:'📋 Tarefa' },
-                        { key:'anexo', label:'📎 Anexo' },
-                      ].filter(i=> i.key.includes(cmdQueryParecer))}
-                      onPick={async (key)=>{
-                        setCmdOpenParecer(false); setCmdQueryParecer('');
-                        if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
-                        if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
-                        try {
-                          if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
-                          else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
-                          else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
-                        } catch(e:any){ alert(e?.message||'Falha ao mover'); }
-                      }}
-                    />
+                    <div className="absolute z-50 left-0 bottom-full mb-2">
+                      <CmdDropdown
+                        items={[
+                          { key:'aprovado', label:'Aprovado' },
+                          { key:'negado', label:'Negado' },
+                          { key:'reanalise', label:'Reanálise' },
+                          { key:'tarefa', label:'Tarefa' },
+                          { key:'anexo', label:'Anexo' },
+                        ].filter(i=> i.key.includes(cmdQueryParecer))}
+                        onPick={async (key)=>{
+                          setCmdOpenParecer(false); setCmdQueryParecer('');
+                          if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
+                          if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
+                          try {
+                            if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
+                            else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
+                            else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
+                          } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                        }}
+                        initialQuery={cmdQueryParecer}
+                      />
+                    </div>
                   )}
                 </div>
                 <PareceresList
@@ -552,17 +599,50 @@ function SelectAdv({ label, value, onChange, options }: { label: string; value: 
   return <Select label={label} value={value} onChange={onChange} options={options} />
 }
 
-function CmdDropdown({ items, onPick }: { items: { key: string; label: string }[]; onPick: (key: string) => void | Promise<void> }) {
+function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void | Promise<void>; initialQuery?: string }) {
+  const [q, setQ] = useState(initialQuery || "");
+  useEffect(()=> setQ(initialQuery || ""), [initialQuery]);
+  const iconFor = (key: string) => {
+    if (key === 'aprovado') return <CheckCircle className="w-4 h-4" />;
+    if (key === 'negado') return <XCircle className="w-4 h-4" />;
+    if (key === 'reanalise') return <RefreshCcw className="w-4 h-4" />;
+    if (key === 'tarefa') return <ClipboardList className="w-4 h-4" />;
+    if (key === 'anexo') return <Paperclip className="w-4 h-4" />;
+    return null;
+  };
+  const filtered = items.filter(i => i.key.includes(q) || i.label.toLowerCase().includes(q.toLowerCase()));
+  const decisions = filtered.filter(i => ['aprovado','negado','reanalise'].includes(i.key));
+  const actions = filtered.filter(i => ['tarefa','anexo'].includes(i.key));
   return (
-    <div className="mt-2 max-h-48 w-full overflow-auto rounded border bg-white text-sm shadow">
-      {items.length === 0 ? (
+    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
+        <Search className="w-4 h-4 text-zinc-500" />
+        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+      </div>
+      {decisions.length > 0 && (
+        <div className="py-1">
+          <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Decisão da análise</div>
+          {decisions.map((i) => (
+            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-3 py-2 text-left">
+              {iconFor(i.key)}
+              <span>{i.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {actions.length > 0 && (
+        <div className="py-1 border-t border-zinc-100">
+          <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Ações</div>
+          {actions.map((i) => (
+            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-3 py-2 text-left">
+              {iconFor(i.key)}
+              <span>{i.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {decisions.length === 0 && actions.length === 0 && (
         <div className="px-3 py-2 text-zinc-500">Sem comandos</div>
-      ) : (
-        items.map((i) => (
-          <button key={i.key} onClick={() => onPick(i.key)} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-zinc-50">
-            <span>{i.label}</span>
-          </button>
-        ))
       )}
     </div>
   );
@@ -598,6 +678,8 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
   const [isReplying, setIsReplying] = useState(false);
   const editRef = useRef<HTMLDivElement | null>(null);
   const replyRef = useRef<HTMLDivElement | null>(null);
+  const replyTaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
       const t = e.target as Node | null;
@@ -657,18 +739,25 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
         </div>
       )}
       {isReplying && (
-        <div className="mt-2 flex gap-2" ref={replyRef}>
+        <div className="mt-2 flex gap-2 relative" ref={replyRef}>
           <div className="flex-1">
             <Textarea
+              ref={replyTaRef}
               value={reply}
-              onChange={(e)=> setReply(e.target.value)}
+              onChange={(e)=> {
+                const v = e.target.value || '';
+                setReply(v);
+                const slashIdx = v.lastIndexOf('/');
+                if (slashIdx>=0) { setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current) { const c = getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } }
+                else { setCmdOpen(false); }
+              }}
               onKeyDown={(e)=>{
                 // Evita enviar durante composição (IME)
                 // @ts-ignore
                 if (e.nativeEvent && e.nativeEvent.isComposing) return;
                 const v = (e.currentTarget.value || '') + (e.key.length===1 ? e.key : '');
                 const slashIdx = v.lastIndexOf('/');
-                if (slashIdx>=0) { setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setCmdOpen(false); }
+                if (slashIdx>=0) { setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current) { const c = getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } } else { setCmdOpen(false); }
                 if (e.key==='Enter' && !e.shiftKey) {
                   e.preventDefault();
                   const t = reply.trim();
@@ -681,25 +770,28 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
               rows={3}
             />
             {cmdOpen && (
-              <CmdDropdown
-                items={[
-                  { key:'aprovado', label:'✅ Aprovado' },
-                  { key:'negado', label:'⛔ Negado' },
-                  { key:'reanalise', label:'🔁 Reanálise' },
-                  { key:'tarefa', label:'📋 Tarefa' },
-                  { key:'anexo', label:'📎 Anexo' },
-                ].filter(i=> i.key.includes(cmdQuery))}
-                onPick={async (key)=>{
-                  setCmdOpen(false); setCmdQuery('');
-                  if (key==='tarefa') { const ev = new CustomEvent('mz-open-task'); window.dispatchEvent(ev); return; }
-                  if (key==='anexo') { const ev = new CustomEvent('mz-open-attach'); window.dispatchEvent(ev); return; }
-                  try {
-                    if (key==='aprovado') await changeStage((window as any).mz_card_id || '', 'analise', 'aprovados');
-                    else if (key==='negado') await changeStage((window as any).mz_card_id || '', 'analise', 'negados');
-                    else if (key==='reanalise') await changeStage((window as any).mz_card_id || '', 'analise', 'reanalise');
-                  } catch(e:any){ alert(e?.message||'Falha ao mover'); }
-                }}
-              />
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+                <CmdDropdown
+                  items={[
+                    { key:'aprovado', label:'Aprovado' },
+                    { key:'negado', label:'Negado' },
+                    { key:'reanalise', label:'Reanálise' },
+                    { key:'tarefa', label:'Tarefa' },
+                    { key:'anexo', label:'Anexo' },
+                  ].filter(i=> i.key.includes(cmdQuery))}
+                  onPick={async (key)=>{
+                    setCmdOpen(false); setCmdQuery('');
+                    if (key==='tarefa') { const ev = new CustomEvent('mz-open-task'); window.dispatchEvent(ev); return; }
+                    if (key==='anexo') { const ev = new CustomEvent('mz-open-attach'); window.dispatchEvent(ev); return; }
+                    try {
+                      if (key==='aprovado') await changeStage((window as any).mz_card_id || '', 'analise', 'aprovados');
+                      else if (key==='negado') await changeStage((window as any).mz_card_id || '', 'analise', 'negados');
+                      else if (key==='reanalise') await changeStage((window as any).mz_card_id || '', 'analise', 'reanalise');
+                    } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                  }}
+                  initialQuery={cmdQuery}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -761,4 +853,30 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
       )}
     </div>
   );
+}
+
+// Utilitário local para obter a posição do caret no textarea
+function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number) {
+  const style = window.getComputedStyle(textarea);
+  const mirror = document.createElement('div');
+  const props = [
+    'direction','boxSizing','height','overflowX','overflowY','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth','paddingTop','paddingRight','paddingBottom','paddingLeft','fontStyle','fontVariant','fontWeight','fontStretch','fontSize','fontFamily','lineHeight','textAlign','textTransform','textIndent','textDecoration','letterSpacing','tabSize','MozTabSize'
+  ];
+  props.forEach((p:any)=> { (mirror.style as any)[p] = (style as any)[p] ?? style.getPropertyValue(p); });
+  mirror.style.position = 'absolute';
+  mirror.style.visibility = 'hidden';
+  mirror.style.whiteSpace = 'pre-wrap';
+  mirror.style.wordWrap = 'break-word';
+  mirror.style.width = `${textarea.clientWidth}px`;
+  mirror.textContent = textarea.value.substring(0, position);
+  const span = document.createElement('span');
+  span.textContent = textarea.value.substring(position) || '.';
+  mirror.appendChild(span);
+  document.body.appendChild(mirror);
+  const spRect = span.getBoundingClientRect();
+  const top = spRect.top + textarea.scrollTop;
+  const left = spRect.left + textarea.scrollLeft;
+  const height = spRect.height || parseFloat(style.lineHeight) || 16;
+  document.body.removeChild(mirror);
+  return { top, left, height };
 }
