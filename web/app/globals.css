@@ -1597,4 +1597,36 @@ input[placeholder*="Buscar"]::placeholder {
 
 .flatpickr-months {
   border-radius: 8px 8px 0 0 !important;
+  background-color: var(--verde-primario) !important;
+}
+
+.flatpickr-months .flatpickr-month {
+  background-color: transparent !important;
+  color: white !important;
+}
+
+.flatpickr-months .flatpickr-current-month {
+  color: white !important;
+}
+
+.flatpickr-months .flatpickr-current-month .flatpickr-monthDropdown-months {
+  background-color: transparent !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.flatpickr-months .flatpickr-current-month .numInputWrapper .numInput {
+  color: white !important;
+  font-weight: 600;
+}
+
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month {
+  fill: white !important;
+  color: white !important;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover,
+.flatpickr-months .flatpickr-next-month:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
 }
