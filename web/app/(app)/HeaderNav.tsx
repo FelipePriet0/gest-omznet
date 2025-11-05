@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { usePathname } from "next/navigation";
 
 export default function HeaderNav() {
@@ -17,18 +16,8 @@ export default function HeaderNav() {
           <a className="text-zinc-700 hover:text-zinc-900 hover:underline" href="/kanban">Kanban</a>
           <a className="text-zinc-700 hover:text-zinc-900 hover:underline" href="/historico">Histórico</a>
           <a className="text-zinc-700 hover:text-zinc-900 hover:underline" href="/tarefas">Minhas Tarefas</a>
-          <InboxBellWrapper />
         </div>
       </nav>
     </header>
   );
 }
-
-function InboxBellWrapper() {
-  // Client-only component wrapper to avoid marking the whole layout as client
-  // eslint-disable-next-line @next/next/no-async-client-component
-  const Comp = require("@/features/inbox/InboxDrawer").InboxBell as React.ComponentType;
-  // @ts-ignore
-  return <Comp />;
-}
-

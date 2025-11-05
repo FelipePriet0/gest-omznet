@@ -229,7 +229,7 @@ export const responsavelFilterOptions: FilterOption[] = [
   {
     name: Responsavel.TODOS,
     icon: <FilterIcon type={Responsavel.TODOS} />,
-  }
+  },
 ];
 
 export const prazoFilterOptions: FilterOption[] = Object.values(Prazo).map(

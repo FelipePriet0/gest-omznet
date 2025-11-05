@@ -26,10 +26,13 @@ import {
   FilterOperator,
   FilterOption,
   FilterType,
+  Responsavel,
   filterViewOptions,
   filterViewToFilterOptions,
 } from "@/components/ui/filters";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // Mapeamentos entre labels de Prazo e valores usados na URL
 const PrazoUrlMap: Record<string, string> = {
@@ -55,10 +58,86 @@ export function FilterCTA() {
   const commandInputRef = React.useRef<HTMLInputElement>(null);
   const [filters, setFilters] = React.useState<Filter[]>([]);
   const [customDate, setCustomDate] = React.useState<string>("");
+  const [, setResponsavelOptions] = React.useState<FilterOption[]>(
+    filterViewToFilterOptions[FilterType.RESPONSAVEL]
+  );
 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    async function loadResponsaveis() {
+      const areaRole = pathname?.includes("/kanban/analise")
+        ? "analista"
+        : "vendedor";
+
+      try {
+        const cacheKey = `responsavel-options-${areaRole}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached) as FilterOption[];
+          if (mounted) {
+            filterViewToFilterOptions[FilterType.RESPONSAVEL] = parsed;
+            setResponsavelOptions(parsed);
+          }
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, role")
+          .eq("role", areaRole)
+          .order("full_name");
+
+        if (error) throw error;
+
+        const options: FilterOption[] = [
+          {
+            name: Responsavel.TODOS,
+            icon: undefined,
+          },
+          ...(data || []).map((profile) => ({
+            name: profile.full_name ?? "—",
+            icon: (
+              <Avatar className="h-6 w-6 text-xs">
+                <AvatarFallback>
+                  {profile.full_name?.slice(0, 2).toUpperCase() ?? "?"}
+                </AvatarFallback>
+              </Avatar>
+            ),
+            label: profile.role ?? undefined,
+          })),
+        ];
+
+        if (mounted) {
+          filterViewToFilterOptions[FilterType.RESPONSAVEL] = options;
+          setResponsavelOptions(options);
+          sessionStorage.setItem(cacheKey, JSON.stringify(options));
+        }
+      } catch (error) {
+        console.error("Falha ao carregar responsáveis para filtro:", error);
+        if (mounted) {
+          const fallback = [
+            {
+              name: Responsavel.TODOS,
+              icon: undefined,
+            },
+          ];
+          filterViewToFilterOptions[FilterType.RESPONSAVEL] = fallback;
+          setResponsavelOptions(fallback);
+        }
+      }
+    }
+
+    loadResponsaveis();
+
+    return () => {
+      mounted = false;
+    };
+  }, [pathname]);
 
   // Inicializa a UI a partir da URL (?hora, ?prazo, ?data)
   React.useEffect(() => {
