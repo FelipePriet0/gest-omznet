@@ -121,56 +121,99 @@ export default function HistoricoPage() {
 
 function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, onStatus, resp, onResp, respOptions, onApply, loading }: any) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <div>
-          <label className="mb-2 block text-xs font-medium text-gray-700">Busca por nome</label>
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-zinc-200">
+      {/* Título e subtítulo */}
+      <div className="mb-5">
+        <div className="flex items-center gap-2 mb-1">
+          <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          <h2 className="text-lg font-bold text-emerald-600">Filtros</h2>
+        </div>
+        <p className="text-sm text-gray-500">Filtre o histórico por empresa, status, período ou colaborador</p>
+      </div>
+
+      {/* Campos de filtro */}
+      <div className="flex flex-wrap items-end gap-3">
+        {/* Busca por nome */}
+        <div className="flex-1 min-w-[200px]">
           <input 
             value={q} 
             onChange={(e)=> onQ(e.target.value)} 
-            placeholder="Nome do titular" 
-            className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm text-emerald-600 font-medium outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300" 
+            placeholder="Buscar por nome ou CPF..." 
+            className="h-11 w-full rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 placeholder:text-gray-400 shadow-sm"
           />
         </div>
-        <div className="sm:col-span-2">
-          <label className="mb-2 block text-xs font-medium text-gray-700">Período</label>
-          <DateRangePicker start={dateStart||undefined} end={dateEnd||undefined} onChange={(s,e)=> { onDateStart(s||""); onDateEnd(e||""); }} />
+
+        {/* Data inicial */}
+        <div className="w-[160px]">
+          <input
+            type="date"
+            value={dateStart}
+            onChange={(e) => onDateStart(e.target.value)}
+            placeholder="Data inicial"
+            className="h-11 w-full rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 shadow-sm"
+          />
         </div>
-        <div>
-          <label className="mb-2 block text-xs font-medium text-gray-700">Status da análise</label>
+
+        {/* Data final */}
+        <div className="w-[160px]">
+          <input
+            type="date"
+            value={dateEnd}
+            onChange={(e) => onDateEnd(e.target.value)}
+            placeholder="Data final"
+            className="h-11 w-full rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 shadow-sm"
+          />
+        </div>
+
+        {/* Status */}
+        <div className="w-[140px]">
           <select 
             value={status} 
             onChange={(e)=> onStatus(e.target.value)} 
-            className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm text-emerald-600 font-medium outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 cursor-pointer appearance-none bg-white bg-no-repeat bg-right pr-10"
+            className="h-11 w-full rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 cursor-pointer appearance-none bg-no-repeat shadow-sm"
             style={{
               backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23018942' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
-              backgroundPosition: "right 0.75rem center",
-              backgroundSize: "1.25rem 1.25rem"
+              backgroundPosition: "right 1rem center",
+              backgroundSize: "1rem 1rem",
+              paddingRight: "2.5rem"
             }}
           >
-            <option value="">Todos</option>
+            <option value="">Status</option>
             <option value="aprovados">Aprovado</option>
             <option value="negados">Negado</option>
           </select>
         </div>
-        <div>
-          <label className="mb-2 block text-xs font-medium text-gray-700">Responsável por Análise</label>
+
+        {/* Responsável */}
+        <div className="w-[180px]">
           <select 
             value={resp} 
             onChange={(e)=> onResp(e.target.value)} 
-            className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm text-emerald-600 font-medium outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 cursor-pointer appearance-none bg-white bg-no-repeat bg-right pr-10"
+            className="h-11 w-full rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 cursor-pointer appearance-none bg-no-repeat shadow-sm"
             style={{
               backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23018942' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
-              backgroundPosition: "right 0.75rem center",
-              backgroundSize: "1.25rem 1.25rem"
+              backgroundPosition: "right 1rem center",
+              backgroundSize: "1rem 1rem",
+              paddingRight: "2.5rem"
             }}
           >
-            <option value="">Todos</option>
-            {respOptions.map((p: ProfileLite)=> <option key={p.id} value={p.id}>{p.full_name} {p.role ? `· ${p.role}`:''}</option>)}
+            <option value="">Responsável</option>
+            {respOptions.map((p: ProfileLite)=> <option key={p.id} value={p.id}>{p.full_name}</option>)}
           </select>
         </div>
-      </div>
-      <div className="mt-3 flex justify-end">
+
+        {/* Botão Aplicar (se necessário) */}
+        {(q || dateStart || dateEnd || status || resp) && (
+          <button 
+            onClick={onApply}
+            disabled={loading}
+            className="h-11 px-6 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            Aplicar
+          </button>
+        )}
       </div>
     </div>
   );
