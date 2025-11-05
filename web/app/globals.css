@@ -1583,3 +1583,7 @@ input[placeholder*="Buscar"]::placeholder {
 [data-radix-popper-content-wrapper] .mz-time-popover .mz-time-item--active .mz-time-checkbox {
   border-color: white !important;
 }
+/* App background wrapper */
+.route-bg {
+  background-color: var(--neutro);
+}

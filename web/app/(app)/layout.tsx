@@ -144,7 +144,7 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
               )}
             </main>
             {isPanelOpen && (
-              <div role="dialog" aria-modal className="fixed top-0 z-[90] h-screen bg-white border border-neutral-200 rounded-tl-3xl flex flex-col shadow-[4px_0_12px_rgba(0,0,0,0.12)]"
+              <div role="dialog" aria-modal className="fixed top-0 z-[90] h-screen bg-[var(--neutro)] border border-neutral-200 rounded-tl-3xl flex flex-col shadow-[4px_0_12px_rgba(0,0,0,0.12)]"
                    style={{ left: sidebarOffset, right: isDesktop ? 'auto' as any : 0, width: isDesktop ? 440 : '100%' }}>
                 <div className="px-3 md:px-4 py-2 md:py-3 border-b border-neutral-200 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">

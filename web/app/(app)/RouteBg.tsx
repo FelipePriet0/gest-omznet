@@ -7,5 +7,5 @@ export default function RouteBg({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPerfil = pathname?.startsWith("/perfil");
   const isKanban = pathname?.startsWith("/kanban");
-  return <div className="min-h-dvh" style={{ backgroundColor: 'var(--neutro)' }}>{children}</div>;
+  return <div className="route-bg min-h-dvh">{children}</div>;
 }
