@@ -84,8 +84,21 @@ export default function HistoricoPage() {
     if (!error) { setDetail(data); setDetailOpen(true); }
   }
 
-  const respOptions = useMemo(() => profiles.filter(p => (p.role||'').toLowerCase() === 'analista' || (p.role||'').toLowerCase() === 'gestor'), [profiles]);
+  const respOptions = useMemo(
+    () =>
+      profiles.filter((p) => {
+        const role = (p.role || "").toLowerCase();
+        return role === "analista" || role === "gestor" || role === "vendedor";
+      }),
+    [profiles]
+  );
 
+  const filteredRows = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return rows;
+    return rows.filter((row) => (row.applicant_name || "").toLowerCase().includes(term));
+  }, [rows, q]);
+ 
   return (
     <>
       <div className="space-y-6">
@@ -99,7 +112,7 @@ export default function HistoricoPage() {
           onApply={load}
           loading={loading}
         />
-        <HistoricoList rows={rows} onOpenDetails={openDetails} />
+        <HistoricoList rows={filteredRows} onOpenDetails={openDetails} />
       </div>
 
       {detailOpen && detail && (
@@ -150,12 +163,21 @@ function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, o
       <div className="flex flex-wrap items-end gap-3">
         {/* Busca por nome */}
         <div className="flex-1 min-w-[200px]">
-          <input 
-            value={q} 
-            onChange={(e)=> onQ(e.target.value)} 
-            placeholder="Buscar por nome ou CPF..." 
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 shadow-sm"
-          />
+          <div className="relative">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" />
+              </svg>
+            </span>
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => onQ(e.target.value)}
+              placeholder="Buscar por cliente..."
+              aria-label="Buscar cliente"
+              className="h-11 w-full rounded-lg border border-gray-200 bg-white pl-10 pr-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 shadow-sm"
+            />
+          </div>
         </div>
 
         {/* Período de avaliação */}
