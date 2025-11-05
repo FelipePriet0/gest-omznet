@@ -1150,6 +1150,8 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
   const replyTaRef = useRef<HTMLTextAreaElement | null>(null);
+  const replyBoxRef = useRef<HTMLDivElement | null>(null);
+  const editBoxRef = useRef<HTMLDivElement | null>(null);
   const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
   const [reply, setReply] = useState("");
   const [isReplyingId, setIsReplyingId] = useState<string|null>(null);
@@ -1204,6 +1206,26 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
   useEffect(() => {
     if (onPinnedChange) onPinnedChange(!!pinned, pinned ? pinnedHeight : 0);
   }, [pinned, pinnedHeight]);
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (isEditingId) {
+        const box = editBoxRef.current;
+        if (box && target && !box.contains(target)) {
+          setIsEditingId(null);
+        }
+      }
+      if (isReplyingId) {
+        const rbox = replyBoxRef.current;
+        if (rbox && target && !rbox.contains(target)) {
+          setReply('');
+          setIsReplyingId(null);
+        }
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [isEditingId, isReplyingId]);
   return (
     <>
     <div className={`space-y-2`}>
@@ -1229,7 +1251,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
             </div>
           </div>
           {isEditingId===n.id ? (
-            <div className="mt-2 space-y-2">
+            <div className="mt-2 space-y-2" ref={editBoxRef}>
               <div className="relative">
                 <UITTextarea
                   value={editText}
@@ -1250,7 +1272,6 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
                       setIsEditingId(null);
                       return;
                     }
-                    if (e.key==='Escape') { e.preventDefault(); setIsEditingId(null); return; }
                     const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
                     const atIdx = v.lastIndexOf('@');
                     if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
@@ -1299,7 +1320,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
           )}
           <div className="mt-3">
             {isReplyingId===n.id ? (
-              <div className="mt-2 flex gap-2 relative">
+              <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
                 <div className="flex-1">
                   <UITTextarea
                    ref={replyTaRef as any}
@@ -1315,12 +1336,11 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
                        setIsReplyingId(null);
                        return;
                      }
-                     if (e.key === 'Escape') { e.preventDefault(); setReply(''); setIsReplyingId(null); }
                    }}
                    onKeyUp={(e)=>{ const v=e.currentTarget.value||''; const slashIdx=v.lastIndexOf('/'); if (slashIdx>=0){ setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current){ const c=getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } } else setCmdOpen(false); }}
                    rows={3}
                     placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
-                  />
+                 />
                 {cmdOpen && (
                   <div className="absolute z-50 left-0 bottom-full mb-2">
                     <CmdDropdown
@@ -1358,7 +1378,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
                     </div>
                   </div>
                   {isEditingId===c.id ? (
-                    <div className="mt-2 space-y-2">
+                    <div className="mt-2 space-y-2" ref={editBoxRef}>
                       <div className="relative">
                         <UITTextarea
                           value={editText}
@@ -1378,7 +1398,6 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
                               setIsEditingId(null);
                               return;
                             }
-                            if (e.key==='Escape') { e.preventDefault(); setIsEditingId(null); return; }
                             const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
                             const atIdx = v.lastIndexOf('@');
                             if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
@@ -1427,12 +1446,12 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
                   )}
 
                   {isReplyingId===c.id && (
-                    <div className="mt-2 flex gap-2 relative">
+                    <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
                       <div className="flex-1">
                         <UITTextarea
                           value={reply}
                           onChange={(e)=> setReply(e.target.value)}
-                          onKeyDown={async (e)=>{ if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); const t=reply.trim(); if(!t) return; await onReply(c.id, t); setReply(''); setIsReplyingId(null); return; } if (e.key==='Escape'){ e.preventDefault(); setReply(''); setIsReplyingId(null); } }}
+                          onKeyDown={async (e)=>{ if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); const t=reply.trim(); if(!t) return; await onReply(c.id, t); setReply(''); setIsReplyingId(null); return; } }}
                           onKeyUp={(e)=>{ const v=e.currentTarget.value||''; const slashIdx=v.lastIndexOf('/'); if (slashIdx>=0){ setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current){ const rc=getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: rc.top + rc.height + 6, left: Math.max(0, Math.min(rc.left, replyTaRef.current.clientWidth - 256)) }); } } else setCmdOpen(false); }}
                           rows={3}
                           placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
