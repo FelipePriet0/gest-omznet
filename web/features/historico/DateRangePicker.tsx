@@ -1,145 +1,103 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
+import { DayPicker, type DateRange } from "react-day-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { CalendarIcon } from "lucide-react";
+import { ptBR } from "date-fns/locale";
+import "react-day-picker/dist/style.css";
 
-export function DateRangePicker({ start, end, onChange }: { start?: string; end?: string; onChange: (start?: string, end?: string) => void }) {
+type DateRangePickerProps = {
+  start?: string;
+  end?: string;
+  onChange: (start?: string, end?: string) => void;
+};
+
+export function DateRangePicker({ start, end, onChange }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
-  const anchorRef = useRef<HTMLDivElement | null>(null);
-  const [cursor, setCursor] = useState(start ? new Date(start) : new Date());
-  const [selStart, setSelStart] = useState<Date | null>(start ? new Date(start) : null);
-  const [selEnd, setSelEnd] = useState<Date | null>(end ? new Date(end) : null);
+  
+  const selected: DateRange | undefined = start && end 
+    ? { from: new Date(start), to: new Date(end) }
+    : start 
+    ? { from: new Date(start), to: undefined }
+    : undefined;
 
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (!anchorRef.current) return;
-      if (!anchorRef.current.contains(e.target as any)) setOpen(false);
+  function handleSelect(range: DateRange | undefined) {
+    if (range?.from) {
+      onChange(toYMD(range.from), range.to ? toYMD(range.to) : undefined);
+      if (range.to) {
+        setOpen(false);
+      }
+    } else {
+      onChange(undefined, undefined);
     }
-    if (open) document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
-
-  useEffect(() => {
-    setSelStart(start ? new Date(start) : null);
-    setSelEnd(end ? new Date(end) : null);
-  }, [start, end]);
-
-  function fmtLabel() {
-    const s = selStart ? toYMD(selStart) : '';
-    const e = selEnd ? toYMD(selEnd) : '';
-    if (!s && !e) return 'Selecione período';
-    const sbr = selStart ? toBR(selStart) : '—';
-    const ebr = selEnd ? toBR(selEnd) : '—';
-    return `${sbr} – ${ebr}`;
   }
 
-  function selectDay(d: Date) {
-    if (!selStart || (selStart && selEnd)) {
-      setSelStart(startOfDay(d));
-      setSelEnd(null);
-      return;
-    }
-    // selStart set and selEnd null
-    let a = startOfDay(selStart);
-    let b = startOfDay(d);
-    if (b < a) { const t = a; a = b; b = t; }
-    setSelStart(a);
-    setSelEnd(b);
+  function formatRange(from?: Date, to?: Date) {
+    if (!from) return "Período de avaliação";
+    if (!to) return `${formatDate(from)} - ...`;
+    return `${formatDate(from)} - ${formatDate(to)}`;
   }
 
-  function apply() {
-    onChange(selStart ? toYMD(selStart) : undefined, selEnd ? toYMD(selEnd) : undefined);
-    setOpen(false);
+  function formatDate(date: Date) {
+    return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
-
-  function clearAll() {
-    setSelStart(null); setSelEnd(null);
-    onChange(undefined, undefined);
-  }
-
-  const days = useMemo(() => buildMonth(cursor), [cursor]);
-  const monthLabel = cursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="relative" ref={anchorRef}>
-      <button type="button" onClick={()=> setOpen(v=>!v)} className="h-10 w-full rounded-lg border border-gray-300 px-3 text-left text-sm outline-none focus:border-emerald-500">
-        {fmtLabel()}
-      </button>
-      {open && (
-        <div className="absolute z-30 mt-2 w-[300px] rounded-lg border bg-white p-3 shadow-xl">
-          <div className="mb-2 flex items-center justify-between text-sm font-semibold text-zinc-800">
-            <button onClick={()=> setCursor(addMonths(cursor, -1))} className="rounded border px-2 py-1">‹</button>
-            <div className="capitalize">{monthLabel}</div>
-            <button onClick={()=> setCursor(addMonths(cursor, 1))} className="rounded border px-2 py-1">›</button>
-          </div>
-          <MonthGrid
-            month={cursor}
-            days={days}
-            selStart={selStart}
-            selEnd={selEnd}
-            onSelect={selectDay}
-          />
-          <div className="mt-3 flex items-center justify-between">
-            <button onClick={clearAll} className="text-xs text-zinc-700 underline">Limpar</button>
-            <div className="flex gap-2">
-              <button onClick={()=> setOpen(false)} className="rounded border border-zinc-300 px-3 py-1.5 text-xs">Cancelar</button>
-              <button onClick={apply} className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">Aplicar</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="h-11 w-full justify-start text-left font-normal rounded-lg border-gray-200 hover:border-gray-300 hover:bg-white shadow-sm"
+        >
+          <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
+          <span className={selected?.from ? "text-gray-700" : "text-gray-400"}>
+            {formatRange(selected?.from, selected?.to)}
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <DayPicker
+          mode="range"
+          selected={selected}
+          onSelect={handleSelect}
+          locale={ptBR}
+          toDate={new Date()}
+          className="p-3"
+          classNames={{
+            months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+            month: "space-y-4",
+            caption: "flex justify-center pt-1 relative items-center",
+            caption_label: "text-sm font-medium text-gray-900",
+            nav: "space-x-1 flex items-center",
+            nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 inline-flex items-center justify-center rounded-md text-sm transition-colors hover:bg-gray-100",
+            nav_button_previous: "absolute left-1",
+            nav_button_next: "absolute right-1",
+            table: "w-full border-collapse space-y-1",
+            head_row: "flex",
+            head_cell: "text-gray-500 rounded-md w-9 font-normal text-[0.8rem]",
+            row: "flex w-full mt-2",
+            cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-gray-100/50 [&:has([aria-selected])]:bg-gray-100 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+            day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-gray-100 rounded-md transition-colors",
+            day_range_start: "day-range-start",
+            day_range_end: "day-range-end",
+            day_selected: "bg-emerald-600 text-white hover:bg-emerald-600 hover:text-white focus:bg-emerald-600 focus:text-white rounded-md",
+            day_today: "bg-gray-100 text-gray-900 font-semibold",
+            day_outside: "day-outside text-gray-400 opacity-50 aria-selected:bg-gray-100/50 aria-selected:text-gray-500 aria-selected:opacity-30",
+            day_disabled: "text-gray-400 opacity-50",
+            day_range_middle: "aria-selected:bg-gray-100 aria-selected:text-gray-900 rounded-none",
+            day_hidden: "invisible",
+          }}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 
-function MonthGrid({ month, days, selStart, selEnd, onSelect }: { month: Date; days: (Date|null)[]; selStart: Date|null; selEnd: Date|null; onSelect: (d: Date)=>void }) {
-  const weekdays = ['D','S','T','Q','Q','S','S'];
-  function isSelected(d: Date) {
-    if (!selStart) return false;
-    if (selStart && !selEnd) return isSameDay(d, selStart);
-    return selStart && selEnd && d >= startOfDay(selStart) && d <= startOfDay(selEnd);
-  }
-  function isEdge(d: Date) {
-    return (selStart && isSameDay(d, selStart)) || (selEnd && isSameDay(d, selEnd));
-  }
-  return (
-    <div>
-      <div className="mb-1 grid grid-cols-7 text-center text-[11px] text-zinc-500">
-        {weekdays.map((w, i)=> <div key={`${w}-${i}`}>{w}</div>)}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {days.map((d, idx) => (
-          <div key={idx} className="aspect-square">
-            {d ? (
-              <button
-                onClick={()=> onSelect(d)}
-                className={[
-                  "h-full w-full rounded text-sm",
-                  isSelected(d) ? (isEdge(d) ? "bg-emerald-600 text-white" : "bg-emerald-100 text-emerald-800") : "hover:bg-zinc-100",
-                ].join(' ')}
-              >
-                {d.getDate()}
-              </button>
-            ) : (
-              <div />
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
-function toYMD(d: Date) { const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
-function toBR(d: Date) { return d.toLocaleDateString('pt-BR'); }
-function isSameDay(a: Date, b: Date) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
-function addMonths(d: Date, m: number) { const x = new Date(d); x.setMonth(x.getMonth()+m); return x; }
-function buildMonth(ref: Date) {
-  const first = new Date(ref.getFullYear(), ref.getMonth(), 1);
-  const last = new Date(ref.getFullYear(), ref.getMonth()+1, 0);
-  const days: (Date|null)[] = [];
-  const startIdx = first.getDay(); // 0=Sun
-  for (let i=0;i<startIdx;i++) days.push(null);
-  for (let d=1; d<=last.getDate(); d++) days.push(new Date(ref.getFullYear(), ref.getMonth(), d));
-  return days;
+function toYMD(date: Date) {
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
