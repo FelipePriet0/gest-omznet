@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { Check, Circle } from "lucide-react";
 import { TaskFilterCTA } from "@/components/app/task-filter-cta";
 // Nova ficha CTA removido do Drawer: Minhas Tarefas
 
@@ -26,10 +27,23 @@ export default function MinhasTarefasPage() {
   const [due, setDue] = useState<'all'|'hoje'|'amanha'|'atrasado'|'intervalo'>('all');
   const [ds, setDs] = useState('');
   const [de, setDe] = useState('');
+  const [counts, setCounts] = useState<{pending:number; completed:number}>({ pending: 0, completed: 0 });
   
   // Removidos modais/estado de "Nova ficha" no Drawer
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadCounts(); }, []);
+
+  async function loadCounts() {
+    try {
+      const { data, error } = await supabase.rpc('my_tasks_counts');
+      if (!error && data) {
+        const row = Array.isArray(data) ? data[0] : data;
+        const p = Number(row?.pending ?? 0);
+        const c = Number(row?.completed ?? 0);
+        setCounts({ pending: isFinite(p)? p:0, completed: isFinite(c)? c:0 });
+      }
+    } catch {}
+  }
 
   async function load(nextStatus?: 'all'|'pending'|'completed') {
     setLoading(true);
@@ -51,6 +65,8 @@ export default function MinhasTarefasPage() {
     setItems(prev => prev.map(i => i.id === taskId ? { ...i, status: done ? 'completed' : 'pending' } : i));
     try {
       await supabase.rpc('update_my_task', { p_task_id: taskId, p_status: done? 'completed':'pending' });
+      // refresh counters (not tied to filters)
+      loadCounts();
     } catch (e) {
       // Em caso de erro, volta estado anterior e informa
       setItems(prev => prev.map(i => i.id === taskId ? { ...i, status: !done ? 'completed' : 'pending' } : i));
@@ -62,6 +78,7 @@ export default function MinhasTarefasPage() {
     if (!confirm('Excluir tarefa?')) return;
     await supabase.rpc('update_my_task', { p_task_id: taskId, p_delete: true });
     await load();
+    await loadCounts();
   }
 
   return (
@@ -98,6 +115,11 @@ export default function MinhasTarefasPage() {
         </div>
         {/* CTA "Nova ficha" removido no Drawer */}
         <div className="pt-12">
+          {/* Mini dashboard: A fazer / Concluídas (não dependem do filtro) */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 w-full mb-6">
+            <DashboardCard title="A avaliar" value={counts.pending} icon={<Circle className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Concluídas" value={counts.completed} icon={<Check className="w-4 h-4 text-white" />} />
+          </div>
           <div className="space-y-3">
             {items.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -228,6 +250,22 @@ export default function MinhasTarefasPage() {
       
       {/* Modais de cadastro removidos do Drawer */}
     </>
+  );
+}
+
+function DashboardCard({ title, value, icon }: { title: string; value?: number | null; icon?: React.ReactNode }) {
+  return (
+    <div className="h-[120px] w-full rounded-[12px] border bg-white border-zinc-200 shadow-sm overflow-hidden flex flex-col">
+      {/* Header Band (faixa de cabeçalho) */}
+      <div className="bg-[#000000] px-4 py-3 flex items-center justify-between">
+        <div className="text-sm font-medium text-white">{title}</div>
+        {icon && <div className="text-white">{icon}</div>}
+      </div>
+      {/* Área do número */}
+      <div className="flex-1 flex items-center justify-center px-4">
+        <div className="text-3xl font-bold text-[var(--verde-primario)]">{typeof value === 'number' ? value : '—'}</div>
+      </div>
+    </div>
   );
 }
 
