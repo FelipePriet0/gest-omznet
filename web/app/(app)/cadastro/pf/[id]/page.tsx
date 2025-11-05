@@ -1157,25 +1157,50 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: {
   const [editMentionFilter, setEditMentionFilter] = useState("");
   const [editCmdOpen, setEditCmdOpen] = useState(false);
   const [editCmdQuery, setEditCmdQuery] = useState("");
-  const [pinned, setPinned] = useState<any|null>(null);
-  const [leftOffset, setLeftOffset] = useState(0);
-  const [bottomOffset, setBottomOffset] = useState(0);
-  useEffect(() => {
-    const update = () => {
-      const isDesktop = window.innerWidth >= 768;
-      const left = isDesktop ? (open ? 300 : 60) : 0;
-      setLeftOffset(left);
-      const footer = document.querySelector('.mz-sidebar-footer') as HTMLElement | null;
-      const h = footer ? footer.getBoundingClientRect().height : 0;
-      setBottomOffset(h);
-    };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, [open]);
+   const [pinned, setPinned] = useState<any|null>(null);
+   const [leftOffset, setLeftOffset] = useState(0);
+   const [bottomOffset, setBottomOffset] = useState(0);
+   const [pinnedHeight, setPinnedHeight] = useState(120); // altura inicial em px
+   const [isResizing, setIsResizing] = useState(false);
+   useEffect(() => {
+     const update = () => {
+       const isDesktop = window.innerWidth >= 768;
+       const left = isDesktop ? (open ? 300 : 60) : 0;
+       setLeftOffset(left);
+       // Não precisa de offset do footer, vamos alinhar direto com a sidebar
+       setBottomOffset(0);
+     };
+     update();
+     window.addEventListener('resize', update);
+     return () => window.removeEventListener('resize', update);
+   }, [open]);
+
+   // Handle resize functionality
+   useEffect(() => {
+     if (!isResizing) return;
+     
+     const handleMouseMove = (e: MouseEvent) => {
+       const newHeight = window.innerHeight - e.clientY;
+       const minHeight = 80;
+       const maxHeight = window.innerHeight * 0.6; // máximo 60% da tela
+       setPinnedHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
+     };
+
+     const handleMouseUp = () => {
+       setIsResizing(false);
+     };
+
+     document.addEventListener('mousemove', handleMouseMove);
+     document.addEventListener('mouseup', handleMouseUp);
+     
+     return () => {
+       document.removeEventListener('mousemove', handleMouseMove);
+       document.removeEventListener('mouseup', handleMouseUp);
+     };
+   }, [isResizing]);
   return (
     <>
-    <div className={`space-y-2 ${pinned ? 'pb-28' : ''}`}>
+    <div className={`space-y-2`} style={{ paddingBottom: pinned ? `${pinnedHeight + 20}px` : '0' }}>
       {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
       {tree.map((n:any) => (
         <div key={n.id} className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
@@ -1425,26 +1450,40 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: {
         </div>
       ))}
     </div>
-    {pinned && (
-      <div className="fixed z-40 pointer-events-none" style={{ left: leftOffset, right: 0, bottom: bottomOffset }}>
-          <div className="pointer-events-auto rounded-t-xl border border-zinc-200 bg-white shadow-[0_-6px_12px_rgba(0,0,0,0.12)] max-w-full">
-            <div className="px-3 py-2 text-xs text-zinc-600 flex items-center justify-between">
-              <div className="min-w-0 flex items-center gap-2">
-                <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
-                <div className="truncate">
-                  <span className="font-medium text-zinc-800">{pinned.author_name || '—'}</span>
-                  <span className="ml-2">{pinned.created_at ? new Date(pinned.created_at).toLocaleString() : ''}</span>
-                </div>
-              </div>
-              <button onClick={()=> setPinned(null)} className="inline-flex items-center gap-1 text-[11px] text-zinc-600 hover:text-zinc-800">
-                <Pin className="w-3.5 h-3.5" strokeWidth={1.75} />
-                <span className="sr-only">Desafixar</span>
-              </button>
-            </div>
-            <div className="px-3 pb-3 text-sm text-zinc-800 whitespace-pre-line break-words">{pinned.text}</div>
-          </div>
-      </div>
-    )}
+     {pinned && (
+       <div className="fixed bottom-0 z-40 pointer-events-none" style={{ left: leftOffset, right: 0, height: `${pinnedHeight}px` }}>
+           <div className="pointer-events-auto border-t border-zinc-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)] w-full h-full flex flex-col">
+             {/* Resize Handle */}
+             <div 
+               className={`w-full h-2 cursor-ns-resize flex items-center justify-center border-b border-zinc-100 hover:bg-zinc-50 transition-colors ${isResizing ? 'bg-zinc-100' : ''}`}
+               onMouseDown={(e) => {
+                 e.preventDefault();
+                 setIsResizing(true);
+               }}
+             >
+               <div className="w-12 h-1 bg-zinc-300 rounded-full"></div>
+             </div>
+             
+             {/* Header */}
+             <div className="px-4 py-3 text-xs text-zinc-600 flex items-center justify-between border-b border-zinc-100 shrink-0">
+               <div className="min-w-0 flex items-center gap-2">
+                 <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+                 <div className="truncate">
+                   <span className="font-medium text-zinc-800">{pinned.author_name || '—'}</span>
+                   <span className="ml-2 text-zinc-500">{pinned.created_at ? new Date(pinned.created_at).toLocaleString() : ''}</span>
+                 </div>
+               </div>
+               <button onClick={()=> setPinned(null)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100 transition-colors">
+                 <Pin className="w-3.5 h-3.5" strokeWidth={1.75} />
+                 <span className="hidden sm:inline">Desafixar</span>
+               </button>
+             </div>
+             
+             {/* Content */}
+             <div className="px-4 py-3 text-sm text-zinc-800 whitespace-pre-line break-words overflow-y-auto flex-1">{pinned.text}</div>
+           </div>
+       </div>
+     )}
     </>
   );
 }
