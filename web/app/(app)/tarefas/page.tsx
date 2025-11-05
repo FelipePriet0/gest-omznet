@@ -39,11 +39,12 @@ export default function MinhasTarefasPage() {
 
   useEffect(() => { load(); }, []);
 
-  async function load() {
+  async function load(nextStatus?: 'all'|'pending'|'completed') {
     setLoading(true);
     try {
+      const effStatus = nextStatus ?? status;
       const { data, error } = await supabase.rpc('list_my_tasks', {
-        p_status: status==='all'? null : status,
+        p_status: effStatus==='all'? null : effStatus,
         p_due: due==='all'? null : due,
         p_date_start: ds? atStart(ds) : null,
         p_date_end: de? atEnd(de) : null,
@@ -76,15 +77,32 @@ export default function MinhasTarefasPage() {
 
       <div className="relative">
         <div className="absolute top-0 left-0 z-10">
-          <TaskFilterCTA 
-            q={q} setQ={setQ}
-            status={status} setStatus={setStatus}
-            due={due} setDue={setDue}
-            ds={ds} setDs={setDs}
-            de={de} setDe={setDe}
-            onApply={load}
-            loading={loading}
-          />
+          <div className="flex items-center gap-2">
+            <TaskFilterCTA 
+              q={q} setQ={setQ}
+              status={status} setStatus={setStatus}
+              due={due} setDue={setDue}
+              ds={ds} setDs={setDs}
+              de={de} setDe={setDe}
+              onApply={load}
+              loading={loading}
+            />
+            {status !== 'all' && (
+              <div className="flex gap-[1px] items-center text-xs">
+                <div className="flex gap-1.5 shrink-0 rounded-l bg-neutral-200 px-1.5 py-1 items-center">
+                  Status
+                </div>
+                <div className="bg-neutral-100 px-2 py-1 text-neutral-700">{status === 'pending' ? 'Pendentes' : 'Concluídas'}</div>
+                <button
+                  onClick={() => { setStatus('all'); load('all'); }}
+                  className="bg-neutral-200 rounded-l-none rounded-r-sm h-6 w-6 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-300 transition shrink-0"
+                  aria-label="Limpar filtro de status"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <div className="absolute top-0 right-0 z-10">
           <Button

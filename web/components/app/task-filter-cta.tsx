@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import {
   Popover,
   PopoverContent,
@@ -20,7 +21,7 @@ interface TaskFilterCTAProps {
   setDs: (value: string) => void;
   de: string;
   setDe: (value: string) => void;
-  onApply: () => void;
+  onApply: (nextStatus?: 'all' | 'pending' | 'completed') => void;
   loading: boolean;
 }
 
@@ -41,84 +42,34 @@ export function TaskFilterCTA({
           Filtros
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-4 bg-white border-0 shadow-lg rounded-lg">
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Busca</label>
-            <input 
-              value={q} 
-              onChange={(e) => setQ(e.target.value)} 
-              placeholder="Descrição ou nome do cliente" 
-              className="w-full h-9 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" 
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Status</label>
-              <select 
-                value={status} 
-                onChange={(e) => setStatus(e.target.value as any)} 
-                className="w-full h-9 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+      <PopoverContent className="w-[200px] p-0 bg-white border-0 shadow-lg rounded-lg">
+        <Command className="rounded-lg">
+          <CommandList className="p-1">
+            <CommandGroup className="p-0">
+              <CommandItem
+                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
+                value="Todos"
+                onSelect={() => { setStatus('all'); onApply('all'); setOpen(false); }}
               >
-                <option value="all">Todos</option>
-                <option value="pending">Pendentes</option>
-                <option value="completed">Concluídas</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Prazo</label>
-              <select 
-                value={due} 
-                onChange={(e) => setDue(e.target.value as any)} 
-                className="w-full h-9 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                <span className="text-sm font-medium">Todos</span>
+              </CommandItem>
+              <CommandItem
+                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
+                value="Pendentes"
+                onSelect={() => { setStatus('pending'); onApply('pending'); setOpen(false); }}
               >
-                <option value="all">Todos</option>
-                <option value="hoje">Hoje</option>
-                <option value="amanha">Amanhã</option>
-                <option value="atrasado">Atrasadas</option>
-                <option value="intervalo">Intervalo</option>
-              </select>
-            </div>
-          </div>
-          
-          {due === 'intervalo' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">De</label>
-                <input 
-                  type="date" 
-                  value={ds} 
-                  onChange={(e) => setDs(e.target.value)} 
-                  className="w-full h-9 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" 
-                />
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Até</label>
-                <input 
-                  type="date" 
-                  value={de} 
-                  onChange={(e) => setDe(e.target.value)} 
-                  className="w-full h-9 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" 
-                />
-              </div>
-            </div>
-          )}
-          
-          <div className="flex justify-end pt-2">
-            <Button
-              disabled={loading}
-              onClick={() => {
-                onApply();
-                setOpen(false);
-              }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-4"
-            >
-              Aplicar
-            </Button>
-          </div>
-        </div>
+                <span className="text-sm font-medium">Pendentes</span>
+              </CommandItem>
+              <CommandItem
+                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
+                value="Concluídas"
+                onSelect={() => { setStatus('completed'); onApply('completed'); setOpen(false); }}
+              >
+                <span className="text-sm font-medium">Concluídas</span>
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </Command>
       </PopoverContent>
     </Popover>
   );
