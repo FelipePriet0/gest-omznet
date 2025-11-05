@@ -1634,7 +1634,6 @@ input[placeholder*="Buscar"]::placeholder {
 /* Flatpickr - Dias da semana com cor primária */
 .flatpickr-weekdays {
   background-color: var(--verde-primario) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .flatpickr-weekday {
