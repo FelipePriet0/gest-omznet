@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useSidebar } from "@/components/ui/sidebar";
 
 type FileItem = { id: string; file: File; name: string; size: number; type: string };
 
@@ -18,11 +19,25 @@ const ALLOWED = [
 ];
 
 export function AttachmentsModal({ open, onClose, cardId, commentId, onCompleted }: { open: boolean; onClose: () => void; cardId: string; commentId?: string | null; onCompleted?: (files: { name: string; path: string }[]) => void }) {
+  const { open: sidebarOpen } = useSidebar();
   const [items, setItems] = useState<FileItem[]>([]);
   const [description, setDescription] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Update sidebar width on changes
+  useEffect(() => {
+    const updateWidth = () => {
+      const isDesktop = window.innerWidth >= 768;
+      setSidebarWidth(isDesktop ? (sidebarOpen ? 300 : 60) : 0);
+    };
+    
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, [sidebarOpen]);
 
   function pick() {
     inputRef.current?.click();
@@ -106,7 +121,7 @@ export function AttachmentsModal({ open, onClose, cardId, commentId, onCompleted
   const ready = items.length > 0 && invalids.badSize.size === 0 && invalids.badType.size === 0 && invalids.noName.size === 0;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" style={{ left: sidebarWidth }}>
       <div className="w-full max-w-4xl rounded-xl border bg-white shadow-2xl">
         <header className="bg-gradient-to-r from-emerald-700 to-emerald-500 px-5 py-4 text-white">
           <div className="text-lg font-semibold flex items-center gap-2">

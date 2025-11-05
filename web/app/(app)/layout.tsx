@@ -8,10 +8,13 @@ import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
 import { motion } from "framer-motion";
 import Breadcrumbs from "@/components/app/Breadcrumbs";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+const TasksPanelProxy = dynamic(() => import("@/app/(app)/tarefas/page"), { ssr: false });
 
 function AppSidebar() {
   const { open } = useSidebar();
+  const pathname = usePathname() || "/";
 
   const links = [
     {
@@ -21,7 +24,7 @@ function AppSidebar() {
     },
     {
       label: "Minhas Tarefas",
-      href: "/tarefas",
+      href: `${pathname}?panel=tarefas`,
       icon: <CheckSquare className="h-5 w-5 text-white flex-shrink-0" />,
     },
     {
@@ -76,8 +79,17 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
   const [open, setOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
   const pathname = usePathname() || "/";
+  const search = useSearchParams();
+  const router = useRouter();
   const parts = pathname.split("/").filter(Boolean);
   const isExpandedCadastro = parts[0] === 'cadastro' && (parts[1] === 'pf' || parts[1] === 'pj') && parts.length >= 3;
+  const isPanelOpen = (search?.get('panel') || '').toLowerCase() === 'tarefas';
+  const sidebarOffset = isDesktop ? (open ? 300 : 60) : 0;
+
+  // Ensure sidebar is open (300px) when Tasks drawer is visible on desktop
+  useEffect(() => {
+    if (isPanelOpen && isDesktop && !open) setOpen(true);
+  }, [isPanelOpen, isDesktop, open]);
 
   function onDownloadPdf() { try { window.print(); } catch {} }
   function onClosePage() { try { window.close(); } catch {} try { history.back(); } catch {} }
@@ -123,7 +135,33 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
                 )}
               </div>
               {children}
+              {isPanelOpen && (
+                <div
+                  className="fixed z-[85] bg-transparent"
+                  style={{ top: 0, bottom: 0, left: sidebarOffset, right: 0 }}
+                  onClick={()=>{ const p=new URLSearchParams(search?.toString()||''); p.delete('panel'); router.replace(`${pathname}${p.size?`?${p}`:''}`); }}
+                />
+              )}
             </main>
+            {isPanelOpen && (
+              <div role="dialog" aria-modal className="fixed top-0 z-[90] h-screen bg-white border border-neutral-200 rounded-tl-3xl flex flex-col shadow-[4px_0_12px_rgba(0,0,0,0.12)]"
+                   style={{ left: sidebarOffset, right: isDesktop ? 'auto' as any : 0, width: isDesktop ? 440 : '100%' }}>
+                <div className="px-3 md:px-4 py-2 md:py-3 border-b border-neutral-200 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <SidebarTrigger className="hidden md:inline-flex" />
+                    <span className="text-h4 font-semibold text-[var(--color-primary)] truncate">Minhas Tarefas</span>
+                  </div>
+                  <button onClick={()=>{ const p=new URLSearchParams(search?.toString()||''); p.delete('panel'); router.replace(`${pathname}${p.size?`?${p}`:''}`); }} aria-label="Fechar" className="p-2 rounded hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                      <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 11-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="flex-1 overflow-auto p-3 md:p-4">
+                  <TasksPanelProxy />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </SidebarProvider>

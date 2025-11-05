@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { listInbox, markRead, type InboxItem } from "@/features/inbox/services";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export function InboxBell() {
   const [open, setOpen] = useState(false);
@@ -48,8 +49,23 @@ export function InboxBell() {
 }
 
 function InboxDrawer({ items, onClose, onRefresh }: { items: InboxItem[]; onClose: () => void; onRefresh: () => void }) {
+  const { open: sidebarOpen } = useSidebar();
+  const [sidebarWidth, setSidebarWidth] = useState(0);
+
+  // Update sidebar width on changes
+  useEffect(() => {
+    const updateWidth = () => {
+      const isDesktop = window.innerWidth >= 768;
+      setSidebarWidth(isDesktop ? (sidebarOpen ? 300 : 60) : 0);
+    };
+    
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, [sidebarOpen]);
+
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-50 flex" style={{ left: sidebarWidth }}>
       <div className="flex-1 bg-black/30" onClick={onClose} />
       <div className="w-full max-w-md bg-white shadow-2xl animate-in slide-in-from-right duration-200">
         <header className="flex items-center justify-between bg-gradient-to-r from-emerald-700 to-emerald-500 px-4 py-3 text-white">

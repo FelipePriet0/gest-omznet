@@ -15,6 +15,7 @@ import { SimpleSelect } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
+import { useSidebar } from "@/components/ui/sidebar";
 
 type AppModel = {
   primary_name?: string; cpf_cnpj?: string; phone?: string; whatsapp?: string; email?: string;
@@ -62,6 +63,7 @@ const SVA_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
 const VENC_OPTIONS = ["5","10","15","20","25"] as const;
 
 export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open: boolean; onClose: () => void; cardId: string; applicantId: string; }) {
+  const { open: sidebarOpen } = useSidebar();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"idle"|"saving"|"saved"|"error">("idle");
   const [app, setApp] = useState<AppModel>({});
@@ -71,6 +73,19 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [createdAt, setCreatedAt] = useState<string>("");
   const [pareceres, setPareceres] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const [sidebarWidth, setSidebarWidth] = useState(0);
+
+  // Update sidebar width on changes
+  useEffect(() => {
+    const updateWidth = () => {
+      const isDesktop = window.innerWidth >= 768;
+      setSidebarWidth(isDesktop ? (sidebarOpen ? 300 : 60) : 0);
+    };
+    
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, [sidebarOpen]);
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
   const [createdBy, setCreatedBy] = useState<string>("");
@@ -265,7 +280,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ left: sidebarWidth }}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto overflow-x-hidden bg-white shadow-2xl" style={{ borderRadius: '28px' }}>
         <div className="p-6">
@@ -606,7 +621,7 @@ function Field({ label, value, onChange, disabled, placeholder, maxLength, input
 }
 
 type Opt = string | { label: string; value: string; disabled?: boolean };
-function Select({ label, value, onChange, options, groups, enableCtrlMergeHover, triggerClassName, contentClassName, triggerStyle, contentStyle }: { label: string; value: string; onChange: (v:string)=>void; options: Opt[]; groups?: string[][]; enableCtrlMergeHover?: boolean; triggerClassName?: string; contentClassName?: string; triggerStyle?: React.CSSProperties; contentStyle?: React.CSSProperties }) {
+function Select({ label, value, onChange, options, triggerClassName, contentClassName, triggerStyle, contentStyle }: { label: string; value: string; onChange: (v:string)=>void; options: Opt[]; triggerClassName?: string; contentClassName?: string; triggerStyle?: React.CSSProperties; contentStyle?: React.CSSProperties }) {
   const id = `sel-${label.replace(/\s+/g,'-').toLowerCase()}`;
   return (
     <div className="w-full space-y-2">
@@ -621,8 +636,6 @@ function Select({ label, value, onChange, options, groups, enableCtrlMergeHover,
         contentClassName={contentClassName}
         triggerStyle={triggerStyle}
         contentStyle={contentStyle}
-        groups={groups}
-        enableCtrlMergeHover={enableCtrlMergeHover}
       />
     </div>
   );
