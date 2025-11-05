@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { KanbanBoard } from "@/legacy/components/kanban/components/KanbanBoard";
 import { FilterCTA } from "@/components/app/filter-cta";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, FileCheck, XCircle, CheckCircle, Clock } from "lucide-react";
 import { useState as useModalState } from "react";
 import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonTypeModal";
 import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
@@ -76,12 +76,12 @@ export default function KanbanPage() {
           </Button>
         </div>
         <div className="pt-12">
-          {/* Cards de dashboard (placeholder) */}
-          <div className="grid grid-cols-4 gap-3 sm:gap-4 md:gap-6 w-full">
-            <DashboardCard title="Fichas feitas" value={dash?.feitasAguardando} />
-            <DashboardCard title="Canceladas" value={dash?.canceladas} />
-            <DashboardCard title="Concluídas" value={dash?.concluidas} />
-            <DashboardCard title="Atrasadas" value={dash?.atrasadas} highlight />
+          {/* Mini dashboard: Fichas feitas / Canceladas / Concluídas / Atrasadas */}
+          <div className="grid grid-cols-4 gap-3 sm:gap-4 md:gap-6 w-full mb-6">
+            <DashboardCard title="Fichas feitas" value={dash?.feitasAguardando} icon={<FileCheck className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Canceladas" value={dash?.canceladas} icon={<XCircle className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Concluídas" value={dash?.concluidas} icon={<CheckCircle className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Atrasadas" value={dash?.atrasadas} icon={<Clock className="w-4 h-4 text-white" />} />
           </div>
           {/* Espaçamento igual ao usado entre filtros/CTA e colunas */}
           <div className="mt-12">
@@ -116,13 +116,18 @@ export default function KanbanPage() {
   );
 }
 
-function DashboardCard({ title, value, highlight }: { title: string; value?: number | null; highlight?: boolean }) {
+function DashboardCard({ title, value, icon }: { title: string; value?: number | null; icon?: React.ReactNode }) {
   return (
-    <div className={["h-[200px] w-full rounded-[12px] border shadow-sm p-4 flex flex-col justify-between",
-      highlight ? "bg-red-50 border-red-200" : "bg-white border-zinc-200"].join(" ")}
-    >
-      <div className="text-sm text-zinc-600">{title}</div>
-      <div className="text-4xl font-bold text-zinc-900">{typeof value === 'number' ? value : '—'}</div>
+    <div className="h-[120px] w-full rounded-[12px] border bg-white border-zinc-200 shadow-sm overflow-hidden flex flex-col">
+      {/* Header Band (faixa de cabeçalho) */}
+      <div className="bg-[#000000] px-4 py-3 flex items-center justify-between">
+        <div className="text-sm font-medium text-white">{title}</div>
+        {icon && <div className="text-white">{icon}</div>}
+      </div>
+      {/* Área do número */}
+      <div className="flex-1 flex items-center justify-center px-4">
+        <div className="text-3xl font-bold text-[var(--verde-primario)]">{typeof value === 'number' ? value : '—'}</div>
+      </div>
     </div>
   );
 }

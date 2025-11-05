@@ -17,6 +17,8 @@ type TaskRow = {
   applicant_name: string;
   cpf_cnpj: string;
   area?: 'comercial'|'analise'|string;
+  created_name?: string|null;
+  creator_role?: 'vendedor'|'analista'|'gestor'|null;
 };
 
 export default function MinhasTarefasPage() {
@@ -74,13 +76,6 @@ export default function MinhasTarefasPage() {
     }
   }
 
-  async function remove(taskId: string) {
-    if (!confirm('Excluir tarefa?')) return;
-    await supabase.rpc('update_my_task', { p_task_id: taskId, p_delete: true });
-    await load();
-    await loadCounts();
-  }
-
   return (
     <>
 
@@ -132,117 +127,109 @@ export default function MinhasTarefasPage() {
                 <p className="text-sm text-gray-500">Suas tarefas aparecerão aqui quando forem atribuídas</p>
               </div>
             ) : (
-              items.map(t => (
-                <div key={t.id} className="group bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all duration-200">
-                  <div className="flex items-start gap-4">
-                    {/* Checkbox customizado */}
-                    <div className="flex-shrink-0 pt-1">
-                      <label className="relative flex items-center cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={t.status === 'completed'} 
-                          onChange={(e) => toggle(t.id, e.target.checked)}
-                          className="sr-only"
-                        />
-                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
-                          t.status === 'completed' 
-                            ? 'bg-emerald-500 border-emerald-500' 
-                            : 'border-gray-300 hover:border-emerald-400'
-                        }`}>
-                          {t.status === 'completed' && (
-                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      </label>
-                    </div>
-                    
-                    {/* Conteúdo principal */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className={`text-sm font-medium leading-5 ${
+              items.map((t) => {
+                const cardHref = `${(t.area || 'analise') === 'analise' ? '/kanban/analise' : '/kanban'}?card=${t.card_id}`;
+                return (
+                  <a
+                    key={t.id}
+                    href={cardHref}
+                    className="group block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all duration-200"
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Checkbox customizado */}
+                      <div className="flex-shrink-0 pt-1" onClick={(e) => e.stopPropagation()}>
+                        <label className="relative flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={t.status === 'completed'} 
+                            onChange={(e) => toggle(t.id, e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
                             t.status === 'completed' 
-                              ? 'line-through text-gray-500' 
-                              : 'text-gray-900'
+                              ? 'bg-emerald-500 border-emerald-500' 
+                              : 'border-gray-300 hover:border-emerald-400'
                           }`}>
-                            {t.description}
-                          </h3>
-                          <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                            <span className="inline-flex items-center gap-1">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            {t.status === 'completed' && (
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              {t.applicant_name}
-                            </span>
-                            <span>•</span>
-                            <span>{t.cpf_cnpj}</span>
-                            {t.area && (
-                              <>
-                                <span>•</span>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  t.area === 'comercial' 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'bg-green-100 text-green-700'
-                                }`}>
-                                  {t.area === 'comercial' ? 'Comercial' : 'Análise'}
-                                </span>
-                              </>
                             )}
                           </div>
-                        </div>
-                        
-                        {/* Status e prazo */}
-                        <div className="flex items-center gap-4 text-xs">
-                          {t.deadline && (
-                            <div className="text-right">
-                              <div className="text-gray-500">Prazo</div>
-                              <div className={`font-medium ${
-                                t.deadline && new Date(t.deadline) < new Date() && t.status !== 'completed' 
-                                  ? 'text-red-600' 
-                                  : 'text-gray-700'
-                              }`}>
-                                {new Date(t.deadline).toLocaleDateString('pt-BR')}
-                              </div>
+                        </label>
+                      </div>
+                      {/* Conteúdo principal */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`text-sm font-medium leading-5 truncate ${
+                              t.status === 'completed' 
+                                ? 'line-through text-gray-500' 
+                                : 'text-gray-900'
+                            }`}>
+                              {t.description}
+                            </h3>
+                            <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                              <span className="inline-flex items-center gap-1 truncate max-w-[150px]">
+                                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span className="truncate">{t.applicant_name}</span>
+                              </span>
+                              <span className="flex-shrink-0">•</span>
+                              <span className="truncate">{t.cpf_cnpj}</span>
+                              {t.created_name && (
+                                <>
+                                  <span className="flex-shrink-0">•</span>
+                                  <span className="inline-flex items-center gap-1 text-xs text-gray-600 truncate">
+                                    <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                    </svg>
+                                    <span className="truncate">
+                                      Criado por: <span className="font-medium">{t.created_name}</span>
+                                      {t.creator_role && (
+                                        <span className="text-gray-500"> ({
+                                          t.creator_role === 'vendedor' ? 'Vendedor' :
+                                          t.creator_role === 'analista' ? 'Analista' :
+                                          t.creator_role === 'gestor' ? 'Gestor' : t.creator_role
+                                        })</span>
+                                      )}
+                                    </span>
+                                  </span>
+                                </>
+                              )}
                             </div>
-                          )}
+                          </div>
                           
-                          <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                            t.status === 'completed'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-amber-100 text-amber-700'
-                          }`}>
-                            {t.status === 'completed' ? 'Concluída' : 'Pendente'}
+                          {/* Status e prazo */}
+                          <div className="flex items-center gap-4 text-xs flex-shrink-0">
+                            {t.deadline && (
+                              <div className="text-right">
+                                <div className="text-gray-500">Prazo</div>
+                                <div className={`font-medium ${
+                                  t.deadline && new Date(t.deadline) < new Date() && t.status !== 'completed' 
+                                    ? 'text-red-600' 
+                                    : 'text-gray-700'
+                                }`}>
+                                  {new Date(t.deadline).toLocaleDateString('pt-BR')}
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              t.status === 'completed'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {t.status === 'completed' ? 'Concluída' : 'Pendente'}
+                            </div>
                           </div>
                         </div>
                       </div>
-                      
-                      {/* Ações */}
-                      <div className="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <a 
-                          href={`${(t.area||'analise')==='analise' ? '/kanban/analise' : '/kanban'}?card=${t.card_id}`} 
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                          Abrir Ficha
-                        </a>
-                        <button 
-                          onClick={() => remove(t.id)} 
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Excluir
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                </div>
-              ))
+                  </a>
+                );
+              })
             )}
           </div>
         </div>

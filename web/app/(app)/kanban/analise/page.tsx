@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { KanbanBoardAnalise } from "@/legacy/components/kanban/components/KanbanBoardAnalise";
 import { FilterCTA } from "@/components/app/filter-cta";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Inbox, FileSearch, RefreshCw, CheckCircle, XCircle } from "lucide-react";
 import { useState as useModalState } from "react";
 import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonTypeModal";
 import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
@@ -74,13 +74,13 @@ export default function KanbanAnalisePage() {
           </Button>
         </div>
         <div className="pt-12">
-          {/* Cards de dashboard (dados reais) */}
-          <div className="grid grid-cols-5 gap-3 sm:gap-4 md:gap-6 w-full">
-            <DashboardCard title="Recebidos" value={dash?.recebidos} />
-            <DashboardCard title="Em análise" value={dash?.emAnalise} />
-            <DashboardCard title="Reanálise" value={dash?.reanalise} />
-            <DashboardCard title="Finalizados" value={dash?.finalizados} />
-            <DashboardCard title="Canceladas" value={dash?.analiseCanceladas} />
+          {/* Mini dashboard: Recebidos / Em análise / Reanálise / Finalizados / Canceladas */}
+          <div className="grid grid-cols-5 gap-3 sm:gap-4 md:gap-6 w-full mb-6">
+            <DashboardCard title="Recebidos" value={dash?.recebidos} icon={<Inbox className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Em análise" value={dash?.emAnalise} icon={<FileSearch className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Reanálise" value={dash?.reanalise} icon={<RefreshCw className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Finalizados" value={dash?.finalizados} icon={<CheckCircle className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Canceladas" value={dash?.analiseCanceladas} icon={<XCircle className="w-4 h-4 text-white" />} />
           </div>
           {/* Espaçamento igual ao usado entre filtros/CTA e colunas */}
           <div className="mt-12">
@@ -115,13 +115,18 @@ export default function KanbanAnalisePage() {
   );
 }
 
-function DashboardCard({ title, value, highlight }: { title: string; value?: number | null; highlight?: boolean }) {
+function DashboardCard({ title, value, icon }: { title: string; value?: number | null; icon?: React.ReactNode }) {
   return (
-    <div className={["h-[200px] w-full rounded-[12px] border shadow-sm p-4 flex flex-col justify-between",
-      highlight ? "bg-red-50 border-red-200" : "bg-white border-zinc-200"].join(" ")}
-    >
-      <div className="text-sm text-zinc-600">{title}</div>
-      <div className="text-4xl font-bold text-zinc-900">{typeof value === 'number' ? value : '—'}</div>
+    <div className="h-[120px] w-full rounded-[12px] border bg-white border-zinc-200 shadow-sm overflow-hidden flex flex-col">
+      {/* Header Band (faixa de cabeçalho) */}
+      <div className="bg-[#000000] px-4 py-3 flex items-center justify-between">
+        <div className="text-sm font-medium text-white">{title}</div>
+        {icon && <div className="text-white">{icon}</div>}
+      </div>
+      {/* Área do número */}
+      <div className="flex-1 flex items-center justify-center px-4">
+        <div className="text-3xl font-bold text-[var(--verde-primario)]">{typeof value === 'number' ? value : '—'}</div>
+      </div>
     </div>
   );
 }

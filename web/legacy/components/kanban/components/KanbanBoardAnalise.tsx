@@ -104,9 +104,10 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
   }
 
   return (
-    <div className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 overflow-x-auto overflow-y-visible pb-2 -mx-2 px-2">
+    <div className="relative">
       <DndContext onDragEnd={handleDragEnd}>
-        <div className="flex w-full flex-1 gap-4 sm:gap-6 pb-4 min-w-max">
+        <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+          <div className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
           {columns.map((c) => (
             <KanbanColumn
               key={c.key}
@@ -123,6 +124,7 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
               }))}
             />
           ))}
+          </div>
         </div>
       </DndContext>
       <MoveModal

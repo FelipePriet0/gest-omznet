@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import RouteBg from "./RouteBg";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
-import { LayoutGrid, CheckSquare, History } from "lucide-react";
+import { Columns3, ListTodo, Clock } from "lucide-react";
 import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
 import { motion } from "framer-motion";
@@ -20,17 +20,17 @@ function AppSidebar() {
     {
       label: "Kanban",
       href: "/kanban",
-      icon: <LayoutGrid className="h-5 w-5 text-white flex-shrink-0" />,
+      icon: <Columns3 className="h-5 w-5 text-white flex-shrink-0" />,
     },
     {
       label: "Minhas Tarefas",
       href: `${pathname}?panel=tarefas`,
-      icon: <CheckSquare className="h-5 w-5 text-white flex-shrink-0" />,
+      icon: <ListTodo className="h-5 w-5 text-white flex-shrink-0" />,
     },
     {
       label: "Histórico",
       href: "/historico",
-      icon: <History className="h-5 w-5 text-white flex-shrink-0" />,
+      icon: <Clock className="h-5 w-5 text-white flex-shrink-0" />,
     },
   ];
 
