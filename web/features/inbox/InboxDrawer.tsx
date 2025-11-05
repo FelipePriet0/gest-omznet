@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { motion, PanInfo } from "framer-motion";
 
 type RefreshHandler = () => Promise<void> | void;
 
@@ -307,8 +308,14 @@ function InboxRow({ n, onRefresh }: { n: InboxItem; onRefresh: RefreshHandler })
   const when = n.created_at ? new Date(n.created_at).toLocaleString() : '';
   const icon = n.type === 'task' ? '📋' : n.type === 'comment' ? '💬' : n.type === 'card' ? '🔥' : '🔔';
   const isUnread = !n.read_at;
-  return (
-    <div className={`flex items-start gap-3 rounded border px-3 py-2 ${isUnread? 'border-emerald-200 bg-emerald-50':'border-zinc-200 bg-white'}`}>
+  const [isDragging, setIsDragging] = useState(false);
+
+  const cardClasses = `flex items-start gap-3 rounded-xl border px-3 py-2 bg-white transition ${
+    isUnread ? 'border-emerald-200 hover:border-emerald-400 hover:shadow' : 'border-zinc-200 hover:border-zinc-300 hover:shadow'
+  }`;
+
+  const content = (
+    <div className="flex items-start gap-3">
       <div className="text-xl leading-none pt-0.5">{icon}</div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between">
@@ -317,12 +324,68 @@ function InboxRow({ n, onRefresh }: { n: InboxItem; onRefresh: RefreshHandler })
         </div>
         {n.body && <div className="mt-0.5 text-sm text-zinc-700">{n.body}</div>}
         <div className="mt-2 flex items-center gap-2 text-xs">
-          {isUnread && <button className="rounded border border-zinc-300 px-2 py-0.5" onClick={async ()=> { try { await markRead(n.id); await onRefresh(); } catch {} }}>Marcar como lida</button>}
-          {/* Placeholder para abrir links/rotas específicas */}
-          {n.link_url && <a href={n.link_url} className="rounded border border-zinc-300 px-2 py-0.5">Abrir</a>}
+          {isUnread && (
+            <button
+              className="rounded border border-zinc-300 px-2 py-0.5"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                try {
+                  await markRead(n.id);
+                  await onRefresh();
+                } catch {}
+              }}
+            >
+              Marcar como lida
+            </button>
+          )}
+          {/* Placeholder para ações futuras */}
         </div>
       </div>
     </div>
+  );
+
+  const handleDragEnd = async (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    setIsDragging(false);
+    if (!isUnread) return;
+    if (Math.abs(info.offset.x) > 120) {
+      try {
+        await markRead(n.id);
+        await onRefresh();
+      } catch {}
+    }
+  };
+
+  const commonProps = {
+    className: cardClasses,
+    drag: "x" as const,
+    dragConstraints: { left: 0, right: 0 },
+    dragElastic: 0.2,
+    onDragStart: () => setIsDragging(true),
+    onDragEnd: handleDragEnd,
+  };
+
+  if (n.link_url) {
+    return (
+      <motion.a
+        href={n.link_url}
+        {...commonProps}
+        onClick={(e) => {
+          if (isDragging) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+      >
+        {content}
+      </motion.a>
+    );
+  }
+
+  return (
+    <motion.div {...commonProps}>
+      {content}
+    </motion.div>
   );
 }
 
