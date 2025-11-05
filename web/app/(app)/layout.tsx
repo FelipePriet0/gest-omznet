@@ -86,10 +86,7 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
   const isPanelOpen = (search?.get('panel') || '').toLowerCase() === 'tarefas';
   const sidebarOffset = isDesktop ? (open ? 300 : 60) : 0;
 
-  // Ensure sidebar is open (300px) when Tasks drawer is visible on desktop
-  useEffect(() => {
-    if (isPanelOpen && isDesktop && !open) setOpen(true);
-  }, [isPanelOpen, isDesktop, open]);
+  // Do not force open the sidebar automatically when opening the Tasks drawer
 
   function onDownloadPdf() { try { window.print(); } catch {} }
   function onClosePage() { try { window.close(); } catch {} try { history.back(); } catch {} }
