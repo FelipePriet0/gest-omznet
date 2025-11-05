@@ -223,28 +223,28 @@ function HistoricoList({ rows, onOpenDetails }: { rows: Row[]; onOpenDetails: (c
   return (
     <div className="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
       {/* Header da Tabela */}
-      <div className="bg-gradient-to-r from-gray-50 to-white border-b border-zinc-200">
+      <div className="bg-emerald-600 border-b border-emerald-700">
         <div className="grid grid-cols-12 gap-4 px-6 py-4">
           <div className="col-span-2">
-            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Cliente</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Cliente</h3>
           </div>
           <div className="col-span-2">
-            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Documento</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Documento</h3>
           </div>
           <div className="col-span-2">
-            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Status</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Status</h3>
           </div>
           <div className="col-span-2">
-            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Comercial</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Comercial</h3>
           </div>
           <div className="col-span-2">
-            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Analista</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Analista</h3>
           </div>
           <div className="col-span-1">
-            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Data da Decisão</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Data da Decisão</h3>
           </div>
           <div className="col-span-1">
-            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider text-center">Ações</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider text-center">Ações</h3>
           </div>
         </div>
       </div>
