@@ -369,6 +369,9 @@ export default function CadastroPJPage() {
   function onDownloadPdf() { try{ window.print(); } catch{} }
   function onClosePage() { try{ window.close(); } catch{} try{ history.back(); } catch{} }
 
+  // UI spacer height to keep bottom gap consistent when a parecer is pinned
+  const [pinnedSpace, setPinnedSpace] = useState<number>(0);
+
   if (loading) return <div className="p-4 text-sm text-zinc-600">Carregando…</div>;
 
   const reqComprov = (pj.enviou_comprovante||'') === 'Sim';
@@ -727,10 +730,12 @@ export default function CadastroPJPage() {
               onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: text, p_parent_id: pid }); }}
               onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardIdEff, p_note_id: id, p_text: text }); }}
               onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id }); }}
+              onPinnedChange={(active, h)=> setPinnedSpace(active ? h : 0)}
             />
           </div>
         </Card>
       )}
+      {pinnedSpace>0 && (<div aria-hidden className="w-full" style={{ height: pinnedSpace }} />)}
     </div>
   );
 }
@@ -889,7 +894,7 @@ function buildTree(notes: Note[]): Note[] {
   return roots as any;
 }
 
-function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
+function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onPinnedChange }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any>; onPinnedChange?: (active:boolean, height:number)=>void }) {
   const tree = useMemo(()=> buildTree(notes||[]), [notes]);
   const { open } = useSidebar();
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -946,9 +951,12 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: {
        document.removeEventListener('mouseup', handleMouseUp);
      };
    }, [isResizing]);
+  useEffect(() => {
+    if (onPinnedChange) onPinnedChange(!!pinned, pinned ? pinnedHeight : 0);
+  }, [pinned, pinnedHeight]);
   return (
     <>
-    <div className={`space-y-2`} style={{ paddingBottom: pinned ? `${pinnedHeight + 20}px` : '0' }}>
+    <div className={`space-y-2`}>
       {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
       {tree.map((n:any) => (
         <div key={n.id} className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
