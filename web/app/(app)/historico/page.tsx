@@ -141,7 +141,7 @@ function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, o
             value={q} 
             onChange={(e)=> onQ(e.target.value)} 
             placeholder="Buscar por nome ou CPF..." 
-            className="h-11 w-full rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 placeholder:text-gray-400 shadow-sm"
+            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 placeholder:text-gray-400 shadow-sm"
           />
         </div>
 
@@ -152,7 +152,7 @@ function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, o
             value={dateStart}
             onChange={(e) => onDateStart(e.target.value)}
             placeholder="Data inicial"
-            className="h-11 w-full rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 shadow-sm"
+            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 shadow-sm"
           />
         </div>
 
@@ -163,7 +163,7 @@ function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, o
             value={dateEnd}
             onChange={(e) => onDateEnd(e.target.value)}
             placeholder="Data final"
-            className="h-11 w-full rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 shadow-sm"
+            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 shadow-sm"
           />
         </div>
 
@@ -172,7 +172,7 @@ function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, o
           <select 
             value={status} 
             onChange={(e)=> onStatus(e.target.value)} 
-            className="h-11 w-full rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 cursor-pointer appearance-none bg-no-repeat shadow-sm"
+            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 cursor-pointer appearance-none bg-no-repeat shadow-sm"
             style={{
               backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23018942' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
               backgroundPosition: "right 1rem center",
@@ -191,7 +191,7 @@ function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, o
           <select 
             value={resp} 
             onChange={(e)=> onResp(e.target.value)} 
-            className="h-11 w-full rounded-full border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 cursor-pointer appearance-none bg-no-repeat shadow-sm"
+            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 cursor-pointer appearance-none bg-no-repeat shadow-sm"
             style={{
               backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23018942' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
               backgroundPosition: "right 1rem center",
