@@ -75,17 +75,6 @@ export default function HistoricoPage() {
 
   return (
     <>
-      <div className="flex items-center justify-end mb-6">
-        <Button
-          onClick={() => setOpenPersonType(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
-          style={{ borderRadius: '10px', paddingLeft: '20px', paddingRight: '20px', height: '40px' }}
-        >
-          <Plus className="size-4 mr-2" />
-          Nova ficha
-        </Button>
-      </div>
-      
       <div className="space-y-6">
         <Filters 
           q={q} onQ={setQ}
@@ -181,15 +170,7 @@ function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, o
           </select>
         </div>
       </div>
-      <div className="mt-4 flex justify-end">
-        <button 
-          disabled={loading} 
-          onClick={onApply} 
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-emerald-700 hover:shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5"
-          style={{ borderRadius: '10px' }}
-        >
-          Aplicar filtros
-        </button>
+      <div className="mt-3 flex justify-end">
       </div>
     </div>
   );
@@ -197,93 +178,127 @@ function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, o
 
 function HistoricoList({ rows, onOpenDetails }: { rows: Row[]; onOpenDetails: (cardId: string) => void }) {
   return (
-    <div className="space-y-3">
-      {rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-            <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
+    <div className="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
+      {/* Header da Tabela */}
+      <div className="bg-gradient-to-r from-gray-50 to-white border-b border-zinc-200">
+        <div className="grid grid-cols-12 gap-4 px-6 py-4">
+          <div className="col-span-2">
+            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Cliente</h3>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-1">Nenhuma ficha encontrada</h3>
-          <p className="text-sm text-gray-500">O histórico de fichas finalizadas aparecerá aqui</p>
+          <div className="col-span-2">
+            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Documento</h3>
+          </div>
+          <div className="col-span-2">
+            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Status</h3>
+          </div>
+          <div className="col-span-2">
+            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Comercial</h3>
+          </div>
+          <div className="col-span-2">
+            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Analista</h3>
+          </div>
+          <div className="col-span-1">
+            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider">Data da Decisão</h3>
+          </div>
+          <div className="col-span-1">
+            <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wider text-center">Ações</h3>
+          </div>
         </div>
-      ) : (
-        rows.map((r) => (
-          <div key={r.id} className="group bg-white border border-zinc-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-zinc-300 hover:-translate-y-0.5 transition-all duration-200">
-            <div className="flex items-start justify-between">
-              {/* Informações principais */}
-              <div className="flex-1">
-                <div className="flex items-start gap-4">
-                  <div className="flex-1">
-                    <h3 className="text-base font-semibold text-gray-900 mb-1.5">
-                      {r.applicant_name}
-                    </h3>
-                    <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
-                      <span className="inline-flex items-center gap-1.5">
-                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        {r.cpf_cnpj}
-                      </span>
-                      {r.finalized_at && (
-                        <>
-                          <span className="text-gray-400">•</span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m-6 0v1m0-1h6m-6 0H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1" />
-                            </svg>
-                            {new Date(r.finalized_at).toLocaleDateString('pt-BR')}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    
-                    {/* Equipe responsável */}
-                    <div className="flex items-center gap-2.5 text-xs text-gray-500 mb-3">
-                      {r.vendedor_name && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full font-medium shadow-sm">
-                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2V6" />
-                          </svg>
-                          {r.vendedor_name}
-                        </span>
-                      )}
-                      {r.analista_name && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full font-medium shadow-sm">
-                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {r.analista_name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Status badge */}
-                  <div className="flex-shrink-0">
-                    <StatusBadge value={r.final_decision} />
-                  </div>
-                </div>
-                
-                {/* Ações no hover */}
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <button 
-                    onClick={() => onOpenDetails(r.id)} 
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all duration-150 shadow-sm hover:shadow"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    Ver Detalhes
-                  </button>
-                </div>
+      </div>
+
+      {/* Body da Tabela */}
+      <div>
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+              <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-1">Nenhuma ficha encontrada</h3>
+            <p className="text-sm text-gray-500">O histórico de fichas finalizadas aparecerá aqui</p>
+          </div>
+        ) : (
+          rows.map((r, index) => (
+            <div 
+              key={r.id} 
+              className={`group grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors duration-150 ${
+                index !== rows.length - 1 ? 'border-b border-zinc-100' : ''
+              }`}
+            >
+              {/* Cliente */}
+              <div className="col-span-2 flex items-center">
+                <span className="text-sm font-semibold text-gray-900 truncate">
+                  {r.applicant_name}
+                </span>
+              </div>
+
+              {/* Documento (CPF/CNPJ) */}
+              <div className="col-span-2 flex items-center">
+                <span className="text-sm text-emerald-600 font-medium">
+                  {r.cpf_cnpj}
+                </span>
+              </div>
+
+              {/* Status */}
+              <div className="col-span-2 flex items-center">
+                <StatusBadge value={r.final_decision} />
+              </div>
+
+              {/* Comercial */}
+              <div className="col-span-2 flex items-center">
+                {r.vendedor_name ? (
+                  <span className="text-sm text-gray-700 truncate">
+                    {r.vendedor_name}
+                  </span>
+                ) : (
+                  <span className="text-sm text-gray-400">—</span>
+                )}
+              </div>
+
+              {/* Analista */}
+              <div className="col-span-2 flex items-center">
+                {r.analista_name ? (
+                  <span className="text-sm text-gray-700 truncate">
+                    {r.analista_name}
+                  </span>
+                ) : (
+                  <span className="text-sm text-gray-400">—</span>
+                )}
+              </div>
+
+              {/* Data da Decisão */}
+              <div className="col-span-1 flex items-center">
+                {r.finalized_at ? (
+                  <span className="text-sm text-gray-600">
+                    {new Date(r.finalized_at).toLocaleDateString('pt-BR', { 
+                      day: '2-digit', 
+                      month: '2-digit', 
+                      year: 'numeric' 
+                    })}
+                  </span>
+                ) : (
+                  <span className="text-sm text-gray-400">—</span>
+                )}
+              </div>
+
+              {/* Ações - Ícone de Olho */}
+              <div className="col-span-1 flex items-center justify-center">
+                <button 
+                  onClick={() => onOpenDetails(r.id)} 
+                  className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-150"
+                  title="Ver detalhes da ficha"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
               </div>
             </div>
-          </div>
-        ))
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }
