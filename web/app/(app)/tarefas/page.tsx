@@ -3,12 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { TaskFilterCTA } from "@/components/app/task-filter-cta";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { useState as useModalState } from "react";
-import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonTypeModal";
-import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
-import type { PessoaTipo } from "@/features/cadastro/types";
+// Nova ficha CTA removido do Drawer: Minhas Tarefas
 
 type TaskRow = {
   id: string;
@@ -32,10 +27,7 @@ export default function MinhasTarefasPage() {
   const [ds, setDs] = useState('');
   const [de, setDe] = useState('');
   
-  // Nova ficha modals
-  const [openPersonType, setOpenPersonType] = useModalState(false);
-  const [openBasicInfo, setOpenBasicInfo] = useModalState(false);
-  const [tipoSel, setTipoSel] = useModalState<PessoaTipo | null>(null);
+  // Removidos modais/estado de "Nova ficha" no Drawer
 
   useEffect(() => { load(); }, []);
 
@@ -104,15 +96,7 @@ export default function MinhasTarefasPage() {
             )}
           </div>
         </div>
-        <div className="absolute top-0 right-0 z-10">
-          <Button
-            onClick={() => setOpenPersonType(true)}
-            className="h-6 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            <Plus className="size-3 mr-1" />
-            Nova ficha
-          </Button>
-        </div>
+        {/* CTA "Nova ficha" removido no Drawer */}
         <div className="pt-12">
           <div className="space-y-3">
             {items.length === 0 ? (
@@ -242,28 +226,7 @@ export default function MinhasTarefasPage() {
         </div>
       </div>
       
-      {/* Modals de Cadastro */}
-      <PersonTypeModal
-        open={openPersonType}
-        onClose={() => setOpenPersonType(false)}
-        onSelect={(tipo) => {
-          setTipoSel(tipo);
-          setOpenPersonType(false);
-          setOpenBasicInfo(true);
-        }}
-      />
-      <BasicInfoModal
-        open={openBasicInfo}
-        tipo={tipoSel}
-        onBack={() => {
-          setOpenBasicInfo(false);
-          setOpenPersonType(true);
-        }}
-        onClose={() => {
-          setOpenBasicInfo(false);
-          setTipoSel(null);
-        }}
-      />
+      {/* Modais de cadastro removidos do Drawer */}
     </>
   );
 }
