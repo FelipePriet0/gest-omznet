@@ -516,6 +516,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                 <PareceresList
                   cardId={cardId}
                   notes={pareceres as any}
+                  profiles={profiles}
                   onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: text, p_parent_id: pid }); }}
                   onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardId, p_note_id: id, p_text: text }); }}
                   onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
@@ -695,17 +696,17 @@ function buildTree(notes: Note[]): Note[] {
   return roots as any;
 }
 
-function PareceresList({ cardId, notes, onReply, onEdit, onDelete }: { cardId: string; notes: Note[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
+function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
   const tree = useMemo(()=> buildTree(notes||[]), [notes]);
   return (
     <div className="space-y-2">
       {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
-      {tree.map(n => <NoteItem key={n.id} node={n} depth={0} onReply={onReply} onEdit={onEdit} onDelete={onDelete} />)}
+      {tree.map(n => <NoteItem key={n.id} node={n} depth={0} profiles={profiles} onReply={onReply} onEdit={onEdit} onDelete={onDelete} />)}
     </div>
   );
 }
 
-function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth: number; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
+function NoteItem({ node, depth, profiles, onReply, onEdit, onDelete }: { node: any; depth: number; profiles: ProfileLite[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
   const editRef = useRef<HTMLDivElement | null>(null);
@@ -731,6 +732,11 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
   const [cmdQuery, setCmdQuery] = useState('');
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState('');
+  // Compositor Unificado - edição
+  const [editMentionOpen, setEditMentionOpen] = useState(false);
+  const [editMentionFilter, setEditMentionFilter] = useState('');
+  const [editCmdOpen, setEditCmdOpen] = useState(false);
+  const [editCmdQuery, setEditCmdQuery] = useState('');
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : '';
   if (node.deleted) return null;
   return (
@@ -757,19 +763,76 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
         <div className="mt-1 whitespace-pre-line break-words">{node.text}</div>
       ) : (
         <div className="mt-2" ref={editRef}>
-          <Textarea
-            value={text}
-            onChange={(e)=> setText(e.target.value)}
-            onKeyDown={async (e)=>{
-              // @ts-ignore
-              if (e.nativeEvent && e.nativeEvent.isComposing) return;
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); }
-              }
-            }}
-            rows={3}
-          />
+          <label className="mb-1 block text-xs font-medium text-zinc-700">Compositor Unificado de Parecer</label>
+          <div className="relative">
+            <Textarea
+              value={text}
+              onChange={(e)=> {
+                const v = e.target.value || '';
+                setText(v);
+                const atIdx = v.lastIndexOf('@');
+                if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                const slashIdx = v.lastIndexOf('/');
+                if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
+              }}
+              onKeyDown={async (e:any)=>{
+                // @ts-ignore
+                if (e.nativeEvent && e.nativeEvent.isComposing) return;
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  try { await onEdit(node.id, (text||'').trim()); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); }
+                  return;
+                }
+                if (e.key==='Escape') { e.preventDefault(); setIsEditing(false); return; }
+                const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                const atIdx = v.lastIndexOf('@');
+                if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                const slashIdx = v.lastIndexOf('/');
+                if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
+              }}
+              placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
+              rows={4}
+            />
+            {editMentionOpen && (
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+                <MentionDropdownParecer
+                  items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                  onPick={(p)=>{
+                    const idx = (text||'').lastIndexOf('@');
+                    const newVal = (text||'').slice(0, idx + 1) + p.full_name + ' ';
+                    setText(newVal);
+                    setEditMentionOpen(false);
+                  }}
+                />
+              </div>
+            )}
+            {editCmdOpen && (
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+                <CmdDropdown
+                  items={[
+                    { key:'aprovado', label:'Aprovado' },
+                    { key:'negado', label:'Negado' },
+                    { key:'reanalise', label:'Reanálise' },
+                    { key:'tarefa', label:'Tarefa' },
+                    { key:'anexo', label:'Anexo' },
+                  ].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
+                  onPick={async (key)=>{
+                    setEditCmdOpen(false); setEditCmdQuery('');
+                    if (key==='tarefa') { const ev = new CustomEvent('mz-open-task'); window.dispatchEvent(ev); return; }
+                    if (key==='anexo') { const ev = new CustomEvent('mz-open-attach'); window.dispatchEvent(ev); return; }
+                    try {
+                      const cid = (window as any).mz_card_id || '';
+                      if (key==='aprovado') await changeStage(cid, 'analise', 'aprovados');
+                      else if (key==='negado') await changeStage(cid, 'analise', 'negados');
+                      else if (key==='reanalise') await changeStage(cid, 'analise', 'reanalise');
+                    } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                  }}
+                  initialQuery={editCmdQuery}
+                />
+              </div>
+            )}
+          </div>
+          {/* Removidos CTAs; envio via Enter, cancelar via Esc */}
         </div>
       )}
       {isReplying && (
@@ -805,19 +868,19 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
               placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
               rows={3}
             />
-            {mentionOpen && (
-              <div className="absolute z-50 left-0 bottom-full mb-2">
-              <MentionDropdownParecer
-                items={(profiles || []).filter((p)=> p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
-                onPick={(p)=> {
-                  const idx = (reply || '').lastIndexOf('@');
-                  const newVal = (reply || '').slice(0, idx + 1) + p.full_name + ' ';
-                  setReply(newVal);
-                  setMentionOpen(false);
-                }}
-              />
-              </div>
-            )}
+          {mentionOpen && (
+            <div className="absolute z-50 left-0 bottom-full mb-2">
+            <MentionDropdownParecer
+              items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(mentionFilter.toLowerCase()))}
+              onPick={(p)=> {
+                const idx = (reply || '').lastIndexOf('@');
+                const newVal = (reply || '').slice(0, idx + 1) + p.full_name + ' ';
+                setReply(newVal);
+                setMentionOpen(false);
+              }}
+            />
+            </div>
+          )}
             {cmdOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <CmdDropdown
@@ -845,11 +908,11 @@ function NoteItem({ node, depth, onReply, onEdit, onDelete }: { node: any; depth
           </div>
         </div>
       )}
-      {node.children && node.children.length>0 && (
-        <div className="mt-2 space-y-2">
-          {node.children.map((c:any)=> <NoteItem key={c.id} node={c} depth={depth+1} onReply={onReply} onEdit={onEdit} onDelete={onDelete} />)}
-        </div>
-      )}
+          {node.children && node.children.length>0 && (
+            <div className="mt-2 space-y-2">
+              {node.children.map((c:any)=> <NoteItem key={c.id} node={c} depth={depth+1} profiles={profiles} onReply={onReply} onEdit={onEdit} onDelete={onDelete} />)}
+            </div>
+          )}
     </div>
   );
 }
@@ -876,8 +939,8 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="parecer-menu-dropdown absolute right-0 top-10 z-50 w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
+          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div className="parecer-menu-dropdown absolute right-0 top-10 z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
             <button 
               className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" 
               onClick={()=> { setOpen(false); onEdit(); }}

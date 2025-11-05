@@ -816,6 +816,8 @@ body {
     0 0 0 1px rgba(0, 0, 0, 0.05);
   /* Remove translucência para ficar firme acima dos CTAs */
   background: #ffffff;
+  z-index: 9999 !important; /* garantir sobreposição aos CTAs abaixo */
+  pointer-events: auto;
 }
 
 @keyframes parecer-menu-appear {
@@ -951,6 +953,8 @@ body {
     0 0 0 1px rgba(0, 0, 0, 0.05);
   /* Remove translucência para ficar firme acima dos CTAs */
   background: #ffffff;
+  z-index: 9999 !important; /* garantir sobreposição aos CTAs abaixo */
+  pointer-events: auto;
 }
 
 @keyframes comment-menu-appear {

@@ -574,8 +574,8 @@ function CommentMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="comment-menu-dropdown absolute right-0 top-10 z-50 w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
+          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div className="comment-menu-dropdown absolute right-0 top-10 z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
             <button 
               className="comment-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" 
               onClick={()=> { setOpen(false); onEdit(); }}

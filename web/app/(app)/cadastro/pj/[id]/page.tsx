@@ -196,6 +196,7 @@ export default function CadastroPJPage() {
   const parecerRef = useRef<HTMLTextAreaElement|null>(null);
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
   const [attachOpen, setAttachOpen] = useState<{open:boolean, parentId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
+  const [cardIdEff, setCardIdEff] = useState<string>('');
 
   useEffect(() => {
     let active = true;
@@ -260,17 +261,21 @@ export default function CadastroPJPage() {
           }
         }
 
-        // Carregar Pareceres e perfis (se houver cardId)
-        const cardIdParam = (search?.get('card') || '').trim();
-        if (cardIdParam) {
-          const { data: card } = await supabase
-            .from('kanban_cards')
-            .select('reanalysis_notes')
-            .eq('id', cardIdParam)
-            .maybeSingle();
-          if (card && Array.isArray((card as any).reanalysis_notes)) setPareceres((card as any).reanalysis_notes);
-          try { setProfiles(await listProfiles()); } catch {}
+        // Triangulação: pegar card por applicant_id e carregar pareceres
+        const { data: cardRow } = await supabase
+          .from('kanban_cards')
+          .select('id, reanalysis_notes')
+          .eq('applicant_id', applicantId)
+          .is('deleted_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const useCardId = (cardRow as any)?.id || null;
+        if (useCardId) {
+          setCardIdEff(useCardId);
+          if (Array.isArray((cardRow as any).reanalysis_notes)) setPareceres((cardRow as any).reanalysis_notes);
         }
+        try { setProfiles(await listProfiles()); } catch {}
       } finally {
         if (active) setLoading(false);
       }
@@ -309,11 +314,10 @@ export default function CadastroPJPage() {
           setPj(p2);
         })
         .subscribe();
-      const cid = (search?.get('card') || '').trim();
-      if (cid) {
+      if (cardIdEff) {
         ch3 = supabase
-          .channel(`rt-pj-card-${cid}`)
-          .on('postgres_changes', { event:'UPDATE', schema:'public', table:'kanban_cards', filter:`id=eq.${cid}` }, (payload:any) => {
+          .channel(`rt-pj-card-${cardIdEff}`)
+          .on('postgres_changes', { event:'UPDATE', schema:'public', table:'kanban_cards', filter:`id=eq.${cardIdEff}` }, (payload:any) => {
             const row:any = payload.new || {};
             if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
           })
@@ -321,7 +325,7 @@ export default function CadastroPJPage() {
       }
     } catch {}
     return () => { try { if (ch1) supabase.removeChannel(ch1); if (ch2) supabase.removeChannel(ch2); if (ch3) supabase.removeChannel(ch3); } catch {} };
-  }, [applicantId]);
+  }, [applicantId, cardIdEff]);
 
   async function flushAutosave() {
     if (!applicantId) return;
@@ -369,8 +373,7 @@ export default function CadastroPJPage() {
   const reqComprov = (pj.enviou_comprovante||'') === 'Sim';
 
   const from = (search?.get('from') || '').toLowerCase();
-  const cardId = search?.get('card') || '';
-  const showAnalyzeCrumb = from === 'analisar' && !!cardId;
+  const showAnalyzeCrumb = from === 'analisar';
   return (
     <div className="pj-form p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -501,24 +504,24 @@ export default function CadastroPJPage() {
       <TaskDrawer
         open={taskOpen.open}
         onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null})}
-        cardId={cardId}
+        cardId={cardIdEff}
         commentId={taskOpen.parentId ?? null}
         taskId={taskOpen.taskId ?? null}
         onCreated={async (t)=> {
           if (taskOpen.source === 'parecer') {
-            try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: `📋 Tarefa criada: ${t.description}`, p_parent_id: null }); } catch {}
+            try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: `📋 Tarefa criada: ${t.description}`, p_parent_id: null }); } catch {}
           }
         }}
       />
       <AttachmentsModal
         open={attachOpen.open}
         onClose={()=> setAttachOpen({open:false})}
-        cardId={cardId}
+        cardId={cardIdEff}
         commentId={attachOpen.parentId ?? null}
         onCompleted={async (files)=> {
           if (attachOpen.source === 'parecer' && files.length>0) {
             const names = files.map(f=> f.name).join(', ');
-            try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: `📎 Anexo(s): ${names}`, p_parent_id: null }); } catch {}
+            try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: `📎 Anexo(s): ${names}`, p_parent_id: null }); } catch {}
           }
         }}
       />
@@ -600,8 +603,37 @@ export default function CadastroPJPage() {
         </div>
       </Card>
 
-      {/* Parecer */}
-      {cardId && (
+      
+
+      {/* Seção 6: Informações Relevantes da Solicitação */}
+      <Card title="Informações Relevantes da Solicitação">
+        <div className="grid grid-cols-1 gap-4">
+          <Textarea label="Informações relevantes da solicitação" value={app.info_relevantes||''} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave('app','info_relevantes', v); }} />
+        </div>
+      </Card>
+
+      {/* Seção 7: Consulta SPC/SERASA */}
+      <Card title="Consulta SPC/Serasa">
+        <div className="grid grid-cols-1 gap-4">
+          <Textarea label="Consulta SPC/Serasa" value={app.info_spc||''} onChange={(v)=>{ setApp({...app, info_spc:v}); queueSave('app','info_spc', v); }} red />
+        </div>
+      </Card>
+
+      {/* Seção 8: Outras Informações Relevantes do PS */}
+      <Card title="Outras Informações Relevantes do PS">
+        <div className="grid grid-cols-1 gap-4">
+          <Textarea label="Outras informações relevantes do PS" value={app.info_pesquisador||''} onChange={(v)=>{ setApp({...app, info_pesquisador:v}); queueSave('app','info_pesquisador', v); }} red />
+        </div>
+      </Card>
+
+      {/* Seção 9: Informações Relevantes do MK */}
+      <Card title="Informações Relevantes do MK">
+        <div className="grid grid-cols-1 gap-4">
+          <Textarea label="Informações Relevantes do MK" value={app.info_mk||''} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave('app','info_mk', v); }} red />
+        </div>
+      </Card>
+
+      {(
         <Card title="Parecer">
           <div className="space-y-4">
             <div className="relative">
@@ -630,11 +662,11 @@ export default function CadastroPJPage() {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     const txt = (novoParecer || '').trim();
-                    if (!txt || !cardId) return;
+                    if (!txt || !cardIdEff) return;
                     const tempNote:any = { id: `tmp-${Date.now()}`, text: txt, author_name: '', author_role: '', created_at: new Date().toISOString(), parent_id: null };
                     setPareceres(prev => [...(prev||[]), tempNote]);
                     setNovoParecer('');
-                    try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: txt, p_parent_id: null }); } catch {}
+                    try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: txt, p_parent_id: null }); } catch {}
                     return;
                   }
                   const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
@@ -684,9 +716,9 @@ export default function CadastroPJPage() {
                       if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
                       if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
                       try {
-                        if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
-                        else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
-                        else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
+                        if (key==='aprovado') await changeStage(cardIdEff, 'analise', 'aprovados');
+                        else if (key==='negado') await changeStage(cardIdEff, 'analise', 'negados');
+                        else if (key==='reanalise') await changeStage(cardIdEff, 'analise', 'reanalise');
                       } catch(e:any){ alert(e?.message||'Falha ao mover'); }
                     }}
                     initialQuery={cmdQueryParecer}
@@ -696,43 +728,16 @@ export default function CadastroPJPage() {
             </div>
 
             <PareceresList
-              cardId={cardId}
+              cardId={cardIdEff}
               notes={pareceres as any}
-              onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: text, p_parent_id: pid }); }}
-              onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardId, p_note_id: id, p_text: text }); }}
-              onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
+              profiles={profiles}
+              onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: text, p_parent_id: pid }); }}
+              onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardIdEff, p_note_id: id, p_text: text }); }}
+              onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id }); }}
             />
           </div>
         </Card>
       )}
-
-      {/* Seção 6: Informações Relevantes da Solicitação */}
-      <Card title="Informações Relevantes da Solicitação">
-        <div className="grid grid-cols-1 gap-4">
-          <Textarea label="Informações relevantes da solicitação" value={app.info_relevantes||''} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave('app','info_relevantes', v); }} />
-        </div>
-      </Card>
-
-      {/* Seção 7: Consulta SPC/SERASA */}
-      <Card title="Consulta SPC/Serasa">
-        <div className="grid grid-cols-1 gap-4">
-          <Textarea label="Consulta SPC/Serasa" value={app.info_spc||''} onChange={(v)=>{ setApp({...app, info_spc:v}); queueSave('app','info_spc', v); }} red />
-        </div>
-      </Card>
-
-      {/* Seção 8: Outras Informações Relevantes do PS */}
-      <Card title="Outras Informações Relevantes do PS">
-        <div className="grid grid-cols-1 gap-4">
-          <Textarea label="Outras informações relevantes do PS" value={app.info_pesquisador||''} onChange={(v)=>{ setApp({...app, info_pesquisador:v}); queueSave('app','info_pesquisador', v); }} red />
-        </div>
-      </Card>
-
-      {/* Seção 9: Informações Relevantes do MK */}
-      <Card title="Informações Relevantes do MK">
-        <div className="grid grid-cols-1 gap-4">
-          <Textarea label="Informações Relevantes do MK" value={app.info_mk||''} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave('app','info_mk', v); }} red />
-        </div>
-      </Card>
     </div>
   );
 }
@@ -876,10 +881,12 @@ function MentionDropdownParecer({ items, onPick }: { items: ProfileLite[]; onPic
 
 type Note = { id: string; text: string; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
 function buildTree(notes: Note[]): Note[] {
+  // Oculta itens marcados como deletados (soft-delete)
+  const valid = (notes || []).filter((n:any) => !n?.deleted);
   const byId = new Map<string, any>();
-  notes?.forEach((n:any) => byId.set(n.id, { ...n, children: [] as any[] }));
+  valid.forEach((n:any) => byId.set(n.id, { ...n, children: [] as any[] }));
   const roots: any[] = [];
-  notes?.forEach((n:any) => {
+  valid.forEach((n:any) => {
     const node = byId.get(n.id)!;
     if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node); else roots.push(node);
   });
@@ -889,7 +896,7 @@ function buildTree(notes: Note[]): Note[] {
   return roots as any;
 }
 
-function PareceresList({ cardId, notes, onReply, onEdit, onDelete }: { cardId: string; notes: Note[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
+function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
   const tree = useMemo(()=> buildTree(notes||[]), [notes]);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
@@ -899,6 +906,11 @@ function PareceresList({ cardId, notes, onReply, onEdit, onDelete }: { cardId: s
   const [isReplyingId, setIsReplyingId] = useState<string|null>(null);
   const [isEditingId, setIsEditingId] = useState<string|null>(null);
   const [editText, setEditText] = useState("");
+  // Compositor Unificado (edição): menções e comandos
+  const [editMentionOpen, setEditMentionOpen] = useState(false);
+  const [editMentionFilter, setEditMentionFilter] = useState("");
+  const [editCmdOpen, setEditCmdOpen] = useState(false);
+  const [editCmdQuery, setEditCmdQuery] = useState("");
   return (
     <div className="space-y-2">
       {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
@@ -921,11 +933,76 @@ function PareceresList({ cardId, notes, onReply, onEdit, onDelete }: { cardId: s
           </div>
           {isEditingId===n.id ? (
             <div className="mt-2 space-y-2">
-              <UITTextarea value={editText} onChange={(e)=> setEditText(e.target.value)} rows={3} />
-              <div className="flex gap-2">
-                <button className="px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white" onClick={async ()=> { await onEdit(n.id, editText); setIsEditingId(null); }}>Salvar</button>
-                <button className="px-3 py-1.5 text-sm rounded-md bg-zinc-100" onClick={()=> setIsEditingId(null)}>Cancelar</button>
+              <label className="mb-1 block text-xs font-medium text-zinc-700">Compositor Unificado de Parecer</label>
+              <div className="relative">
+                <UITTextarea
+                  value={editText}
+                  onChange={(e)=> {
+                    const v = e.target.value || '';
+                    setEditText(v);
+                    const atIdx = v.lastIndexOf('@');
+                    if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                    const slashIdx = v.lastIndexOf('/');
+                    if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
+                  }}
+                  onKeyDown={async (e:any)=>{
+                    if (e.key==='Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      const txt = (editText||'').trim();
+                      if (!txt) return;
+                      await onEdit(n.id, txt);
+                      setIsEditingId(null);
+                      return;
+                    }
+                    if (e.key==='Escape') { e.preventDefault(); setIsEditingId(null); return; }
+                    const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                    const atIdx = v.lastIndexOf('@');
+                    if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                    const slashIdx = v.lastIndexOf('/');
+                    if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
+                  }}
+                  placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
+                  rows={4}
+                />
+                {editMentionOpen && (
+                  <div className="absolute z-50 left-0 bottom-full mb-2">
+                    <MentionDropdownParecer
+                      items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                      onPick={(p)=>{
+                        const idx = (editText||'').lastIndexOf('@');
+                        const newVal = (editText||'').slice(0, idx + 1) + p.full_name + ' ';
+                        setEditText(newVal);
+                        setEditMentionOpen(false);
+                      }}
+                    />
+                  </div>
+                )}
+                {editCmdOpen && (
+                  <div className="absolute z-50 left-0 bottom-full mb-2">
+                    <CmdDropdown
+                      items={[
+                        { key:'aprovado', label:'Aprovado' },
+                        { key:'negado', label:'Negado' },
+                        { key:'reanalise', label:'Reanálise' },
+                        { key:'tarefa', label:'Tarefa' },
+                        { key:'anexo', label:'Anexo' },
+                      ].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
+                      onPick={async (key)=>{
+                        setEditCmdOpen(false); setEditCmdQuery('');
+                        if (key==='tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
+                        if (key==='anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
+                        try {
+                          if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
+                          else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
+                          else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
+                        } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                      }}
+                      initialQuery={editCmdQuery}
+                    />
+                  </div>
+                )}
               </div>
+              {/* Removidos CTAs; envio via Enter, cancelar via Esc */}
             </div>
           ) : (
             <div className="mt-1 whitespace-pre-line break-words">{n.text}</div>
@@ -1030,8 +1107,8 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
       </button>
       {open && (
         <>
-          <div className="fixed inset-0" onClick={()=> setOpen(false)} />
-          <div className="parecer-menu-dropdown absolute right-0 top-10 z-50 w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
+          <div className="fixed inset-0 z-[9998]" onClick={()=> setOpen(false)} />
+          <div className="parecer-menu-dropdown absolute right-0 top-10 z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
             <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" onClick={()=> { setOpen(false); onEdit(); }}>
               <svg className="w-4 h-4 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
               Editar
