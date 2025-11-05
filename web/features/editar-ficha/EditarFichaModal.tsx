@@ -763,7 +763,6 @@ function NoteItem({ node, depth, profiles, onReply, onEdit, onDelete }: { node: 
         <div className="mt-1 whitespace-pre-line break-words">{node.text}</div>
       ) : (
         <div className="mt-2" ref={editRef}>
-          <label className="mb-1 block text-xs font-medium text-zinc-700">Compositor Unificado de Parecer</label>
           <div className="relative">
             <Textarea
               value={text}

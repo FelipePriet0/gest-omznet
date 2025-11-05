@@ -5,7 +5,8 @@ import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { SimpleSelect } from "@/components/ui/select";
 import { Textarea as UITTextarea } from "@/components/ui/textarea";
-import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, ArrowRight } from "lucide-react";
+import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, ArrowRight, Pin } from "lucide-react";
+import { useSidebar } from "@/components/ui/sidebar";
 import { changeStage } from "@/features/kanban/services";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
@@ -376,14 +377,6 @@ export default function CadastroPJPage() {
   const showAnalyzeCrumb = from === 'analisar';
   return (
     <div className="pj-form p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Ficha PJ — Expanded</h1>
-        <div className="flex items-center gap-3">
-          <div className="text-xs text-zinc-600">{statusText}</div>
-          <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Baixar PDF</button>
-          <button onClick={onClosePage} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Fechar</button>
-        </div>
-      </div>
 
       {/* Seção 1: Dados da Empresa */}
       <Card title="Dados da Empresa">
@@ -898,6 +891,7 @@ function buildTree(notes: Note[]): Note[] {
 
 function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
   const tree = useMemo(()=> buildTree(notes||[]), [notes]);
+  const { open } = useSidebar();
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
   const replyTaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -911,8 +905,25 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: {
   const [editMentionFilter, setEditMentionFilter] = useState("");
   const [editCmdOpen, setEditCmdOpen] = useState(false);
   const [editCmdQuery, setEditCmdQuery] = useState("");
+  const [pinned, setPinned] = useState<any|null>(null);
+  const [leftOffset, setLeftOffset] = useState(0);
+  const [bottomOffset, setBottomOffset] = useState(0);
+  useEffect(() => {
+    const update = () => {
+      const isDesktop = window.innerWidth >= 768;
+      const left = isDesktop ? (open ? 300 : 60) : 0;
+      setLeftOffset(left);
+      const footer = document.querySelector('.mz-sidebar-footer') as HTMLElement | null;
+      const h = footer ? footer.getBoundingClientRect().height : 0;
+      setBottomOffset(h);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [open]);
   return (
-    <div className="space-y-2">
+    <>
+    <div className={`space-y-2 ${pinned ? 'pb-28' : ''}`}>
       {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
       {tree.map((n:any) => (
         <div key={n.id} className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
@@ -925,15 +936,17 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 z-10">
-              <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===n.id ? null : n.id)} className="text-emerald-700 hover:opacity-90">
-                <ArrowRight className="w-5 h-5" strokeWidth={3} />
+              <button aria-label="Fixar parecer" onClick={()=> setPinned(p=> p?.id===n.id ? null : n)} className={(pinned?.id===n.id? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700')+" p-1 rounded hover:bg-zinc-100 transition-colors"}>
+                <Pin className="w-4 h-4" strokeWidth={1.75} />
+              </button>
+              <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===n.id ? null : n.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
+                <ArrowRight className="w-4 h-4" strokeWidth={1.75} />
               </button>
               <ParecerMenu onEdit={()=> { setIsEditingId(n.id); setEditText(n.text||''); }} onDelete={()=> onDelete(n.id)} />
             </div>
           </div>
           {isEditingId===n.id ? (
             <div className="mt-2 space-y-2">
-              <label className="mb-1 block text-xs font-medium text-zinc-700">Compositor Unificado de Parecer</label>
               <div className="relative">
                 <UITTextarea
                   value={editText}
@@ -1058,13 +1071,83 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: {
                       {c.author_role && <div className="text-[11px] text-zinc-500 truncate">{c.author_role}</div>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===c.id ? null : c.id)} className="text-emerald-700 hover:opacity-90">
-                        <ArrowRight className="w-5 h-5" strokeWidth={3} />
+                      <button aria-label="Fixar parecer" onClick={()=> setPinned(p=> p?.id===c.id ? null : c)} className={(pinned?.id===c.id? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700')+" p-1 rounded hover:bg-zinc-100 transition-colors"}>
+                        <Pin className="w-4 h-4" strokeWidth={1.75} />
+                      </button>
+                      <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===c.id ? null : c.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
+                        <ArrowRight className="w-4 h-4" strokeWidth={1.75} />
                       </button>
                       <ParecerMenu onEdit={()=> { setIsEditingId(c.id); setEditText(c.text||''); }} onDelete={()=> onDelete(c.id)} />
                     </div>
                   </div>
-                  <div className="mt-1 whitespace-pre-line break-words">{c.text}</div>
+                  {isEditingId===c.id ? (
+                    <div className="mt-2 space-y-2">
+                      <div className="relative">
+                        <UITTextarea
+                          value={editText}
+                          onChange={(e)=> {
+                            const v = e.target.value || '';
+                            setEditText(v);
+                            const atIdx = v.lastIndexOf('@');
+                            if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                            const slashIdx = v.lastIndexOf('/');
+                            if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
+                          }}
+                          onKeyDown={async (e:any)=>{
+                            if (e.key==='Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              const t=(editText||'').trim(); if(!t) return;
+                              await onEdit(c.id, t);
+                              setIsEditingId(null);
+                              return;
+                            }
+                            if (e.key==='Escape') { e.preventDefault(); setIsEditingId(null); return; }
+                            const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                            const atIdx = v.lastIndexOf('@');
+                            if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                            const slashIdx = v.lastIndexOf('/');
+                            if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
+                          }}
+                          placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
+                          rows={4}
+                        />
+                        {editMentionOpen && (
+                          <div className="absolute z-50 left-0 bottom-full mb-2">
+                            <MentionDropdownParecer
+                              items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                              onPick={(p)=>{
+                                const idx = (editText||'').lastIndexOf('@');
+                                const newVal = (editText||'').slice(0, idx + 1) + p.full_name + ' ';
+                                setEditText(newVal);
+                                setEditMentionOpen(false);
+                              }}
+                            />
+                          </div>
+                        )}
+                        {editCmdOpen && (
+                          <div className="absolute z-50 left-0 bottom-full mb-2">
+                            <CmdDropdown
+                              items={[{ key:'aprovado', label:'Aprovado' },{ key:'negado', label:'Negado' },{ key:'reanalise', label:'Reanálise' },{ key:'tarefa', label:'Tarefa' },{ key:'anexo', label:'Anexo' }].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
+                              onPick={async (key)=>{
+                                setEditCmdOpen(false); setEditCmdQuery('');
+                                if (key==='tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
+                                if (key==='anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
+                                try {
+                                  if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
+                                  else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
+                                  else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
+                                } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                              }}
+                              initialQuery={editCmdQuery}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      {/* Removidos CTAs; envio via Enter, cancelar via Esc */}
+                    </div>
+                  ) : (
+                    <div className="mt-1 whitespace-pre-line break-words">{c.text}</div>
+                  )}
                   {isReplyingId===c.id && (
                     <div className="mt-2 flex gap-2 relative">
                       <div className="flex-1">
@@ -1095,6 +1178,27 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: {
         </div>
       ))}
     </div>
+    {pinned && (
+      <div className="fixed z-40 pointer-events-none" style={{ left: leftOffset, right: 0, bottom: bottomOffset }}>
+          <div className="pointer-events-auto rounded-t-xl border border-zinc-200 bg-white shadow-[0_-6px_12px_rgba(0,0,0,0.12)] max-w-full">
+            <div className="px-3 py-2 text-xs text-zinc-600 flex items-center justify-between">
+              <div className="min-w-0 flex items-center gap-2">
+                <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+                <div className="truncate">
+                  <span className="font-medium text-zinc-800">{pinned.author_name || '—'}</span>
+                  <span className="ml-2">{pinned.created_at ? new Date(pinned.created_at).toLocaleString() : ''}</span>
+                </div>
+              </div>
+              <button onClick={()=> setPinned(null)} className="inline-flex items-center gap-1 text-[11px] text-zinc-600 hover:text-zinc-800">
+                <Pin className="w-3.5 h-3.5" strokeWidth={1.75} />
+                <span className="sr-only">Desafixar</span>
+              </button>
+            </div>
+            <div className="px-3 pb-3 text-sm text-zinc-800 whitespace-pre-line break-words">{pinned.text}</div>
+          </div>
+      </div>
+    )}
+    </>
   );
 }
 

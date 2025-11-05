@@ -8,6 +8,7 @@ import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
 import { motion } from "framer-motion";
 import Breadcrumbs from "@/components/app/Breadcrumbs";
+import { usePathname } from "next/navigation";
 
 function AppSidebar() {
   const { open } = useSidebar();
@@ -74,6 +75,12 @@ function AppSidebar() {
 export default function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const [open, setOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
+  const pathname = usePathname() || "/";
+  const parts = pathname.split("/").filter(Boolean);
+  const isExpandedCadastro = parts[0] === 'cadastro' && (parts[1] === 'pf' || parts[1] === 'pj') && parts.length >= 3;
+
+  function onDownloadPdf() { try { window.print(); } catch {} }
+  function onClosePage() { try { window.close(); } catch {} try { history.back(); } catch {} }
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -98,10 +105,18 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
               marginLeft: isDesktop ? `${open ? 300 : 60}px` : '0px',
             }}
           >
-            <main className="p-2 md:p-6 rounded-tl-3xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex flex-col gap-2 flex-1 w-full min-h-screen overflow-auto">
-              <div className="mb-2 flex items-center gap-3">
-                <SidebarTrigger className="hidden md:inline-flex" />
-                <Breadcrumbs />
+            <main className="p-2 md:p-6 rounded-tl-3xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex flex-col gap-2 flex-1 w-full min-h-screen">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <SidebarTrigger className="hidden md:inline-flex" />
+                  <Breadcrumbs />
+                </div>
+                {isExpandedCadastro && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Baixar PDF</button>
+                    <button onClick={onClosePage} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Fechar</button>
+                  </div>
+                )}
               </div>
               {children}
             </main>
@@ -111,4 +126,5 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
     </RouteBg>
   );
 }
+
  

@@ -207,7 +207,7 @@ export const SidebarHeader = ({ className, children, ...props }: React.Component
 export const SidebarFooter = ({ className, children, ...props }: React.ComponentProps<"div">) => (
   <div
     className={cn(
-      "px-2 py-2 mt-2 border-t border-white shrink-0",
+      "px-2 py-2 mt-2 border-t border-white shrink-0 mz-sidebar-footer",
       className
     )}
     {...props}
