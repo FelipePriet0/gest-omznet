@@ -493,7 +493,7 @@ export default function CadastroPFPage() {
     try { history.back(); } catch {}
   }
   return (
-    <div className="mz-form p-6">
+    <div className="mz-form p-6 max-w-5xl mx-auto">
 
       {/* Seção 1: Dados do Cliente */}
       <Card title="Dados do Cliente">

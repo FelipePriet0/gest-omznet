@@ -114,7 +114,11 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
                 {isExpandedCadastro && (
                   <div className="flex items-center gap-2 shrink-0">
                     <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Baixar PDF</button>
-                    <button onClick={onClosePage} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Fechar</button>
+                    <button onClick={onClosePage} aria-label="Fechar" className="p-2 rounded hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                        <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 11-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
+                      </svg>
+                    </button>
                   </div>
                 )}
               </div>
