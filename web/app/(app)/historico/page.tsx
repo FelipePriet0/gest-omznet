@@ -4,11 +4,24 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { DateRangePicker } from "@/features/historico/DateRangePicker";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import { useState as useModalState } from "react";
 import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonTypeModal";
 import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
 import type { PessoaTipo } from "@/features/cadastro/types";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 type Row = {
   id: string;
@@ -141,79 +154,33 @@ function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, o
             value={q} 
             onChange={(e)=> onQ(e.target.value)} 
             placeholder="Buscar por nome ou CPF..." 
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 placeholder:text-gray-400 shadow-sm"
-          />
-        </div>
-
-        {/* Data inicial */}
-        <div className="w-[160px]">
-          <input
-            type="date"
-            value={dateStart}
-            onChange={(e) => onDateStart(e.target.value)}
-            placeholder="Data inicial"
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 shadow-sm"
           />
         </div>
 
-        {/* Data final */}
-        <div className="w-[160px]">
-          <input
-            type="date"
-            value={dateEnd}
-            onChange={(e) => onDateEnd(e.target.value)}
-            placeholder="Data final"
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 shadow-sm"
+        {/* Período de avaliação */}
+        <div className="w-[220px]">
+          <DateRangePicker
+            start={dateStart || undefined}
+            end={dateEnd || undefined}
+            onChange={(start, end) => {
+              onDateStart(start || "");
+              onDateEnd(end || "");
+            }}
           />
         </div>
 
         {/* Status */}
         <div className="w-[140px]">
-          <select 
-            value={status} 
-            onChange={(e)=> onStatus(e.target.value)} 
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 cursor-pointer appearance-none bg-no-repeat shadow-sm"
-            style={{
-              backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23018942' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
-              backgroundPosition: "right 1rem center",
-              backgroundSize: "1rem 1rem",
-              paddingRight: "2.5rem"
-            }}
-          >
-            <option value="">Status</option>
-            <option value="aprovados">Aprovado</option>
-            <option value="negados">Negado</option>
-          </select>
+          <StatusFilterPopover value={status} onChange={onStatus} />
         </div>
 
         {/* Responsável */}
         <div className="w-[180px]">
-          <select 
-            value={resp} 
-            onChange={(e)=> onResp(e.target.value)} 
-            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 hover:border-gray-300 cursor-pointer appearance-none bg-no-repeat shadow-sm"
-            style={{
-              backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23018942' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
-              backgroundPosition: "right 1rem center",
-              backgroundSize: "1rem 1rem",
-              paddingRight: "2.5rem"
-            }}
-          >
-            <option value="">Responsável</option>
-            {respOptions.map((p: ProfileLite)=> <option key={p.id} value={p.id}>{p.full_name}</option>)}
-          </select>
+          <ResponsavelFilterPopover value={resp} onChange={onResp} options={respOptions} />
         </div>
 
         {/* Botão Aplicar (se necessário) */}
-        {(q || dateStart || dateEnd || status || resp) && (
-          <button 
-            onClick={onApply}
-            disabled={loading}
-            className="h-11 px-6 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            Aplicar
-          </button>
-        )}
       </div>
     </div>
   );
@@ -524,3 +491,126 @@ async function listProfiles(): Promise<ProfileLite[]> {
 
 function atStart(d: string) { const dt = new Date(d); dt.setHours(0,0,0,0); return dt.toISOString(); }
 function atEnd(d: string) { const dt = new Date(d); dt.setHours(23,59,59,999); return dt.toISOString(); }
+
+// Componente de filtro Status com Popover
+function StatusFilterPopover({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+  const [open, setOpen] = useState(false);
+
+  const statusOptions = [
+    { value: "", label: "Todos" },
+    { value: "aprovados", label: "Aprovado" },
+    { value: "negados", label: "Negado" },
+  ];
+
+  const currentLabel = statusOptions.find(opt => opt.value === value)?.label || "Status";
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-11 w-full justify-between text-sm font-normal rounded-lg border-gray-200 hover:border-gray-300 hover:bg-white shadow-sm text-gray-700"
+        >
+          {currentLabel}
+          <svg className="ml-2 h-4 w-4 shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[140px] p-0 bg-white border-0 shadow-lg rounded-lg">
+        <Command className="rounded-lg">
+          <CommandList className="p-1">
+            <CommandEmpty>Nenhum resultado.</CommandEmpty>
+            <CommandGroup className="p-0">
+              {statusOptions.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label}
+                  onSelect={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-2 text-sm cursor-pointer rounded-sm mx-1 transition-all duration-150",
+                    "text-emerald-600 hover:bg-emerald-600 hover:text-white"
+                  )}
+                >
+                  <Check
+                    className={cn(
+                      "h-4 w-4",
+                      value === option.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Componente de filtro Responsável com Popover
+function ResponsavelFilterPopover({ value, onChange, options }: { value: string; onChange: (val: string) => void; options: ProfileLite[] }) {
+  const [open, setOpen] = useState(false);
+
+  const allOptions = [
+    { id: "", full_name: "Todos" },
+    ...options,
+  ];
+
+  const currentLabel = allOptions.find(opt => opt.id === value)?.full_name || "Responsável";
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-11 w-full justify-between text-sm font-normal rounded-lg border-gray-200 hover:border-gray-300 hover:bg-white shadow-sm text-gray-700"
+        >
+          <span className="truncate">{currentLabel}</span>
+          <svg className="ml-2 h-4 w-4 shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[180px] p-0 bg-white border-0 shadow-lg rounded-lg">
+        <Command className="rounded-lg">
+          <CommandList className="p-1 max-h-[200px] overflow-y-auto">
+            <CommandEmpty>Nenhum resultado.</CommandEmpty>
+            <CommandGroup className="p-0">
+              {allOptions.map((option) => (
+                <CommandItem
+                  key={option.id}
+                  value={option.full_name}
+                  onSelect={() => {
+                    onChange(option.id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-2 text-sm cursor-pointer rounded-sm mx-1 transition-all duration-150",
+                    "text-emerald-600 hover:bg-emerald-600 hover:text-white"
+                  )}
+                >
+                  <Check
+                    className={cn(
+                      "h-4 w-4",
+                      value === option.id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <span className="truncate">{option.full_name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
