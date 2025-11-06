@@ -300,7 +300,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
       style={{ left: sidebarWidth }}
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] bg-white shadow-2xl flex flex-col overflow-hidden" style={{ borderRadius: '28px' }}>
+      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] bg-[var(--neutro)] shadow-2xl flex flex-col overflow-hidden" style={{ borderRadius: '28px' }}>
         {/* Header completo ocupando toda a largura */}
         <div className="header-editar-ficha flex-shrink-0">
           <div className="header-content">
@@ -560,12 +560,14 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </div>
 
             {/* Conversas co-relacionadas */}
-            <Conversation
-              cardId={cardId}
-              onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
-              onOpenAttach={(parentId?: string) => setAttachOpen({ open: true, parentId: parentId ?? null, source: 'conversa' })}
-              onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
-            />
+            <div className="mt-6">
+              <Conversation
+                cardId={cardId}
+                onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
+                onOpenAttach={(parentId?: string) => setAttachOpen({ open: true, parentId: parentId ?? null, source: 'conversa' })}
+                onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
+              />
+            </div>
           </div>
         )}
         </div>
