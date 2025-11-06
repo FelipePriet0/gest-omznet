@@ -77,6 +77,15 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
   // Update sidebar width on changes
   useEffect(() => {
+    // Bloqueia o scroll do body quando o modal está aberto
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [open]);
+
+  useEffect(() => {
     const updateWidth = () => {
       const isDesktop = window.innerWidth >= 768;
       setSidebarWidth(isDesktop ? (sidebarOpen ? 300 : 60) : 0);
@@ -283,7 +292,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ left: sidebarWidth }}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto overflow-x-hidden bg-white shadow-2xl" style={{ borderRadius: '28px' }}>
+      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto overflow-x-hidden overscroll-contain bg-white shadow-2xl modal-scroll scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300" style={{ borderRadius: '28px' }}>
         <div className="p-6">
         <div className="mb-6">
           <div className="header-editar-ficha">
