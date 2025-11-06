@@ -126,6 +126,8 @@ function maskPhone(input: string) {
   if (len <= 10) return `(${ddd}) ${d.slice(2,6)}-${d.slice(6)}`;
   return `(${ddd}) ${d.slice(2,7)}-${d.slice(7)}`;
 }
+// Wrapper para compatibilidade com chamadas existentes
+function maskPhoneLoose(input: string) { return maskPhone(input); }
 // Mapeamentos UI <-> Canônico (após migration)
 const BOOL_UI = { Sim: true, Não: false } as const;
 function uiToBool(v: any): boolean|null { if (v === 'Sim') return true; if (v === 'Não') return false; return null; }
@@ -963,6 +965,9 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
+// UI-only wrapper para seções com header de bolinha (conforme demo)
+// (UI demo wrapper removido; voltamos ao Card padrão)
+
 function Grid({ cols, children }: { cols: 1|2|3|4; children: React.ReactNode }) {
   const cls = cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-1 sm:grid-cols-2" : cols === 3 ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 md:grid-cols-4";
   return <div className={`grid gap-4 ${cls}`}>{children}</div>;
@@ -1235,7 +1240,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 z-10">
-              <button aria-label="Fixar parecer" onClick={()=> setPinned(p=> p?.id===n.id ? null : n)} className={(pinned?.id===n.id? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700')+" p-1 rounded hover:bg-zinc-100 transition-colors"}>
+              <button aria-label="Fixar parecer" onClick={()=> setPinned((p:any)=> p?.id===n.id ? null : n)} className={(pinned?.id===n.id? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700')+" p-1 rounded hover:bg-zinc-100 transition-colors"}>
                 <Pin className="w-4 h-4" strokeWidth={1.75} />
               </button>
               <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===n.id ? null : n.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
@@ -1362,7 +1367,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
                       {c.author_role && <div className="text-[11px] text-zinc-500 truncate">{c.author_role}</div>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button aria-label="Fixar parecer" onClick={()=> setPinned(p=> p?.id===c.id ? null : c)} className={(pinned?.id===c.id? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700')+" p-1 rounded hover:bg-zinc-100 transition-colors"}>
+                      <button aria-label="Fixar parecer" onClick={()=> setPinned((p:any)=> p?.id===c.id ? null : c)} className={(pinned?.id===c.id? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700')+" p-1 rounded hover:bg-zinc-100 transition-colors"}>
                         <Pin className="w-4 h-4" strokeWidth={1.75} />
                       </button>
                       <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===c.id ? null : c.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
