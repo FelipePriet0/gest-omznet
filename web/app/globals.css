@@ -989,6 +989,26 @@ body {
   color: #ffffff;
 }
 
+/* Decision hover variants (aprovado/negado) - override defaults */
+.cmd-menu-item--primary:hover,
+.cmd-menu-item--primary[aria-selected="true"],
+.cmd-menu-item--primary:focus {
+  background: var(--verde-primario, #34a853);
+  color: #ffffff;
+}
+.cmd-menu-item--destructive:hover,
+.cmd-menu-item--destructive[aria-selected="true"],
+.cmd-menu-item--destructive:focus {
+  background: #ef4444; /* red-500 */
+  color: #ffffff;
+}
+.cmd-menu-item--primary:hover span,
+.cmd-menu-item--primary:hover svg,
+.cmd-menu-item--destructive:hover span,
+.cmd-menu-item--destructive:hover svg {
+  color: #ffffff !important;
+}
+
 .comment-menu-trigger:hover {
   background: rgba(0, 0, 0, 0.05);
   transform: scale(1.05);

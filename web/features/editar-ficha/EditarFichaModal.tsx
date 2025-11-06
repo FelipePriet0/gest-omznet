@@ -701,12 +701,19 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
       {decisions.length > 0 && (
         <div className="py-1">
           <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Decisão da análise</div>
-          {decisions.map((i) => (
-            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left">
-              {iconFor(i.key)}
-              <span>{i.label}</span>
-            </button>
-          ))}
+          {decisions.map((i) => {
+            const variantCls = i.key === 'negado' ? 'cmd-menu-item--destructive' : (i.key === 'aprovado' ? 'cmd-menu-item--primary' : '');
+            return (
+              <button
+                key={i.key}
+                onClick={() => onPick(i.key)}
+                className={`cmd-menu-item ${variantCls} flex w-full items-center gap-2 px-2 py-1.5 text-left`}
+              >
+                {iconFor(i.key)}
+                <span>{i.label}</span>
+              </button>
+            );
+          })}
         </div>
       )}
       {actions.length > 0 && (
