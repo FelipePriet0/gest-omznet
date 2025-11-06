@@ -22,7 +22,7 @@ export type CardTask = {
 export async function listTasks(cardId: string): Promise<CardTask[]> {
   const { data, error } = await supabase
     .from("card_tasks")
-    .select("id, card_id, card_title, created_by, assigned_to, description, status, deadline, comment_id, created_at, updated_at, completed_at")
+    .select("id, card_id, created_by, assigned_to, description, status, deadline, comment_id, created_at, updated_at, completed_at")
     .eq("card_id", cardId)
     .order("created_at", { ascending: true });
   if (error) return [];

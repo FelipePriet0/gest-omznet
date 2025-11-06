@@ -1,103 +1,149 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import Image from "next/image";
+import React, { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { supabase, clearStaleSupabaseSession } from '@/lib/supabaseClient';
+
+// --- HELPER COMPONENTS ---
+
+const GlassInputWrapper = ({ children }: { children: React.ReactNode }) => (
+  <div className="rounded-2xl border border-white/20 bg-white/50 backdrop-blur-sm transition-all focus-within:border-emerald-500 focus-within:bg-white/50">
+    {children}
+  </div>
+);
 
 export default function LoginPage() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(false);
-    setLoading(true);
-    try {
-      const form = e.currentTarget as HTMLFormElement;
-      const email = (form.elements.namedItem("email") as HTMLInputElement).value;
-      const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+    setIsLoading(true);
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) throw signInError;
-      setSuccess(true);
-      router.push("/perfil");
+    const form = new FormData(e.currentTarget);
+    const email = String(form.get('email') || '').trim();
+    const password = String(form.get('password') || '');
+
+    try {
+      // Opcional: limpar sessão antiga quebrada
+      clearStaleSupabaseSession();
+
+      // Sign in via Supabase Auth
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+
+      // Se não quiser persistir, pode-se forçar um reload sem armazenar (opcional em outra iteração)
+      // Navega para o Kanban após sucesso
+      router.replace('/kanban');
     } catch (err: any) {
-      setError(err?.message || "Falha ao entrar. Tente novamente.");
-    } finally {
-      setLoading(false);
+      alert(err?.message || 'Falha ao entrar. Verifique suas credenciais.');
+      setIsLoading(false);
+      return;
     }
-  }
+  };
 
   return (
-    <div className="w-full max-w-md rounded-[30px] bg-gradient-to-r from-emerald-600 to-black p-6 sm:p-8 shadow-2xl shadow-[#FFFFFF]/30 border-2 border-white/90">
-      <div className="mb-8 flex flex-col items-center">
-        <div className="mb-4">
-          <Image
-            src="/mznet-logo.png"
-            alt="MZNET"
-            width={140}
-            height={48}
-            className="h-10 sm:h-12 md:h-14 w-auto drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)]"
-            priority
-          />
-        </div>
-        <h1 className="text-xl font-semibold text-white">Entrar</h1>
-      </div>
+    <div className="min-h-screen flex flex-col md:flex-row-reverse w-full bg-zinc-900">
+      {/* Coluna Direita - Formulário */}
+      <section className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="flex flex-col gap-6">
+            {/* Header */}
+            <h1 className="animate-element animate-delay-100 text-4xl md:text-5xl font-extrabold leading-tight text-white">
+              Seja Bem-Vindo
+            </h1>
+            <p className="animate-element animate-delay-200 text-zinc-300">
+              Acesse sua conta e continue sua jornada
+            </p>
 
-      <form className="space-y-4" action="#" method="post" onSubmit={onSubmit}>
-        <div className="space-y-2">
-          <label htmlFor="email" className="text-sm text-white/90">E-mail</label>
-          <div className="rounded-full border-2 border-white p-[2px]">
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              placeholder="Seu e-mail"
-              className="w-full rounded-full bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/70 outline-none"
-            />
+            {/* Formulário */}
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              {/* Email */}
+              <div className="animate-element animate-delay-300">
+                <label className="text-sm font-medium text-zinc-300">E-mail</label>
+                <GlassInputWrapper>
+                  <input 
+                    name="email" 
+                    type="email" 
+                    required
+                    autoFocus
+                    placeholder="Digite seu E-mail" 
+                    className="w-full bg-white text-sm p-4 rounded-2xl focus:outline-none text-black placeholder:text-black" 
+                  />
+                </GlassInputWrapper>
+              </div>
+
+              {/* Password */}
+              <div className="animate-element animate-delay-400">
+                <label className="text-sm font-medium text-zinc-300">Senha</label>
+                <GlassInputWrapper>
+                  <div className="relative">
+                    <input 
+                      name="password" 
+                      type={showPassword ? 'text' : 'password'} 
+                      required
+                      placeholder="Digite sua senha" 
+                      className="w-full bg-white text-sm p-4 pr-12 rounded-2xl focus:outline-none text-black placeholder:text-black" 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-3 flex items-center"
+                      aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5 text-black hover:text-black/70 transition-colors" />
+                      ) : (
+                        <Eye className="w-5 h-5 text-black hover:text-black/70 transition-colors" />
+                      )}
+                    </button>
+                  </div>
+                </GlassInputWrapper>
+              </div>
+
+              {/* Botão Entrar */}
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className="animate-element animate-delay-500 w-full rounded-2xl bg-emerald-600 py-4 font-semibold text-white hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+              >
+                {isLoading ? 'Entrando...' : 'Entrar'}
+              </button>
+            </form>
           </div>
         </div>
-        <div className="space-y-2">
-          <label htmlFor="password" className="text-sm text-white/90">Senha</label>
-          <div className="rounded-full border-2 border-white p-[2px]">
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              placeholder="Sua senha"
-              className="w-full rounded-full bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/70 outline-none"
-            />
-          </div>
-        </div>
+      </section>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-4 w-full h-11 rounded-full bg-white border border-white text-base font-semibold text-emerald-800 shadow hover:bg-white disabled:opacity-70"
+      {/* Coluna Esquerda - Hero Visual */}
+      <section className="hidden md:block flex-1 relative p-4">
+        <div 
+          className="animate-slide-right animate-delay-300 absolute inset-4 rounded-3xl bg-cover bg-center overflow-hidden shadow-lg shadow-white/10 hover:shadow-white/20 transition-shadow duration-300"
         >
-          {loading ? "Processando..." : "Entrar"}
-        </button>
-        <div className="flex justify-end">
-          <a href="/forgot-password" className="text-xs text-white/80 underline underline-offset-2 hover:text-white">Esqueci minha senha</a>
+          {/* Gradiente com Logo */}
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 via-zinc-900 to-emerald-600">
+            {/* Padrão decorativo de fundo */}
+            <div className="absolute inset-0">
+              <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-500 rounded-full filter blur-3xl opacity-20 animate-pulse" />
+              <div className="absolute bottom-0 right-0 w-96 h-96 bg-zinc-800 rounded-full filter blur-3xl opacity-20 animate-pulse animation-delay-1000" />
+            </div>
+            
+            {/* Logo Centralizada */}
+            <div className="relative z-10 flex items-center justify-center h-full">
+              <Image
+                src="/mznet-logo.png"
+                alt="MZNET Logo"
+                width={256}
+                height={256}
+                className="object-contain filter drop-shadow-2xl"
+                priority
+              />
+            </div>
+          </div>
         </div>
-      </form>
-
-      {error && (
-        <div className="mt-4 rounded-md border border-red-400/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="mt-4 rounded-md border border-emerald-300/40 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200">
-          Login realizado com sucesso.
-        </div>
-      )}
+      </section>
     </div>
   );
 }

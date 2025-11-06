@@ -1,0 +1,28 @@
+Dados do Cliente
+
+Nome | CPF | Data de Nascimento | Idade
+Telefone| WhatsApp | Do Ps
+Naturalidade | UF | E-mail
+
+Endereço
+
+Endereço | Número | Complemento
+CEP | Bairro | Cond | Tempo
+Endereço do PS
+
+Relações de Residência
+
+Tipo de Moradia | Observações
+Única no lote | Única no lote (Obs)
+Com quem Reside | Nas outras 
+Tem Contrato | Enviou Contrato | Nome De
+Enviou Comprovante | Tipo de Comprovante | Nome do Comprovante
+Nome Locador | Telefone Locador | Observações 
+Tem internet fixa | Empresa Internet | Empresa Internet | Valor Internet
+
+Emprego e Renda
+
+Profissão | Empresa | Vinculo | Vínculo (Obs) 
+Emprego do PS
+
+

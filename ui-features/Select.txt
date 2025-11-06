@@ -1,0 +1,230 @@
+**Installation** 
+
+```tsx
+npx shadcn-vue@latest add select
+```
+
+Usage:
+
+```tsx
+<script setup lang="ts">
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+</script>
+
+<template>
+  <Select>
+    <SelectTrigger>
+      <SelectValue placeholder="Select a fruit" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectGroup>
+        <SelectLabel>Fruits</SelectLabel>
+        <SelectItem value="apple">
+          Apple
+        </SelectItem>
+      </SelectGroup>
+    </SelectContent>
+  </Select>
+</template>
+```
+
+**Scrollable** 
+
+```tsx
+<script lang="ts" setup>
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+</script>
+
+<template>
+  <Select>
+    <SelectTrigger class="w-[280px]">
+      <SelectValue placeholder="Select a timezone" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectGroup>
+        <SelectLabel>North America</SelectLabel>
+        <SelectItem value="est">
+          Eastern Standard Time (EST)
+        </SelectItem>
+        <SelectItem value="cst">
+          Central Standard Time (CST)
+        </SelectItem>
+        <SelectItem value="mst">
+          Mountain Standard Time (MST)
+        </SelectItem>
+        <SelectItem value="pst">
+          Pacific Standard Time (PST)
+        </SelectItem>
+        <SelectItem value="akst">
+          Alaska Standard Time (AKST)
+        </SelectItem>
+        <SelectItem value="hst">
+          Hawaii Standard Time (HST)
+        </SelectItem>
+      </SelectGroup>
+      <SelectGroup>
+        <SelectLabel>Europe & Africa</SelectLabel>
+        <SelectItem value="gmt">
+          Greenwich Mean Time (GMT)
+        </SelectItem>
+        <SelectItem value="cet">
+          Central European Time (CET)
+        </SelectItem>
+        <SelectItem value="eet">
+          Eastern European Time (EET)
+        </SelectItem>
+        <SelectItem value="west">
+          Western European Summer Time (WEST)
+        </SelectItem>
+        <SelectItem value="cat">
+          Central Africa Time (CAT)
+        </SelectItem>
+        <SelectItem value="eat">
+          East Africa Time (EAT)
+        </SelectItem>
+      </SelectGroup>
+      <SelectGroup>
+        <SelectLabel>Asia</SelectLabel>
+        <SelectItem value="msk">
+          Moscow Time (MSK)
+        </SelectItem>
+        <SelectItem value="ist">
+          India Standard Time (IST)
+        </SelectItem>
+        <SelectItem value="cst_china">
+          China Standard Time (CST)
+        </SelectItem>
+        <SelectItem value="jst">
+          Japan Standard Time (JST)
+        </SelectItem>
+        <SelectItem value="kst">
+          Korea Standard Time (KST)
+        </SelectItem>
+        <SelectItem value="ist_indonesia">
+          Indonesia Central Standard Time (WITA)
+        </SelectItem>
+      </SelectGroup>
+      <SelectGroup>
+        <SelectLabel>Australia & Pacific</SelectLabel>
+        <SelectItem value="awst">
+          Australian Western Standard Time (AWST)
+        </SelectItem>
+        <SelectItem value="acst">
+          Australian Central Standard Time (ACST)
+        </SelectItem>
+        <SelectItem value="aest">
+          Australian Eastern Standard Time (AEST)
+        </SelectItem>
+        <SelectItem value="nzst">
+          New Zealand Standard Time (NZST)
+        </SelectItem>
+        <SelectItem value="fjt">
+          Fiji Time (FJT)
+        </SelectItem>
+      </SelectGroup>
+      <SelectGroup>
+        <SelectLabel>South America</SelectLabel>
+        <SelectItem value="art">
+          Argentina Time (ART)
+        </SelectItem>
+        <SelectItem value="bot">
+          Bolivia Time (BOT)
+        </SelectItem>
+        <SelectItem value="brt">
+          Brasilia Time (BRT)
+        </SelectItem>
+        <SelectItem value="clt">
+          Chile Standard Time (CLT)
+        </SelectItem>
+      </SelectGroup>
+    </SelectContent>
+  </Select>
+</template>
+```
+
+---
+
+Código da instalação (React/shadcn/ui)
+
+Arquivo: components/ui/select.tsx
+
+```tsx
+"use client"
+
+import * as React from "react"
+import * as SelectPrimitive from "@radix-ui/react-select"
+
+export const Select = SelectPrimitive.Root
+export const SelectGroup = SelectPrimitive.Group
+export const SelectValue = SelectPrimitive.Value
+export const SelectTrigger = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Trigger
+    ref={ref}
+    className={["flex h-9 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/40", className || ""].join(" ")}
+    {...props}
+  >
+    {children}
+  </SelectPrimitive.Trigger>
+))
+SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
+
+export const SelectContent = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
+>(({ className, children, position = "popper", ...props }, ref) => (
+  <SelectPrimitive.Portal>
+    <SelectPrimitive.Content
+      ref={ref}
+      className={["z-50 min-w-[8rem] overflow-hidden rounded-md border bg-white text-gray-900 shadow-md", className || ""].join(" ")}
+      position={position}
+      {...props}
+    >
+      <SelectPrimitive.Viewport className="p-1">
+        {children}
+      </SelectPrimitive.Viewport>
+    </SelectPrimitive.Content>
+  </SelectPrimitive.Portal>
+))
+SelectContent.displayName = SelectPrimitive.Content.displayName
+
+export const SelectLabel = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Label>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Label ref={ref} className={["px-2 py-1.5 text-sm font-semibold", className || ""].join(" ")} {...props} />
+))
+SelectLabel.displayName = SelectPrimitive.Label.displayName
+
+export const SelectItem = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Item
+    ref={ref}
+    className={["relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-gray-100", className || ""].join(" ")}
+    {...props}
+  >
+    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+  </SelectPrimitive.Item>
+))
+SelectItem.displayName = SelectPrimitive.Item.displayName
+```

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { addComment } from "@/features/comments/services";
+import { useSidebar } from "@/components/ui/sidebar";
 
 type ProfileLite = { id: string; full_name: string; role?: string | null };
 
@@ -16,13 +17,27 @@ export type TaskDrawerProps = {
 };
 
 export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated }: TaskDrawerProps) {
+  const { open: sidebarOpen } = useSidebar();
   const [me, setMe] = useState<ProfileLite | null>(null);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>("");
   const [desc, setDesc] = useState("");
   const [deadline, setDeadline] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(0);
   const isEdit = !!taskId;
+
+  // Update sidebar width on changes
+  useEffect(() => {
+    const updateWidth = () => {
+      const isDesktop = window.innerWidth >= 768;
+      setSidebarWidth(isDesktop ? (sidebarOpen ? 300 : 60) : 0);
+    };
+    
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, [sidebarOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -109,7 +124,7 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
   const disabled = saving;
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-50 flex" style={{ left: sidebarWidth }}>
       <div className="flex-1 bg-black/30" onClick={() => !disabled && onClose()}></div>
       <div className="w-full max-w-md bg-white shadow-2xl animate-in slide-in-from-right duration-200">
         <header className="bg-gradient-to-r from-emerald-700 to-emerald-500 px-4 py-4 text-white">

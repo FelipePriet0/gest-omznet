@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { SimpleSelect } from "@/components/ui/select";
+import { Textarea as UITTextarea } from "@/components/ui/textarea";
+import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
+import { useSidebar } from "@/components/ui/sidebar";
+import { changeStage } from "@/features/kanban/services";
+import { listProfiles, type ProfileLite } from "@/features/comments/services";
+import { TaskDrawer } from "@/features/tasks/TaskDrawer";
+import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
 
 type AppModel = {
   primary_name?: string;
@@ -55,7 +63,6 @@ type PjModel = {
   socio3_nome?: string; socio3_cpf?: string; socio3_telefone?: string;
 };
 
-function digitsOnly(s: string) { return (s || "").replace(/\D+/g, ""); }
 function maskPhone(input: string) {
   const d = digitsOnly(input).slice(0, 11);
   const len = d.length; const ddd = d.slice(0,2);
@@ -137,6 +144,7 @@ const PLANO_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
 ];
 
 const SVA_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
+  { label: 'XXXXX', value: 'XXXXX' },
   { label: '— Streaming e TV —', value: '__hdr_stream', disabled: true },
   { label: 'MZ TV+ (MZPLAY PLUS - ITTV): R$ 29,90 (01 TELA)', value: 'MZ TV+ (MZPLAY PLUS - ITTV): R$ 29,90 (01 TELA)' },
   { label: 'DEZZER: R$ 15,00', value: 'DEZZER: R$ 15,00' },
@@ -168,6 +176,7 @@ function tipoComprovToUI(v:string|null): string { const m:any={ energia:'Energia
 
 export default function CadastroPJPage() {
   const params = useParams();
+  const search = useSearchParams();
   const applicantId = params?.id as string;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"idle"|"saving"|"saved"|"error">("idle");
@@ -176,6 +185,19 @@ export default function CadastroPJPage() {
   const timer = useRef<NodeJS.Timeout | null>(null);
   const pendingApp = useRef<Partial<AppModel>>({});
   const pendingPj = useRef<Partial<PjModel>>({});
+  // Parecer UI states
+  const [pareceres, setPareceres] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const [novoParecer, setNovoParecer] = useState("");
+  const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
+  const [mentionFilterParecer, setMentionFilterParecer] = useState("");
+  const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
+  const [cmdQueryParecer, setCmdQueryParecer] = useState("");
+  const [cmdAnchorParecer, setCmdAnchorParecer] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  const parecerRef = useRef<HTMLTextAreaElement|null>(null);
+  const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
+  const [attachOpen, setAttachOpen] = useState<{open:boolean, parentId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
+  const [cardIdEff, setCardIdEff] = useState<string>('');
 
   useEffect(() => {
     let active = true;
@@ -239,6 +261,22 @@ export default function CadastroPJPage() {
             });
           }
         }
+
+        // Triangulação: pegar card por applicant_id e carregar pareceres
+        const { data: cardRow } = await supabase
+          .from('kanban_cards')
+          .select('id, reanalysis_notes')
+          .eq('applicant_id', applicantId)
+          .is('deleted_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const useCardId = (cardRow as any)?.id || null;
+        if (useCardId) {
+          setCardIdEff(useCardId);
+          if (Array.isArray((cardRow as any).reanalysis_notes)) setPareceres((cardRow as any).reanalysis_notes);
+        }
+        try { setProfiles(await listProfiles()); } catch {}
       } finally {
         if (active) setLoading(false);
       }
@@ -246,9 +284,9 @@ export default function CadastroPJPage() {
     return () => { active = false; };
   }, [applicantId]);
 
-  // Realtime: applicants + pj_fichas
+  // Realtime: applicants + pj_fichas + kanban_cards (pareceres)
   useEffect(() => {
-    let ch1:any; let ch2:any;
+    let ch1:any; let ch2:any; let ch3:any;
     try {
       ch1 = supabase
         .channel(`rt-pj-app-${applicantId}`)
@@ -277,9 +315,18 @@ export default function CadastroPJPage() {
           setPj(p2);
         })
         .subscribe();
+      if (cardIdEff) {
+        ch3 = supabase
+          .channel(`rt-pj-card-${cardIdEff}`)
+          .on('postgres_changes', { event:'UPDATE', schema:'public', table:'kanban_cards', filter:`id=eq.${cardIdEff}` }, (payload:any) => {
+            const row:any = payload.new || {};
+            if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
+          })
+          .subscribe();
+      }
     } catch {}
-    return () => { try { if (ch1) supabase.removeChannel(ch1); if (ch2) supabase.removeChannel(ch2); } catch {} };
-  }, [applicantId]);
+    return () => { try { if (ch1) supabase.removeChannel(ch1); if (ch2) supabase.removeChannel(ch2); if (ch3) supabase.removeChannel(ch3); } catch {} };
+  }, [applicantId, cardIdEff]);
 
   async function flushAutosave() {
     if (!applicantId) return;
@@ -319,48 +366,69 @@ export default function CadastroPJPage() {
 
   const statusText = useMemo(() => (saving==='saving' ? 'Salvando…' : saving==='saved' ? 'Salvo' : saving==='error' ? 'Erro ao salvar' : ''), [saving]);
 
-  function onDownloadPdf() { try{ window.print(); } catch{} }
-  function onClosePage() { try{ window.close(); } catch{} try{ history.back(); } catch{} }
+  
+
+  // UI spacer height to keep bottom gap consistent when a parecer is pinned
+  const [pinnedSpace, setPinnedSpace] = useState<number>(0);
 
   if (loading) return <div className="p-4 text-sm text-zinc-600">Carregando…</div>;
 
   const reqComprov = (pj.enviou_comprovante||'') === 'Sim';
 
+  const from = (search?.get('from') || '').toLowerCase();
+  const showAnalyzeCrumb = from === 'analisar';
   return (
-    <div className="pj-form p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Ficha PJ — Expanded</h1>
-        <div className="flex items-center gap-3">
-          <div className="text-xs text-zinc-600">{statusText}</div>
-          <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Baixar PDF</button>
-          <button onClick={onClosePage} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Fechar</button>
-        </div>
-      </div>
+    <div className="pj-form p-6 max-w-5xl mx-auto">
 
       {/* Seção 1: Dados da Empresa */}
       <Card title="Dados da Empresa">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <Field label="Razão Social" value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave('app','primary_name',v); }} className="lg:col-span-2" />
           <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queueSave('app','cpf_cnpj',m); }} inputMode="numeric" maxLength={18} />
           <Field label="Data de Abertura" value={pj.data_abertura||''} onChange={(v)=>{ const m=formatDateBR(v); setPj({...pj, data_abertura:m}); queueSave('pj','data_abertura', m); }} inputMode="numeric" maxLength={10} />
           <Field label="Nome Fantasia" value={pj.nome_fantasia||''} onChange={(v)=>{ setPj({...pj, nome_fantasia:v}); queueSave('pj','nome_fantasia', v); }} />
           <Field label="Nome de Fachada" value={pj.nome_fachada||''} onChange={(v)=>{ setPj({...pj, nome_fachada:v}); queueSave('pj','nome_fachada', v); }} />
-          <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} />
+          <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} className="md:col-span-3 xl:col-span-4" />
         </div>
       </Card>
 
       {/* Seção 2: Endereço */}
       <Card title="Endereço">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {/* Linha 1: Endereço | Número */}
           <Field label="Endereço" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave('app','address_line', v); }} className="md:col-span-2" />
           <Field label="Número" value={app.address_number||''} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave('app','address_number', v); }} />
-          <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave('app','address_complement', v); }} />
+          {/* Linha 2: Complemento (linha inteira) */}
+          <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave('app','address_complement', v); }} className="md:col-span-3" />
+          {/* Linha 3: Tipo (md:col-span-2) | Observações */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Imóvel</label>
+            <SimpleSelect
+              value={pj.tipo_imovel||''}
+              onChange={(v)=>{ setPj({...pj, tipo_imovel:v}); queueSave('pj','tipo_imovel', v); }}
+              options={["Comércio Terreo","Comércio Sala","Casa"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <Field label="Obs Tipo de Imóvel" value={pj.obs_tipo_imovel||''} onChange={(v)=>{ setPj({...pj, obs_tipo_imovel:v}); queueSave('pj','obs_tipo_imovel', v); }} />
+          {/* Linha 4: CEP | Bairro | Tempo */}
           <Field label="CEP" value={app.cep||''} onChange={(v)=>{ const m = formatCep(v); setApp({...app, cep:m}); queueSave('app','cep', m); }} />
           <Field label="Bairro" value={app.bairro||''} onChange={(v)=>{ setApp({...app, bairro:v}); queueSave('app','bairro', v); }} />
-          <Select label="Tipo de Imóvel" value={pj.tipo_imovel||''} onChange={(v)=>{ setPj({...pj, tipo_imovel:v}); queueSave('pj','tipo_imovel', v); }} options={["Comércio Terreo","Comércio Sala","Casa"]} />
-          <Field label="Obs Tipo de Imóvel" value={pj.obs_tipo_imovel||''} onChange={(v)=>{ setPj({...pj, obs_tipo_imovel:v}); queueSave('pj','obs_tipo_imovel', v); }} />
           <Field label="Tempo no Endereço" value={pj.tempo_endereco||''} onChange={(v)=>{ setPj({...pj, tempo_endereco:v}); queueSave('pj','tempo_endereco', v); }} />
-          <Select label="Tipo de Estabelecimento" value={pj.tipo_estabelecimento||''} onChange={(v)=>{ setPj({...pj, tipo_estabelecimento:v}); queueSave('pj','tipo_estabelecimento', v); }} options={["Própria","Alugada","Cedida","Outros"]} />
+          {/* Linha 5: Estabelecimento (md:col-span-2) | Observações */}
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Estabelecimento</label>
+            <SimpleSelect
+              value={pj.tipo_estabelecimento||''}
+              onChange={(v)=>{ setPj({...pj, tipo_estabelecimento:v}); queueSave('pj','tipo_estabelecimento', v); }}
+              options={["Própria","Alugada","Cedida","Outros"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Obs Estabelecimento" value={pj.obs_estabelecimento||''} onChange={(v)=>{ setPj({...pj, obs_estabelecimento:v}); queueSave('pj','obs_estabelecimento', v); }} />
           <Field label="Endereço do PS" value={pj.end_ps||''} onChange={(v)=>{ setPj({...pj, end_ps:v}); queueSave('pj','end_ps', v); }} red className="md:col-span-3" />
         </div>
@@ -368,24 +436,90 @@ export default function CadastroPJPage() {
 
       {/* Seção 3: Contatos e Documentos */}
       <Card title="Contatos e Documentos">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave('app','phone', m); }} />
           <Field label="WhatsApp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave('app','whatsapp', m); }} />
           <Field label="Fones no PS" value={pj.fones_ps||''} onChange={(v)=>{ setPj({...pj, fones_ps:v}); queueSave('pj','fones_ps', v); }} red />
-          <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queueSave('app','email', v); }} className="md:col-span-3" />
-          <Select label="Enviou Comprovante" value={pj.enviou_comprovante as any || ''} onChange={(v)=>{ setPj({...pj, enviou_comprovante:v}); queueSave('pj','enviou_comprovante', v); if (v==='Não'){ setPj(prev=>({ ...prev, tipo_comprovante:'', nome_comprovante:'' })); queueSave('pj','tipo_comprovante',''); queueSave('pj','nome_comprovante',''); } }} options={["Sim","Não"]} />
-          <Select label="Tipo de Comprovante" value={pj.tipo_comprovante||''} onChange={(v)=>{ setPj({...pj, tipo_comprovante:v}); queueSave('pj','tipo_comprovante', v); }} options={["Energia","Agua","Internet","Outro"]} disabled={!reqComprov} requiredMark={reqComprov} />
-          <Field label="Em nome de" value={pj.nome_comprovante||''} onChange={(v)=>{ setPj({...pj, nome_comprovante:v}); queueSave('pj','nome_comprovante', v); }} disabled={!reqComprov} requiredMark={reqComprov} />
-          <Select label="Possui Internet" value={pj.possui_internet as any || ''} onChange={(v)=>{ setPj({...pj, possui_internet:v}); queueSave('pj','possui_internet', v); }} options={["Sim","Não"]} />
+          <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queueSave('app','email', v); }} className="md:col-span-4" />
+
+          {/* Linha: Possui Internet | Operadora | Plano | Valor */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Possui Internet</label>
+            <SimpleSelect
+              value={(pj.possui_internet as any) || ''}
+              onChange={(v)=>{ setPj({...pj, possui_internet:v}); queueSave('pj','possui_internet', v); }}
+              options={["Sim","Não"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Operadora Internet" value={pj.operadora_internet||''} onChange={(v)=>{ setPj({...pj, operadora_internet:v}); queueSave('pj','operadora_internet', v); }} />
           <Field label="Plano Internet" value={pj.plano_internet||''} onChange={(v)=>{ setPj({...pj, plano_internet:v}); queueSave('pj','plano_internet', v); }} />
           <Field label="Valor Internet" value={pj.valor_internet||''} onChange={(v)=>{ const m = formatCurrencyBR(v); setPj({...pj, valor_internet:m}); queueSave('pj','valor_internet', m); }} />
-          <Select label="Contrato Social" value={pj.contrato_social as any || ''} onChange={(v)=>{ setPj({...pj, contrato_social:v}); queueSave('pj','contrato_social', v); }} options={["Sim","Não"]} className="md:col-span-2" />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Enviou Comprovante</label>
+            <SimpleSelect
+              value={(pj.enviou_comprovante as any) || ''}
+              onChange={(v)=>{ setPj({...pj, enviou_comprovante:v}); queueSave('pj','enviou_comprovante', v); if (v==='Não'){ setPj(prev=>({ ...prev, tipo_comprovante:'', nome_comprovante:'' })); queueSave('pj','tipo_comprovante',''); queueSave('pj','nome_comprovante',''); } }}
+              options={["Sim","Não"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Comprovante</label>
+            <SimpleSelect
+              value={pj.tipo_comprovante||''}
+              onChange={(v)=>{ setPj({...pj, tipo_comprovante:v}); queueSave('pj','tipo_comprovante', v); }}
+              options={["Energia","Agua","Internet","Outro"]}
+              className="mt-0"
+              triggerClassName={`h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 ${!reqComprov ? 'opacity-50 pointer-events-none cursor-not-allowed bg-gray-100 text-gray-400' : ''}`}
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <Field label="Em nome de" value={pj.nome_comprovante||''} onChange={(v)=>{ setPj({...pj, nome_comprovante:v}); queueSave('pj','nome_comprovante', v); }} disabled={!reqComprov} requiredMark={reqComprov} />
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Contrato Social</label>
+            <SimpleSelect
+              value={(pj.contrato_social as any) || ''}
+              onChange={(v)=>{ setPj({...pj, contrato_social:v}); queueSave('pj','contrato_social', v); }}
+              options={["Sim","Não"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Observações" value={pj.obs_contrato_social||''} onChange={(v)=>{ setPj({...pj, obs_contrato_social:v}); queueSave('pj','obs_contrato_social', v); }} />
         </div>
       </Card>
 
       {/* Seção 4: Sócios */}
+      <TaskDrawer
+        open={taskOpen.open}
+        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null})}
+        cardId={cardIdEff}
+        commentId={taskOpen.parentId ?? null}
+        taskId={taskOpen.taskId ?? null}
+        onCreated={async (t)=> {
+          if (taskOpen.source === 'parecer') {
+            try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: `📋 Tarefa criada: ${t.description}`, p_parent_id: null }); } catch {}
+          }
+        }}
+      />
+      <AttachmentsModal
+        open={attachOpen.open}
+        onClose={()=> setAttachOpen({open:false})}
+        cardId={cardIdEff}
+        commentId={attachOpen.parentId ?? null}
+        onCompleted={async (files)=> {
+          if (attachOpen.source === 'parecer' && files.length>0) {
+            const names = files.map(f=> f.name).join(', ');
+            try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: `📎 Anexo(s): ${names}`, p_parent_id: null }); } catch {}
+          }
+        }}
+      />
       <Card title="Sócios">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="Sócio 1 - Nome" value={pj.socio1_nome||''} onChange={(v)=>{ setPj({...pj, socio1_nome:v}); queueSave('pj','socio1_nome', v); }} />
@@ -404,15 +538,67 @@ export default function CadastroPJPage() {
       <Card title="Solicitação">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Field label="Quem Solicitou" value={app.quem_solicitou||''} onChange={(v)=>{ setApp({...app, quem_solicitou:v}); queueSave('app','quem_solicitou', v); }} />
-          <Select label="Meio" value={app.meio||''} onChange={(v)=>{ setApp({...app, meio:v}); queueSave('app','meio', v); }} options={[...MEIO_UI]} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Meio</label>
+            <SimpleSelect
+              value={app.meio||''}
+              onChange={(v)=>{ setApp({...app, meio:v}); queueSave('app','meio', v); }}
+              options={[...MEIO_UI]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Tel" value={app.telefone_solicitante||''} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, telefone_solicitante:m}); queueSave('app','telefone_solicitante', m); }} />
           <Field label="Protocolo MK" value={app.protocolo_mk||''} onChange={(v)=>{ setApp({...app, protocolo_mk:v}); queueSave('app','protocolo_mk', v); }} />
-          <Select label="Plano de Acesso" value={app.plano_acesso||''} onChange={(v)=>{ setApp({...app, plano_acesso:v}); queueSave('app','plano_acesso', v); }} options={PLANO_OPTIONS as any} />
-          <Select label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ setApp({...app, sva_avulso:v}); queueSave('app','sva_avulso', v); }} options={SVA_OPTIONS as any} />
-          <Select label="Vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queueSave('app','venc', v); }} options={["5","10","15","20","25"]} />
-          <Select label="Carnê Impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queueSave('app','carne_impresso', val); }} options={["Sim","Não"]} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Plano de Acesso</label>
+            <SimpleSelect
+              value={app.plano_acesso||''}
+              onChange={(v)=>{ setApp({...app, plano_acesso:v}); queueSave('app','plano_acesso', v); }}
+              options={PLANO_OPTIONS as any}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">SVA Avulso</label>
+            <SimpleSelect
+              value={app.sva_avulso||''}
+              onChange={(v)=>{ setApp({...app, sva_avulso:v}); queueSave('app','sva_avulso', v); }}
+              options={SVA_OPTIONS as any}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Vencimento</label>
+            <SimpleSelect
+              value={String(app.venc||'')}
+              onChange={(v)=>{ setApp({...app, venc:v}); queueSave('app','venc', v); }}
+              options={["5","10","15","20","25"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Carnê Impresso</label>
+            <SimpleSelect
+              value={app.carne_impresso ? 'Sim':'Não'}
+              onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queueSave('app','carne_impresso', val); }}
+              options={["Sim","Não"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
         </div>
       </Card>
+
+      
 
       {/* Seção 6: Informações Relevantes da Solicitação */}
       <Card title="Informações Relevantes da Solicitação">
@@ -441,14 +627,122 @@ export default function CadastroPJPage() {
           <Textarea label="Informações Relevantes do MK" value={app.info_mk||''} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave('app','info_mk', v); }} red />
         </div>
       </Card>
+
+      {(
+        <Card title="Parecer">
+          <div className="space-y-4">
+            <div className="relative">
+              <UITTextarea
+                ref={parecerRef as any}
+                value={novoParecer}
+                onChange={(e)=> {
+                  const v = e.target.value || '';
+                  setNovoParecer(v);
+                  const atIdx = v.lastIndexOf('@');
+                  if (atIdx >= 0) { setMentionFilterParecer(v.slice(atIdx + 1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
+                  const slashIdx = v.lastIndexOf('/');
+                  if (slashIdx>=0) {
+                    setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
+                    if (parecerRef.current) {
+                      const ta = parecerRef.current!;
+                      const c = getCaretCoordinates(ta, slashIdx + 1);
+                      const rect = ta.getBoundingClientRect();
+                      const top = rect.top + window.scrollY + c.top + c.height + 6;
+                      const left = rect.left + window.scrollX + c.left;
+                      setCmdAnchorParecer({ top, left });
+                    }
+                  } else { setCmdOpenParecer(false); }
+                }}
+                onKeyDown={async (e:any)=>{
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const txt = (novoParecer || '').trim();
+                    if (!txt || !cardIdEff) return;
+                    const tempNote:any = { id: `tmp-${Date.now()}`, text: txt, author_name: '', author_role: '', created_at: new Date().toISOString(), parent_id: null };
+                    setPareceres(prev => [...(prev||[]), tempNote]);
+                    setNovoParecer('');
+                    try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: txt, p_parent_id: null }); } catch {}
+                    return;
+                  }
+                  const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                  const atIdx = v.lastIndexOf('@');
+                  if (atIdx>=0) { setMentionFilterParecer(v.slice(atIdx+1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
+                  const slashIdx = v.lastIndexOf('/');
+                  if (slashIdx>=0) {
+                    setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
+                    if (parecerRef.current) {
+                      const ta = parecerRef.current!;
+                      const c = getCaretCoordinates(ta, slashIdx + 1);
+                      const rect = ta.getBoundingClientRect();
+                      const top = rect.top + window.scrollY + c.top + c.height + 6;
+                      const left = rect.left + window.scrollX + c.left;
+                      setCmdAnchorParecer({ top, left });
+                    }
+                  } else { setCmdOpenParecer(false); }
+                }}
+                placeholder="Escreva um novo parecer… Use @ para mencionar"
+                rows={4}
+              />
+              {mentionOpenParecer && (
+                <div className="absolute z-50 left-0 bottom-full mb-2">
+                  <MentionDropdownParecer
+                    items={profiles}
+                    onPick={(p)=> {
+                      const idx = (novoParecer || '').lastIndexOf('@');
+                      const newVal = (novoParecer || '').slice(0, idx + 1) + p.full_name + ' ';
+                      setNovoParecer(newVal);
+                      setMentionOpenParecer(false);
+                    }}
+                  />
+                </div>
+              )}
+              {cmdOpenParecer && (
+                <div className="absolute z-50 left-0 bottom-full mb-2">
+                  <CmdDropdown
+                    items={[
+                      { key:'aprovado', label:'Aprovado' },
+                      { key:'negado', label:'Negado' },
+                      { key:'reanalise', label:'Reanálise' },
+                      { key:'tarefa', label:'Tarefa' },
+                      { key:'anexo', label:'Anexo' },
+                    ].filter(i=> i.key.includes(cmdQueryParecer))}
+                    onPick={async (key)=>{
+                      setCmdOpenParecer(false); setCmdQueryParecer('');
+                      if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
+                      if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
+                      try {
+                        if (key==='aprovado') await changeStage(cardIdEff, 'analise', 'aprovados');
+                        else if (key==='negado') await changeStage(cardIdEff, 'analise', 'negados');
+                        else if (key==='reanalise') await changeStage(cardIdEff, 'analise', 'reanalise');
+                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                    }}
+                    initialQuery={cmdQueryParecer}
+                  />
+                </div>
+              )}
+            </div>
+
+            <PareceresList
+              cardId={cardIdEff}
+              notes={pareceres as any}
+              profiles={profiles}
+              onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: text, p_parent_id: pid }); }}
+              onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardIdEff, p_note_id: id, p_text: text }); }}
+              onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id }); }}
+              onPinnedChange={(active, h)=> setPinnedSpace(active ? h : 0)}
+            />
+          </div>
+        </Card>
+      )}
+      {pinnedSpace>0 && (<div aria-hidden className="w-full" style={{ height: pinnedSpace }} />)}
     </div>
   );
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mb-6 rounded-xl border bg-white shadow-sm">
-      <div className="border-b px-4 py-2 text-sm font-semibold text-gray-800">{title}</div>
+    <div className="mb-6 rounded-xl border border-zinc-200 bg-white shadow-[0_5.447px_5.447px_rgba(0,0,0,0.12)]">
+      <div className="px-4 py-2 text-sm font-semibold text-white bg-[var(--verde-primario)] border-b border-zinc-200 rounded-t-xl">{title}</div>
       <div className="p-4">{children}</div>
     </div>
   );
@@ -457,14 +751,14 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 function Field({ label, value, onChange, className, red, disabled, maxLength, inputMode }: { label: string; value: string; onChange: (v:string)=>void; className?: string; red?: boolean; disabled?: boolean; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"] }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-gray-700">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-zinc-700">{label}</label>
       <input
         value={value}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
         disabled={disabled}
         maxLength={maxLength}
         inputMode={inputMode}
-        className={`h-10 w-full rounded-lg border px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-emerald-700'} placeholder:text-emerald-600 placeholder:opacity-60 ${red ? 'border-red-500 bg-red-500/10 focus:border-red-500 focus:ring-2 focus:ring-red-300' : 'border-gray-300 focus:border-emerald-500'}`}
+        className={`h-10 w-full rounded-[7px] border ${red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 text-sm outline-none shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)]`}
       />
     </div>
   );
@@ -473,11 +767,11 @@ function Field({ label, value, onChange, className, red, disabled, maxLength, in
 function Textarea({ label, value, onChange, red }: { label: string; value: string; onChange: (v:string)=>void; red?: boolean }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-gray-700">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-zinc-700">{label}</label>
       <textarea
         value={value}
         onChange={(e)=> onChange(e.target.value)}
-        className={`min-h-[88px] w-full rounded-lg border px-3 py-2 text-sm outline-none text-emerald-700 placeholder:text-emerald-600 placeholder:opacity-60 ${red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-gray-300 focus:border-emerald-500'}`}
+        className={`min-h-[88px] w-full rounded-xl border ${red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 py-2 text-sm outline-none text-zinc-900 placeholder:text-[rgba(1,137,66,0.6)] shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
       />
     </div>
   );
@@ -491,19 +785,14 @@ function Select({ label, value, onChange, options, disabled, className, required
   const displayValue = disabled ? value : (hasValue ? value : (first?.value ?? ''));
   return (
     <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-gray-700">
+      <label className="mb-1 block text-xs font-medium text-zinc-700">
         <span>{label}</span>
-        {requiredMark && (
-          <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${disabled ? 'border-gray-300 bg-gray-100 text-gray-500' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
-            Obrigatório
-          </span>
-        )}
       </label>
       <select
         value={displayValue}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
         disabled={disabled}
-        className={`h-10 w-full rounded-lg border px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-emerald-700'} border-gray-300 focus:border-emerald-500`}
+        className={`h-10 w-full rounded-[7px] border border-zinc-200 bg-zinc-50 px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
       >
         {norm.map((opt, idx) => (
           <option key={opt.value+idx} value={opt.value} disabled={!!opt.disabled}>{opt.label}</option>
@@ -511,4 +800,510 @@ function Select({ label, value, onChange, options, disabled, className, required
       </select>
     </div>
   );
+}
+
+// ================= Parecer helpers (copied UI from EditarFicha) =================
+function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void | Promise<void>; initialQuery?: string }) {
+  const [q, setQ] = useState(initialQuery || "");
+  useEffect(()=> setQ(initialQuery || ""), [initialQuery]);
+  const iconFor = (key: string) => {
+    if (key === 'aprovado') return <CheckCircle className="w-4 h-4" />;
+    if (key === 'negado') return <XCircle className="w-4 h-4" />;
+    if (key === 'reanalise') return <RefreshCcw className="w-4 h-4" />;
+    if (key === 'tarefa') return <ClipboardList className="w-4 h-4" />;
+    if (key === 'anexo') return <Paperclip className="w-4 h-4" />;
+    return null;
+  };
+  const filtered = items.filter(i => i.key.includes(q) || i.label.toLowerCase().includes(q.toLowerCase()));
+  const decisions = filtered.filter(i => ['aprovado','negado','reanalise'].includes(i.key));
+  const actions = filtered.filter(i => ['tarefa','anexo'].includes(i.key));
+  return (
+    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
+        <Search className="w-4 h-4 text-zinc-500" />
+        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+      </div>
+      {decisions.length > 0 && (
+        <div className="py-1">
+          <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Decisão da análise</div>
+          {decisions.map((i) => (
+            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left">
+              {iconFor(i.key)}
+              <span>{i.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {actions.length > 0 && (
+        <div className="py-1 border-t border-zinc-100">
+          <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Ações</div>
+          {actions.map((i) => (
+            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left">
+              {iconFor(i.key)}
+              <span>{i.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {decisions.length === 0 && actions.length === 0 && (
+        <div className="px-3 py-2 text-zinc-500">Sem comandos</div>
+      )}
+    </div>
+  );
+}
+
+function MentionDropdownParecer({ items, onPick }: { items: ProfileLite[]; onPick: (p: ProfileLite) => void }) {
+  const [q, setQ] = useState("");
+  const filtered = items.filter((p) => (p.full_name||'').toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
+        <Search className="w-4 h-4 text-zinc-500" />
+        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar pessoas…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+      </div>
+      {filtered.length === 0 ? (
+        <div className="px-3 py-2 text-zinc-500">Sem resultados</div>
+      ) : (
+        <div className="py-1">
+          {filtered.map((p) => (
+            <button key={p.id} onClick={()=> onPick(p)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-zinc-50">
+              <span>{p.full_name}{p.role ? ` (${p.role})` : ''}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type Note = { id: string; text: string; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
+function buildTree(notes: Note[]): Note[] {
+  // Oculta itens marcados como deletados (soft-delete)
+  const valid = (notes || []).filter((n:any) => !n?.deleted);
+  const byId = new Map<string, any>();
+  valid.forEach((n:any) => byId.set(n.id, { ...n, children: [] as any[] }));
+  const roots: any[] = [];
+  valid.forEach((n:any) => {
+    const node = byId.get(n.id)!;
+    if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node); else roots.push(node);
+  });
+  const sortFn = (a:any,b:any)=> new Date(a.created_at||'').getTime() - new Date(b.created_at||'').getTime();
+  const sortTree = (arr:any[]) => { arr.sort(sortFn); arr.forEach(x=> sortTree(x.children)); };
+  sortTree(roots);
+  return roots as any;
+}
+
+function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onPinnedChange }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any>; onPinnedChange?: (active:boolean, height:number)=>void }) {
+  const tree = useMemo(()=> buildTree(notes||[]), [notes]);
+  const { open } = useSidebar();
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [cmdQuery, setCmdQuery] = useState("");
+  const replyTaRef = useRef<HTMLTextAreaElement | null>(null);
+  const replyBoxRef = useRef<HTMLDivElement | null>(null);
+  const editBoxRef = useRef<HTMLDivElement | null>(null);
+  const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  const [reply, setReply] = useState("");
+  const [isReplyingId, setIsReplyingId] = useState<string|null>(null);
+  const [isEditingId, setIsEditingId] = useState<string|null>(null);
+  const [editText, setEditText] = useState("");
+  // Compositor Unificado (edição): menções e comandos
+  const [editMentionOpen, setEditMentionOpen] = useState(false);
+  const [editMentionFilter, setEditMentionFilter] = useState("");
+  const [editCmdOpen, setEditCmdOpen] = useState(false);
+  const [editCmdQuery, setEditCmdQuery] = useState("");
+   const [pinned, setPinned] = useState<any|null>(null);
+   const [leftOffset, setLeftOffset] = useState(0);
+   const [bottomOffset, setBottomOffset] = useState(0);
+   const [pinnedHeight, setPinnedHeight] = useState(120); // altura inicial em px
+   const [isResizing, setIsResizing] = useState(false);
+   useEffect(() => {
+     const update = () => {
+       const isDesktop = window.innerWidth >= 768;
+       const left = isDesktop ? (open ? 300 : 60) : 0;
+       setLeftOffset(left);
+       // Não precisa de offset do footer, vamos alinhar direto com a sidebar
+       setBottomOffset(0);
+     };
+     update();
+     window.addEventListener('resize', update);
+     return () => window.removeEventListener('resize', update);
+   }, [open]);
+
+   // Handle resize functionality
+   useEffect(() => {
+     if (!isResizing) return;
+     
+     const handleMouseMove = (e: MouseEvent) => {
+       const newHeight = window.innerHeight - e.clientY;
+       const minHeight = 80;
+       const maxHeight = window.innerHeight * 0.6; // máximo 60% da tela
+       setPinnedHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
+     };
+
+     const handleMouseUp = () => {
+       setIsResizing(false);
+     };
+
+     document.addEventListener('mousemove', handleMouseMove);
+     document.addEventListener('mouseup', handleMouseUp);
+     
+     return () => {
+       document.removeEventListener('mousemove', handleMouseMove);
+       document.removeEventListener('mouseup', handleMouseUp);
+     };
+   }, [isResizing]);
+  useEffect(() => {
+    if (onPinnedChange) onPinnedChange(!!pinned, pinned ? pinnedHeight : 0);
+  }, [pinned, pinnedHeight]);
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (isEditingId) {
+        const box = editBoxRef.current;
+        if (box && target && !box.contains(target)) {
+          setIsEditingId(null);
+        }
+      }
+      if (isReplyingId) {
+        const rbox = replyBoxRef.current;
+        if (rbox && target && !rbox.contains(target)) {
+          setReply('');
+          setIsReplyingId(null);
+        }
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [isEditingId, isReplyingId]);
+  return (
+    <>
+    <div className={`space-y-2`}>
+      {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
+      {tree.map((n:any) => (
+        <div key={n.id} className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex items-center gap-2">
+              <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+              <div className="min-w-0">
+                <div className="truncate font-medium">{n.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</span></div>
+                {n.author_role && <div className="text-[11px] text-zinc-500 truncate">{n.author_role}</div>}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 z-10">
+              <button aria-label="Fixar parecer" onClick={()=> setPinned(p=> p?.id===n.id ? null : n)} className={(pinned?.id===n.id? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700')+" p-1 rounded hover:bg-zinc-100 transition-colors"}>
+                <Pin className="w-4 h-4" strokeWidth={1.75} />
+              </button>
+              <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===n.id ? null : n.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
+                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+              <ParecerMenu onEdit={()=> { setIsEditingId(n.id); setEditText(n.text||''); }} onDelete={()=> onDelete(n.id)} />
+            </div>
+          </div>
+          {isEditingId===n.id ? (
+            <div className="mt-2 space-y-2" ref={editBoxRef}>
+              <div className="relative">
+                <UITTextarea
+                  value={editText}
+                  onChange={(e)=> {
+                    const v = e.target.value || '';
+                    setEditText(v);
+                    const atIdx = v.lastIndexOf('@');
+                    if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                    const slashIdx = v.lastIndexOf('/');
+                    if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
+                  }}
+                  onKeyDown={async (e:any)=>{
+                    if (e.key==='Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      const txt = (editText||'').trim();
+                      if (!txt) return;
+                      await onEdit(n.id, txt);
+                      setIsEditingId(null);
+                      return;
+                    }
+                    const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                    const atIdx = v.lastIndexOf('@');
+                    if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                    const slashIdx = v.lastIndexOf('/');
+                    if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
+                  }}
+                  placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
+                  rows={4}
+                />
+                {editMentionOpen && (
+                  <div className="absolute z-50 left-0 bottom-full mb-2">
+                    <MentionDropdownParecer
+                      items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                      onPick={(p)=>{
+                        const idx = (editText||'').lastIndexOf('@');
+                        const newVal = (editText||'').slice(0, idx + 1) + p.full_name + ' ';
+                        setEditText(newVal);
+                        setEditMentionOpen(false);
+                      }}
+                    />
+                  </div>
+                )}
+                {editCmdOpen && (
+                  <div className="absolute z-50 left-0 bottom-full mb-2">
+                    <CmdDropdown
+                      items={[
+                        { key:'aprovado', label:'Aprovado' },
+                        { key:'negado', label:'Negado' },
+                        { key:'reanalise', label:'Reanálise' },
+                        { key:'tarefa', label:'Tarefa' },
+                        { key:'anexo', label:'Anexo' },
+                      ].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
+                      onPick={async (key)=>{
+                        setEditCmdOpen(false); setEditCmdQuery('');
+                        if (key==='tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
+                        if (key==='anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
+                        try {
+                          if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
+                          else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
+                          else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
+                        } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                      }}
+                      initialQuery={editCmdQuery}
+                    />
+                  </div>
+                )}
+              </div>
+              {/* Removidos CTAs; envio via Enter, cancelar via Esc */}
+            </div>
+          ) : (
+            <div className="mt-1 whitespace-pre-line break-words">{n.text}</div>
+          )}
+          <div className="mt-3">
+            {isReplyingId===n.id ? (
+              <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
+                <div className="flex-1">
+                  <UITTextarea
+                   ref={replyTaRef as any}
+                   value={reply}
+                   onChange={(e)=> setReply(e.target.value)}
+                   onKeyDown={async (e)=>{
+                     if (e.key === 'Enter' && !e.shiftKey) {
+                       e.preventDefault();
+                       const t = reply.trim();
+                       if (!t) return;
+                       await onReply(n.id, t);
+                       setReply('');
+                       setIsReplyingId(null);
+                       return;
+                     }
+                   }}
+                   onKeyUp={(e)=>{ const v=e.currentTarget.value||''; const slashIdx=v.lastIndexOf('/'); if (slashIdx>=0){ setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current){ const c=getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } } else setCmdOpen(false); }}
+                   rows={3}
+                    placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+                 />
+                 {cmdOpen && (
+                   <div className="absolute z-50 left-0 bottom-full mb-2">
+                     <CmdDropdown
+                       items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery))}
+                       onPick={async (key)=>{ setCmdOpen(false); setCmdQuery(''); if (key==='tarefa'){ (window as any).dispatchEvent(new Event('mz-open-task')); } else if (key==='anexo'){ (window as any).dispatchEvent(new Event('mz-open-attach')); } }}
+                       initialQuery={cmdQuery}
+                     />
+                   </div>
+                 )}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          {n.children && n.children.length>0 && (
+            <div className="mt-2 space-y-2 pl-4">
+              {n.children.map((c:any)=> (
+                <div
+                  key={c.id}
+                  className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800"
+                  style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px', borderLeftStyle: 'solid' }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{c.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span></div>
+                      {c.author_role && <div className="text-[11px] text-zinc-500 truncate">{c.author_role}</div>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button aria-label="Fixar parecer" onClick={()=> setPinned(p=> p?.id===c.id ? null : c)} className={(pinned?.id===c.id? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700')+" p-1 rounded hover:bg-zinc-100 transition-colors"}>
+                        <Pin className="w-4 h-4" strokeWidth={1.75} />
+                      </button>
+                      <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===c.id ? null : c.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
+                        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </button>
+                      <ParecerMenu onEdit={()=> { setIsEditingId(c.id); setEditText(c.text||''); }} onDelete={()=> onDelete(c.id)} />
+                    </div>
+                  </div>
+                  {isEditingId===c.id ? (
+                    <div className="mt-2 space-y-2" ref={editBoxRef}>
+                      <div className="relative">
+                        <UITTextarea
+                          value={editText}
+                          onChange={(e)=> {
+                            const v = e.target.value || '';
+                            setEditText(v);
+                            const atIdx = v.lastIndexOf('@');
+                            if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                            const slashIdx = v.lastIndexOf('/');
+                            if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
+                          }}
+                          onKeyDown={async (e:any)=>{
+                            if (e.key==='Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              const t=(editText||'').trim(); if(!t) return;
+                              await onEdit(c.id, t);
+                              setIsEditingId(null);
+                              return;
+                            }
+                            const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                            const atIdx = v.lastIndexOf('@');
+                            if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                            const slashIdx = v.lastIndexOf('/');
+                            if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
+                          }}
+                          placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
+                          rows={4}
+                        />
+                        {editMentionOpen && (
+                          <div className="absolute z-50 left-0 bottom-full mb-2">
+                            <MentionDropdownParecer
+                              items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                              onPick={(p)=>{
+                                const idx = (editText||'').lastIndexOf('@');
+                                const newVal = (editText||'').slice(0, idx + 1) + p.full_name + ' ';
+                                setEditText(newVal);
+                                setEditMentionOpen(false);
+                              }}
+                            />
+                          </div>
+                        )}
+                        {editCmdOpen && (
+                          <div className="absolute z-50 left-0 bottom-full mb-2">
+                            <CmdDropdown
+                              items={[{ key:'aprovado', label:'Aprovado' },{ key:'negado', label:'Negado' },{ key:'reanalise', label:'Reanálise' },{ key:'tarefa', label:'Tarefa' },{ key:'anexo', label:'Anexo' }].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
+                              onPick={async (key)=>{
+                                setEditCmdOpen(false); setEditCmdQuery('');
+                                if (key==='tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
+                                if (key==='anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
+                                try {
+                                  if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
+                                  else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
+                                  else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
+                                } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                              }}
+                              initialQuery={editCmdQuery}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      {/* Removidos CTAs; envio via Enter, cancelar via Esc */}
+                    </div>
+                  ) : (
+                    <div className="mt-1 whitespace-pre-line break-words">{c.text}</div>
+                  )}
+                  {isReplyingId===c.id && (
+                    <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
+                      <div className="flex-1">
+                        <UITTextarea
+                          value={reply}
+                          onChange={(e)=> setReply(e.target.value)}
+                          onKeyDown={async (e)=>{ if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); const t=reply.trim(); if(!t) return; await onReply(c.id, t); setReply(''); setIsReplyingId(null); return; } }}
+                          onKeyUp={(e)=>{ const v=e.currentTarget.value||''; const slashIdx=v.lastIndexOf('/'); if (slashIdx>=0){ setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current){ const rc=getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: rc.top + rc.height + 6, left: Math.max(0, Math.min(rc.left, replyTaRef.current.clientWidth - 256)) }); } } else setCmdOpen(false); }}
+                          rows={3}
+                          placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+                        />
+                        {cmdOpen && (
+                          <div className="absolute z-50 left-0 bottom-full mb-2">
+                            <CmdDropdown
+                              items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery))}
+                              onPick={async (key)=>{ setCmdOpen(false); setCmdQuery(''); if (key==='tarefa'){ (window as any).dispatchEvent(new Event('mz-open-task')); } else if (key==='anexo'){ (window as any).dispatchEvent(new Event('mz-open-attach')); } }}
+                              initialQuery={cmdQuery}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+     {pinned && (
+       <div className="fixed bottom-0 z-40 pointer-events-none" style={{ left: leftOffset, right: 0, height: `${pinnedHeight}px` }}>
+           <div className="pointer-events-auto border-t border-zinc-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)] w-full h-full flex flex-col">
+             {/* Resize Handle */}
+             <div 
+               className={`w-full h-2 cursor-ns-resize flex items-center justify-center border-b border-zinc-100 hover:bg-zinc-50 transition-colors ${isResizing ? 'bg-zinc-100' : ''}`}
+               onMouseDown={(e) => {
+                 e.preventDefault();
+                 setIsResizing(true);
+               }}
+             >
+               <div className="w-12 h-1 bg-zinc-300 rounded-full"></div>
+             </div>
+             
+             {/* Header */}
+             <div className="px-4 py-3 text-xs text-zinc-600 flex items-center justify-between border-b border-zinc-100 shrink-0">
+               <div className="min-w-0 flex items-center gap-2">
+                 <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+                 <div className="truncate">
+                   <span className="font-medium text-zinc-800">{pinned.author_name || '—'}</span>
+                   <span className="ml-2 text-zinc-500">{pinned.created_at ? new Date(pinned.created_at).toLocaleString() : ''}</span>
+                 </div>
+               </div>
+               <button onClick={()=> setPinned(null)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100 transition-colors">
+                 <Pin className="w-3.5 h-3.5" strokeWidth={1.75} />
+                 <span className="hidden sm:inline">Desafixar</span>
+               </button>
+             </div>
+             
+             {/* Content */}
+             <div className="px-4 py-3 text-sm text-zinc-800 whitespace-pre-line break-words overflow-y-auto flex-1">{pinned.text}</div>
+           </div>
+       </div>
+     )}
+    </>
+  );
+}
+
+function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void | Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button onClick={()=> setOpen(v=>!v)} className="parecer-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duration-200" aria-label="Abrir menu">
+        <svg className="w-5 h-5 text-zinc-700" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 14a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={()=> setOpen(false)} />
+          <div className="parecer-menu-dropdown absolute right-0 top-10 z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
+            <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" onClick={()=> { setOpen(false); onEdit(); }}>
+              <svg className="w-4 h-4 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+              Editar
+            </button>
+            <div className="h-px bg-zinc-100 mx-2" />
+            <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" onClick={async ()=> { setOpen(false); await onDelete(); }}>
+              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              Excluir
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Utilitário para posição do caret
+function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number) {
+  const style = window.getComputedStyle(textarea);
+  const mirror = document.createElement('div');
+  const props = ['direction','boxSizing','height','overflowX','overflowY','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth','paddingTop','paddingRight','paddingBottom','paddingLeft','fontStyle','fontVariant','fontWeight','fontStretch','fontSize','fontFamily','lineHeight','textAlign','textTransform','textIndent','textDecoration','letterSpacing','tabSize','MozTabSize'];
+  props.forEach((p:any)=> { (mirror.style as any)[p] = (style as any)[p] ?? style.getPropertyValue(p); });
+  mirror.style.position = 'absolute'; mirror.style.visibility = 'hidden'; mirror.style.whiteSpace = 'pre-wrap'; mirror.style.wordWrap = 'break-word'; mirror.style.width = `${textarea.clientWidth}px`;
+  mirror.textContent = textarea.value.substring(0, position);
+  const span = document.createElement('span'); span.textContent = textarea.value.substring(position) || '.'; mirror.appendChild(span);
+  document.body.appendChild(mirror);
+  const spRect = span.getBoundingClientRect(); const top = spRect.top + textarea.scrollTop; const left = spRect.left + textarea.scrollLeft; const height = spRect.height || parseFloat(style.lineHeight) || 16; document.body.removeChild(mirror);
+  return { top, left, height };
 }

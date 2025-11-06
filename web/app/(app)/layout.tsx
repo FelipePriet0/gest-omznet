@@ -1,30 +1,186 @@
-export default function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+"use client";
+
+import { Fragment, useEffect, useState } from "react";
+import RouteBg from "./RouteBg";
+import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
+import { Columns3, ListTodo, Clock } from "lucide-react";
+import Image from "next/image";
+import { SidebarUser } from "@/components/app/sidebar-user";
+import { motion } from "framer-motion";
+import Breadcrumbs from "@/components/app/Breadcrumbs";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { InboxSidebarEntry, InboxProvider, InboxPanel } from "@/features/inbox/InboxDrawer";
+const TasksPanelProxy = dynamic(() => import("@/app/(app)/tarefas/page"), { ssr: false });
+
+function AppSidebar() {
+  const { open } = useSidebar();
+  const pathname = usePathname() || "/";
+
+  const links = [
+    {
+      label: "Kanban",
+      href: "/kanban",
+      icon: <Columns3 className="h-5 w-5 text-white flex-shrink-0" />,
+    },
+    {
+      label: "Minhas Tarefas",
+      href: `${pathname}?panel=tarefas`,
+      icon: <ListTodo className="h-5 w-5 text-white flex-shrink-0" />,
+    },
+    {
+      label: "Histórico",
+      href: "/historico",
+      icon: <Clock className="h-5 w-5 text-white flex-shrink-0" />,
+    },
+  ];
+
   return (
-    <div className="min-h-dvh bg-[#ECF4FA] text-zinc-900">
-      <header className="sticky top-0 z-20 bg-gradient-to-br from-[#018942] to-black shadow-2xl shadow-[#FFFFFF]/30 border-b-2 border-white/90">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-          <a href="/" className="flex items-center">
-            <img src="/mznet-logo.png" alt="Mznet" className="h-8 w-auto" />
-          </a>
-          <div className="flex items-center gap-4 text-sm">
-            <a className="text-white/90 hover:text-white hover:underline transition-colors" href="/perfil">Perfil</a>
-            <a className="text-white/90 hover:text-white hover:underline transition-colors" href="/kanban">Kanban</a>
-            <a className="text-white/90 hover:text-white hover:underline transition-colors" href="/historico">Histórico</a>
-            <a className="text-white/90 hover:text-white hover:underline transition-colors" href="/tarefas">Minhas Tarefas</a>
-            {/* Inbox (sino) */}
-            <InboxBellWrapper />
+    <SidebarBody className="justify-between gap-4">
+      <SidebarHeader>
+        {open ? (
+          <div className="w-full flex items-center justify-between p-2 rounded-lg border border-transparent bg-transparent">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 text-white flex items-center justify-center overflow-hidden flex-shrink-0" style={{ borderRadius: '30%', backgroundColor: '#ffffff' }}>
+                <Image src="/mznet-logo.png" alt="MZNET Logo" width={28} height={28} className="object-contain" />
+              </div>
+              <div className="leading-tight ml-1">
+                <div className="text-base font-semibold text-white">Mznet</div>
+                <div className="text-sm text-white/80">Empresa</div>
+              </div>
+            </div>
           </div>
-        </nav>
-      </header>
-      <main className="mx-auto min-h-[calc(100dvh-100px)] max-w-6xl px-6 py-6 bg-white rounded-t-xl">{children}</main>
-    </div>
+        ) : (
+           <div className="w-full flex items-center justify-center">
+             <div className="h-9 w-9 text-white flex items-center justify-center overflow-hidden flex-shrink-0" style={{ borderRadius: '30%', backgroundColor: '#ffffff' }}>
+               <Image src="/mznet-logo.png" alt="MZNET Logo" width={24} height={24} className="object-contain" />
+             </div>
+           </div>
+        )}
+      </SidebarHeader>
+      <div className="border-t border-white/50 mx-2" />
+      <SidebarContent>
+        <SidebarGroup>
+          {open && <SidebarGroupLabel>Navegação</SidebarGroupLabel>}
+          <SidebarGroupContent>
+            {links.map((link) => (
+              <Fragment key={link.label}>
+                <SidebarLink link={link} />
+                {link.label === "Minhas Tarefas" && <InboxSidebarEntry />}
+              </Fragment>
+            ))}
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarFooter>
+        <SidebarUser />
+      </SidebarFooter>
+    </SidebarBody>
   );
 }
 
-function InboxBellWrapper() {
-  // Client-only component wrapper to avoid marking the whole layout as client
-  // eslint-disable-next-line @next/next/no-async-client-component
-  const Comp = require("@/features/inbox/InboxDrawer").InboxBell as React.ComponentType;
-  // @ts-ignore
-  return <Comp />;
+export default function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const [open, setOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(true);
+  const pathname = usePathname() || "/";
+  const search = useSearchParams();
+  const router = useRouter();
+  const parts = pathname.split("/").filter(Boolean);
+  const isExpandedCadastro = parts[0] === 'cadastro' && (parts[1] === 'pf' || parts[1] === 'pj') && parts.length >= 3;
+  const activePanel = (search?.get('panel') || '').toLowerCase();
+  const isTasksPanel = activePanel === 'tarefas';
+  const isInboxPanel = activePanel === 'inbox';
+  const isPanelOpen = isTasksPanel || isInboxPanel;
+  const sidebarOffset = isDesktop ? (open ? 300 : 60) : 0;
+
+  // Do not force open the sidebar automatically when opening the Tasks drawer
+
+  function onDownloadPdf() { try { window.print(); } catch {} }
+
+  const closePanel = () => {
+    const params = new URLSearchParams(search?.toString() || '');
+    params.delete('panel');
+    const query = params.size ? `?${params.toString()}` : '';
+    router.replace(`${pathname}${query}`, { scroll: false });
+  };
+
+  const panelTitle = isTasksPanel ? 'Minhas Tarefas' : isInboxPanel ? 'Caixa de Entrada' : '';
+  const panelContent = isTasksPanel ? <TasksPanelProxy /> : isInboxPanel ? <InboxPanel /> : null;
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  return (
+    <RouteBg>
+      <SidebarProvider open={open} setOpen={setOpen}>
+        <InboxProvider panelOpen={isInboxPanel}>
+          <div className="text-zinc-900 min-h-screen" style={{ backgroundColor: 'var(--color-primary)' }}>
+            <Sidebar open={open} setOpen={setOpen}>
+              <AppSidebar />
+            </Sidebar>
+            <div 
+              className="flex flex-1 transition-all duration-300 ease-in-out"
+              style={{ 
+                marginLeft: isDesktop ? `${open ? 300 : 60}px` : '0px',
+              }}
+            >
+              <main className={`p-2 md:p-6 rounded-tl-3xl border border-neutral-200 dark:border-neutral-700 bg-[var(--neutro)] dark:bg-neutral-900 flex flex-col gap-2 flex-1 w-full min-h-screen`}>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <SidebarTrigger className="hidden md:inline-flex" />
+                    <Breadcrumbs />
+                  </div>
+                  {isExpandedCadastro && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Baixar PDF</button>
+                    </div>
+                  )}
+                </div>
+                {children}
+                {isPanelOpen && (
+                  <div
+                    className="fixed z-[85] bg-transparent"
+                    style={{ top: 0, bottom: 0, left: sidebarOffset, right: 0 }}
+                    onClick={closePanel}
+                  />
+                )}
+              </main>
+              {isPanelOpen && (
+                <div
+                  role="dialog"
+                  aria-modal
+                  className="fixed top-0 z-[90] h-screen bg-[var(--neutro)] border border-neutral-200 rounded-tl-3xl flex flex-col shadow-[4px_0_12px_rgba(0,0,0,0.12)]"
+                  style={{ left: sidebarOffset, right: isDesktop ? 'auto' as any : 0, width: isDesktop ? 440 : '100%' }}
+                >
+                  <div className="px-3 md:px-4 py-2 md:py-3 border-b border-neutral-200 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <SidebarTrigger className="hidden md:inline-flex" />
+                      <span className="text-h4 font-semibold text-[var(--color-primary)] truncate">{panelTitle}</span>
+                    </div>
+                    <button onClick={closePanel} aria-label="Fechar" className="p-2 rounded hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                        <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 11-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-auto p-3 md:p-4">
+                    {panelContent}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </InboxProvider>
+      </SidebarProvider>
+    </RouteBg>
+  );
 }
+
+ 

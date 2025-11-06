@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
       <div className="mb-8 flex flex-col items-center">
         <div className="mb-4">
           <Image 
-            src="/mznet-logo.svg" 
+            src="/mznet-logo.png" 
             alt="MZnet Logo" 
             width={120} 
             height={40}

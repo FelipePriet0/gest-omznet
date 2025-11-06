@@ -1,0 +1,89 @@
+**Installation**
+
+```tsx
+npx shadcn-vue@latest add textarea
+```
+
+**Usage** 
+
+```tsx
+<script setup lang="ts">
+import { Textarea } from '@/components/ui/textarea'
+</script>
+
+<template>
+  <Textarea />
+</template>
+```
+
+**Default** 
+
+```tsx
+<script setup lang="ts">
+import { Textarea } from "@/components/ui/textarea"
+</script>
+
+<template>
+  <Textarea placeholder="Type your message here." />
+</template>
+```
+
+**Disabled** 
+
+```tsx
+<script setup lang="ts">
+import { Textarea } from "@/components/ui/textarea"
+</script>
+
+<template>
+  <Textarea placeholder="Type your message here." disabled />
+</template>
+```
+
+**With Label** 
+
+```tsx
+<script setup lang="ts">
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+</script>
+
+<template>
+  <div class="grid w-full gap-1.5">
+    <Label for="message">Your message</Label>
+    <Textarea id="message" placeholder="Type your message here." />
+  </div>
+</template>
+```
+
+---
+
+Código da instalação (React/shadcn/ui)
+
+Arquivo: components/ui/textarea.tsx
+
+```tsx
+import * as React from "react"
+
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, rows = 4, ...props }, ref) => {
+  return (
+    <textarea
+      ref={ref}
+      rows={rows}
+      className={[
+        "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm",
+        "outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500",
+        "disabled:cursor-not-allowed disabled:opacity-60",
+        className || "",
+      ].join(" ")}
+      {...props}
+    />
+  )
+})
+
+Textarea.displayName = "Textarea"
+
+export { Textarea }
+```

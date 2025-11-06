@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { Check, Circle } from "lucide-react";
+import { TaskFilterCTA } from "@/components/app/task-filter-cta";
+// Nova ficha CTA removido do Drawer: Minhas Tarefas
 
 type TaskRow = {
   id: string;
@@ -14,6 +17,8 @@ type TaskRow = {
   applicant_name: string;
   cpf_cnpj: string;
   area?: 'comercial'|'analise'|string;
+  created_name?: string|null;
+  creator_role?: 'vendedor'|'analista'|'gestor'|null;
 };
 
 export default function MinhasTarefasPage() {
@@ -24,14 +29,30 @@ export default function MinhasTarefasPage() {
   const [due, setDue] = useState<'all'|'hoje'|'amanha'|'atrasado'|'intervalo'>('all');
   const [ds, setDs] = useState('');
   const [de, setDe] = useState('');
+  const [counts, setCounts] = useState<{pending:number; completed:number}>({ pending: 0, completed: 0 });
+  
+  // Removidos modais/estado de "Nova ficha" no Drawer
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadCounts(); }, []);
 
-  async function load() {
+  async function loadCounts() {
+    try {
+      const { data, error } = await supabase.rpc('my_tasks_counts');
+      if (!error && data) {
+        const row = Array.isArray(data) ? data[0] : data;
+        const p = Number(row?.pending ?? 0);
+        const c = Number(row?.completed ?? 0);
+        setCounts({ pending: isFinite(p)? p:0, completed: isFinite(c)? c:0 });
+      }
+    } catch {}
+  }
+
+  async function load(nextStatus?: 'all'|'pending'|'completed') {
     setLoading(true);
     try {
+      const effStatus = nextStatus ?? status;
       const { data, error } = await supabase.rpc('list_my_tasks', {
-        p_status: status==='all'? null : status,
+        p_status: effStatus==='all'? null : effStatus,
         p_due: due==='all'? null : due,
         p_date_start: ds? atStart(ds) : null,
         p_date_end: de? atEnd(de) : null,
@@ -46,6 +67,8 @@ export default function MinhasTarefasPage() {
     setItems(prev => prev.map(i => i.id === taskId ? { ...i, status: done ? 'completed' : 'pending' } : i));
     try {
       await supabase.rpc('update_my_task', { p_task_id: taskId, p_status: done? 'completed':'pending' });
+      // refresh counters (not tied to filters)
+      loadCounts();
     } catch (e) {
       // Em caso de erro, volta estado anterior e informa
       setItems(prev => prev.map(i => i.id === taskId ? { ...i, status: !done ? 'completed' : 'pending' } : i));
@@ -53,94 +76,181 @@ export default function MinhasTarefasPage() {
     }
   }
 
-  async function remove(taskId: string) {
-    if (!confirm('Excluir tarefa?')) return;
-    await supabase.rpc('update_my_task', { p_task_id: taskId, p_delete: true });
-    await load();
-  }
-
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl bg-gradient-to-r from-emerald-800 to-emerald-600 px-6 py-5 text-white shadow">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Minhas Tarefas</h1>
-            <p className="text-sm text-white/90">Acompanhe e conclua suas tarefas</p>
+    <>
+
+      <div className="relative">
+        <div className="absolute top-0 left-0 z-10">
+          <div className="flex items-center gap-2">
+            <TaskFilterCTA 
+              q={q} setQ={setQ}
+              status={status} setStatus={setStatus}
+              due={due} setDue={setDue}
+              ds={ds} setDs={setDs}
+              de={de} setDe={setDe}
+              onApply={load}
+              loading={loading}
+            />
+            {status !== 'all' && (
+              <div className="flex gap-[1px] items-center text-xs">
+                <div className="flex gap-1.5 shrink-0 rounded-l bg-neutral-200 px-1.5 py-1 items-center">
+                  Status
+                </div>
+                <div className="bg-neutral-100 px-2 py-1 text-neutral-700">{status === 'pending' ? 'Pendentes' : 'Concluídas'}</div>
+                <button
+                  onClick={() => { setStatus('all'); load('all'); }}
+                  className="bg-neutral-200 rounded-l-none rounded-r-sm h-6 w-6 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-300 transition shrink-0"
+                  aria-label="Limpar filtro de status"
+                >
+                  ×
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      </section>
-
-      <div className="rounded-xl border bg-white p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700">Busca</label>
-            <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Descrição ou nome do cliente" className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500" />
+        {/* CTA "Nova ficha" removido no Drawer */}
+        <div className="pt-12">
+          {/* Mini dashboard: A fazer / Concluídas (não dependem do filtro) */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 w-full mb-6">
+            <DashboardCard title="A avaliar" value={counts.pending} icon={<Circle className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Concluídas" value={counts.completed} icon={<Check className="w-4 h-4 text-white" />} />
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
-            <select value={status} onChange={(e)=> setStatus(e.target.value as any)} className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500">
-              <option value="all">Todos</option>
-              <option value="pending">Pendentes</option>
-              <option value="completed">Concluídas</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700">Prazo</label>
-            <select value={due} onChange={(e)=> setDue(e.target.value as any)} className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500">
-              <option value="all">Todos</option>
-              <option value="hoje">Hoje</option>
-              <option value="amanha">Amanhã</option>
-              <option value="atrasado">Atrasadas</option>
-              <option value="intervalo">Intervalo</option>
-            </select>
-          </div>
-          {due==='intervalo' && (
-            <div className="flex items-end gap-2">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">De</label>
-                <input type="date" value={ds} onChange={(e)=> setDs(e.target.value)} className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500" />
+          <div className="space-y-3">
+            {items.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+                  <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">Nenhuma tarefa encontrada</h3>
+                <p className="text-sm text-gray-500">Suas tarefas aparecerão aqui quando forem atribuídas</p>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-700">Até</label>
-                <input type="date" value={de} onChange={(e)=> setDe(e.target.value)} className="h-10 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500" />
-              </div>
-            </div>
-          )}
-          <div className="ml-auto">
-            <button disabled={loading} onClick={load} className="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Aplicar</button>
+            ) : (
+              items.map((t) => {
+                const cardHref = `${(t.area || 'analise') === 'analise' ? '/kanban/analise' : '/kanban'}?card=${t.card_id}`;
+                return (
+                  <a
+                    key={t.id}
+                    href={cardHref}
+                    className="group block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all duration-200"
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Checkbox customizado */}
+                      <div className="flex-shrink-0 pt-1" onClick={(e) => e.stopPropagation()}>
+                        <label className="relative flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={t.status === 'completed'} 
+                            onChange={(e) => toggle(t.id, e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+                            t.status === 'completed' 
+                              ? 'bg-emerald-500 border-emerald-500' 
+                              : 'border-gray-300 hover:border-emerald-400'
+                          }`}>
+                            {t.status === 'completed' && (
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </label>
+                      </div>
+                      {/* Conteúdo principal */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`text-sm font-medium leading-5 truncate ${
+                              t.status === 'completed' 
+                                ? 'line-through text-gray-500' 
+                                : 'text-gray-900'
+                            }`}>
+                              {t.description}
+                            </h3>
+                            <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                              <span className="inline-flex items-center gap-1 truncate max-w-[150px]">
+                                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span className="truncate">{t.applicant_name}</span>
+                              </span>
+                              <span className="flex-shrink-0">•</span>
+                              <span className="truncate">{t.cpf_cnpj}</span>
+                              {t.created_name && (
+                                <>
+                                  <span className="flex-shrink-0">•</span>
+                                  <span className="inline-flex items-center gap-1 text-xs text-gray-600 truncate">
+                                    <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                    </svg>
+                                    <span className="truncate">
+                                      Criado por: <span className="font-medium">{t.created_name}</span>
+                                      {t.creator_role && (
+                                        <span className="text-gray-500"> ({
+                                          t.creator_role === 'vendedor' ? 'Vendedor' :
+                                          t.creator_role === 'analista' ? 'Analista' :
+                                          t.creator_role === 'gestor' ? 'Gestor' : t.creator_role
+                                        })</span>
+                                      )}
+                                    </span>
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Status e prazo */}
+                          <div className="flex items-center gap-4 text-xs flex-shrink-0">
+                            {t.deadline && (
+                              <div className="text-right">
+                                <div className="text-gray-500">Prazo</div>
+                                <div className={`font-medium ${
+                                  t.deadline && new Date(t.deadline) < new Date() && t.status !== 'completed' 
+                                    ? 'text-red-600' 
+                                    : 'text-gray-700'
+                                }`}>
+                                  {new Date(t.deadline).toLocaleDateString('pt-BR')}
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              t.status === 'completed'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {t.status === 'completed' ? 'Concluída' : 'Pendente'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </a>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
+      
+      {/* Modais de cadastro removidos do Drawer */}
+    </>
+  );
+}
 
-      <div className="rounded-xl border bg-white">
-        <div className="border-b px-4 py-2 text-sm font-semibold text-gray-800">Tarefas</div>
-        <div className="divide-y">
-          {items.length===0 ? (
-            <div className="px-4 py-6 text-sm text-zinc-600">Sem tarefas</div>
-          ) : items.map(t => (
-            <div key={t.id} className="grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-5 sm:items-center">
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={t.status==='completed'} onChange={(e)=> toggle(t.id, e.target.checked)} />
-                <div>
-                  <div className={`text-sm ${t.status==='completed' ? 'line-through text-emerald-700' : 'text-zinc-800'}`}>{t.description}</div>
-                  <div className="text-xs text-zinc-500">{t.applicant_name} • {t.cpf_cnpj}</div>
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-zinc-500">Prazo</div>
-                <div className={`text-sm ${t.deadline && new Date(t.deadline) < new Date() && t.status!=='completed' ? 'text-red-600' : 'text-zinc-800'}`}>{t.deadline ? new Date(t.deadline).toLocaleString() : '—'}</div>
-              </div>
-              <div>
-                <div className="text-xs text-zinc-500">Status</div>
-                <div className="text-sm">{t.status==='completed' ? 'Concluída' : 'Pendente'}</div>
-              </div>
-              <div className="sm:col-span-2 flex justify-end gap-2">
-                <a href={`${(t.area||'analise')==='analise' ? '/kanban/analise' : '/kanban'}?card=${t.card_id}`} className="rounded border border-zinc-300 px-3 py-1.5 text-sm">Abrir Ficha</a>
-                <button onClick={()=> remove(t.id)} className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700">Excluir</button>
-              </div>
-            </div>
-          ))}
-        </div>
+function DashboardCard({ title, value, icon }: { title: string; value?: number | null; icon?: React.ReactNode }) {
+  return (
+    <div className="h-[120px] w-full rounded-[12px] border bg-white border-zinc-200 shadow-sm overflow-hidden flex flex-col">
+      {/* Header Band (faixa de cabeçalho) */}
+      <div className="bg-[#000000] px-4 py-3 flex items-center justify-between">
+        <div className="text-sm font-medium text-white">{title}</div>
+        {icon && <div className="text-white">{icon}</div>}
+      </div>
+      {/* Área do número */}
+      <div className="flex-1 flex items-center justify-center px-4">
+        <div className="text-3xl font-bold text-[var(--verde-primario)]">{typeof value === 'number' ? value : '—'}</div>
       </div>
     </div>
   );
