@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import Image from "next/image";
 import { BasicInfoPF, BasicInfoPJ, PessoaTipo } from "@/features/cadastro/types";
 import { criarFichaPF, criarFichaPJ, checkDuplicidadeQuery } from "@/features/cadastro/services";
 
@@ -72,6 +73,8 @@ export function BasicInfoModal({
 
   const isPF = tipo === "PF";
   const title = isPF ? "Dados Básicos - Ficha PF" : "Dados Básicos - Ficha PJ";
+  const headerTitle = isPF ? "Dados Pessoais Básicos" : title;
+  const headerSubtitle = isPF ? "Preencha as informações fundamentais do cliente" : "Preencha as informações fundamentais da empresa";
 
   const canContinue = useMemo(() => {
     if (!open || !tipo) return false;
@@ -125,77 +128,108 @@ export function BasicInfoModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-[94vw] max-w-[720px] rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+      <div className="relative w-[92vw] max-w-[760px] overflow-hidden rounded-2xl bg-neutral-50 shadow-xl">
+        <div className="rounded-t-2xl bg-emerald-700 px-6 py-4 text-white">
+          <div className="flex items-center gap-3">
+            <Image src="/brand/mznet.png" alt="MZNET" width={72} height={24} priority />
+            <div className="flex flex-col">
+              <h2 className="text-base font-semibold sm:text-lg">{headerTitle}</h2>
+              <p className="text-xs text-emerald-50/90 sm:text-sm">{headerSubtitle}</p>
+            </div>
+          </div>
         </div>
 
+        <div className="p-6">
+
         {isPF ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Nome completo" placeholder="Nome completo do Lead" value={pf.nome} onChange={(v) => setPF({ ...pf, nome: v })} className="sm:col-span-2" />
-            <Field
-              label="CPF"
-              placeholder="000.000.000-00"
-              value={pf.cpf}
-              onChange={(v) => setPF({ ...pf, cpf: formatCpf(v) })}
-              inputMode="numeric"
-            />
-            <Field
-              label="Data de nascimento"
-              placeholder="dd/mm/aaaa"
-              value={pf.nasc || ""}
-              onChange={(v) => setPF({ ...pf, nasc: formatDateBR(v) })}
-              inputMode="numeric"
-              maxLength={10}
-            />
-            <Field
-              label="Telefone"
-              placeholder="(00) 00000-0000"
-              value={pf.tel || ""}
-              onChange={(v) => setPF({ ...pf, tel: formatPhoneBR(v) })}
-              inputMode="numeric"
-              maxLength={15}
-            />
-            <Field
-              label="Whatsapp"
-              placeholder="(00) 00000-0000"
-              value={pf.whats || ""}
-              onChange={(v) => setPF({ ...pf, whats: formatPhoneBR(v) })}
-              inputMode="numeric"
-              maxLength={15}
-            />
-            <Field label="E-mail" placeholder="cliente@exemplo.com" value={pf.email || ""} onChange={(v) => setPF({ ...pf, email: v })} />
-            <Field label="Cidade de nascimento" placeholder="Ex: São Paulo" value={pf.naturalidade || ""} onChange={(v) => setPF({ ...pf, naturalidade: v })} />
-            <Field label="UF" placeholder="SP" value={pf.uf || ""} onChange={(v) => setPF({ ...pf, uf: v })} />
+          <div className="space-y-5">
+            <Section title="Informações Pessoais" dotColor="bg-blue-500">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Nome do Cliente" placeholder="Nome completo do Lead" value={pf.nome} onChange={(v) => setPF({ ...pf, nome: v })} className="sm:col-span-2" />
+                <Field
+                  label="CPF"
+                  placeholder="000.000.000-00"
+                  value={pf.cpf}
+                  onChange={(v) => setPF({ ...pf, cpf: formatCpf(v) })}
+                  inputMode="numeric"
+                />
+                <Field
+                  label="Data de nascimento"
+                  placeholder="dd/mm/aaaa"
+                  value={pf.nasc || ""}
+                  onChange={(v) => setPF({ ...pf, nasc: formatDateBR(v) })}
+                  inputMode="numeric"
+                  maxLength={10}
+                />
+              </div>
+            </Section>
+
+            <Section title="Informações de Contato" dotColor="bg-emerald-500">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field
+                  label="Telefone"
+                  placeholder="(00) 00000-0000"
+                  value={pf.tel || ""}
+                  onChange={(v) => setPF({ ...pf, tel: formatPhoneBR(v) })}
+                  inputMode="numeric"
+                  maxLength={15}
+                />
+                <Field
+                  label="Whatsapp"
+                  placeholder="(00) 00000-0000"
+                  value={pf.whats || ""}
+                  onChange={(v) => setPF({ ...pf, whats: formatPhoneBR(v) })}
+                  inputMode="numeric"
+                  maxLength={15}
+                />
+                <Field label="E-mail" placeholder="cliente@exemplo.com" value={pf.email || ""} onChange={(v) => setPF({ ...pf, email: v })} className="sm:col-span-2" />
+              </div>
+            </Section>
+
+            <Section title="Naturalidade" dotColor="bg-orange-500">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Cidade de nascimento" placeholder="Ex: São Paulo" value={pf.naturalidade || ""} onChange={(v) => setPF({ ...pf, naturalidade: v })} />
+                <Field label="UF" placeholder="SP" value={pf.uf || ""} onChange={(v) => setPF({ ...pf, uf: v })} />
+              </div>
+            </Section>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Razão Social" placeholder="Ex: Empresa LTDA" value={pj.razaoSocial} onChange={(v) => setPJ({ ...pj, razaoSocial: v })} />
-            <Field label="Nome Fantasia" placeholder="Ex: Mznet" value={pj.fantasia || ""} onChange={(v) => setPJ({ ...pj, fantasia: v })} />
-            <Field
-              label="CNPJ"
-              placeholder="00.000.000/0000-00"
-              value={pj.cnpj}
-              onChange={(v) => setPJ({ ...pj, cnpj: formatCnpj(v) })}
-              inputMode="numeric"
-            />
-            <Field label="E-mail" placeholder="empresa@exemplo.com" value={pj.email || ""} onChange={(v) => setPJ({ ...pj, email: v })} />
-            <Field
-              label="Telefone"
-              placeholder="(00) 00000-0000"
-              value={pj.tel || ""}
-              onChange={(v) => setPJ({ ...pj, tel: formatPhoneBR(v) })}
-              inputMode="numeric"
-              maxLength={15}
-            />
-            <Field
-              label="Whatsapp"
-              placeholder="(00) 00000-0000"
-              value={pj.whats || ""}
-              onChange={(v) => setPJ({ ...pj, whats: formatPhoneBR(v) })}
-              inputMode="numeric"
-              maxLength={15}
-            />
+          <div className="space-y-5">
+            <Section title="Dados da empresa" dotColor="bg-blue-500">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Razão Social" placeholder="Ex: Empresa LTDA" value={pj.razaoSocial} onChange={(v) => setPJ({ ...pj, razaoSocial: v })} />
+                <Field label="Nome Fantasia" placeholder="Ex: Mznet" value={pj.fantasia || ""} onChange={(v) => setPJ({ ...pj, fantasia: v })} />
+                <Field
+                  label="CNPJ"
+                  placeholder="00.000.000/0000-00"
+                  value={pj.cnpj}
+                  onChange={(v) => setPJ({ ...pj, cnpj: formatCnpj(v) })}
+                  inputMode="numeric"
+                />
+                <Field label="E-mail" placeholder="empresa@exemplo.com" value={pj.email || ""} onChange={(v) => setPJ({ ...pj, email: v })} />
+              </div>
+            </Section>
+
+            <Section title="Contatos" dotColor="bg-emerald-500">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field
+                  label="Telefone"
+                  placeholder="(00) 00000-0000"
+                  value={pj.tel || ""}
+                  onChange={(v) => setPJ({ ...pj, tel: formatPhoneBR(v) })}
+                  inputMode="numeric"
+                  maxLength={15}
+                />
+                <Field
+                  label="Whatsapp"
+                  placeholder="(00) 00000-0000"
+                  value={pj.whats || ""}
+                  onChange={(v) => setPJ({ ...pj, whats: formatPhoneBR(v) })}
+                  inputMode="numeric"
+                  maxLength={15}
+                />
+              </div>
+            </Section>
           </div>
         )}
 
@@ -203,16 +237,17 @@ export function BasicInfoModal({
         {ok && <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{ok}</div>}
 
         <div className="mt-6 flex items-center justify-between">
-          <button onClick={onBack} className="rounded-full border border-gray-300 px-4 py-2 text-sm text-gray-700">Voltar</button>
+          <button onClick={onBack} className="rounded-[12px] bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Voltar</button>
           <div className="flex gap-3">
             <button
               onClick={onSubmit}
               disabled={!canContinue || loading}
-              className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              className="rounded-[12px] bg-emerald-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
               {loading ? "Salvando…" : "Continuar"}
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -230,8 +265,22 @@ function Field({ label, placeholder, value, onChange, className, inputMode, maxL
         inputMode={inputMode}
         maxLength={maxLength}
         autoComplete="off"
-        className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-emerald-500 text-emerald-700 placeholder:text-emerald-600 placeholder:opacity-60"
+        className="h-10 w-full rounded-[12px] border border-gray-300 bg-white px-3 text-sm outline-none focus:border-emerald-500 text-emerald-700 placeholder:text-emerald-600 placeholder:opacity-60"
       />
+    </div>
+  );
+}
+
+function Section({ title, dotColor, children }: { title: string; dotColor: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+        <span className={`inline-block h-2.5 w-2.5 rounded-full ${dotColor}`} />
+        <span>{title}</span>
+      </div>
+      <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-sm">
+        {children}
+      </div>
     </div>
   );
 }

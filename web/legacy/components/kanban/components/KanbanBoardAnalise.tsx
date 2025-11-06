@@ -7,8 +7,6 @@ import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn
 import { KanbanCard } from "@/features/kanban/types";
 import { listCards, changeStage } from "@/features/kanban/services";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
-import { DeleteFlow } from "@/legacy/components/kanban/components/DeleteModals";
-import { QuickActionsModal } from "@/legacy/components/kanban/components/QuickActionsModal";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
 
@@ -28,8 +26,8 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
   const [cancel, setCancel] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
-  const [del, setDel] = useState<{ id: string; name: string; cpf: string } | null>(null);
-  const [actions, setActions] = useState<{ id: string; name: string; cpf: string } | null>(null);
+  
+  
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
 
   useEffect(() => {
@@ -118,7 +116,7 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
               cards={(grouped[c.key as keyof typeof grouped] || []).map((card) => ({
                 ...card,
                 onOpen: () => setEdit({ cardId: card.id, applicantId: card.applicantId }),
-                onMenu: () => setActions({ id: card.id, name: card.applicantName, cpf: card.cpfCnpj }),
+                onMenu: () => setMove({ id: card.id, area: 'analise' }),
                 extraAction: c.key === "recebidos" ? extraForRecebidos(card) : undefined,
               }))}
             />
@@ -140,20 +138,7 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
         area="analise"
         onCancelled={async () => setCards(await listCards("analise", { hora, prazo, date }))}
       />
-      <DeleteFlow
-        open={!!del}
-        onClose={() => setDel(null)}
-        cardId={del?.id || ""}
-        applicantName={del?.name || ""}
-        cpfCnpj={del?.cpf || ""}
-        onDeleted={async () => setCards(await listCards("analise", { hora, prazo, date }))}
-      />
-      <QuickActionsModal
-        open={!!actions}
-        onClose={() => setActions(null)}
-        onMove={() => { if (actions) setMove({ id: actions.id, area: 'analise' }); setActions(null); }}
-        onDelete={() => { if (actions) setDel(actions); setActions(null); }}
-      />
+      
       <EditarFichaModal open={!!edit} onClose={()=> setEdit(null)} cardId={edit?.cardId||''} applicantId={edit?.applicantId||''} />
     </div>
   );

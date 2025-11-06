@@ -138,7 +138,7 @@ export default function MinhasTarefasPage() {
                     <div className="flex items-start gap-4">
                       {/* Checkbox customizado */}
                       <div className="flex-shrink-0 pt-1" onClick={(e) => e.stopPropagation()}>
-                        <label className="relative flex items-center cursor-pointer">
+                        <label className="relative flex items-center cursor-pointer p-2 -m-2 rounded-md hover:bg-neutral-50">
                           <input 
                             type="checkbox" 
                             checked={t.status === 'completed'} 

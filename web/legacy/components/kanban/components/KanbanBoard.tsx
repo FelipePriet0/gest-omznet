@@ -7,8 +7,6 @@ import { useEffect, useMemo, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
 import { DndContext } from "@dnd-kit/core";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
-import { DeleteFlow } from "@/legacy/components/kanban/components/DeleteModals";
-import { QuickActionsModal } from "@/legacy/components/kanban/components/QuickActionsModal";
 import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
 
 const columnConfig = [
@@ -23,8 +21,8 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
   const [cancel, setCancel] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
-  const [del, setDel] = useState<{id:string,name:string,cpf:string}|null>(null);
-  const [actions, setActions] = useState<{id:string,name:string,cpf:string}|null>(null);
+  
+  
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
 
   useEffect(() => { (async () => { try { setCards(await listCards('comercial', { hora, prazo, date })); } catch {} })(); }, [hora, prazo, date]);
@@ -51,7 +49,7 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
     try { await changeStage(cardId, 'comercial', target); setCards(await listCards('comercial')); } catch (e:any) { alert(e.message ?? 'Falha ao mover'); }
   }
 
-  function openMenu(c: KanbanCard) { setActions({ id: c.id, name: c.applicantName, cpf: c.cpfCnpj }); }
+  function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial' }); }
 
   return (
     <div className="relative">
@@ -74,13 +72,7 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
       </DndContext>
       <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
       <CancelModal open={!!cancel} onClose={()=>setCancel(null)} cardId={cancel?.id||''} area="comercial" onCancelled={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
-      <DeleteFlow open={!!del} onClose={()=>setDel(null)} cardId={del?.id||''} applicantName={del?.name||''} cpfCnpj={del?.cpf||''} onDeleted={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
-      <QuickActionsModal
-        open={!!actions}
-        onClose={() => setActions(null)}
-        onMove={() => { if(actions) setMove({ id: actions.id, area: 'comercial' }); setActions(null); }}
-        onDelete={() => { if(actions) setDel(actions); setActions(null); }}
-      />
+      
       <EditarFichaModal open={!!edit} onClose={()=> setEdit(null)} cardId={edit?.cardId||''} applicantId={edit?.applicantId||''} />
     </div>
   );

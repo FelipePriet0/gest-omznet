@@ -9,12 +9,6 @@ export async function changeStage(cardId: string, area: 'comercial' | 'analise',
   return data;
 }
 
-export async function softDeleteCard(cardId: string, reason?: string) {
-  const { data, error } = await supabase.rpc('soft_delete_card', { p_card_id: cardId, p_reason: reason ?? null });
-  if (error) throw error;
-  return data;
-}
-
 export async function listCards(
   area: 'comercial' | 'analise',
   opts?: { hora?: string; prazo?: 'hoje' | 'amanha' | 'atrasado' | 'data'; date?: string }

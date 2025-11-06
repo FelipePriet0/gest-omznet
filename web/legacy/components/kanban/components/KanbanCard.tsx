@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { KanbanCard as Card } from "@/features/kanban/types";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MoreVertical, Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
 
 export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () => void; onMenu: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
@@ -14,27 +16,66 @@ export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () =>
     boxShadow: isDragging ? "0 10px 20px rgba(0,0,0,0.3)" : undefined,
     opacity: isDragging ? 0.95 : 1,
   } as React.CSSProperties;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div ref={setNodeRef} style={style} className="kanban-card rounded-md border border-zinc-200 bg-white p-3 text-sm transition">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="kanban-card rounded-2xl border border-emerald-100/40 bg-white p-3 shadow-[0_6px_16px_rgba(30,41,59,0.06)] hover:shadow-[0_10px_24px_rgba(30,41,59,0.10)] transition"
+    >
       <div className="flex items-start justify-between">
         <div className="min-w-0" onClick={onOpen} role="button">
-          <div className="mb-1 truncate text-sm font-semibold">{card.applicantName}</div>
-          <div className="text-xs text-zinc-500">{card.cpfCnpj}</div>
+          <div className="mb-0.5 truncate text-[13px] font-semibold text-zinc-900">{card.applicantName}</div>
+          <div className="text-[11px] text-zinc-500">CPF: {card.cpfCnpj}</div>
         </div>
-        <button onClick={onMenu} className="ml-2 rounded p-1 text-red-500 hover:bg-red-50" aria-label="menu">
-          ⋮
-        </button>
+        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+          <PopoverTrigger asChild>
+            <button className="ml-2 rounded p-1 text-emerald-600 hover:bg-emerald-50" aria-label="Ações do card">
+              <MoreVertical className="w-4 h-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[180px] p-0 bg-white border-0 shadow-lg rounded-lg" side="right" align="end" sideOffset={6}>
+            <div className="py-1">
+              <button
+                className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-md"
+                onClick={() => { setMenuOpen(false); onMenu(); }}
+              >
+                Mover…
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600">
-        {card.phone && <span>Tel: {card.phone}</span>}
-        {card.whatsapp && <span>Whats: {card.whatsapp}</span>}
-        {card.bairro && <span>Bairro: {card.bairro}</span>}
-        {card.dueAt && <span>Ag.: {new Date(card.dueAt).toLocaleDateString()}</span>}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-zinc-700">
+        {card.phone && (
+          <span className="inline-flex items-center gap-1.5">
+            <Phone className="w-3.5 h-3.5 text-zinc-400" />
+            {card.phone}
+          </span>
+        )}
+        {card.whatsapp && (
+          <span className="inline-flex items-center gap-1.5">
+            <MessageCircle className="w-3.5 h-3.5 text-zinc-400" />
+            WhatsApp
+          </span>
+        )}
+        {card.bairro && (
+          <span className="inline-flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-zinc-400" />
+            Bairro: {card.bairro}
+          </span>
+        )}
+        {card.dueAt && (
+          <span className="inline-flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+            Ag.: {new Date(card.dueAt).toLocaleDateString()}
+          </span>
+        )}
       </div>
       {card.extraAction}
       <div className="mt-2 flex gap-2">
-        <button className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs" {...listeners} {...attributes}>
+        <button className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-50" {...listeners} {...attributes}>
           Arrastar
         </button>
       </div>
