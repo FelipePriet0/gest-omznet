@@ -327,7 +327,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
           </div>
         </div>
         <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain modal-scroll scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300">
-        <div className="p-6 pb-28 sm:pb-32">
+        <div className="p-6 pb-12 sm:pb-16">
         {statusText && (
           <div className="mb-6 mt-3 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
         )}
@@ -444,83 +444,83 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
               {/* Content Area - Yellow Box */}
               <div className="section-content">
                 <div className="mb-3 relative">
-                <Textarea
-                  ref={parecerRef}
-                  value={novoParecer}
-                  onChange={(e)=> {
-                    const v = e.target.value || '';
-                    setNovoParecer(v);
-                    const atIdx = v.lastIndexOf('@');
-                    if (atIdx >= 0) { setMentionFilterParecer(v.slice(atIdx + 1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
-                    const slashIdx = v.lastIndexOf('/');
-                    if (slashIdx>=0) {
-                      setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
-                      if (parecerRef.current) {
-                        const ta = parecerRef.current;
-                        const c = getCaretCoordinates(ta, slashIdx + 1);
-                        const rect = ta.getBoundingClientRect();
-                        const top = rect.top + window.scrollY + c.top + c.height + 6;
-                        const left = rect.left + window.scrollX + c.left;
-                        setCmdAnchorParecer({ top, left });
+                  <Textarea
+                    ref={parecerRef}
+                    value={novoParecer}
+                    onChange={(e)=> {
+                      const v = e.target.value || '';
+                      setNovoParecer(v);
+                      const atIdx = v.lastIndexOf('@');
+                      if (atIdx >= 0) { setMentionFilterParecer(v.slice(atIdx + 1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
+                      const slashIdx = v.lastIndexOf('/');
+                      if (slashIdx>=0) {
+                        setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
+                        if (parecerRef.current) {
+                          const ta = parecerRef.current;
+                          const c = getCaretCoordinates(ta, slashIdx + 1);
+                          const rect = ta.getBoundingClientRect();
+                          const top = rect.top + window.scrollY + c.top + c.height + 6;
+                          const left = rect.left + window.scrollX + c.left;
+                          setCmdAnchorParecer({ top, left });
+                        }
                       }
-                    }
-                    else { setCmdOpenParecer(false); }
-                  }}
-                  onKeyDown={(e)=>{
-                    // Enviar via Enter (sem Shift), anexando abaixo
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      addParecer();
-                      return;
-                    }
-                    // Atalhos /tarefa e /anexo + menções
-                    const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
-                    const atIdx = v.lastIndexOf('@');
-                    if (atIdx>=0) { setMentionFilterParecer(v.slice(atIdx+1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
-                    const slashIdx = v.lastIndexOf('/');
-                    if (slashIdx>=0) {
-                      setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
-                      if (parecerRef.current) {
-                        const ta = parecerRef.current;
-                        const c = getCaretCoordinates(ta, slashIdx + 1);
-                        const rect = ta.getBoundingClientRect();
-                        const top = rect.top + window.scrollY + c.top + c.height + 6;
-                        const left = rect.left + window.scrollX + c.left;
-                        setCmdAnchorParecer({ top, left });
+                      else { setCmdOpenParecer(false); }
+                    }}
+                    onKeyDown={(e)=>{
+                      // Enviar via Enter (sem Shift), anexando abaixo
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        addParecer();
+                        return;
                       }
-                    } else { setCmdOpenParecer(false); }
-                    if (v.endsWith('/tarefa')) { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); }
-                    else if (v.endsWith('/anexo')) { setAttachOpen({ open:true, parentId:null, source:'parecer' }); }
-                  }}
-                  onKeyUp={(e)=>{
-                    const v = e.currentTarget.value || '';
-                    const slashIdx = v.lastIndexOf('/');
-                    if (slashIdx>=0) {
-                      setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
-                      if (parecerRef.current) {
-                        const ta = parecerRef.current;
-                        const c = getCaretCoordinates(ta, slashIdx + 1);
-                        const top = ta.offsetTop + c.top + c.height + 6;
-                        const leftRaw = ta.offsetLeft + c.left;
-                        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 256));
-                        setCmdAnchorParecer({ top, left });
-                      }
-                    } else { setCmdOpenParecer(false); }
-                  }}
-                  placeholder="Escreva um novo parecer… Use @ para mencionar"
-                  rows={4}
-                />
+                      // Atalhos /tarefa e /anexo + menções
+                      const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
+                      const atIdx = v.lastIndexOf('@');
+                      if (atIdx>=0) { setMentionFilterParecer(v.slice(atIdx+1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
+                      const slashIdx = v.lastIndexOf('/');
+                      if (slashIdx>=0) {
+                        setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
+                        if (parecerRef.current) {
+                          const ta = parecerRef.current;
+                          const c = getCaretCoordinates(ta, slashIdx + 1);
+                          const rect = ta.getBoundingClientRect();
+                          const top = rect.top + window.scrollY + c.top + c.height + 6;
+                          const left = rect.left + window.scrollX + c.left;
+                          setCmdAnchorParecer({ top, left });
+                        }
+                      } else { setCmdOpenParecer(false); }
+                      if (v.endsWith('/tarefa')) { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); }
+                      else if (v.endsWith('/anexo')) { setAttachOpen({ open:true, parentId:null, source:'parecer' }); }
+                    }}
+                    onKeyUp={(e)=>{
+                      const v = e.currentTarget.value || '';
+                      const slashIdx = v.lastIndexOf('/');
+                      if (slashIdx>=0) {
+                        setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
+                        if (parecerRef.current) {
+                          const ta = parecerRef.current;
+                          const c = getCaretCoordinates(ta, slashIdx + 1);
+                          const top = ta.offsetTop + c.top + c.height + 6;
+                          const leftRaw = ta.offsetLeft + c.left;
+                          const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 256));
+                          setCmdAnchorParecer({ top, left });
+                        }
+                      } else { setCmdOpenParecer(false); }
+                    }}
+                    placeholder="Escreva um novo parecer… Use @ para mencionar"
+                    rows={4}
+                  />
                   {mentionOpenParecer && (
                     <div className="absolute z-50 left-0 bottom-full mb-2">
-                    <MentionDropdownParecer
-                      items={profiles.filter((p)=> p.full_name.toLowerCase().includes(mentionFilterParecer.toLowerCase()))}
-                      onPick={(p)=> {
-                        const idx = (novoParecer || '').lastIndexOf('@');
-                        const newVal = (novoParecer || '').slice(0, idx + 1) + p.full_name + ' ';
-                        setNovoParecer(newVal);
-                        setMentionOpenParecer(false);
-                      }}
-                    />
+                      <MentionDropdownParecer
+                        items={profiles.filter((p)=> p.full_name.toLowerCase().includes(mentionFilterParecer.toLowerCase()))}
+                        onPick={(p)=> {
+                          const idx = (novoParecer || '').lastIndexOf('@');
+                          const newVal = (novoParecer || '').slice(0, idx + 1) + p.full_name + ' ';
+                          setNovoParecer(newVal);
+                          setMentionOpenParecer(false);
+                        }}
+                      />
                     </div>
                   )}
                   {cmdOpenParecer && (
@@ -558,32 +558,19 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                 />
               </div>
             </div>
+
+            {/* Conversas co-relacionadas */}
+            <Conversation
+              cardId={cardId}
+              onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
+              onOpenAttach={(parentId?: string) => setAttachOpen({ open: true, parentId: parentId ?? null, source: 'conversa' })}
+              onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
+            />
           </div>
         )}
-
-        {/* Conversas co-relacionadas */}
-        <Conversation
-          cardId={cardId}
-          onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
-          onOpenAttach={(parentId?: string) => setAttachOpen({ open: true, parentId: parentId ?? null, source: 'conversa' })}
-          onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
-        />
         </div>
 
         </div>
-        {/* Footer interno, fixo ao fundo do modal */}
-        <footer className="border-t border-zinc-200 bg-white/95 px-4 py-3 sm:px-6 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs sm:text-sm text-zinc-600">
-              {statusText || 'Pronto'}
-            </div>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={onClose} className="rounded-[10px] border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
-                Fechar
-              </button>
-            </div>
-          </div>
-        </footer>
       </div>
       {/* Drawers/Modais auxiliares */}
       <TaskDrawer

@@ -451,7 +451,7 @@ body {
   background: #f8f9fa;
   border: none;
   border-radius: clamp(8px, 2vw, 14px);
-  margin-bottom: clamp(16px, 4vw, 28px);
+  margin-bottom: 0;
   padding: clamp(8px, 1.5vw, 12px);
   overflow: visible;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -466,7 +466,6 @@ body {
   background: transparent;
   border: none;
   padding: 0;
-  margin: 0;
 }
 
 .section-title {
@@ -768,9 +767,7 @@ body {
 }
 
 /* Specific adjustment for the 3-column grid (Complemento | Bairro | CEP) */
-.endereco div[class*="grid-cols-3"] {
-  margin-top: 4px;
-}
+/* Removed extra top margin to avoid inconsistent internal spacing between rows */
 
 /* Pareceres Section Styling - Visual Areas */
 .pareceres .section-header {
@@ -1097,9 +1094,7 @@ body {
 }
 
 /* Specific spacing for contact section grids */
-.info-contato > div:first-child {
-  margin-bottom: clamp(20px, 4cqw, 32px) !important;
-}
+/* Removed outer margin on first child to prevent collapsing extra space between sections */
 
 /* Target the actual grid divs in contact section */
 .info-contato div[class*="grid"]:not(:last-child) {
@@ -1107,10 +1102,10 @@ body {
 }
 
 /* Container-responsive spacing with fluid units */
-.info-contato .field-group,
-.info-contato .w-full.space-y-2,
-.endereco .field-group,
-.endereco .w-full.space-y-2 {
+.info-contato .field-group:not(:last-child),
+.info-contato .w-full.space-y-2:not(:last-child),
+.endereco .field-group:not(:last-child),
+.endereco .w-full.space-y-2:not(:last-child) {
   margin-bottom: clamp(16px, 3cqw, 24px);
 }
 
@@ -1120,7 +1115,6 @@ body {
   .endereco .section-card {
     padding: clamp(8px, 2cqw, 16px);
     border-radius: clamp(8px, 1.5cqw, 14px);
-    margin-bottom: clamp(16px, 4cqw, 28px);
   }
 }
 
@@ -1185,13 +1179,14 @@ body {
     padding: 0 2px;
   }
   
-  .info-contato > div:first-child,
   .info-contato div[class*="grid"]:not(:last-child) {
     margin-bottom: 16px !important;
   }
   
-  .info-contato .field-group,
-  .info-contato .w-full.space-y-2 {
+  .info-contato .field-group:not(:last-child),
+  .info-contato .w-full.space-y-2:not(:last-child),
+  .endereco .field-group:not(:last-child),
+  .endereco .w-full.space-y-2:not(:last-child) {
     margin-bottom: 12px;
   }
   
@@ -1217,7 +1212,6 @@ body {
   }
   
   .section-card {
-    margin-bottom: 12px;
     padding: 4px;
     border-radius: 6px;
   }
@@ -1229,13 +1223,14 @@ body {
     padding: 0 4px;
   }
   
-  .info-contato > div:first-child,
   .info-contato div[class*="grid"]:not(:last-child) {
     margin-bottom: 22px !important;
   }
   
-  .info-contato .field-group,
-  .info-contato .w-full.space-y-2 {
+  .info-contato .field-group:not(:last-child),
+  .info-contato .w-full.space-y-2:not(:last-child),
+  .endereco .field-group:not(:last-child),
+  .endereco .w-full.space-y-2:not(:last-child) {
     margin-bottom: 18px;
   }
   
@@ -1261,7 +1256,6 @@ body {
   }
   
   .section-card {
-    margin-bottom: 20px;
     padding: 8px;
     border-radius: 10px;
   }
@@ -1273,13 +1267,14 @@ body {
     padding: 0 6px;
   }
   
-  .info-contato > div:first-child,
   .info-contato div[class*="grid"]:not(:last-child) {
     margin-bottom: 26px !important;
   }
   
-  .info-contato .field-group,
-  .info-contato .w-full.space-y-2 {
+  .info-contato .field-group:not(:last-child),
+  .info-contato .w-full.space-y-2:not(:last-child),
+  .endereco .field-group:not(:last-child),
+  .endereco .w-full.space-y-2:not(:last-child) {
     margin-bottom: 20px;
   }
   
@@ -1305,7 +1300,6 @@ body {
   }
   
   .section-card {
-    margin-bottom: 22px;
     padding: 10px;
     border-radius: 12px;
   }
@@ -1317,13 +1311,14 @@ body {
     padding: 0 8px;
   }
   
-  .info-contato > div:first-child,
   .info-contato div[class*="grid"]:not(:last-child) {
     margin-bottom: 30px !important;
   }
   
-  .info-contato .field-group,
-  .info-contato .w-full.space-y-2 {
+  .info-contato .field-group:not(:last-child),
+  .info-contato .w-full.space-y-2:not(:last-child),
+  .endereco .field-group:not(:last-child),
+  .endereco .w-full.space-y-2:not(:last-child) {
     margin-bottom: 24px;
   }
   
@@ -1349,7 +1344,6 @@ body {
   }
   
   .section-card {
-    margin-bottom: 26px;
     padding: 12px;
     border-radius: 14px;
   }
