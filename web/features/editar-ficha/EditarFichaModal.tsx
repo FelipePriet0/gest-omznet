@@ -77,11 +77,16 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
   // Update sidebar width on changes
   useEffect(() => {
-    // Bloqueia o scroll do body quando o modal está aberto
+    // Bloqueia o scroll da página quando o modal está aberto
     if (open) {
-      const prev = document.body.style.overflow;
+      const prevBody = document.body.style.overflow;
+      const prevHtml = document.documentElement.style.overflow;
       document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = prev; };
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevBody;
+        document.documentElement.style.overflow = prevHtml;
+      };
     }
   }, [open]);
 
@@ -290,44 +295,49 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   if (!open) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ left: sidebarWidth }}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden pt-8 pb-6 sm:pt-12 sm:pb-8"
+      style={{ left: sidebarWidth }}
+    >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto overflow-x-hidden overscroll-contain bg-white shadow-2xl modal-scroll scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300" style={{ borderRadius: '28px' }}>
-        <div className="p-6">
-        <div className="mb-6">
-          <div className="header-editar-ficha">
-            <div className="header-content flex items-center justify-between">
-              <div className="flex items-center gap-3">
+      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] bg-white shadow-2xl flex flex-col overflow-hidden" style={{ borderRadius: '28px' }}>
+        {/* Header completo ocupando toda a largura */}
+        <div className="header-editar-ficha flex-shrink-0">
+          <div className="header-content">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex-shrink-0">
                 <Image
-                  src="/mznet-logo.png"
-                  alt="MZNET Logo"
-                  width={36}
-                  height={36}
+                  src="/brand/mznet.png"
+                  alt="MZNET"
+                  width={72}
+                  height={24}
                   priority
-                  style={{ width: '36px', height: '36px', objectFit: 'contain' }}
                 />
-                <div className="header-title">
-                  <h2>Editar Ficha</h2>
-                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={openExpanded} className="btn-secondary-mznet no-hover">
-                  Analisar
-                </button>
+              <div className="header-title min-w-0">
+                <h2 className="truncate">Editar Ficha</h2>
+                <p className="header-subtitle truncate">Consultar e atualizar dados essenciais da ficha</p>
               </div>
             </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button type="button" onClick={openExpanded} className="btn-secondary-mznet no-hover whitespace-nowrap">
+                Analisar
+              </button>
+            </div>
           </div>
-          {statusText && (
-            <div className="mt-3 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
-          )}
         </div>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain modal-scroll scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300">
+        <div className="p-6 pb-28 sm:pb-32">
+        {statusText && (
+          <div className="mb-6 mt-3 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
+        )}
 
         {loading ? (
           <div className="text-sm text-zinc-600">Carregando…</div>
         ) : (
           <div className="space-y-6">
             {/* Informações Pessoais */}
-            <Section title="Informações Pessoais" className="info-pessoais">
+            <Section title="Informações Pessoais" variant="info-pessoais">
               <Grid cols={2}>
                 <Field label={personType==='PJ' ? 'Razão Social' : 'Nome do Cliente'} value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queue('app','primary_name', v); }} />
                 {personType === 'PJ' ? (
@@ -339,7 +349,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Contato */}
-            <Section title="Informações de Contato" className="info-contato">
+            <Section title="Informações de Contato" variant="info-contato">
               <Grid cols={2}>
                 <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queue('app','phone', m); }} />
                 <Field label="Whatsapp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queue('app','whatsapp', m); }} />
@@ -352,7 +362,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Endereço */}
-            <Section title="Endereço" className="endereco">
+            <Section title="Endereço" variant="endereco">
               <Grid cols={2}>
                 <div className="mt-1">
                   <Field label="Logradouro" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queue('app','address_line', v); }} />
@@ -373,7 +383,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Preferências e serviços */}
-            <Section title="Planos e Serviços" className="planos-servicos">
+            <Section title="Planos e Serviços" variant="planos-servicos">
               <Grid cols={2}>
                 <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ setApp({...app, plano_acesso:v}); queue('app','plano_acesso', v); }} options={PLANO_OPTIONS as any} />
                 <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queue('app','venc', v); }} options={VENC_OPTIONS as any}
@@ -393,7 +403,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Agendamento */}
-            <Section title="Agendamento" className="agendamento">
+            <Section title="Agendamento" variant="agendamento">
               <Grid cols={3}>
                 <Field label="Feito em" value={createdAt} onChange={()=>{}} disabled />
                 <CalendarReady
@@ -417,7 +427,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Equipe Responsável */}
-            <Section title="Equipe Responsável" className="info-contato">
+            <Section title="Equipe Responsável" variant="info-contato">
               <Grid cols={2}>
                 <Field label="Vendedor" value={vendorName} onChange={()=>{}} disabled />
                 <Field label="Analistas" value={analystName} onChange={()=>{}} disabled />
@@ -552,17 +562,28 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
         )}
 
         {/* Conversas co-relacionadas */}
-        <div className="mt-4">
-          <Conversation
-            cardId={cardId}
-            onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
-            onOpenAttach={(parentId?: string) => setAttachOpen({ open: true, parentId: parentId ?? null, source: 'conversa' })}
-            onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
-          />
+        <Conversation
+          cardId={cardId}
+          onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
+          onOpenAttach={(parentId?: string) => setAttachOpen({ open: true, parentId: parentId ?? null, source: 'conversa' })}
+          onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
+        />
         </div>
 
-        {/* CTA "Fechar" removido: fechamento apenas pelo clique no backdrop */}
         </div>
+        {/* Footer interno, fixo ao fundo do modal */}
+        <footer className="border-t border-zinc-200 bg-white/95 px-4 py-3 sm:px-6 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs sm:text-sm text-zinc-600">
+              {statusText || 'Pronto'}
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onClose} className="rounded-[10px] border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+                Fechar
+              </button>
+            </div>
+          </div>
+        </footer>
       </div>
       {/* Drawers/Modais auxiliares */}
       <TaskDrawer
@@ -593,14 +614,29 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   );
 }
 
-function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
+type SectionProps = {
+  title: string;
+  children: React.ReactNode;
+  variant?: string;
+  className?: string;
+  titleClassName?: string;
+  cardClassName?: string;
+};
+
+function Section({ title, children, variant, className, titleClassName, cardClassName }: SectionProps) {
+  const wrapperClasses = [variant, className].filter(Boolean).join(" ");
+  const cardClasses = ["section-card rounded-xl p-4 sm:p-6", cardClassName].filter(Boolean).join(" ");
+  const headingClasses = ["section-title text-sm font-semibold", titleClassName, variant].filter(Boolean).join(" ");
+
   return (
-    <div className="section-card rounded-xl p-4 sm:p-6">
-      <div className="section-header mb-4 sm:mb-6">
-        <h3 className={`section-title text-sm font-semibold ${className || ''}`}>{title}</h3>
+    <section className={wrapperClasses || undefined}>
+      <div className={cardClasses}>
+        <div className="section-header mb-4 sm:mb-6">
+          <h3 className={headingClasses}>{title}</h3>
+        </div>
+        <div>{children}</div>
       </div>
-      <div>{children}</div>
-    </div>
+    </section>
   );
 }
 

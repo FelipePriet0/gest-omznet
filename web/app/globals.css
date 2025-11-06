@@ -140,6 +140,32 @@ body {
   background: #94a3b8;
 }
 
+/* Modal scroll container: keep scrollbar inside the modal card gutter */
+.modal-scroll {
+  /* gutter apenas no lado do scrollbar para não criar sobra à esquerda */
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  /* desloca visualmente o trilho/garra do scroll alguns px para dentro do cartão */
+  padding-right: 8px;
+}
+
+/* Offset visual do scrollbar apenas no modal (WebKit/Blink) */
+.modal-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.modal-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-left: 6px solid transparent; /* cria o recuo para a esquerda do trilho */
+  background-clip: content-box;
+  border-radius: 6px;
+}
+.modal-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-left: 6px solid transparent; /* mantém o offset também no thumb */
+  background-clip: padding-box;
+  border-radius: 6px;
+}
+
 .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
   background: #d1d5db;
 }
@@ -358,20 +384,23 @@ body {
 /* Header Editar Ficha - Estilo da imagem */
 .header-editar-ficha {
   background: linear-gradient(135deg, var(--verde-primario) 0%, #016835 100%);
-  border-radius: 16px;
+  border-radius: 28px 28px 0 0; /* apenas nos cantos superiores para colar no modal */
   padding: 0;
-  overflow: hidden;
-  box-shadow: 
-    0 8px 32px rgba(1, 137, 66, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  overflow: visible;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  position: relative;
+  z-index: 10;
 }
 
 .header-content {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
+  gap: clamp(8px, 2vw, 16px);
+  padding: clamp(16px, 3vw, 24px) clamp(16px, 3vw, 32px);
   position: relative;
+  min-height: 72px;
 }
 
 .header-logo {
@@ -401,11 +430,20 @@ body {
 
 .header-title h2 {
   color: white;
-  font-size: 24px;
+  font-size: clamp(16px, 3vw, 20px);
   font-weight: 700;
   margin: 0;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.header-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: clamp(10px, 2vw, 12px);
+  font-weight: 500;
+  margin-top: 2px;
+  line-height: 1.3;
 }
 
 /* Section Cards - Demo Style */

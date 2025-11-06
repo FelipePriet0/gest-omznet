@@ -129,7 +129,7 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
   }
 
   return (
-    <div className="space-y-3">
+    <div>
       <div className="section-card">
         <div className="section-header">
           <h3 className="section-title conversas">Conversas Co-relacionadas</h3>
@@ -437,8 +437,10 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button aria-label="Responder" className="text-emerald-700 hover:opacity-90" onClick={() => setIsReplying((v) => !v)}>
-            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <button aria-label="Responder" onClick={()=> setIsReplying(v=>!v)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
           <CommentMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }} />
         </div>
