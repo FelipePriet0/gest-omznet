@@ -345,6 +345,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const [isReplying, setIsReplying] = useState(false);
   const editRef = useRef<HTMLDivElement | null>(null);
   const replyRef = useRef<HTMLDivElement | null>(null);
+  const editTaRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
       const t = e.target as Node | null;
@@ -365,6 +366,12 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const [cmdOpen2, setCmdOpen2] = useState(false);
   const [cmdQuery2, setCmdQuery2] = useState("");
   const [cmdAnchor2, setCmdAnchor2] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  // Compositor Unificado - edição
+  const [editMentionOpen, setEditMentionOpen] = useState(false);
+  const [editMentionFilter, setEditMentionFilter] = useState("");
+  const [editCmdOpen, setEditCmdOpen] = useState(false);
+  const [editCmdQuery, setEditCmdQuery] = useState("");
+  const [editCmdAnchor, setEditCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
   const replyTaRef = useRef<HTMLTextAreaElement|null>(null);
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : "";
   function onReplyKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -449,19 +456,98 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
         <div className="mt-1 whitespace-pre-line break-words">{node.text}</div>
       ) : (
         <div className="mt-2" ref={editRef}>
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={async (e)=>{
-              // @ts-ignore
-              if (e.nativeEvent && e.nativeEvent.isComposing) return;
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
-              }
-            }}
-            rows={3}
-          />
+          <div className="relative">
+            <Textarea
+              ref={editTaRef}
+              value={text}
+              onChange={(e) => {
+                const v = e.target.value || "";
+                setText(v);
+                const atIdx = v.lastIndexOf("@");
+                if (atIdx >= 0) { setEditMentionFilter(v.slice(atIdx + 1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                const slashIdx = v.lastIndexOf("/");
+                if (slashIdx >= 0) {
+                  setEditCmdQuery(v.slice(slashIdx + 1).toLowerCase()); setEditCmdOpen(true);
+                  if (editTaRef.current) {
+                    const ta = editTaRef.current;
+                    const c = getCaretCoordinates(ta, slashIdx + 1);
+                    const rect = ta.getBoundingClientRect();
+                    const top = rect.top + window.scrollY + c.top + c.height + 6;
+                    const left = rect.left + window.scrollX + c.left;
+                    setEditCmdAnchor({ top, left });
+                  }
+                } else { setEditCmdOpen(false); }
+              }}
+              onKeyDown={async (e:any)=>{
+                // @ts-ignore
+                if (e.nativeEvent && e.nativeEvent.isComposing) return;
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  try { await onEdit(node.id, (text||'').trim()); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
+                  return;
+                }
+                if (e.key === "Escape") { e.preventDefault(); setIsEditing(false); return; }
+                const v = (e.currentTarget.value || "") + (e.key.length === 1 ? e.key : "");
+                const atIdx = v.lastIndexOf("@");
+                if (atIdx >= 0) { setEditMentionFilter(v.slice(atIdx + 1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
+                const slashIdx = v.lastIndexOf("/");
+                if (slashIdx >= 0) {
+                  setEditCmdQuery(v.slice(slashIdx + 1).toLowerCase()); setEditCmdOpen(true);
+                  if (editTaRef.current) {
+                    const ta = editTaRef.current;
+                    const c = getCaretCoordinates(ta, slashIdx + 1);
+                    const rect = ta.getBoundingClientRect();
+                    const top = rect.top + window.scrollY + c.top + c.height + 6;
+                    const left = rect.left + window.scrollX + c.left;
+                    setEditCmdAnchor({ top, left });
+                  }
+                } else { setEditCmdOpen(false); }
+              }}
+              onKeyUp={(e)=>{
+                const v = e.currentTarget.value || "";
+                const slashIdx = v.lastIndexOf("/");
+                if (slashIdx >= 0) {
+                  setEditCmdQuery(v.slice(slashIdx + 1).toLowerCase()); setEditCmdOpen(true);
+                  if (editTaRef.current) {
+                    const ta = editTaRef.current;
+                    const c = getCaretCoordinates(ta, slashIdx + 1);
+                    const top = ta.offsetTop + c.top + c.height + 6;
+                    const leftRaw = ta.offsetLeft + c.left;
+                    const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
+                    setEditCmdAnchor({ top, left });
+                  }
+                } else { setEditCmdOpen(false); }
+              }}
+              placeholder="Edite o comentário… (@mencionar, /tarefa, /anexo)"
+              rows={3}
+            />
+            {editMentionOpen && (
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+                <MentionDropdown
+                  items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                  onPick={(p)=>{
+                    const idx = (text||'').lastIndexOf('@');
+                    const newVal = (text||'').slice(0, idx + 1) + p.full_name + ' ';
+                    setText(newVal);
+                    setEditMentionOpen(false);
+                  }}
+                />
+              </div>
+            )}
+            {editCmdOpen && (
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+                <CmdDropdown
+                  items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(editCmdQuery))}
+                  onPick={(key)=> {
+                    if (key==='tarefa') onOpenTask(node.id);
+                    if (key==='anexo') onOpenAttach(node.id);
+                    setEditCmdOpen(false); setEditCmdQuery('');
+                  }}
+                  initialQuery={editCmdQuery}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
       {tasks && tasks.length > 0 && (
