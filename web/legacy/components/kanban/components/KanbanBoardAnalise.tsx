@@ -10,6 +10,7 @@ import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
 import { DeleteFlow } from "@/legacy/components/kanban/components/DeleteModals";
 import { QuickActionsModal } from "@/legacy/components/kanban/components/QuickActionsModal";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
+import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
 
 const columns = [
   { key: "recebidos", title: "Recebidos", color: "blue", icon: "🔵" },
@@ -26,6 +27,7 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
   const router = useRouter();
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
+  const [cancel, setCancel] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
   const [del, setDel] = useState<{ id: string; name: string; cpf: string } | null>(null);
   const [actions, setActions] = useState<{ id: string; name: string; cpf: string } | null>(null);
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
@@ -67,10 +69,7 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
     if (!over) return;
     const cardId = active.id as string;
     const target = over.id as string;
-    if (target === "canceladas") {
-      setMove({ id: cardId, area: "analise" });
-      return;
-    }
+    if (target === "canceladas") { setCancel({ id: cardId, area: "analise" }); return; }
     try {
       await changeStage(cardId, "analise", target);
       setCards(await listCards("analise"));
@@ -133,6 +132,13 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
         cardId={move?.id || ""}
         presetArea={move?.area}
         onMoved={async () => setCards(await listCards("analise", { hora, prazo, date }))}
+      />
+      <CancelModal
+        open={!!cancel}
+        onClose={() => setCancel(null)}
+        cardId={cancel?.id || ""}
+        area="analise"
+        onCancelled={async () => setCards(await listCards("analise", { hora, prazo, date }))}
       />
       <DeleteFlow
         open={!!del}

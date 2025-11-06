@@ -14,8 +14,8 @@ export function Modal({ open, onClose, children, title }: { open: boolean; onClo
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        {title && <h3 className="mb-3 text-lg font-semibold text-zinc-900">{title}</h3>}
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        {title && <h3 className="mb-4 text-lg font-semibold text-zinc-900">{title}</h3>}
         {children}
       </div>
     </div>

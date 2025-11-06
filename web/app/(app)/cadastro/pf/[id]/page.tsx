@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { SimpleSelect } from "@/components/ui/select";
 import { supabase } from "@/lib/supabaseClient";
 import { Textarea as UITTextarea } from "@/components/ui/textarea";
-import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, ArrowRight, Pin } from "lucide-react";
+import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { changeStage } from "@/features/kanban/services";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
@@ -485,13 +485,7 @@ export default function CadastroPFPage() {
     vinculo_obs: reqVinculoObs && !(pf.vinculo_obs || '').trim(),
   } as const;
 
-  function onDownloadPdf() {
-    try { window.print(); } catch {}
-  }
-  function onClosePage() {
-    try { window.close(); } catch {}
-    try { history.back(); } catch {}
-  }
+  
   return (
     <div className="mz-form p-6 max-w-5xl mx-auto">
 
@@ -1245,7 +1239,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
                 <Pin className="w-4 h-4" strokeWidth={1.75} />
               </button>
               <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===n.id ? null : n.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
-                <ArrowRight className="w-4 h-4" strokeWidth={1.75} />
+                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </button>
               <ParecerMenu onEdit={()=> { setIsEditingId(n.id); setEditText(n.text||''); }} onDelete={()=> onDelete(n.id)} />
             </div>
@@ -1372,7 +1366,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
                         <Pin className="w-4 h-4" strokeWidth={1.75} />
                       </button>
                       <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===c.id ? null : c.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
-                        <ArrowRight className="w-4 h-4" strokeWidth={1.75} />
+                        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       </button>
                       <ParecerMenu onEdit={()=> { setIsEditingId(c.id); setEditText(c.text||''); }} onDelete={()=> onDelete(c.id)} />
                     </div>

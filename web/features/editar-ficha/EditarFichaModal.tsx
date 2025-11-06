@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { User as UserIcon, ArrowRight, MoreHorizontal, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, Search } from "lucide-react";
+import { User as UserIcon, MoreHorizontal, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
@@ -302,7 +302,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={openExpanded} className="btn-primary-mznet">
+                <button type="button" onClick={openExpanded} className="btn-secondary-mznet no-hover">
                   Analisar
                 </button>
               </div>
@@ -552,9 +552,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
           />
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="btn-secondary-mznet">Fechar</button>
-        </div>
+        {/* CTA "Fechar" removido: fechamento apenas pelo clique no backdrop */}
         </div>
       </div>
       {/* Drawers/Modais auxiliares */}
@@ -767,8 +765,10 @@ function NoteItem({ node, depth, profiles, onReply, onEdit, onDelete }: { node: 
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button aria-label="Responder" onClick={()=> setIsReplying(v=>!v)} className="text-emerald-700 hover:opacity-90">
-            <ArrowRight className="w-5 h-5" strokeWidth={3} />
+          <button aria-label="Responder" onClick={()=> setIsReplying(v=>!v)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
           <ParecerMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este parecer?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir parecer'); } } }} />
         </div>

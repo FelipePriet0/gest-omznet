@@ -205,7 +205,6 @@ export function BasicInfoModal({
         <div className="mt-6 flex items-center justify-between">
           <button onClick={onBack} className="rounded-full border border-gray-300 px-4 py-2 text-sm text-gray-700">Voltar</button>
           <div className="flex gap-3">
-            <button onClick={onClose} className="rounded-full border border-gray-300 px-4 py-2 text-sm text-gray-700">Cancelar</button>
             <button
               onClick={onSubmit}
               disabled={!canContinue || loading}

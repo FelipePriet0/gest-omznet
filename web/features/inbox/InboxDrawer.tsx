@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type CSSProperties,
 } from "react";
 import {
   Inbox as InboxIcon,
@@ -24,9 +25,10 @@ import { listInbox, markRead, type InboxItem } from "@/features/inbox/services";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { motion, PanInfo } from "framer-motion";
+import { motion } from "framer-motion";
 
 type RefreshHandler = () => Promise<void> | void;
 
@@ -218,6 +220,27 @@ export function InboxPanel() {
     },
   ];
 
+  const filteredItems = useMemo(() => {
+    if (!filterType) return items;
+    const needle = inboxFilterLabels[filterType].toLowerCase();
+    return items.filter((item) => {
+      const haystack = `${item.title ?? ""} ${item.body ?? ""}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [items, filterType]);
+
+  const handleDismiss = useCallback(
+    async (id: string) => {
+      try {
+        await markRead(id);
+      } catch {}
+      try {
+        await refresh();
+      } catch {}
+    },
+    [refresh]
+  );
+
   return (
     <div className="relative">
       <div className="absolute top-0 left-0 z-10">
@@ -246,13 +269,13 @@ export function InboxPanel() {
             <DashboardCard key={metric.key} title={metric.title} value={metric.value} icon={metric.icon} />
           ))}
         </div>
-        <div className="space-y-2">
-          {items.length === 0 ? (
-            <div className="rounded border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-600">Sem notificações</div>
-          ) : (
-            items.map((n) => <InboxRow key={n.id} n={n} onRefresh={refresh} />)
-          )}
-        </div>
+        {filteredItems.length === 0 ? (
+          <div className="rounded border border-zinc-200 bg-white px-3 py-4 text-sm text-zinc-600">
+            Sem notificações
+          </div>
+        ) : (
+          <InboxNotificationsStack items={filteredItems} onDismiss={handleDismiss} />
+        )}
       </div>
     </div>
   );
@@ -304,89 +327,111 @@ function InboxFilterCTA({ value, onSelect }: { value: InboxFilterOption | null; 
   );
 }
 
-function InboxRow({ n, onRefresh }: { n: InboxItem; onRefresh: RefreshHandler }) {
-  const when = n.created_at ? new Date(n.created_at).toLocaleString() : '';
-  const icon = n.type === 'task' ? '📋' : n.type === 'comment' ? '💬' : n.type === 'card' ? '🔥' : '🔔';
-  const isUnread = !n.read_at;
-  const [isDragging, setIsDragging] = useState(false);
+const OFFSET_FACTOR = 4;
+const SCALE_FACTOR = 0.03;
+const OPACITY_FACTOR = 0.1;
 
-  const cardClasses = `flex items-start gap-3 rounded-xl border px-3 py-2 bg-white transition ${
-    isUnread ? 'border-emerald-200 hover:border-emerald-400 hover:shadow' : 'border-zinc-200 hover:border-zinc-300 hover:shadow'
-  }`;
+function InboxNotificationsStack({ items, onDismiss }: { items: InboxItem[]; onDismiss: (id: string) => void | Promise<void> }) {
+  const cards = items;
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const router = useRouter();
+  const lastDragOffset = useRef<Record<string, number>>({});
 
-  const content = (
-    <div className="flex items-start gap-3">
-      <div className="text-xl leading-none pt-0.5">{icon}</div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between">
-          <div className="truncate text-sm font-semibold">{n.title || 'Notificação'}</div>
-          <div className="text-[11px] text-zinc-500">{when}</div>
-        </div>
-        {n.body && <div className="mt-0.5 text-sm text-zinc-700">{n.body}</div>}
-        <div className="mt-2 flex items-center gap-2 text-xs">
-          {isUnread && (
-            <button
-              className="rounded border border-zinc-300 px-2 py-0.5"
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                try {
-                  await markRead(n.id);
-                  await onRefresh();
-                } catch {}
-              }}
-            >
-              Marcar como lida
-            </button>
-          )}
-          {/* Placeholder para ações futuras */}
-        </div>
-      </div>
-    </div>
-  );
-
-  const handleDragEnd = async (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    setIsDragging(false);
-    if (!isUnread) return;
-    if (Math.abs(info.offset.x) > 120) {
-      try {
-        await markRead(n.id);
-        await onRefresh();
-      } catch {}
-    }
-  };
-
-  const commonProps = {
-    className: cardClasses,
-    drag: "x" as const,
-    dragConstraints: { left: 0, right: 0 },
-    dragElastic: 0.2,
-    onDragStart: () => setIsDragging(true),
-    onDragEnd: handleDragEnd,
-  };
-
-  if (n.link_url) {
-    return (
-      <motion.a
-        href={n.link_url}
-        {...commonProps}
-        onClick={(e) => {
-          if (isDragging) {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }}
-      >
-        {content}
-      </motion.a>
-    );
+  if (!cards.length) {
+    return null;
   }
 
   return (
-    <motion.div {...commonProps}>
-      {content}
-    </motion.div>
+    <div className="px-2 pb-3 pt-3">
+      <div className="flex flex-col gap-3">
+        {cards.map((item) => (
+          <motion.div
+            key={item.id}
+            className="w-full"
+            drag="x"
+            dragElastic={0.6}
+            dragMomentum={false}
+            data-dragging={draggingId === item.id}
+            whileDrag={{ scale: 1.02, rotate: 0.5 }}
+            onDragStart={() => {
+              setDraggingId(item.id);
+              lastDragOffset.current[item.id] = 0;
+            }}
+            onDrag={(_, info) => {
+              lastDragOffset.current[item.id] = info.offset.x;
+            }}
+            onDragEnd={(_, info) => {
+              setDraggingId(null);
+              const offset = info.offset.x;
+              if (Math.abs(offset) > 90) {
+                void onDismiss(item.id);
+              }
+            }}
+            onClick={() => {
+              if (draggingId) return;
+              if (Math.abs(lastDragOffset.current[item.id] ?? 0) > 8) return;
+              if (item.link_url) {
+                try {
+                  router.push(item.link_url);
+                } catch {
+                  window.open(item.link_url, "_blank");
+                }
+              }
+            }}
+          >
+            <NotificationCard
+              item={item}
+              active={false}
+              dragging={draggingId === item.id}
+            />
+          </motion.div>
+        ))}
+      </div>
+    </div>
   );
+}
+
+function NotificationCard({ item, active, dragging }: { item: InboxItem; active: boolean; dragging: boolean }) {
+  const when = item.created_at ? new Date(item.created_at).toLocaleString() : "";
+  const icon = getNotificationSymbol(item);
+
+  return (
+    <Card
+      className={cn(
+        "relative flex h-full min-h-[200px] select-none flex-col justify-between rounded-xl border border-zinc-200 bg-white p-4 text-sm shadow-sm transition-shadow",
+        active && "shadow-md",
+        dragging && "shadow-lg"
+      )}
+      data-dragging={dragging}
+      data-active={active}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xl leading-none">{icon}</span>
+          <span className="line-clamp-1 text-sm font-semibold text-zinc-900">
+            {item.title || "Notificação"}
+          </span>
+        </div>
+        {when && <span className="text-[11px] text-zinc-500">{when}</span>}
+      </div>
+      {item.body && (
+        <p className="mt-3 line-clamp-4 text-sm leading-5 text-zinc-700">
+          {item.body}
+        </p>
+      )}
+      <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500">
+        <span>Arraste para marcar como lida</span>
+        {item.link_url && <span className="font-medium text-[var(--color-primary)]">Clique para abrir</span>}
+      </div>
+    </Card>
+  );
+}
+
+function getNotificationSymbol(item: InboxItem) {
+  if (item.type === "task") return "📋";
+  if (item.type === "comment") return "💬";
+  if (item.type === "card") return "🔥";
+  return "🔔";
 }
 
 function DashboardCard({ title, value, icon }: { title: string; value?: number | null; icon?: ReactNode }) {

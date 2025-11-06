@@ -556,6 +556,16 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
+/* Disable hover styling when combined with .no-hover */
+.btn-secondary-mznet.no-hover:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(1, 137, 66, 0.3);
+  box-shadow:
+    0 2px 8px rgba(1, 137, 66, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
 .btn-small-primary {
   background: linear-gradient(135deg, var(--verde-primario) 0%, #016835 100%);
   color: white;
@@ -1516,6 +1526,12 @@ input[placeholder*="Buscar"] {
 input[placeholder*="Filtros"]::placeholder,
 input[placeholder*="Buscar"]::placeholder {
   color: rgba(1, 137, 66, 0.6) !important;
+}
+
+/* Placeholder específico para "Analisar" */
+input[placeholder="Analisar"]::placeholder,
+textarea[placeholder="Analisar"]::placeholder {
+  color: var(--verde-primario) !important;
 }
 
 /* Popover Text Elements - Universal */
