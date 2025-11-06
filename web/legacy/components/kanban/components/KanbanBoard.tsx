@@ -6,6 +6,7 @@ import { KanbanCard } from "@/features/kanban/types";
 import { useEffect, useMemo, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
 import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
 
@@ -82,14 +83,26 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
         </div>
         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}>
           {activeId ? (
-            <div className="rounded-2xl border border-emerald-100/40 bg-white p-3 shadow-[0_12px_28px_rgba(30,41,59,0.22)] pointer-events-none">
-              {(() => { const c = cards.find(x=> x.id===activeId); return (
-                <>
-                  <div className="mb-0.5 truncate text-[13px] font-semibold text-zinc-900">{c?.applicantName}</div>
-                  <div className="text-[11px] text-zinc-500">CPF: {c?.cpfCnpj}</div>
-                </>
-              ); })()}
-            </div>
+            (() => { const c = cards.find(x=> x.id===activeId); if (!c) return null; return (
+              <div className="rounded-2xl border border-emerald-100/40 bg-white p-3 shadow-[0_6px_16px_rgba(30,41,59,0.06)] pointer-events-none">
+                <div className="mb-0.5 truncate text-[13px] font-semibold text-zinc-900">{c.applicantName}</div>
+                <div className="text-[11px] text-zinc-500">CPF: {c.cpfCnpj}</div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-zinc-700">
+                  {c.phone && (
+                    <span className="inline-flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-zinc-400" />{c.phone}</span>
+                  )}
+                  {c.whatsapp && (
+                    <span className="inline-flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5 text-zinc-400" />WhatsApp</span>
+                  )}
+                  {c.bairro && (
+                    <span className="inline-flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-zinc-400" />Bairro: {c.bairro}</span>
+                  )}
+                  {c.dueAt && (
+                    <span className="inline-flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-zinc-400" />Ag.: {new Date(c.dueAt).toLocaleDateString()}</span>
+                  )}
+                </div>
+              </div>
+            ); })()
           ) : null}
         </DragOverlay>
       </DndContext>

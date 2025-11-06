@@ -13,8 +13,8 @@ export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () =>
     transform: CSS.Translate.toString(transform),
     willChange: 'transform, opacity',
     zIndex: isDragging ? 1000 : undefined,
-    boxShadow: isDragging ? "0 10px 24px rgba(30,41,59,0.16)" : "0 6px 16px rgba(30,41,59,0.06)",
-    opacity: isDragging ? 0.97 : 1,
+    boxShadow: "0 6px 16px rgba(30,41,59,0.06)",
+    opacity: isDragging ? 0 : 1,
   } as React.CSSProperties;
   const [menuOpen, setMenuOpen] = useState(false);
   const pressAt = useRef(0);
