@@ -462,6 +462,15 @@ body {
   box-shadow: none;
 }
 
+/* Editar Ficha - Seções principais com fundo mais claro (#fcfcfc) */
+.info-pessoais .section-card,
+.info-contato .section-card,
+.endereco .section-card,
+.planos-servicos .section-card,
+.agendamento .section-card {
+  background: #fcfcfc;
+}
+
 .section-header {
   background: transparent;
   border: none;
