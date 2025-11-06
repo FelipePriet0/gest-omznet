@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { DndContext } from "@dnd-kit/core";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
 import { KanbanCard } from "@/features/kanban/types";
 import { listCards, changeStage } from "@/features/kanban/services";
@@ -29,6 +29,10 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
   
   
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
+  const [activeId, setActiveId] = useState<string|null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   useEffect(() => {
     (async () => {
@@ -102,7 +106,13 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
 
   return (
     <div className="relative">
-      <DndContext onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        autoScroll
+        onDragStart={({ active }) => setActiveId(String(active.id))}
+        onDragCancel={() => setActiveId(null)}
+        onDragEnd={(event)=> { setActiveId(null); handleDragEnd(event); }}
+      >
         <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
           {columns.map((c) => (
@@ -123,6 +133,18 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
           ))}
           </div>
         </div>
+        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}>
+          {activeId ? (
+            <div className="rounded-2xl border border-emerald-100/40 bg-white p-3 shadow-[0_12px_28px_rgba(30,41,59,0.22)] pointer-events-none">
+              {(() => { const c = cards.find(x=> x.id===activeId); return (
+                <>
+                  <div className="mb-0.5 truncate text-[13px] font-semibold text-zinc-900">{c?.applicantName}</div>
+                  <div className="text-[11px] text-zinc-500">CPF: {c?.cpfCnpj}</div>
+                </>
+              ); })()}
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
       <MoveModal
         open={!!move}

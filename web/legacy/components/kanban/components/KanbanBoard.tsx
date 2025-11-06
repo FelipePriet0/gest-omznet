@@ -5,7 +5,7 @@ import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { KanbanCard } from "@/features/kanban/types";
 import { useEffect, useMemo, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
-import { DndContext } from "@dnd-kit/core";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
 import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
 
@@ -22,6 +22,11 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
   const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
   const [cancel, setCancel] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
   
+  const [activeId, setActiveId] = useState<string|null>(null);
+  const sensors = useSensors(
+    // Estilo Trello: ativa drag após mover uma distância; clique curto abre
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
   
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
 
@@ -53,7 +58,13 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
 
   return (
     <div className="relative">
-      <DndContext onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        autoScroll
+        onDragStart={({ active }) => setActiveId(String(active.id))}
+        onDragCancel={() => setActiveId(null)}
+        onDragEnd={(event)=> { setActiveId(null); handleDragEnd(event); }}
+      >
         <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
             {columnConfig.map((column) => (
@@ -69,6 +80,18 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
             ))}
           </div>
         </div>
+        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}>
+          {activeId ? (
+            <div className="rounded-2xl border border-emerald-100/40 bg-white p-3 shadow-[0_12px_28px_rgba(30,41,59,0.22)] pointer-events-none">
+              {(() => { const c = cards.find(x=> x.id===activeId); return (
+                <>
+                  <div className="mb-0.5 truncate text-[13px] font-semibold text-zinc-900">{c?.applicantName}</div>
+                  <div className="text-[11px] text-zinc-500">CPF: {c?.cpfCnpj}</div>
+                </>
+              ); })()}
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
       <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
       <CancelModal open={!!cancel} onClose={()=>setCancel(null)} cardId={cancel?.id||''} area="comercial" onCancelled={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
