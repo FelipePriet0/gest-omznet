@@ -259,7 +259,9 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   async function addParecer(val?: ComposerValue) {
     const payload = val ?? novoParecer;
     const txt = (payload.text || "").trim();
-    if (!txt) return;
+    const hasDecision = !!payload.decision;
+    if (!hasDecision && !txt) return;
+    const payloadText = hasDecision && !txt ? decisionPlaceholder(payload.decision ?? null) : txt;
     const resetValue: ComposerValue = { decision: null, text: "" };
     setNovoParecer(resetValue);
     requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
@@ -268,7 +270,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
     try {
       await supabase.rpc('add_parecer', {
         p_card_id: cardId,
-        p_text: txt,
+        p_text: payloadText,
         p_parent_id: null,
         p_decision: payload.decision ?? null
       });
@@ -553,10 +555,12 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   profiles={profiles}
                   onReply={async (pid, value) => {
                     const text = (value.text || '').trim();
-                    if (!text) return;
+                    const hasDecision = !!value.decision;
+                    if (!hasDecision && !text) return;
+                    const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
                     await supabase.rpc('add_parecer', {
                       p_card_id: cardId,
-                      p_text: text,
+                      p_text: payloadText,
                       p_parent_id: pid,
                       p_decision: value.decision ?? null,
                     });
@@ -568,11 +572,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   }}
                   onEdit={async (id, value) => {
                     const text = (value.text || '').trim();
-                    if (!text) return;
+                    const hasDecision = !!value.decision;
+                    if (!hasDecision && !text) return;
+                    const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
                     await supabase.rpc('edit_parecer', {
                       p_card_id: cardId,
                       p_note_id: id,
-                      p_text: text,
+                      p_text: payloadText,
                       p_decision: value.decision ?? null,
                     });
                     if (value.decision === 'aprovado' || value.decision === 'negado') {
@@ -771,6 +777,10 @@ const DECISION_META: Record<string, { label: string; className: string }> = {
   reanalise: { label: 'Reanálise', className: 'decision-chip--warning' },
 };
 
+function decisionPlaceholder(decision: ComposerDecision | string | null | undefined) {
+  return decision ? `[decision:${decision}]` : '';
+}
+
 function DecisionTag({ decision }: { decision?: string | null }) {
   if (!decision) return null;
   const meta = DECISION_META[decision];
@@ -781,7 +791,13 @@ function DecisionTag({ decision }: { decision?: string | null }) {
 type Note = { id: string; text: string; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean; decision?: ComposerDecision | string | null };
 function buildTree(notes: Note[]): Note[] {
   const byId = new Map<string, any>();
-  notes.forEach(n => byId.set(n.id, { ...n, children: [] as any[] }));
+  const normalizeText = (note: any) => {
+    if (!note) return '';
+    if (!note.decision) return note.text || '';
+    const placeholder = decisionPlaceholder(note.decision as any);
+    return note.text === placeholder ? '' : (note.text || '');
+  };
+  notes.forEach(n => byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] }));
   const roots: any[] = [];
   notes.forEach(n => {
     const node = byId.get(n.id)!;

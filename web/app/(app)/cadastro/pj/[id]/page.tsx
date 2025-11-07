@@ -23,6 +23,10 @@ const DECISION_META: Record<string, { label: string; className: string }> = {
   reanalise: { label: "Reanálise", className: "decision-chip--warning" },
 };
 
+function decisionPlaceholder(decision: ComposerDecision | string | null | undefined) {
+  return decision ? `[decision:${decision}]` : "";
+}
+
 function DecisionTag({ decision }: { decision?: string | null }) {
   if (!decision) return null;
   const meta = DECISION_META[decision];
@@ -245,11 +249,15 @@ export default function CadastroPJPage() {
 
   async function handleSubmitParecer(value: ComposerValue) {
     const text = (value.text || '').trim();
-    if (!text || !cardIdEff) return;
+    const hasDecision = !!value.decision;
+    if (!cardIdEff) return;
+    if (!hasDecision && !text) return;
+
+    const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
 
     const tempNote: any = {
       id: `tmp-${Date.now()}`,
-      text,
+      text: hasDecision && !text ? '' : text,
       decision: value.decision ?? null,
       author_name: '',
       author_role: '',
@@ -261,7 +269,7 @@ export default function CadastroPJPage() {
     try {
       await supabase.rpc('add_parecer', {
         p_card_id: cardIdEff,
-        p_text: text,
+        p_text: payloadText,
         p_parent_id: null,
         p_decision: value.decision ?? null,
       });
@@ -791,10 +799,12 @@ export default function CadastroPJPage() {
               profiles={profiles}
               onReply={async (pid, value) => {
                 const text = (value.text || '').trim();
-                if (!text) return;
+                const hasDecision = !!value.decision;
+                if (!hasDecision && !text) return;
+                const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
                 await supabase.rpc('add_parecer', {
                   p_card_id: cardIdEff,
-                  p_text: text,
+                  p_text: payloadText,
                   p_parent_id: pid,
                   p_decision: value.decision ?? null,
                 });
@@ -802,11 +812,13 @@ export default function CadastroPJPage() {
               }}
               onEdit={async (id, value) => {
                 const text = (value.text || '').trim();
-                if (!text) return;
+                const hasDecision = !!value.decision;
+                if (!hasDecision && !text) return;
+                const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
                 await supabase.rpc('edit_parecer', {
                   p_card_id: cardIdEff,
                   p_note_id: id,
-                  p_text: text,
+                  p_text: payloadText,
                   p_decision: value.decision ?? null,
                 });
                 await refreshReanalysisNotes(cardIdEff);
@@ -986,7 +998,15 @@ function buildTree(notes: Note[]): Note[] {
   // Oculta itens marcados como deletados (soft-delete)
   const valid = (notes || []).filter((n:any) => !n?.deleted);
   const byId = new Map<string, any>();
-  valid.forEach((n:any) => byId.set(n.id, { ...n, children: [] as any[] }));
+  const normalizeText = (note: any) => {
+    if (!note) return '';
+    if (!note.decision) return note.text || '';
+    const placeholder = decisionPlaceholder(note.decision as any);
+    return note.text === placeholder ? '' : (note.text || '');
+  };
+  valid.forEach((n:any) => {
+    byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] });
+  });
   const roots: any[] = [];
   valid.forEach((n:any) => {
     const node = byId.get(n.id)!;

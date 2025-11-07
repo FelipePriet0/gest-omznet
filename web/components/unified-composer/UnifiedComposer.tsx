@@ -97,7 +97,12 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
           placeCaretAtEnd(rootRef.current);
         },
         setDecision: (decision) => {
-          const next = { ...valueState, decision };
+          let cleanText = valueState.text;
+          if (decision) {
+            cleanText = cleanText.replace(/\s*\/[\w]*$/, "").trimEnd();
+          }
+
+          const next = { decision, text: cleanText };
           setValueState(next);
           if (decision) {
             onRequestDecision?.(decision);
@@ -228,7 +233,9 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         const val = getCurrentValue();
-        if (val.text.trim().length === 0) return;
+        const hasDecision = !!val.decision;
+        const hasText = val.text.trim().length > 0;
+        if (!hasDecision && !hasText) return;
         onSubmit?.(val);
         return;
       }
