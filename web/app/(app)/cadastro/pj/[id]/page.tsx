@@ -1,16 +1,34 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import clsx from "clsx";
 import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { SimpleSelect } from "@/components/ui/select";
-import { Textarea as UITTextarea } from "@/components/ui/textarea";
 import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { changeStage } from "@/features/kanban/services";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
+import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
+
+function digitsOnly(value: string) {
+  return (value || "").replace(/\D+/g, "");
+}
+
+const DECISION_META: Record<string, { label: string; className: string }> = {
+  aprovado: { label: "Aprovado", className: "decision-chip--primary" },
+  negado: { label: "Negado", className: "decision-chip--destructive" },
+  reanalise: { label: "Reanálise", className: "decision-chip--warning" },
+};
+
+function DecisionTag({ decision }: { decision?: string | null }) {
+  if (!decision) return null;
+  const meta = DECISION_META[decision];
+  if (!meta) return null;
+  return <span className={clsx("decision-chip", meta.className)}>{meta.label}</span>;
+}
 
 type AppModel = {
   primary_name?: string;
@@ -188,16 +206,80 @@ export default function CadastroPJPage() {
   // Parecer UI states
   const [pareceres, setPareceres] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
-  const [novoParecer, setNovoParecer] = useState("");
+  const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "" });
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
-  const [cmdAnchorParecer, setCmdAnchorParecer] = useState<{top:number;left:number}>({ top: 0, left: 0 });
-  const parecerRef = useRef<HTMLTextAreaElement|null>(null);
+  const parecerComposerRef = useRef<UnifiedComposerHandle | null>(null);
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
   const [attachOpen, setAttachOpen] = useState<{open:boolean, parentId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
   const [cardIdEff, setCardIdEff] = useState<string>('');
+
+  async function refreshReanalysisNotes(cardId: string) {
+    if (!cardId) return;
+    const { data: card, error } = await supabase
+      .from('kanban_cards')
+      .select('reanalysis_notes')
+      .eq('id', cardId)
+      .maybeSingle();
+    if (!error && card && Array.isArray((card as any).reanalysis_notes)) {
+      setPareceres((card as any).reanalysis_notes);
+    }
+  }
+
+  async function syncDecisionStatus(decision: ComposerDecision | null) {
+    if (!cardIdEff) return;
+    try {
+      if (decision === 'aprovado' || decision === 'negado') {
+        await supabase.rpc('set_card_decision', { p_card_id: cardIdEff, p_decision: decision });
+      } else {
+        await supabase.rpc('set_card_decision', { p_card_id: cardIdEff, p_decision: null });
+      }
+    } catch (err) {
+      console.warn('set_card_decision failed', err);
+    }
+  }
+
+  async function handleSubmitParecer(value: ComposerValue) {
+    const text = (value.text || '').trim();
+    if (!text || !cardIdEff) return;
+
+    const tempNote: any = {
+      id: `tmp-${Date.now()}`,
+      text,
+      decision: value.decision ?? null,
+      author_name: '',
+      author_role: '',
+      created_at: new Date().toISOString(),
+      parent_id: null,
+    };
+    setPareceres(prev => [...(prev || []), tempNote]);
+
+    try {
+      await supabase.rpc('add_parecer', {
+        p_card_id: cardIdEff,
+        p_text: text,
+        p_parent_id: null,
+        p_decision: value.decision ?? null,
+      });
+      await refreshReanalysisNotes(cardIdEff);
+      if (value.decision === 'aprovado' || value.decision === 'negado') {
+        await syncDecisionStatus(value.decision);
+      } else if (value.decision === 'reanalise') {
+        await syncDecisionStatus(null);
+      }
+    } catch (err: any) {
+      setPareceres(prev => (prev || []).filter((n: any) => n.id !== tempNote.id));
+      alert(err?.message || 'Falha ao adicionar parecer');
+    } finally {
+      const resetValue: ComposerValue = { decision: null, text: '' };
+      setNovoParecer(resetValue);
+      requestAnimationFrame(() => parecerComposerRef.current?.setValue(resetValue));
+      setMentionOpenParecer(false);
+      setCmdOpenParecer(false);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -504,7 +586,7 @@ export default function CadastroPJPage() {
         taskId={taskOpen.taskId ?? null}
         onCreated={async (t)=> {
           if (taskOpen.source === 'parecer') {
-            try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: `📋 Tarefa criada: ${t.description}`, p_parent_id: null }); } catch {}
+            try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: `📋 Tarefa criada: ${t.description}`, p_parent_id: null, p_decision: null }); } catch {}
           }
         }}
       />
@@ -514,9 +596,9 @@ export default function CadastroPJPage() {
         cardId={cardIdEff}
         commentId={attachOpen.parentId ?? null}
         onCompleted={async (files)=> {
-          if (attachOpen.source === 'parecer' && files.length>0) {
-            const names = files.map(f=> f.name).join(', ');
-            try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: `📎 Anexo(s): ${names}`, p_parent_id: null }); } catch {}
+            if (attachOpen.source === 'parecer' && files.length>0) {
+              const names = files.map(f=> f.name).join(', ');
+              try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: `📎 Anexo(s): ${names}`, p_parent_id: null, p_decision: null }); } catch {}
           }
         }}
       />
@@ -632,65 +714,41 @@ export default function CadastroPJPage() {
         <Card title="Parecer">
           <div className="space-y-4">
             <div className="relative">
-              <UITTextarea
-                ref={parecerRef as any}
-                value={novoParecer}
-                onChange={(e)=> {
-                  const v = e.target.value || '';
-                  setNovoParecer(v);
-                  const atIdx = v.lastIndexOf('@');
-                  if (atIdx >= 0) { setMentionFilterParecer(v.slice(atIdx + 1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
-                  const slashIdx = v.lastIndexOf('/');
-                  if (slashIdx>=0) {
-                    setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
-                    if (parecerRef.current) {
-                      const ta = parecerRef.current!;
-                      const c = getCaretCoordinates(ta, slashIdx + 1);
-                      const rect = ta.getBoundingClientRect();
-                      const top = rect.top + window.scrollY + c.top + c.height + 6;
-                      const left = rect.left + window.scrollX + c.left;
-                      setCmdAnchorParecer({ top, left });
-                    }
-                  } else { setCmdOpenParecer(false); }
-                }}
-                onKeyDown={async (e:any)=>{
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    const txt = (novoParecer || '').trim();
-                    if (!txt || !cardIdEff) return;
-                    const tempNote:any = { id: `tmp-${Date.now()}`, text: txt, author_name: '', author_role: '', created_at: new Date().toISOString(), parent_id: null };
-                    setPareceres(prev => [...(prev||[]), tempNote]);
-                    setNovoParecer('');
-                    try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: txt, p_parent_id: null }); } catch {}
-                    return;
-                  }
-                  const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
-                  const atIdx = v.lastIndexOf('@');
-                  if (atIdx>=0) { setMentionFilterParecer(v.slice(atIdx+1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
-                  const slashIdx = v.lastIndexOf('/');
-                  if (slashIdx>=0) {
-                    setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
-                    if (parecerRef.current) {
-                      const ta = parecerRef.current!;
-                      const c = getCaretCoordinates(ta, slashIdx + 1);
-                      const rect = ta.getBoundingClientRect();
-                      const top = rect.top + window.scrollY + c.top + c.height + 6;
-                      const left = rect.left + window.scrollX + c.left;
-                      setCmdAnchorParecer({ top, left });
-                    }
-                  } else { setCmdOpenParecer(false); }
-                }}
+              <UnifiedComposer
+                ref={parecerComposerRef}
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
-                rows={4}
+                onChange={(val)=> setNovoParecer(val)}
+                onSubmit={handleSubmitParecer}
+                onCancel={()=> {
+                  setCmdOpenParecer(false);
+                  setMentionOpenParecer(false);
+                }}
+                onMentionTrigger={(query)=> {
+                  setMentionFilterParecer(query.trim());
+                  setMentionOpenParecer(true);
+                }}
+                onMentionClose={()=> setMentionOpenParecer(false)}
+                onCommandTrigger={(query)=> {
+                  setCmdQueryParecer(query.toLowerCase());
+                  setCmdOpenParecer(true);
+                }}
+                onCommandClose={()=> {
+                  setCmdOpenParecer(false);
+                  setCmdQueryParecer('');
+                }}
               />
               {mentionOpenParecer && (
                 <div className="absolute z-50 left-0 bottom-full mb-2">
                   <MentionDropdownParecer
                     items={profiles}
                     onPick={(p)=> {
-                      const idx = (novoParecer || '').lastIndexOf('@');
-                      const newVal = (novoParecer || '').slice(0, idx + 1) + p.full_name + ' ';
-                      setNovoParecer(newVal);
+                      const base = novoParecer.text || '';
+                      const atIdx = base.lastIndexOf('@');
+                      const replacement = `${p.full_name} `;
+                      const newText = atIdx >= 0 ? base.slice(0, atIdx + 1) + replacement : `${base}${replacement}`;
+                      const nextVal: ComposerValue = { decision: novoParecer.decision, text: newText };
+                      setNovoParecer(nextVal);
+                      parecerComposerRef.current?.setValue(nextVal);
                       setMentionOpenParecer(false);
                     }}
                   />
@@ -705,16 +763,22 @@ export default function CadastroPJPage() {
                       { key:'reanalise', label:'Reanálise' },
                       { key:'tarefa', label:'Tarefa' },
                       { key:'anexo', label:'Anexo' },
-                    ].filter(i=> i.key.includes(cmdQueryParecer))}
+                    ].filter(i=> i.key.includes(cmdQueryParecer) || i.label.toLowerCase().includes(cmdQueryParecer))}
                     onPick={async (key)=>{
                       setCmdOpenParecer(false); setCmdQueryParecer('');
                       if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
                       if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
-                      try {
-                        if (key==='aprovado') await changeStage(cardIdEff, 'analise', 'aprovados');
-                        else if (key==='negado') await changeStage(cardIdEff, 'analise', 'negados');
-                        else if (key==='reanalise') await changeStage(cardIdEff, 'analise', 'reanalise');
-                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                      if (key==='aprovado' || key==='negado' || key==='reanalise') {
+                        parecerComposerRef.current?.setDecision(key as ComposerDecision);
+                        try {
+                      if (key==='aprovado') await changeStage(cardIdEff, 'analise', 'aprovados');
+                      else if (key==='negado') await changeStage(cardIdEff, 'analise', 'negados');
+                      else if (key==='reanalise') await changeStage(cardIdEff, 'analise', 'reanalise');
+                      await syncDecisionStatus(key === 'reanalise' ? null : (key as ComposerDecision));
+                        } catch (e:any) {
+                          alert(e?.message || 'Falha ao mover');
+                        }
+                      }
                     }}
                     initialQuery={cmdQueryParecer}
                   />
@@ -726,9 +790,33 @@ export default function CadastroPJPage() {
               cardId={cardIdEff}
               notes={pareceres as any}
               profiles={profiles}
-              onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: text, p_parent_id: pid }); }}
-              onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardIdEff, p_note_id: id, p_text: text }); }}
-              onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id }); }}
+              onReply={async (pid, value) => {
+                const text = (value.text || '').trim();
+                if (!text) return;
+                await supabase.rpc('add_parecer', {
+                  p_card_id: cardIdEff,
+                  p_text: text,
+                  p_parent_id: pid,
+                  p_decision: value.decision ?? null,
+                });
+                await refreshReanalysisNotes(cardIdEff);
+              }}
+              onEdit={async (id, value) => {
+                const text = (value.text || '').trim();
+                if (!text) return;
+                await supabase.rpc('edit_parecer', {
+                  p_card_id: cardIdEff,
+                  p_note_id: id,
+                  p_text: text,
+                  p_decision: value.decision ?? null,
+                });
+                await refreshReanalysisNotes(cardIdEff);
+              }}
+              onDelete={async (id) => {
+                await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id });
+                await refreshReanalysisNotes(cardIdEff);
+              }}
+              onDecisionChange={syncDecisionStatus}
               onPinnedChange={(active, h)=> setPinnedSpace(active ? h : 0)}
             />
           </div>
@@ -748,10 +836,17 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-function Field({ label, value, onChange, className, red, disabled, maxLength, inputMode }: { label: string; value: string; onChange: (v:string)=>void; className?: string; red?: boolean; disabled?: boolean; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"] }) {
+function Field({ label, value, onChange, className, red, disabled, maxLength, inputMode, requiredMark }: { label: string; value: string; onChange: (v:string)=>void; className?: string; red?: boolean; disabled?: boolean; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"]; requiredMark?: boolean }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-zinc-700">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-zinc-700">
+        <span>{label}</span>
+        {requiredMark && (
+          <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${red ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
+            Obrigatório
+          </span>
+        )}
+      </label>
       <input
         value={value}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
@@ -827,7 +922,18 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
         <div className="py-1">
           <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Decisão da análise</div>
           {decisions.map((i) => (
-            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left">
+            <button
+              key={i.key}
+              onClick={() => onPick(i.key)}
+              className={clsx(
+                "cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left",
+                {
+                  'cmd-menu-item--primary': i.key === 'aprovado',
+                  'cmd-menu-item--destructive': i.key === 'negado',
+                  'cmd-menu-item--warning': i.key === 'reanalise',
+                }
+              )}
+            >
               {iconFor(i.key)}
               <span>{i.label}</span>
             </button>
@@ -876,7 +982,7 @@ function MentionDropdownParecer({ items, onPick }: { items: ProfileLite[]; onPic
   );
 }
 
-type Note = { id: string; text: string; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
+type Note = { id: string; text: string; decision?: ComposerDecision | string | null; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
 function buildTree(notes: Note[]): Note[] {
   // Oculta itens marcados como deletados (soft-delete)
   const valid = (notes || []).filter((n:any) => !n?.deleted);
@@ -893,68 +999,67 @@ function buildTree(notes: Note[]): Note[] {
   return roots as any;
 }
 
-function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onPinnedChange }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any>; onPinnedChange?: (active:boolean, height:number)=>void }) {
+function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onDecisionChange, onPinnedChange }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, value: ComposerValue)=>Promise<any>; onEdit: (id:string, value: ComposerValue)=>Promise<any>; onDelete: (id:string)=>Promise<any>; onDecisionChange: (decision: ComposerDecision | null)=>Promise<void>; onPinnedChange?: (active:boolean, height:number)=>void }) {
   const tree = useMemo(()=> buildTree(notes||[]), [notes]);
   const { open } = useSidebar();
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
-  const replyTaRef = useRef<HTMLTextAreaElement | null>(null);
   const replyBoxRef = useRef<HTMLDivElement | null>(null);
   const editBoxRef = useRef<HTMLDivElement | null>(null);
-  const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
-  const [reply, setReply] = useState("");
+  const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
+  const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
+  const [mentionOpenReply, setMentionOpenReply] = useState(false);
+  const [mentionFilterReply, setMentionFilterReply] = useState("");
+  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "" });
   const [isReplyingId, setIsReplyingId] = useState<string|null>(null);
   const [isEditingId, setIsEditingId] = useState<string|null>(null);
-  const [editText, setEditText] = useState("");
-  // Compositor Unificado (edição): menções e comandos
+  const [editValue, setEditValue] = useState<ComposerValue>({ decision: null, text: "" });
   const [editMentionOpen, setEditMentionOpen] = useState(false);
   const [editMentionFilter, setEditMentionFilter] = useState("");
   const [editCmdOpen, setEditCmdOpen] = useState(false);
   const [editCmdQuery, setEditCmdQuery] = useState("");
-   const [pinned, setPinned] = useState<any|null>(null);
-   const [leftOffset, setLeftOffset] = useState(0);
-   const [bottomOffset, setBottomOffset] = useState(0);
-   const [pinnedHeight, setPinnedHeight] = useState(120); // altura inicial em px
-   const [isResizing, setIsResizing] = useState(false);
-   useEffect(() => {
-     const update = () => {
-       const isDesktop = window.innerWidth >= 768;
-       const left = isDesktop ? (open ? 300 : 60) : 0;
-       setLeftOffset(left);
-       // Não precisa de offset do footer, vamos alinhar direto com a sidebar
-       setBottomOffset(0);
-     };
-     update();
-     window.addEventListener('resize', update);
-     return () => window.removeEventListener('resize', update);
-   }, [open]);
+  const [pinned, setPinned] = useState<any|null>(null);
+  const [leftOffset, setLeftOffset] = useState(0);
+  const [pinnedHeight, setPinnedHeight] = useState(120);
+  const [isResizing, setIsResizing] = useState(false);
 
-   // Handle resize functionality
-   useEffect(() => {
-     if (!isResizing) return;
-     
-     const handleMouseMove = (e: MouseEvent) => {
-       const newHeight = window.innerHeight - e.clientY;
-       const minHeight = 80;
-       const maxHeight = window.innerHeight * 0.6; // máximo 60% da tela
-       setPinnedHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
-     };
+  useEffect(() => {
+    const update = () => {
+      const isDesktop = window.innerWidth >= 768;
+      const left = isDesktop ? (open ? 300 : 60) : 0;
+      setLeftOffset(left);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [open]);
 
-     const handleMouseUp = () => {
-       setIsResizing(false);
-     };
+  useEffect(() => {
+    if (!isResizing) return;
 
-     document.addEventListener('mousemove', handleMouseMove);
-     document.addEventListener('mouseup', handleMouseUp);
-     
-     return () => {
-       document.removeEventListener('mousemove', handleMouseMove);
-       document.removeEventListener('mouseup', handleMouseUp);
-     };
-   }, [isResizing]);
+    const handleMouseMove = (e: MouseEvent) => {
+      const newHeight = window.innerHeight - e.clientY;
+      const minHeight = 80;
+      const maxHeight = window.innerHeight * 0.6;
+      setPinnedHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
   useEffect(() => {
     if (onPinnedChange) onPinnedChange(!!pinned, pinned ? pinnedHeight : 0);
-  }, [pinned, pinnedHeight]);
+  }, [pinned, pinnedHeight, onPinnedChange]);
+
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
       const target = e.target as Node | null;
@@ -967,7 +1072,9 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
       if (isReplyingId) {
         const rbox = replyBoxRef.current;
         if (rbox && target && !rbox.contains(target)) {
-          setReply('');
+          setReplyValue({ decision: null, text: '' });
+          setMentionOpenReply(false);
+          setCmdOpen(false);
           setIsReplyingId(null);
         }
       }
@@ -975,294 +1082,485 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onP
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [isEditingId, isReplyingId]);
+
+  async function handleDecisionShortcut(cardIdLocal: string, decisionChange: (decision: ComposerDecision | null) => Promise<void>, key: 'aprovado' | 'negado' | 'reanalise') {
+    if (!cardIdLocal) return;
+    if (key === 'aprovado') {
+      await changeStage(cardIdLocal, 'analise', 'aprovados');
+      await decisionChange('aprovado');
+    } else if (key === 'negado') {
+      await changeStage(cardIdLocal, 'analise', 'negados');
+      await decisionChange('negado');
+    } else if (key === 'reanalise') {
+      await changeStage(cardIdLocal, 'analise', 'reanalise');
+      await decisionChange(null);
+    }
+  }
+
   return (
     <>
-    <div className={`space-y-2`}>
-      {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
-      {tree.map((n:any) => (
-        <div key={n.id} className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0 flex items-center gap-2">
-              <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
-              <div className="min-w-0">
-                <div className="truncate font-medium">{n.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</span></div>
-                {n.author_role && <div className="text-[11px] text-zinc-500 truncate">{n.author_role}</div>}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 z-10">
-              <button aria-label="Fixar parecer" onClick={()=> setPinned(p=> p?.id===n.id ? null : n)} className={(pinned?.id===n.id? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700')+" p-1 rounded hover:bg-zinc-100 transition-colors"}>
-                <Pin className="w-4 h-4" strokeWidth={1.75} />
-              </button>
-              <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===n.id ? null : n.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
-                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </button>
-              <ParecerMenu onEdit={()=> { setIsEditingId(n.id); setEditText(n.text||''); }} onDelete={()=> onDelete(n.id)} />
-            </div>
-          </div>
-          {isEditingId===n.id ? (
-            <div className="mt-2 space-y-2" ref={editBoxRef}>
-              <div className="relative">
-                <UITTextarea
-                  value={editText}
-                  onChange={(e)=> {
-                    const v = e.target.value || '';
-                    setEditText(v);
-                    const atIdx = v.lastIndexOf('@');
-                    if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
-                    const slashIdx = v.lastIndexOf('/');
-                    if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
-                  }}
-                  onKeyDown={async (e:any)=>{
-                    if (e.key==='Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      const txt = (editText||'').trim();
-                      if (!txt) return;
-                      await onEdit(n.id, txt);
-                      setIsEditingId(null);
-                      return;
-                    }
-                    const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
-                    const atIdx = v.lastIndexOf('@');
-                    if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
-                    const slashIdx = v.lastIndexOf('/');
-                    if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
-                  }}
-                  placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
-                  rows={4}
-                />
-                {editMentionOpen && (
-                  <div className="absolute z-50 left-0 bottom-full mb-2">
-                    <MentionDropdownParecer
-                      items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
-                      onPick={(p)=>{
-                        const idx = (editText||'').lastIndexOf('@');
-                        const newVal = (editText||'').slice(0, idx + 1) + p.full_name + ' ';
-                        setEditText(newVal);
-                        setEditMentionOpen(false);
-                      }}
-                    />
+      <div className="space-y-2">
+        {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
+        {tree.map((n:any) => (
+          <div key={n.id} className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]" style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex items-start gap-2">
+                <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+                <div className="min-w-0">
+                  <div className="truncate font-medium">
+                    {n.author_name || '—'}
+                    <span className="ml-2 text-[11px] text-zinc-500">
+                      {n.created_at ? new Date(n.created_at).toLocaleString() : ''}
+                    </span>
                   </div>
-                )}
-                {editCmdOpen && (
-                  <div className="absolute z-50 left-0 bottom-full mb-2">
-                    <CmdDropdown
-                      items={[
-                        { key:'aprovado', label:'Aprovado' },
-                        { key:'negado', label:'Negado' },
-                        { key:'reanalise', label:'Reanálise' },
-                        { key:'tarefa', label:'Tarefa' },
-                        { key:'anexo', label:'Anexo' },
-                      ].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
-                      onPick={async (key)=>{
-                        setEditCmdOpen(false); setEditCmdQuery('');
-                        if (key==='tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
-                        if (key==='anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
-                        try {
-                          if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
-                          else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
-                          else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
-                        } catch(e:any){ alert(e?.message||'Falha ao mover'); }
-                      }}
-                      initialQuery={editCmdQuery}
-                    />
-                  </div>
-                )}
-              </div>
-              {/* Removidos CTAs; envio via Enter, cancelar via Esc */}
-            </div>
-          ) : (
-            <div className="mt-1 whitespace-pre-line break-words">{n.text}</div>
-          )}
-          <div className="mt-3">
-            {isReplyingId===n.id ? (
-              <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
-                <div className="flex-1">
-                  <UITTextarea
-                   ref={replyTaRef as any}
-                   value={reply}
-                   onChange={(e)=> setReply(e.target.value)}
-                   onKeyDown={async (e)=>{
-                     if (e.key === 'Enter' && !e.shiftKey) {
-                       e.preventDefault();
-                       const t = reply.trim();
-                       if (!t) return;
-                       await onReply(n.id, t);
-                       setReply('');
-                       setIsReplyingId(null);
-                       return;
-                     }
-                   }}
-                   onKeyUp={(e)=>{ const v=e.currentTarget.value||''; const slashIdx=v.lastIndexOf('/'); if (slashIdx>=0){ setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current){ const c=getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } } else setCmdOpen(false); }}
-                   rows={3}
-                    placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
-                 />
-                 {cmdOpen && (
-                   <div className="absolute z-50 left-0 bottom-full mb-2">
-                     <CmdDropdown
-                       items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery))}
-                       onPick={async (key)=>{ setCmdOpen(false); setCmdQuery(''); if (key==='tarefa'){ (window as any).dispatchEvent(new Event('mz-open-task')); } else if (key==='anexo'){ (window as any).dispatchEvent(new Event('mz-open-attach')); } }}
-                       initialQuery={cmdQuery}
-                     />
-                   </div>
-                 )}
+                  {n.author_role && <div className="text-[11px] text-zinc-500 truncate">{n.author_role}</div>}
                 </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 z-10">
+                <button
+                  aria-label="Fixar parecer"
+                  onClick={()=> setPinned((p:any)=> p?.id===n.id ? null : n)}
+                  className={`${pinned?.id===n.id ? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700'} p-1 rounded hover:bg-zinc-100 transition-colors`}
+                >
+                  <Pin className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+                <button
+                  aria-label="Responder"
+                  onClick={()=> {
+                    if (isReplyingId === n.id) {
+                      setIsReplyingId(null);
+                      setReplyValue({ decision: null, text: '' });
+                    } else {
+                      setIsReplyingId(n.id);
+                      setReplyValue({ decision: null, text: '' });
+                      requestAnimationFrame(() => replyComposerRef.current?.focus());
+                    }
+                  }}
+                  className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+                <ParecerMenu
+                  onEdit={()=> {
+                    setIsEditingId(n.id);
+                    const nextVal: ComposerValue = { decision: (n.decision as ComposerDecision) ?? null, text: n.text || '' };
+                    setEditValue(nextVal);
+                    requestAnimationFrame(() => {
+                      editComposerRef.current?.setValue(nextVal);
+                      editComposerRef.current?.focus();
+                    });
+                  }}
+                  onDelete={()=> onDelete(n.id)}
+                />
+              </div>
+            </div>
+
+            {!isEditingId || isEditingId !== n.id ? (
+              <div className="mt-2 space-y-2">
+                <DecisionTag decision={n.decision} />
+                <div className="whitespace-pre-line break-words">{n.text}</div>
               </div>
             ) : null}
-          </div>
-          {n.children && n.children.length>0 && (
-            <div className="mt-2 space-y-2 pl-4">
-              {n.children.map((c:any)=> (
-                <div
-                  key={c.id}
-                  className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800"
-                  style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px', borderLeftStyle: 'solid' }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">{c.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span></div>
-                      {c.author_role && <div className="text-[11px] text-zinc-500 truncate">{c.author_role}</div>}
+
+            {isEditingId===n.id && (
+              <div className="mt-3" ref={editBoxRef}>
+                <div className="relative">
+                  <UnifiedComposer
+                    ref={editComposerRef}
+                    defaultValue={editValue}
+                    onChange={(val)=> setEditValue(val)}
+                    onSubmit={async (val)=>{
+                      const trimmed = (val.text || '').trim();
+                      if (!trimmed) return;
+                      await onEdit(n.id, val);
+                      setIsEditingId(null);
+                      if (val.decision === 'aprovado' || val.decision === 'negado') {
+                        await onDecisionChange(val.decision);
+                      } else if (val.decision === 'reanalise') {
+                        await onDecisionChange(null);
+                      }
+                    }}
+                    onCancel={()=> setIsEditingId(null)}
+                    onMentionTrigger={(query)=> {
+                      setEditMentionFilter(query.trim());
+                      setEditMentionOpen(true);
+                    }}
+                    onMentionClose={()=> setEditMentionOpen(false)}
+                    onCommandTrigger={(query)=> {
+                      setEditCmdQuery(query.toLowerCase());
+                      setEditCmdOpen(true);
+                    }}
+                    onCommandClose={()=> {
+                      setEditCmdOpen(false);
+                      setEditCmdQuery('');
+                    }}
+                  />
+                  {editMentionOpen && (
+                    <div className="absolute z-50 left-0 bottom-full mb-2">
+                      <MentionDropdownParecer
+                        items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                        onPick={(p)=>{
+                          const base = editValue.text || '';
+                          const idx = base.lastIndexOf('@');
+                          const replacement = `${p.full_name} `;
+                          const newText = idx >= 0 ? base.slice(0, idx + 1) + replacement : `${base}${replacement}`;
+                          const nextVal: ComposerValue = { decision: editValue.decision, text: newText };
+                          setEditValue(nextVal);
+                          editComposerRef.current?.setValue(nextVal);
+                          setEditMentionOpen(false);
+                        }}
+                      />
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button aria-label="Fixar parecer" onClick={()=> setPinned(p=> p?.id===c.id ? null : c)} className={(pinned?.id===c.id? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700')+" p-1 rounded hover:bg-zinc-100 transition-colors"}>
-                        <Pin className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                      <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===c.id ? null : c.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
-                        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      </button>
-                      <ParecerMenu onEdit={()=> { setIsEditingId(c.id); setEditText(c.text||''); }} onDelete={()=> onDelete(c.id)} />
-                    </div>
-                  </div>
-                  {isEditingId===c.id ? (
-                    <div className="mt-2 space-y-2" ref={editBoxRef}>
-                      <div className="relative">
-                        <UITTextarea
-                          value={editText}
-                          onChange={(e)=> {
-                            const v = e.target.value || '';
-                            setEditText(v);
-                            const atIdx = v.lastIndexOf('@');
-                            if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
-                            const slashIdx = v.lastIndexOf('/');
-                            if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
-                          }}
-                          onKeyDown={async (e:any)=>{
-                            if (e.key==='Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              const t=(editText||'').trim(); if(!t) return;
-                              await onEdit(c.id, t);
-                              setIsEditingId(null);
-                              return;
-                            }
-                            const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
-                            const atIdx = v.lastIndexOf('@');
-                            if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
-                            const slashIdx = v.lastIndexOf('/');
-                            if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
-                          }}
-                          placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
-                          rows={4}
-                        />
-                        {editMentionOpen && (
-                          <div className="absolute z-50 left-0 bottom-full mb-2">
-                            <MentionDropdownParecer
-                              items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
-                              onPick={(p)=>{
-                                const idx = (editText||'').lastIndexOf('@');
-                                const newVal = (editText||'').slice(0, idx + 1) + p.full_name + ' ';
-                                setEditText(newVal);
-                                setEditMentionOpen(false);
-                              }}
-                            />
-                          </div>
-                        )}
-                        {editCmdOpen && (
-                          <div className="absolute z-50 left-0 bottom-full mb-2">
-                            <CmdDropdown
-                              items={[{ key:'aprovado', label:'Aprovado' },{ key:'negado', label:'Negado' },{ key:'reanalise', label:'Reanálise' },{ key:'tarefa', label:'Tarefa' },{ key:'anexo', label:'Anexo' }].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
-                              onPick={async (key)=>{
-                                setEditCmdOpen(false); setEditCmdQuery('');
-                                if (key==='tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
-                                if (key==='anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
-                                try {
-                                  if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
-                                  else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
-                                  else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
-                                } catch(e:any){ alert(e?.message||'Falha ao mover'); }
-                              }}
-                              initialQuery={editCmdQuery}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      {/* Removidos CTAs; envio via Enter, cancelar via Esc */}
-                    </div>
-                  ) : (
-                    <div className="mt-1 whitespace-pre-line break-words">{c.text}</div>
                   )}
-                  {isReplyingId===c.id && (
-                    <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
-                      <div className="flex-1">
-                        <UITTextarea
-                          value={reply}
-                          onChange={(e)=> setReply(e.target.value)}
-                          onKeyDown={async (e)=>{ if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); const t=reply.trim(); if(!t) return; await onReply(c.id, t); setReply(''); setIsReplyingId(null); return; } }}
-                          onKeyUp={(e)=>{ const v=e.currentTarget.value||''; const slashIdx=v.lastIndexOf('/'); if (slashIdx>=0){ setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current){ const rc=getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: rc.top + rc.height + 6, left: Math.max(0, Math.min(rc.left, replyTaRef.current.clientWidth - 256)) }); } } else setCmdOpen(false); }}
-                          rows={3}
-                          placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
-                        />
-                        {cmdOpen && (
-                          <div className="absolute z-50 left-0 bottom-full mb-2">
-                            <CmdDropdown
-                              items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery))}
-                              onPick={async (key)=>{ setCmdOpen(false); setCmdQuery(''); if (key==='tarefa'){ (window as any).dispatchEvent(new Event('mz-open-task')); } else if (key==='anexo'){ (window as any).dispatchEvent(new Event('mz-open-attach')); } }}
-                              initialQuery={cmdQuery}
-                            />
-                          </div>
-                        )}
-                      </div>
+                  {editCmdOpen && (
+                    <div className="absolute z-50 left-0 bottom-full mb-2">
+                      <CmdDropdown
+                        items={[{ key:'aprovado', label:'Aprovado' },{ key:'negado', label:'Negado' },{ key:'reanalise', label:'Reanálise' },{ key:'tarefa', label:'Tarefa' },{ key:'anexo', label:'Anexo' }].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
+                        onPick={async (key)=>{
+                          setEditCmdOpen(false); setEditCmdQuery('');
+                          if (key==='tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
+                          if (key==='anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
+                          if (key==='aprovado' || key==='negado' || key==='reanalise') {
+                            editComposerRef.current?.setDecision(key as ComposerDecision);
+                            try {
+                              await handleDecisionShortcut(cardId, onDecisionChange, key as any);
+                            } catch (e:any) {
+                              alert(e?.message || 'Falha ao mover');
+                            }
+                          }
+                        }}
+                        initialQuery={editCmdQuery}
+                      />
                     </div>
                   )}
                 </div>
-              ))}
+              </div>
+            )}
+
+            <div className="mt-3">
+              {isReplyingId===n.id ? (
+                <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
+                  <div className="flex-1 relative">
+                    <UnifiedComposer
+                      ref={replyComposerRef}
+                      defaultValue={replyValue}
+                      placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+                      onChange={(val)=> setReplyValue(val)}
+                      onSubmit={async (val)=>{
+                        const trimmed = (val.text || '').trim();
+                        if (!trimmed) return;
+                        await onReply(n.id, val);
+                        if (val.decision === 'aprovado' || val.decision === 'negado') {
+                          await onDecisionChange(val.decision);
+                        } else if (val.decision === 'reanalise') {
+                          await onDecisionChange(null);
+                        }
+                        const resetVal: ComposerValue = { decision: null, text: '' };
+                        setReplyValue(resetVal);
+                        requestAnimationFrame(()=> replyComposerRef.current?.setValue(resetVal));
+                        setIsReplyingId(null);
+                        setMentionOpenReply(false);
+                        setCmdOpen(false);
+                      }}
+                      onCancel={()=> {
+                        setIsReplyingId(null);
+                        setMentionOpenReply(false);
+                        setCmdOpen(false);
+                      }}
+                      onMentionTrigger={(query)=> {
+                        setMentionFilterReply(query.trim());
+                        setMentionOpenReply(true);
+                      }}
+                      onMentionClose={()=> setMentionOpenReply(false)}
+                      onCommandTrigger={(query)=> {
+                        setCmdQuery(query.toLowerCase());
+                        setCmdOpen(true);
+                      }}
+                      onCommandClose={()=> {
+                        setCmdOpen(false);
+                        setCmdQuery('');
+                      }}
+                    />
+                    {mentionOpenReply && (
+                      <div className="absolute z-50 left-0 bottom-full mb-2">
+                        <MentionDropdownParecer
+                          items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(mentionFilterReply.toLowerCase()))}
+                          onPick={(p)=>{
+                            const base = replyValue.text || '';
+                            const idx = base.lastIndexOf('@');
+                            const replacement = `${p.full_name} `;
+                            const newText = idx >= 0 ? base.slice(0, idx + 1) + replacement : `${base}${replacement}`;
+                            const nextVal: ComposerValue = { decision: replyValue.decision, text: newText };
+                            setReplyValue(nextVal);
+                            replyComposerRef.current?.setValue(nextVal);
+                            setMentionOpenReply(false);
+                          }}
+                        />
+                      </div>
+                    )}
+                    {cmdOpen && (
+                      <div className="absolute z-50 left-0 bottom-full mb-2">
+                        <CmdDropdown
+                          items={[{ key:'aprovado', label:'Aprovado' },{ key:'negado', label:'Negado' },{ key:'reanalise', label:'Reanálise' },{ key:'tarefa', label:'Tarefa' },{ key:'anexo', label:'Anexo' }].filter(i=> i.key.includes(cmdQuery) || i.label.toLowerCase().includes(cmdQuery))}
+                          onPick={async (key)=>{
+                            setCmdOpen(false); setCmdQuery('');
+                            if (key==='tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
+                            if (key==='anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
+                            if (key==='aprovado' || key==='negado' || key==='reanalise') {
+                              replyComposerRef.current?.setDecision(key as ComposerDecision);
+                              try {
+                                await handleDecisionShortcut(cardId, onDecisionChange, key as any);
+                              } catch (e:any) {
+                                alert(e?.message || 'Falha ao mover');
+                              }
+                            }
+                          }}
+                          initialQuery={cmdQuery}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </div>
-          )}
+
+            {n.children && n.children.length>0 && (
+              <div className="mt-2 space-y-2 pl-4">
+                {n.children.map((c:any)=> (
+                  <div
+                    key={c.id}
+                    className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800"
+                    style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px', borderLeftStyle: 'solid' }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">{c.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span></div>
+                        {c.author_role && <div className="text-[11px] text-zinc-500 truncate">{c.author_role}</div>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button aria-label="Fixar parecer" onClick={()=> setPinned((p:any)=> p?.id===c.id ? null : c)} className={`${pinned?.id===c.id ? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700'} p-1 rounded hover:bg-zinc-100 transition-colors`}>
+                          <Pin className="w-4 h-4" strokeWidth={1.75} />
+                        </button>
+                        <button aria-label="Responder" onClick={()=> setIsReplyingId(v=> v===c.id ? null : c.id)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
+                          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </button>
+                        <ParecerMenu onEdit={()=> {
+                          setIsEditingId(c.id);
+                          const nextVal: ComposerValue = { decision: (c.decision as ComposerDecision) ?? null, text: c.text || '' };
+                          setEditValue(nextVal);
+                          requestAnimationFrame(() => {
+                            editComposerRef.current?.setValue(nextVal);
+                            editComposerRef.current?.focus();
+                          });
+                        }} onDelete={()=> onDelete(c.id)} />
+                      </div>
+                    </div>
+
+                    {!isEditingId || isEditingId !== c.id ? (
+                      <div className="mt-1 space-y-2">
+                        <DecisionTag decision={c.decision} />
+                        <div className="whitespace-pre-line break-words">{c.text}</div>
+                      </div>
+                    ) : null}
+
+                    {isEditingId===c.id && (
+                      <div className="mt-2 space-y-2" ref={editBoxRef}>
+                        <div className="relative">
+                          <UnifiedComposer
+                            ref={editComposerRef}
+                            defaultValue={editValue}
+                            onChange={(val)=> setEditValue(val)}
+                            onSubmit={async (val)=>{
+                              const trimmed = (val.text || '').trim();
+                              if (!trimmed) return;
+                              await onEdit(c.id, val);
+                              setIsEditingId(null);
+                              if (val.decision === 'aprovado' || val.decision === 'negado') {
+                                await onDecisionChange(val.decision);
+                              } else if (val.decision === 'reanalise') {
+                                await onDecisionChange(null);
+                              }
+                            }}
+                            onCancel={()=> setIsEditingId(null)}
+                            onMentionTrigger={(query)=> {
+                              setEditMentionFilter(query.trim());
+                              setEditMentionOpen(true);
+                            }}
+                            onMentionClose={()=> setEditMentionOpen(false)}
+                            onCommandTrigger={(query)=> {
+                              setEditCmdQuery(query.toLowerCase());
+                              setEditCmdOpen(true);
+                            }}
+                            onCommandClose={()=> {
+                              setEditCmdOpen(false);
+                              setEditCmdQuery('');
+                            }}
+                          />
+                          {editMentionOpen && (
+                            <div className="absolute z-50 left-0 bottom-full mb-2">
+                              <MentionDropdownParecer
+                                items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                                onPick={(p)=>{
+                                  const base = editValue.text || '';
+                                  const idx = base.lastIndexOf('@');
+                                  const replacement = `${p.full_name} `;
+                                  const newText = idx >= 0 ? base.slice(0, idx + 1) + replacement : `${base}${replacement}`;
+                                  const nextVal: ComposerValue = { decision: editValue.decision, text: newText };
+                                  setEditValue(nextVal);
+                                  editComposerRef.current?.setValue(nextVal);
+                                  setEditMentionOpen(false);
+                                }}
+                              />
+                            </div>
+                          )}
+                          {editCmdOpen && (
+                            <div className="absolute z-50 left-0 bottom-full mb-2">
+                              <CmdDropdown
+                                items={[{ key:'aprovado', label:'Aprovado' },{ key:'negado', label:'Negado' },{ key:'reanalise', label:'Reanálise' },{ key:'tarefa', label:'Tarefa' },{ key:'anexo', label:'Anexo' }].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
+                                onPick={async (key)=>{
+                                  setEditCmdOpen(false); setEditCmdQuery('');
+                                  if (key==='tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
+                                  if (key==='anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
+                                  if (key==='aprovado' || key==='negado' || key==='reanalise') {
+                                    editComposerRef.current?.setDecision(key as ComposerDecision);
+                                    try {
+                                      await handleDecisionShortcut(cardId, onDecisionChange, key as any);
+                                    } catch (e:any) {
+                                      alert(e?.message || 'Falha ao mover');
+                                    }
+                                  }
+                                }}
+                                initialQuery={editCmdQuery}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {isReplyingId===c.id && (
+                      <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
+                        <div className="flex-1 relative">
+                          <UnifiedComposer
+                            ref={replyComposerRef}
+                            defaultValue={replyValue}
+                            placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+                            onChange={(val)=> setReplyValue(val)}
+                            onSubmit={async (val)=>{
+                              const trimmed = (val.text || '').trim();
+                              if (!trimmed) return;
+                              await onReply(c.id, val);
+                              if (val.decision === 'aprovado' || val.decision === 'negado') {
+                                await onDecisionChange(val.decision);
+                              } else if (val.decision === 'reanalise') {
+                                await onDecisionChange(null);
+                              }
+                              const resetVal: ComposerValue = { decision: null, text: '' };
+                              setReplyValue(resetVal);
+                              requestAnimationFrame(()=> replyComposerRef.current?.setValue(resetVal));
+                              setIsReplyingId(null);
+                              setMentionOpenReply(false);
+                              setCmdOpen(false);
+                            }}
+                            onCancel={()=> {
+                              setIsReplyingId(null);
+                              setMentionOpenReply(false);
+                              setCmdOpen(false);
+                            }}
+                            onMentionTrigger={(query)=> {
+                              setMentionFilterReply(query.trim());
+                              setMentionOpenReply(true);
+                            }}
+                            onMentionClose={()=> setMentionOpenReply(false)}
+                            onCommandTrigger={(query)=> {
+                              setCmdQuery(query.toLowerCase());
+                              setCmdOpen(true);
+                            }}
+                            onCommandClose={()=> {
+                              setCmdOpen(false);
+                              setCmdQuery('');
+                            }}
+                          />
+                          {mentionOpenReply && (
+                            <div className="absolute z-50 left-0 bottom-full mb-2">
+                              <MentionDropdownParecer
+                                items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(mentionFilterReply.toLowerCase()))}
+                                onPick={(p)=>{
+                                  const base = replyValue.text || '';
+                                  const idx = base.lastIndexOf('@');
+                                  const replacement = `${p.full_name} `;
+                                  const newText = idx >= 0 ? base.slice(0, idx + 1) + replacement : `${base}${replacement}`;
+                                  const nextVal: ComposerValue = { decision: replyValue.decision, text: newText };
+                                  setReplyValue(nextVal);
+                                  replyComposerRef.current?.setValue(nextVal);
+                                  setMentionOpenReply(false);
+                                }}
+                              />
+                            </div>
+                          )}
+                          {cmdOpen && (
+                            <div className="absolute z-50 left-0 bottom-full mb-2">
+                              <CmdDropdown
+                                items={[{ key:'aprovado', label:'Aprovado' },{ key:'negado', label:'Negado' },{ key:'reanalise', label:'Reanálise' },{ key:'tarefa', label:'Tarefa' },{ key:'anexo', label:'Anexo' }].filter(i=> i.key.includes(cmdQuery) || i.label.toLowerCase().includes(cmdQuery))}
+                                onPick={async (key)=>{
+                                  setCmdOpen(false); setCmdQuery('');
+                                  if (key==='tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
+                                  if (key==='anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
+                                  if (key==='aprovado' || key==='negado' || key==='reanalise') {
+                                    replyComposerRef.current?.setDecision(key as ComposerDecision);
+                                    try {
+                                      await handleDecisionShortcut(cardId, onDecisionChange, key as any);
+                                    } catch (e:any) {
+                                      alert(e?.message || 'Falha ao mover');
+                                    }
+                                  }
+                                }}
+                                initialQuery={cmdQuery}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {pinned && (
+        <div className="fixed bottom-0 z-40 pointer-events-none" style={{ left: leftOffset, right: 0, height: `${pinnedHeight}px` }}>
+          <div className="pointer-events-auto border-t border-zinc-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)] w-full h-full flex flex-col">
+            <div
+              className={`w-full h-2 cursor-ns-resize flex items-center justify-center border-b border-zinc-100 hover:bg-zinc-50 transition-colors ${isResizing ? 'bg-zinc-100' : ''}`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsResizing(true);
+              }}
+            >
+              <div className="w-12 h-1 bg-zinc-300 rounded-full"></div>
+            </div>
+            <div className="px-4 py-3 text-xs text-zinc-600 flex items-center justify-between border-b border-zinc-100 shrink-0">
+              <div className="min-w-0 flex items-center gap-2">
+                <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+                <div className="truncate">
+                  <span className="font-medium text-zinc-800">{pinned.author_name || '—'}</span>
+                  <span className="ml-2 text-zinc-500">{pinned.created_at ? new Date(pinned.created_at).toLocaleString() : ''}</span>
+                </div>
+              </div>
+              <button onClick={()=> setPinned(null)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100 transition-colors">
+                <Pin className="w-3.5 h-3.5" strokeWidth={1.75} />
+                <span className="hidden sm:inline">Desafixar</span>
+              </button>
+            </div>
+            <div className="px-4 py-3 text-sm text-zinc-800 whitespace-pre-line break-words overflow-y-auto flex-1">
+              <div className="mb-2"><DecisionTag decision={pinned.decision} /></div>
+              {pinned.text}
+            </div>
+          </div>
         </div>
-      ))}
-    </div>
-     {pinned && (
-       <div className="fixed bottom-0 z-40 pointer-events-none" style={{ left: leftOffset, right: 0, height: `${pinnedHeight}px` }}>
-           <div className="pointer-events-auto border-t border-zinc-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)] w-full h-full flex flex-col">
-             {/* Resize Handle */}
-             <div 
-               className={`w-full h-2 cursor-ns-resize flex items-center justify-center border-b border-zinc-100 hover:bg-zinc-50 transition-colors ${isResizing ? 'bg-zinc-100' : ''}`}
-               onMouseDown={(e) => {
-                 e.preventDefault();
-                 setIsResizing(true);
-               }}
-             >
-               <div className="w-12 h-1 bg-zinc-300 rounded-full"></div>
-             </div>
-             
-             {/* Header */}
-             <div className="px-4 py-3 text-xs text-zinc-600 flex items-center justify-between border-b border-zinc-100 shrink-0">
-               <div className="min-w-0 flex items-center gap-2">
-                 <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
-                 <div className="truncate">
-                   <span className="font-medium text-zinc-800">{pinned.author_name || '—'}</span>
-                   <span className="ml-2 text-zinc-500">{pinned.created_at ? new Date(pinned.created_at).toLocaleString() : ''}</span>
-                 </div>
-               </div>
-               <button onClick={()=> setPinned(null)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100 transition-colors">
-                 <Pin className="w-3.5 h-3.5" strokeWidth={1.75} />
-                 <span className="hidden sm:inline">Desafixar</span>
-               </button>
-             </div>
-             
-             {/* Content */}
-             <div className="px-4 py-3 text-sm text-zinc-800 whitespace-pre-line break-words overflow-y-auto flex-1">{pinned.text}</div>
-           </div>
-       </div>
-     )}
+      )}
     </>
   );
 }

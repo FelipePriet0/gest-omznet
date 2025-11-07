@@ -6,6 +6,19 @@ import { KanbanCard } from "@/features/kanban/types";
 export async function changeStage(cardId: string, area: 'comercial' | 'analise', stage: string, reason?: string) {
   const { data, error } = await supabase.rpc('change_stage', { p_card_id: cardId, p_area: area, p_stage: stage, p_reason: reason ?? null });
   if (error) throw error;
+  if (area === 'analise') {
+    try {
+      if (stage === 'aprovados') {
+        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'aprovado' });
+      } else if (stage === 'negados') {
+        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'negado' });
+      } else if (stage === 'reanalise') {
+        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: null });
+      }
+    } catch (err) {
+      console.warn('set_card_decision failed', err);
+    }
+  }
   return data;
 }
 

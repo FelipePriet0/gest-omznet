@@ -998,15 +998,97 @@ body {
 }
 .cmd-menu-item--destructive:hover,
 .cmd-menu-item--destructive[aria-selected="true"],
-.cmd-menu-item--destructive:focus {
-  background: #ef4444; /* red-500 */
+.cmd-menu-item--destructive:focus,
+.cmd-menu-item--warning:hover,
+.cmd-menu-item--warning[aria-selected="true"],
+.cmd-menu-item--warning:focus {
+  background: var(--verde-primario, #34a853);
   color: #ffffff;
 }
 .cmd-menu-item--primary:hover span,
 .cmd-menu-item--primary:hover svg,
 .cmd-menu-item--destructive:hover span,
-.cmd-menu-item--destructive:hover svg {
+.cmd-menu-item--destructive:hover svg,
+.cmd-menu-item--warning:hover span,
+.cmd-menu-item--warning:hover svg {
   color: #ffffff !important;
+}
+
+.composer-root {
+  position: relative;
+}
+.composer-input {
+  min-height: 128px;
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+}
+.composer-input:focus {
+  border-color: var(--verde-primario, #34a853);
+  box-shadow: 0 0 0 3px rgba(1, 137, 66, 0.12);
+}
+.composer-input-disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+.composer-placeholder {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #9ca3af;
+  pointer-events: none;
+}
+.decision-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+.decision-chip__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.decision-chip__close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.decision-chip__close:hover {
+  opacity: 0.8;
+}
+
+.decision-chip.decision-chip--primary {
+  background: var(--verde-primario, #34a853);
+}
+.decision-chip.decision-chip--destructive {
+  background: #ef4444;
+}
+.decision-chip.decision-chip--warning {
+  background: #facc15;
+  color: #1f2937;
+}
+.decision-chip.decision-chip--warning .decision-chip__close {
+  color: #1f2937;
 }
 
 .comment-menu-trigger:hover {
