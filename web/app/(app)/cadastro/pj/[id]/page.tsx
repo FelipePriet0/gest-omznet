@@ -1101,68 +1101,68 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
       ? "rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]"
       : "rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800";
 
-    return (
+  return (
       <div
         key={note.id}
         className={containerClass}
         style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px', borderLeftStyle: 'solid' }}
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex items-start gap-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex items-start gap-2">
             {isRoot && <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />}
-            <div className="min-w-0">
-              <div className="truncate font-medium">
+                <div className="min-w-0">
+                  <div className="truncate font-medium">
                 {note.author_name || '—'}
-                <span className="ml-2 text-[11px] text-zinc-500">
+                    <span className="ml-2 text-[11px] text-zinc-500">
                   {note.created_at ? new Date(note.created_at).toLocaleString() : ''}
-                </span>
-              </div>
+                    </span>
+                  </div>
               {note.author_role && <div className="text-[11px] text-zinc-500 truncate">{note.author_role}</div>}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 z-10">
-            <button
-              aria-label="Fixar parecer"
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 z-10">
+                <button
+                  aria-label="Fixar parecer"
               onClick={() => setPinned((p: any) => (p?.id === note.id ? null : note))}
               className={`${pinned?.id === note.id ? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700'} p-1 rounded hover:bg-zinc-100 transition-colors`}
-            >
-              <Pin className="w-4 h-4" strokeWidth={1.75} />
-            </button>
-            <button
-              aria-label="Responder"
+                >
+                  <Pin className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+                <button
+                  aria-label="Responder"
               onClick={() => {
                 if (isReplying) {
-                  setIsReplyingId(null);
-                  setReplyValue({ decision: null, text: '' });
+                      setIsReplyingId(null);
+                      setReplyValue({ decision: null, text: '' });
                   setMentionOpenReply(false);
                   setCmdOpen(false);
-                } else {
+                    } else {
                   setIsReplyingId(note.id);
-                  setReplyValue({ decision: null, text: '' });
-                  requestAnimationFrame(() => replyComposerRef.current?.focus());
-                }
-              }}
-              className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-            <ParecerMenu
+                      setReplyValue({ decision: null, text: '' });
+                      requestAnimationFrame(() => replyComposerRef.current?.focus());
+                    }
+                  }}
+                  className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+                <ParecerMenu
               onEdit={() => {
                 setIsEditingId(note.id);
                 const nextVal: ComposerValue = { decision: (note.decision as ComposerDecision) ?? null, text: note.text || '' };
-                setEditValue(nextVal);
-                requestAnimationFrame(() => {
-                  editComposerRef.current?.setValue(nextVal);
-                  editComposerRef.current?.focus();
-                });
-              }}
+                    setEditValue(nextVal);
+                    requestAnimationFrame(() => {
+                      editComposerRef.current?.setValue(nextVal);
+                      editComposerRef.current?.focus();
+                    });
+                  }}
               onDelete={() => onDelete(note.id)}
-            />
-          </div>
-        </div>
+                />
+              </div>
+            </div>
 
         {!isEditing && (
-          <div className="mt-2 space-y-2">
+              <div className="mt-2 space-y-2">
             <DecisionTag decision={note.decision} />
             <div className="whitespace-pre-line break-words">{note.text}</div>
             {isRoot && (
@@ -1180,64 +1180,64 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                 {note.attachments.map((att: any, idx: number) => (
                   <AttachmentChip key={att.id ?? att.file_path ?? `${note.id}-att-${idx}`} attachment={att} />
                 ))}
-              </div>
-            )}
-          </div>
-        )}
+                      </div>
+                    )}
+                      </div>
+                    )}
 
         {isEditing && (
           <div className="mt-3" ref={editBoxRef}>
-            <div className="relative">
-              <UnifiedComposer
-                ref={editComposerRef}
-                defaultValue={editValue}
+                        <div className="relative">
+                          <UnifiedComposer
+                            ref={editComposerRef}
+                            defaultValue={editValue}
                 onChange={(val) => setEditValue(val)}
                 onSubmit={async (val) => {
-                  const trimmed = (val.text || '').trim();
-                  if (!trimmed) return;
+                              const trimmed = (val.text || '').trim();
+                              if (!trimmed) return;
                   await onEdit(note.id, val);
-                  setIsEditingId(null);
-                  if (val.decision === 'aprovado' || val.decision === 'negado') {
-                    await onDecisionChange(val.decision);
-                  } else if (val.decision === 'reanalise') {
+                              setIsEditingId(null);
+                              if (val.decision === 'aprovado' || val.decision === 'negado') {
+                                await onDecisionChange(val.decision);
+                              } else if (val.decision === 'reanalise') {
                     await onDecisionChange('reanalise');
-                  }
-                }}
+                              }
+                            }}
                 onCancel={() => setIsEditingId(null)}
                 onMentionTrigger={(query) => {
-                  setEditMentionFilter(query.trim());
-                  setEditMentionOpen(true);
-                }}
+                              setEditMentionFilter(query.trim());
+                              setEditMentionOpen(true);
+                            }}
                 onMentionClose={() => setEditMentionOpen(false)}
                 onCommandTrigger={(query) => {
-                  setEditCmdQuery(query.toLowerCase());
-                  setEditCmdOpen(true);
-                }}
+                              setEditCmdQuery(query.toLowerCase());
+                              setEditCmdOpen(true);
+                            }}
                 onCommandClose={() => {
-                  setEditCmdOpen(false);
-                  setEditCmdQuery('');
-                }}
-              />
-              {editMentionOpen && (
-                <div className="absolute z-50 left-0 bottom-full mb-2">
-                  <MentionDropdownParecer
+                              setEditCmdOpen(false);
+                              setEditCmdQuery('');
+                            }}
+                          />
+                          {editMentionOpen && (
+                            <div className="absolute z-50 left-0 bottom-full mb-2">
+                              <MentionDropdownParecer
                     items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(editMentionFilter.toLowerCase()))}
                     onPick={(p) => {
-                      const base = editValue.text || '';
-                      const idx = base.lastIndexOf('@');
-                      const replacement = `${p.full_name} `;
-                      const newText = idx >= 0 ? base.slice(0, idx + 1) + replacement : `${base}${replacement}`;
-                      const nextVal: ComposerValue = { decision: editValue.decision, text: newText };
-                      setEditValue(nextVal);
-                      editComposerRef.current?.setValue(nextVal);
-                      setEditMentionOpen(false);
-                    }}
-                  />
-                </div>
-              )}
-              {editCmdOpen && (
-                <div className="absolute z-50 left-0 bottom-full mb-2">
-                  <CmdDropdown
+                                  const base = editValue.text || '';
+                                  const idx = base.lastIndexOf('@');
+                                  const replacement = `${p.full_name} `;
+                                  const newText = idx >= 0 ? base.slice(0, idx + 1) + replacement : `${base}${replacement}`;
+                                  const nextVal: ComposerValue = { decision: editValue.decision, text: newText };
+                                  setEditValue(nextVal);
+                                  editComposerRef.current?.setValue(nextVal);
+                                  setEditMentionOpen(false);
+                                }}
+                              />
+                            </div>
+                          )}
+                          {editCmdOpen && (
+                            <div className="absolute z-50 left-0 bottom-full mb-2">
+                              <CmdDropdown
                     items={[{ key: 'aprovado', label: 'Aprovado' }, { key: 'negado', label: 'Negado' }, { key: 'reanalise', label: 'Reanálise' }, { key: 'tarefa', label: 'Tarefa' }, { key: 'anexo', label: 'Anexo' }].filter((i) => i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
                     onPick={async (key) => {
                       setEditCmdOpen(false);
@@ -1245,85 +1245,85 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                       if (key === 'tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
                       if (key === 'anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
                       if (key === 'aprovado' || key === 'negado' || key === 'reanalise') {
-                        editComposerRef.current?.setDecision(key as ComposerDecision);
-                        try {
-                          await handleDecisionShortcut(cardId, onDecisionChange, key as any);
+                                    editComposerRef.current?.setDecision(key as ComposerDecision);
+                                    try {
+                                      await handleDecisionShortcut(cardId, onDecisionChange, key as any);
                         } catch (e: any) {
-                          alert(e?.message || 'Falha ao mover');
-                        }
-                      }
-                    }}
-                    initialQuery={editCmdQuery}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+                                      alert(e?.message || 'Falha ao mover');
+                                    }
+                                  }
+                                }}
+                                initialQuery={editCmdQuery}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
         {isReplying && (
-          <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
-            <div className="flex-1 relative">
-              <UnifiedComposer
-                ref={replyComposerRef}
-                defaultValue={replyValue}
-                placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+                      <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
+                        <div className="flex-1 relative">
+                          <UnifiedComposer
+                            ref={replyComposerRef}
+                            defaultValue={replyValue}
+                            placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
                 onChange={(val) => setReplyValue(val)}
                 onSubmit={async (val) => {
-                  const trimmed = (val.text || '').trim();
-                  if (!trimmed) return;
+                              const trimmed = (val.text || '').trim();
+                              if (!trimmed) return;
                   await onReply(note.id, val);
-                  if (val.decision === 'aprovado' || val.decision === 'negado') {
-                    await onDecisionChange(val.decision);
-                  } else if (val.decision === 'reanalise') {
+                              if (val.decision === 'aprovado' || val.decision === 'negado') {
+                                await onDecisionChange(val.decision);
+                              } else if (val.decision === 'reanalise') {
                     await onDecisionChange('reanalise');
-                  }
-                  const resetVal: ComposerValue = { decision: null, text: '' };
-                  setReplyValue(resetVal);
+                              }
+                              const resetVal: ComposerValue = { decision: null, text: '' };
+                              setReplyValue(resetVal);
                   requestAnimationFrame(() => replyComposerRef.current?.setValue(resetVal));
-                  setIsReplyingId(null);
-                  setMentionOpenReply(false);
-                  setCmdOpen(false);
-                }}
+                              setIsReplyingId(null);
+                              setMentionOpenReply(false);
+                              setCmdOpen(false);
+                            }}
                 onCancel={() => {
-                  setIsReplyingId(null);
-                  setMentionOpenReply(false);
-                  setCmdOpen(false);
-                }}
+                              setIsReplyingId(null);
+                              setMentionOpenReply(false);
+                              setCmdOpen(false);
+                            }}
                 onMentionTrigger={(query) => {
-                  setMentionFilterReply(query.trim());
-                  setMentionOpenReply(true);
-                }}
+                              setMentionFilterReply(query.trim());
+                              setMentionOpenReply(true);
+                            }}
                 onMentionClose={() => setMentionOpenReply(false)}
                 onCommandTrigger={(query) => {
-                  setCmdQuery(query.toLowerCase());
-                  setCmdOpen(true);
-                }}
+                              setCmdQuery(query.toLowerCase());
+                              setCmdOpen(true);
+                            }}
                 onCommandClose={() => {
-                  setCmdOpen(false);
-                  setCmdQuery('');
-                }}
-              />
-              {mentionOpenReply && (
-                <div className="absolute z-50 left-0 bottom-full mb-2">
-                  <MentionDropdownParecer
+                              setCmdOpen(false);
+                              setCmdQuery('');
+                            }}
+                          />
+                          {mentionOpenReply && (
+                            <div className="absolute z-50 left-0 bottom-full mb-2">
+                              <MentionDropdownParecer
                     items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(mentionFilterReply.toLowerCase()))}
                     onPick={(p) => {
-                      const base = replyValue.text || '';
-                      const idx = base.lastIndexOf('@');
-                      const replacement = `${p.full_name} `;
-                      const newText = idx >= 0 ? base.slice(0, idx + 1) + replacement : `${base}${replacement}`;
-                      const nextVal: ComposerValue = { decision: replyValue.decision, text: newText };
-                      setReplyValue(nextVal);
-                      replyComposerRef.current?.setValue(nextVal);
-                      setMentionOpenReply(false);
-                    }}
-                  />
-                </div>
-              )}
-              {cmdOpen && (
-                <div className="absolute z-50 left-0 bottom-full mb-2">
-                  <CmdDropdown
+                                  const base = replyValue.text || '';
+                                  const idx = base.lastIndexOf('@');
+                                  const replacement = `${p.full_name} `;
+                                  const newText = idx >= 0 ? base.slice(0, idx + 1) + replacement : `${base}${replacement}`;
+                                  const nextVal: ComposerValue = { decision: replyValue.decision, text: newText };
+                                  setReplyValue(nextVal);
+                                  replyComposerRef.current?.setValue(nextVal);
+                                  setMentionOpenReply(false);
+                                }}
+                              />
+                            </div>
+                          )}
+                          {cmdOpen && (
+                            <div className="absolute z-50 left-0 bottom-full mb-2">
+                              <CmdDropdown
                     items={[{ key: 'aprovado', label: 'Aprovado' }, { key: 'negado', label: 'Negado' }, { key: 'reanalise', label: 'Reanálise' }, { key: 'tarefa', label: 'Tarefa' }, { key: 'anexo', label: 'Anexo' }].filter((i) => i.key.includes(cmdQuery) || i.label.toLowerCase().includes(cmdQuery))}
                     onPick={async (key) => {
                       setCmdOpen(false);
@@ -1331,28 +1331,28 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                       if (key === 'tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
                       if (key === 'anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
                       if (key === 'aprovado' || key === 'negado' || key === 'reanalise') {
-                        replyComposerRef.current?.setDecision(key as ComposerDecision);
-                        try {
-                          await handleDecisionShortcut(cardId, onDecisionChange, key as any);
+                                    replyComposerRef.current?.setDecision(key as ComposerDecision);
+                                    try {
+                                      await handleDecisionShortcut(cardId, onDecisionChange, key as any);
                         } catch (e: any) {
-                          alert(e?.message || 'Falha ao mover');
-                        }
-                      }
-                    }}
-                    initialQuery={cmdQuery}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+                                      alert(e?.message || 'Falha ao mover');
+                                    }
+                                  }
+                                }}
+                                initialQuery={cmdQuery}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
         {Array.isArray(note.children) && note.children.length > 0 && (
           <div className="mt-2 space-y-2 pl-4">
             {note.children.map((child: any) => renderThread(child, depth + 1))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
     );
   };
 
