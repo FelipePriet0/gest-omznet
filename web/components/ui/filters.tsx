@@ -22,29 +22,21 @@ import {
 import { cn } from "@/lib/utils";
 import {
   Calendar,
-  CalendarPlus,
-  CalendarSync,
   Check,
   Circle,
-  CircleAlert,
-  CircleCheck,
-  CircleDashed,
-  CircleDotDashed,
-  CircleEllipsis,
-  CircleX,
-  SignalHigh,
-  SignalLow,
-  SignalMedium,
   Tag,
   UserCircle,
   X,
   Clock,
   MapPin,
 } from "lucide-react";
-import { Dispatch, SetStateAction, useRef, useState, useEffect } from "react";
+import { Dispatch, SetStateAction, useRef, useState, useEffect, useMemo } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "motion/react";
+import Flatpickr from "react-flatpickr";
+import "flatpickr/dist/themes/material_green.css";
+import { Portuguese } from "flatpickr/dist/l10n/pt.js";
 
 interface AnimateChangeInHeightProps {
   children: React.ReactNode;
@@ -116,9 +108,6 @@ export enum Responsavel {
 }
 
 export enum Prazo {
-  HOJE = "Agendada para hoje",
-  AMANHA = "Agendada para amanhã", 
-  ATRASADO = "Atrasado",
   DATA = "Escolher data",
 }
 
@@ -130,14 +119,14 @@ export enum Horario {
 }
 
 export enum Atribuidas {
-  MINHAS_MENCOES = "Minhas Menções",
-  MINHAS_TAREFAS = "Minhas Tarefas",
+  MINHAS_MENCOES = "Minhas menções",
 }
 
 export type FilterOption = {
-  name: FilterType | Area | Responsavel | Prazo | Horario | Atribuidas;
+  name: string;
   icon: React.ReactNode | undefined;
   label?: string;
+  value?: string;
 };
 
 export type Filter = {
@@ -169,14 +158,8 @@ const FilterIcon = ({
       return <div className="bg-green-400 rounded-full size-2.5" />;
     case Responsavel.TODOS:
       return <UserCircle className="size-3.5 text-muted-foreground" />;
-    case Prazo.HOJE:
-      return <Calendar className="size-3.5 text-green-400" />;
-    case Prazo.AMANHA:
-      return <Calendar className="size-3.5 text-blue-400" />;
-    case Prazo.ATRASADO:
-      return <Calendar className="size-3.5 text-red-400" />;
     case Prazo.DATA:
-      return <CalendarPlus className="size-3.5" />;
+      return <Calendar className="size-3.5" />;
     case Horario.H0830:
     case Horario.H1030:
     case Horario.H1330:
@@ -184,8 +167,6 @@ const FilterIcon = ({
       return <Clock className="size-3.5 text-blue-400" />;
     case Atribuidas.MINHAS_MENCOES:
       return <div className="bg-orange-400 rounded-full size-2.5" />;
-    case Atribuidas.MINHAS_TAREFAS:
-      return <div className="bg-purple-400 rounded-full size-2.5" />;
     default:
       return <Circle className="size-3.5" />;
   }
@@ -225,19 +206,9 @@ export const areaFilterOptions: FilterOption[] = Object.values(Area).map(
   })
 );
 
-export const responsavelFilterOptions: FilterOption[] = [
-  {
-    name: Responsavel.TODOS,
-    icon: <FilterIcon type={Responsavel.TODOS} />,
-  },
-];
+export const responsavelFilterOptions: FilterOption[] = [];
 
-export const prazoFilterOptions: FilterOption[] = Object.values(Prazo).map(
-  (prazo) => ({
-    name: prazo,
-    icon: <FilterIcon type={prazo} />,
-  })
-);
+export const prazoFilterOptions: FilterOption[] = [];
 
 export const horarioFilterOptions: FilterOption[] = Object.values(Horario).map(
   (horario) => ({
@@ -246,12 +217,13 @@ export const horarioFilterOptions: FilterOption[] = Object.values(Horario).map(
   })
 );
 
-export const atribuidasFilterOptions: FilterOption[] = Object.values(Atribuidas).map(
-  (atribuida) => ({
-    name: atribuida,
-    icon: <FilterIcon type={atribuida} />,
-  })
-);
+export const atribuidasFilterOptions: FilterOption[] = [
+  {
+    name: Atribuidas.MINHAS_MENCOES,
+    icon: <FilterIcon type={Atribuidas.MINHAS_MENCOES} />,
+    value: "mentions",
+  },
+];
 
 export const filterViewToFilterOptions: Record<FilterType, FilterOption[]> = {
   [FilterType.AREA]: areaFilterOptions,
@@ -333,10 +305,103 @@ const FilterValueCombobox = ({
   const [open, setOpen] = useState(false);
   const [commandInput, setCommandInput] = useState("");
   const commandInputRef = useRef<HTMLInputElement>(null);
-  const nonSelectedFilterValues = filterViewToFilterOptions[filterType]?.filter(
-    (filter) => !filterValues.includes(filter.name)
+
+  const allOptions = useMemo(
+    () => filterViewToFilterOptions[filterType] ?? [],
+    [filterType]
   );
-  
+
+  const nonSelectedFilterValues = allOptions.filter(
+    (filter) => !filterValues.includes(filter.value ?? filter.name)
+  );
+
+  const resolveOption = (value: string) =>
+    allOptions.find((option) => (option.value ?? option.name) === value);
+
+  const selectedOptions = filterValues.map((value) => ({
+    value,
+    option: resolveOption(value),
+  }));
+
+  const formatValueLabel = (value: string, option?: FilterOption) => {
+    if (option?.name) return option.name;
+    if (filterType === FilterType.PRAZO && value) {
+      try {
+        const [y, m, d] = value.split("-").map(Number);
+        const date = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
+        return new Intl.DateTimeFormat("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }).format(date);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  };
+
+  if (filterType === FilterType.PRAZO) {
+    const selected = filterValues[0];
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger className="rounded-none px-1.5 py-1 bg-muted hover:bg-muted/50 transition text-muted-foreground hover:text-primary shrink-0">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="size-3.5 text-muted-foreground" />
+            {selected
+              ? formatValueLabel(selected)
+              : "Selecionar data"}
+          </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-[240px] p-3 bg-white border-0 shadow-lg rounded-lg">
+          <div className="space-y-3">
+            <Flatpickr
+              value={selected ? new Date(selected) : undefined}
+              options={{
+                locale: Portuguese,
+                dateFormat: "Y-m-d",
+                defaultDate: selected,
+              }}
+              onChange={(dates) => {
+                const [first] = dates;
+                if (first) {
+                  const iso = toYMD(first);
+                  setFilterValues([iso]);
+                } else {
+                  setFilterValues([]);
+                }
+                setOpen(false);
+              }}
+              className="w-full rounded-md border border-muted px-3 py-2 text-sm"
+            />
+            <div className="flex justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFilterValues([]);
+                  setOpen(false);
+                }}
+                className="h-8"
+              >
+                Limpar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setOpen(false)}
+                className="h-8"
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
   return (
     <Popover
       open={open}
@@ -356,7 +421,7 @@ const FilterValueCombobox = ({
         <div className="flex gap-1.5 items-center">
           <div className="flex items-center flex-row -space-x-1.5">
             <AnimatePresence mode="popLayout">
-              {filterValues?.slice(0, 3).map((value) => (
+              {selectedOptions.slice(0, 3).map(({ value, option }) => (
                 <motion.div
                   key={value}
                   initial={{ opacity: 0, x: -10 }}
@@ -364,13 +429,16 @@ const FilterValueCombobox = ({
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <FilterIcon type={value as FilterType} />
+                  {option?.icon ?? <FilterIcon type={filterType} />}
                 </motion.div>
               ))}
             </AnimatePresence>
           </div>
           {filterValues?.length === 1
-            ? filterValues?.[0]
+            ? formatValueLabel(
+                selectedOptions[0]?.value ?? "",
+                selectedOptions[0]?.option
+              )
             : `${filterValues?.length} selecionados`}
         </div>
       </PopoverTrigger>
@@ -389,7 +457,7 @@ const FilterValueCombobox = ({
             <CommandList>
               <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
               <CommandGroup>
-                {filterValues.map((value) => (
+                {selectedOptions.map(({ value, option }) => (
                   <CommandItem
                     key={value}
                     className="group flex gap-2 items-center"
@@ -402,8 +470,8 @@ const FilterValueCombobox = ({
                     }}
                   >
                     <Checkbox checked={true} />
-                    <FilterIcon type={value as FilterType} />
-                    {value}
+                    {option?.icon ?? <FilterIcon type={filterType} />}
+                    {formatValueLabel(value, option)}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -411,34 +479,41 @@ const FilterValueCombobox = ({
                 <>
                   <CommandSeparator />
                   <CommandGroup>
-                    {nonSelectedFilterValues.map((filter: FilterOption) => (
-                      <CommandItem
-                        className="group flex gap-2 items-center"
-                        key={filter.name}
-                        value={filter.name}
-                        onSelect={(currentValue: string) => {
-                          setFilterValues([...filterValues, currentValue]);
+                    {nonSelectedFilterValues.map((filter: FilterOption) => {
+                      const storedValue = filter.value ?? filter.name;
+                      return (
+                        <CommandItem
+                          className="group flex gap-2 items-center"
+                          key={storedValue}
+                          value={filter.name}
+                          onSelect={() => {
+                            if (filterValues.includes(storedValue)) {
+                              setOpen(false);
+                              return;
+                            }
+                            setFilterValues([...filterValues, storedValue]);
                           setTimeout(() => {
                             setCommandInput("");
                           }, 200);
                           setOpen(false);
                         }}
-                      >
-                        <Checkbox
-                          checked={false}
-                          className="opacity-0 group-data-[selected=true]:opacity-100"
-                        />
-                        {filter.icon}
-                        <span className="text-accent-foreground">
-                          {filter.name}
-                        </span>
-                        {filter.label && (
-                          <span className="text-muted-foreground text-xs ml-auto">
-                            {filter.label}
+                        >
+                          <Checkbox
+                            checked={false}
+                            className="opacity-0 group-data-[selected=true]:opacity-100"
+                          />
+                          {filter.icon}
+                          <span className="text-accent-foreground">
+                            {formatValueLabel(storedValue, filter)}
                           </span>
-                        )}
-                      </CommandItem>
-                    ))}
+                          {filter.label && (
+                            <span className="text-muted-foreground text-xs ml-auto">
+                              {filter.label}
+                            </span>
+                          )}
+                        </CommandItem>
+                      );
+                    })}
                   </CommandGroup>
                 </>
               )}
@@ -449,6 +524,13 @@ const FilterValueCombobox = ({
     </Popover>
   );
 };
+
+function toYMD(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 export default function Filters({
   filters,

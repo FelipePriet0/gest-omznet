@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
@@ -23,7 +23,23 @@ const columns = [
   { key: "canceladas", title: "Canceladas", color: "red", icon: "🔴" },
 ];
 
-export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: string; prazo?: 'hoje'|'amanha'|'atrasado'|'data'; date?: string; openCardId?: string }) {
+export function KanbanBoardAnalise({
+  hora,
+  date,
+  openCardId,
+  responsaveis,
+  mentionsUserId,
+  mentionsOnly,
+  onCardsChange,
+}: {
+  hora?: string;
+  date?: string;
+  openCardId?: string;
+  responsaveis?: string[];
+  mentionsUserId?: string;
+  mentionsOnly?: boolean;
+  onCardsChange?: (cards: KanbanCard[]) => void;
+}) {
   const router = useRouter();
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
@@ -36,35 +52,58 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  useEffect(() => {
-    let mounted = true;
+  const responsavelIds = useMemo(
+    () => (responsaveis ?? []).filter((id) => typeof id === "string" && id.length > 0),
+    [responsaveis]
+  );
 
-    async function load() {
-      try {
-        const data = await listCards("analise", { hora, prazo, date });
-        if (mounted) setCards(data);
-      } catch {
-        if (mounted) setCards([]);
-      }
+  const reload = useCallback(async () => {
+    try {
+      const data = await listCards("analise", {
+        hora,
+        date,
+        responsaveis: responsavelIds,
+        mentionsUserId: mentionsOnly && mentionsUserId ? mentionsUserId : undefined,
+      });
+      setCards(data);
+      onCardsChange?.(data);
+    } catch (error) {
+      console.error("Falha ao carregar cards do Kanban Análise:", error);
+      setCards([]);
+      onCardsChange?.([]);
     }
+  }, [hora, date, responsavelIds, mentionsOnly, mentionsUserId, onCardsChange]);
 
-    load();
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
+  useEffect(() => {
+    const channelKey = `kanban-analise-${hora || "_"}-${date || "_"}-${responsavelIds.join("|") || "_"}-${mentionsOnly ? mentionsUserId ?? "_" : "_"}`;
     const channel = supabase
-      .channel(`kanban-analise-${hora || "_"}-${prazo || "_"}-${date || "_"}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'kanban_cards',
-        filter: 'area=eq.analise',
-      }, () => { void load(); })
+      .channel(channelKey)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "kanban_cards",
+          filter: "area=eq.analise",
+        },
+        () => {
+          void reload();
+        }
+      )
       .subscribe();
 
     return () => {
-      mounted = false;
-      try { supabase.removeChannel(channel); } catch {}
+      try {
+        supabase.removeChannel(channel);
+      } catch (err) {
+        console.error("Erro ao remover canal do Kanban Análise:", err);
+      }
     };
-  }, [hora, prazo, date]);
+  }, [hora, date, responsavelIds, mentionsOnly, mentionsUserId, reload]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = {
@@ -98,7 +137,7 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
     if (target === "canceladas") { setCancel({ id: cardId, area: "analise" }); return; }
     try {
       await changeStage(cardId, "analise", target);
-      setCards(await listCards("analise"));
+      await reload();
     } catch (e: any) {
       alert(e.message ?? "Falha ao mover");
     }
@@ -115,7 +154,7 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
           onClick={async () => {
             try {
               await changeStage(c.id, "analise", "em_analise");
-              setCards(await listCards("analise"));
+              await reload();
             } catch (e: any) {
               alert(e.message ?? "Não foi possível ingressar");
             }
@@ -187,14 +226,14 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
         onClose={() => setMove(null)}
         cardId={move?.id || ""}
         presetArea={move?.area}
-        onMoved={async () => setCards(await listCards("analise", { hora, prazo, date }))}
+        onMoved={reload}
       />
       <CancelModal
         open={!!cancel}
         onClose={() => setCancel(null)}
         cardId={cancel?.id || ""}
         area="analise"
-        onCancelled={async () => setCards(await listCards("analise", { hora, prazo, date }))}
+        onCancelled={reload}
       />
       
       <EditarFichaModal open={!!edit} onClose={()=> setEdit(null)} cardId={edit?.cardId||''} applicantId={edit?.applicantId||''} />

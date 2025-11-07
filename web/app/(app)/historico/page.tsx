@@ -29,6 +29,7 @@ type Row = {
   applicant_name: string;
   cpf_cnpj: string;
   final_decision: string | null;
+  decision_status: string | null;
   finalized_at: string | null;
   archived_at: string | null;
   vendedor_id: string | null;
@@ -274,7 +275,7 @@ function HistoricoList({ rows, onOpenDetails }: { rows: Row[]; onOpenDetails: (c
 
               {/* Status */}
               <div className="col-span-2 flex items-center">
-                <StatusBadge value={r.final_decision} />
+                <StatusBadge value={r.decision_status} />
               </div>
 
               {/* Comercial */}
@@ -399,7 +400,7 @@ function DetailsModal({ data, onClose }: { data: any; onClose: () => void }) {
                   </div>
                   <div className="flex justify-between items-center pt-3">
                     <span className="text-gray-600 font-medium">Status:</span>
-                    <StatusBadge value={card.final_decision} />
+                    <StatusBadge value={card.decision_status} />
                   </div>
                 </div>
               </div>
@@ -495,6 +496,16 @@ function StatusBadge({ value }: { value: string | null }) {
       </span>
     );
   }
+  if (v === 'reanalise' || v === 'reanálise') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 text-xs font-semibold shadow-sm">
+        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Reanálise
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-semibold shadow-sm">
       <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -520,8 +531,9 @@ function StatusFilterPopover({ value, onChange }: { value: string; onChange: (va
 
   const statusOptions = [
     { value: "", label: "Todos" },
-    { value: "aprovados", label: "Aprovado" },
-    { value: "negados", label: "Negado" },
+    { value: "aprovado", label: "Aprovado" },
+    { value: "negado", label: "Negado" },
+    { value: "reanalise", label: "Reanálise" },
   ];
 
   const currentLabel = statusOptions.find(opt => opt.value === value)?.label || "Status";

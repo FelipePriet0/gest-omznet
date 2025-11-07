@@ -24,67 +24,97 @@ export async function changeStage(cardId: string, area: 'comercial' | 'analise',
 
 export async function listCards(
   area: 'comercial' | 'analise',
-  opts?: { hora?: string; prazo?: 'hoje' | 'amanha' | 'atrasado' | 'data'; date?: string }
+  opts?: { hora?: string; date?: string; responsaveis?: string[]; mentionsUserId?: string }
 ): Promise<KanbanCard[]> {
+  const baseSelect = 'id, stage, area, applicant_id, due_at, hora_at, applicants:applicants!inner(id, primary_name, cpf_cnpj, phone, whatsapp, bairro)';
+  const includeMentions = !!opts?.mentionsUserId;
+  const selectColumns = includeMentions
+    ? `${baseSelect}, inbox_notifications!inner(user_id, type, card_id)`
+    : baseSelect;
+
   let q = supabase
     .from('kanban_cards')
-    .select('id, stage, area, applicant_id, due_at, hora_at, applicants:applicants!inner(id, primary_name, cpf_cnpj, phone, whatsapp, bairro)')
+    .select(selectColumns)
     .eq('area', area)
     .is('deleted_at', null)
     .order('created_at', { ascending: true });
 
-  // Sem uso de "arquivados"; mantemos apenas deleted_at como filtro
-
   if (opts?.hora) {
     const hhmm = opts.hora.trim();
-    const hhmmss = hhmm.length === 5 ? `${hhmm}:00` : hhmm; // 08:30 -> 08:30:00
-    // hora_at agora é time[]; usamos contains
-    q = q.contains('hora_at', [hhmmss]);
+    const timeVariants = new Set<string>([hhmm]);
+    if (hhmm.length === 5) {
+      timeVariants.add(`${hhmm}:00`);
+      timeVariants.add(`${hhmm}:00+00`);
+    }
+    const variants = Array.from(timeVariants);
+    if (variants.length === 1) {
+      q = q.filter('hora_at', 'cs', `{${variants[0]}}`);
+    } else {
+      const orConditions = variants.map((value) => `hora_at.cs.{${value}}`).join(',');
+      q = q.or(orConditions);
+    }
   }
 
-  // Prazo por due_at
-  const now = new Date();
-  function isoAt(d: Date, h: number, m=0, s=0) { const x = new Date(d); x.setHours(h, m, s, 0); return x.toISOString(); }
-  if (opts?.prazo === 'hoje') {
-    const start = isoAt(now, 0,0,0); const end = isoAt(now, 23,59,59);
-    q = q.gte('due_at', start).lte('due_at', end);
-  } else if (opts?.prazo === 'amanha') {
-    const d = new Date(now); d.setDate(d.getDate()+1);
-    const start = new Date(d); start.setHours(0,0,0,0);
-    const end = new Date(d); end.setHours(23,59,59,0);
-    q = q.gte('due_at', start.toISOString()).lte('due_at', end.toISOString());
-  } else if (opts?.prazo === 'atrasado') {
-    q = q.lt('due_at', now.toISOString());
-  } else if (opts?.prazo === 'data' && opts?.date) {
-    const [y,m,d] = opts.date.split('-').map(Number);
+  if (opts?.date) {
+    const [y, m, d] = opts.date.split('-').map(Number);
     if (y && m && d) {
-      const day = new Date(Date.UTC(y, m-1, d));
-      const start = new Date(day); start.setUTCHours(0,0,0,0);
-      const end = new Date(day); end.setUTCHours(23,59,59,0);
+      const start = new Date(Date.UTC(y, m - 1, d));
+      const end = new Date(start);
+      end.setUTCHours(23, 59, 59, 999);
       q = q.gte('due_at', start.toISOString()).lte('due_at', end.toISOString());
     }
   }
 
+  if (opts?.responsaveis && opts.responsaveis.length > 0) {
+    const responsavelIds = opts.responsaveis
+      .map((id) => id?.trim())
+      .filter((id): id is string => !!id && id.length > 0);
+    if (responsavelIds.length > 0) {
+      if (area === 'comercial') {
+        q = q.in('created_by', responsavelIds);
+      } else {
+        q = q.in('assignee_id', responsavelIds);
+      }
+    }
+  }
+
+  if (includeMentions && opts?.mentionsUserId) {
+    q = q
+      .eq('inbox_notifications.user_id', opts.mentionsUserId)
+      .eq('inbox_notifications.type', 'comment');
+  }
+
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []).map((row: any) => {
-    const hours = Array.isArray(row.hora_at) ? row.hora_at : (row.hora_at ? [row.hora_at] : []);
+
+  const rows = Array.isArray(data) ? data : [];
+  const uniqueRows = new Map<string, any>();
+  for (const row of rows) {
+    if (row?.id && !uniqueRows.has(row.id)) {
+      uniqueRows.set(row.id, row);
+    }
+  }
+
+  return Array.from(uniqueRows.values()).map((row: any) => {
+    const hours = Array.isArray(row.hora_at) ? row.hora_at : row.hora_at ? [row.hora_at] : [];
     const horaLabel = hours.length > 1
-      ? hours.map((h: any) => String(h).slice(0,5)).join(' e ')
-      : (hours[0] ? String(hours[0]).slice(0,5) : undefined);
-    return ({
-    id: row.id,
-    applicantId: row.applicant_id,
-    applicantName: row.applicants?.primary_name ?? '-',
-    cpfCnpj: row.applicants?.cpf_cnpj ?? '-',
-    phone: row.applicants?.phone ?? undefined,
-    whatsapp: row.applicants?.whatsapp ?? undefined,
-    bairro: row.applicants?.bairro ?? undefined,
-    dueAt: row.due_at ?? undefined,
-    horaAt: horaLabel,
-    area: row.area,
-    stage: row.stage,
-  });
+      ? hours.map((h: any) => String(h).slice(0, 5)).join(' e ')
+      : hours[0]
+        ? String(hours[0]).slice(0, 5)
+        : undefined;
+    return {
+      id: row.id,
+      applicantId: row.applicant_id,
+      applicantName: row.applicants?.primary_name ?? '-',
+      cpfCnpj: row.applicants?.cpf_cnpj ?? '-',
+      phone: row.applicants?.phone ?? undefined,
+      whatsapp: row.applicants?.whatsapp ?? undefined,
+      bairro: row.applicants?.bairro ?? undefined,
+      dueAt: row.due_at ?? undefined,
+      horaAt: horaLabel,
+      area: row.area,
+      stage: row.stage,
+    } as KanbanCard;
   });
 }
 

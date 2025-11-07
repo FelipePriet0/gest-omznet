@@ -3,7 +3,7 @@
 import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { KanbanCard } from "@/features/kanban/types";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
@@ -18,7 +18,23 @@ const columnConfig = [
   { key: "concluidas", title: "Concluídas", color: "purple", icon: "🟣" },
 ];
 
-export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; prazo?: 'hoje'|'amanha'|'atrasado'|'data'; date?: string; openCardId?: string }) {
+export function KanbanBoard({
+  hora,
+  date,
+  openCardId,
+  responsaveis,
+  mentionsUserId,
+  mentionsOnly,
+  onCardsChange,
+}: {
+  hora?: string;
+  date?: string;
+  openCardId?: string;
+  responsaveis?: string[];
+  mentionsUserId?: string;
+  mentionsOnly?: boolean;
+  onCardsChange?: (cards: KanbanCard[]) => void;
+}) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
   const [cancel, setCancel] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
@@ -31,7 +47,30 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
   
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
 
-  useEffect(() => { (async () => { try { setCards(await listCards('comercial', { hora, prazo, date })); } catch {} })(); }, [hora, prazo, date]);
+  const responsavelIds = useMemo(
+    () => (responsaveis ?? []).filter((id) => typeof id === 'string' && id.length > 0),
+    [responsaveis]
+  );
+
+  const reload = useCallback(async () => {
+    try {
+      const data = await listCards('comercial', {
+        hora,
+        date,
+        responsaveis: responsavelIds,
+        mentionsUserId: mentionsOnly && mentionsUserId ? mentionsUserId : undefined,
+      });
+      setCards(data);
+      onCardsChange?.(data);
+    } catch (error) {
+      console.error('Falha ao carregar cards do Kanban Comercial:', error);
+      onCardsChange?.([]);
+    }
+  }, [hora, date, responsavelIds, mentionsOnly, mentionsUserId, onCardsChange]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = { entrada:[], feitas:[], aguardando:[], canceladas:[], concluidas:[] };
@@ -52,7 +91,7 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
     const target = over.id as string;
     if (target === 'entrada') { alert('Entrada não recebe cards.'); return; }
     if (target === 'canceladas') { setCancel({ id: cardId, area: 'comercial' }); return; }
-    try { await changeStage(cardId, 'comercial', target); setCards(await listCards('comercial')); } catch (e:any) { alert(e.message ?? 'Falha ao mover'); }
+    try { await changeStage(cardId, 'comercial', target); await reload(); } catch (e:any) { alert(e.message ?? 'Falha ao mover'); }
   }
 
   function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial' }); }
@@ -106,8 +145,8 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
           ) : null}
         </DragOverlay>
       </DndContext>
-      <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
-      <CancelModal open={!!cancel} onClose={()=>setCancel(null)} cardId={cancel?.id||''} area="comercial" onCancelled={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
+      <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={reload} />
+      <CancelModal open={!!cancel} onClose={()=>setCancel(null)} cardId={cancel?.id||''} area="comercial" onCancelled={reload} />
       
       <EditarFichaModal open={!!edit} onClose={()=> setEdit(null)} cardId={edit?.cardId||''} applicantId={edit?.applicantId||''} />
     </div>
