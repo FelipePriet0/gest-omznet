@@ -324,25 +324,6 @@ export function FilterCTA({
   return (
     <div className="flex gap-2 flex-wrap items-center">
       <Filters filters={filters} setFilters={setFilters} />
-      {filters.filter((filter) => filter.value?.length > 0).length > 0 && (
-        <Button
-          variant="outline"
-          className="transition group h-9 text-sm items-center"
-          style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
-          onClick={() => {
-            setFilters([]);
-            const params = new URLSearchParams(searchParams?.toString());
-            params.delete("hora");
-            params.delete("prazo");
-            params.delete("responsavel");
-            params.delete("atribuicao");
-            const qs = params.toString();
-            router.replace(qs ? `${pathname}?${qs}` : pathname);
-          }}
-        >
-          Limpar
-        </Button>
-      )}
       <Popover
         open={open}
         onOpenChange={(open) => {

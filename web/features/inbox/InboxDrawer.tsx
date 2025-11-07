@@ -18,6 +18,7 @@ import {
   ListFilter,
   MessageCircle,
   MessageSquare,
+  X,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -247,17 +248,26 @@ export function InboxPanel() {
         <div className="flex items-center gap-2">
           <InboxFilterCTA value={filterType} onSelect={(next) => setFilterType(next)} />
           {filterType && (
-            <div className="flex gap-[1px] items-center text-xs">
-              <div className="flex gap-1.5 shrink-0 rounded-l bg-neutral-200 px-1.5 py-1 items-center">
-                Tipo
-              </div>
-              <div className="bg-neutral-100 px-2 py-1 text-neutral-700">{inboxFilterLabels[filterType]}</div>
+            <div
+              className="inline-flex items-center gap-2 rounded-none px-3 py-1 text-white shadow-sm text-xs"
+              style={{
+                backgroundColor: "var(--color-primary)",
+                border: "1px solid var(--color-primary)",
+              }}
+            >
+              <span className="font-semibold">Tipo</span>
+              <span className="font-medium">{inboxFilterLabels[filterType]}</span>
               <button
                 onClick={() => setFilterType(null)}
-                className="bg-neutral-200 rounded-l-none rounded-r-sm h-6 w-6 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-300 transition shrink-0"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-none text-white transition"
+                style={{
+                  backgroundColor: "var(--color-primary)",
+                  border: "1px solid transparent",
+                }}
                 aria-label="Limpar filtro da inbox"
+                type="button"
               >
-                ×
+                <X className="h-3 w-3" />
               </button>
             </div>
           )}

@@ -30,7 +30,7 @@ import {
   Clock,
   MapPin,
 } from "lucide-react";
-import { Dispatch, SetStateAction, useRef, useState, useEffect, useMemo } from "react";
+import { Dispatch, SetStateAction, useRef, useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "motion/react";
@@ -233,65 +233,7 @@ export const filterViewToFilterOptions: Record<FilterType, FilterOption[]> = {
   [FilterType.ATRIBUIDAS]: atribuidasFilterOptions,
 };
 
-const filterOperators = ({
-  filterType,
-  filterValues,
-}: {
-  filterType: FilterType;
-  filterValues: string[];
-}) => {
-  switch (filterType) {
-    case FilterType.AREA:
-    case FilterType.RESPONSAVEL:
-    case FilterType.HORARIO:
-      if (Array.isArray(filterValues) && filterValues.length > 1) {
-        return [FilterOperator.IS_ANY_OF, FilterOperator.IS_NOT];
-      } else {
-        return [FilterOperator.IS, FilterOperator.IS_NOT];
-      }
-    case FilterType.ATRIBUIDAS:
-      if (Array.isArray(filterValues) && filterValues.length > 1) {
-        return [FilterOperator.IS_ANY_OF];
-      } else {
-        return [FilterOperator.IS];
-      }
-    case FilterType.PRAZO:
-      return [FilterOperator.IS, FilterOperator.IS_NOT];
-    default:
-      return [FilterOperator.IS];
-  }
-};
-
-const FilterOperatorDropdown = ({
-  filterType,
-  operator,
-  filterValues,
-  setOperator,
-}: {
-  filterType: FilterType;
-  operator: FilterOperator;
-  filterValues: string[];
-  setOperator: (operator: FilterOperator) => void;
-}) => {
-  const operators = filterOperators({ filterType, filterValues });
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="bg-muted hover:bg-muted/50 px-1.5 py-1 text-muted-foreground hover:text-primary transition shrink-0">
-        {operator}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-fit min-w-fit bg-white border-0 shadow-lg rounded-lg">
-        {operators.map((operator) => (
-          <DropdownMenuItem
-            key={operator}
-            onClick={() => setOperator(operator)}
-          >
-            {operator}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
+const FilterOperatorDropdown = () => null;
 
 const FilterValueCombobox = ({
   filterType,
@@ -306,10 +248,7 @@ const FilterValueCombobox = ({
   const [commandInput, setCommandInput] = useState("");
   const commandInputRef = useRef<HTMLInputElement>(null);
 
-  const allOptions = useMemo(
-    () => filterViewToFilterOptions[filterType] ?? [],
-    [filterType]
-  );
+  const allOptions = filterViewToFilterOptions[filterType] ?? [];
 
   const nonSelectedFilterValues = allOptions.filter(
     (filter) => !filterValues.includes(filter.value ?? filter.name)
@@ -345,13 +284,9 @@ const FilterValueCombobox = ({
     const selected = filterValues[0];
     return (
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger className="rounded-none px-1.5 py-1 bg-muted hover:bg-muted/50 transition text-muted-foreground hover:text-primary shrink-0">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="size-3.5 text-muted-foreground" />
-            {selected
-              ? formatValueLabel(selected)
-              : "Selecionar data"}
-          </div>
+        <PopoverTrigger className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full text-current hover:bg-emerald-200/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition">
+          <Calendar className="size-3.5 text-current" />
+          {selected ? formatValueLabel(selected) : "Selecionar data"}
         </PopoverTrigger>
         <PopoverContent className="w-[240px] p-3 bg-white border-0 shadow-lg rounded-lg">
           <div className="space-y-3">
@@ -374,26 +309,18 @@ const FilterValueCombobox = ({
               }}
               className="w-full rounded-md border border-muted px-3 py-2 text-sm"
             />
-            <div className="flex justify-between gap-2">
+            <div className="flex justify-end">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                 onClick={() => {
                   setFilterValues([]);
                   setOpen(false);
                 }}
-                className="h-8"
               >
                 Limpar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => setOpen(false)}
-                className="h-8"
-              >
-                Fechar
               </Button>
             </div>
           </div>
@@ -414,12 +341,9 @@ const FilterValueCombobox = ({
         }
       }}
     >
-      <PopoverTrigger
-        className="rounded-none px-1.5 py-1 bg-muted hover:bg-muted/50 transition
-  text-muted-foreground hover:text-primary shrink-0"
-      >
-        <div className="flex gap-1.5 items-center">
-          <div className="flex items-center flex-row -space-x-1.5">
+      <PopoverTrigger className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full text-current hover:bg-emerald-200/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition">
+        <div className="flex items-center gap-1">
+          <div className="flex items-center -space-x-1.5">
             <AnimatePresence mode="popLayout">
               {selectedOptions.slice(0, 3).map(({ value, option }) => (
                 <motion.div
@@ -434,12 +358,14 @@ const FilterValueCombobox = ({
               ))}
             </AnimatePresence>
           </div>
-          {filterValues?.length === 1
-            ? formatValueLabel(
-                selectedOptions[0]?.value ?? "",
-                selectedOptions[0]?.option
-              )
-            : `${filterValues?.length} selecionados`}
+          <span>
+            {filterValues?.length === 1
+              ? formatValueLabel(
+                  selectedOptions[0]?.value ?? "",
+                  selectedOptions[0]?.option
+                )
+              : `${filterValues?.length} selecionados`}
+          </span>
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0 bg-white border-0 shadow-lg rounded-lg">
@@ -544,42 +470,45 @@ export default function Filters({
       {filters
         .filter((filter) => filter.value?.length > 0)
         .map((filter) => (
-          <div key={filter.id} className="flex gap-[1px] items-center text-xs">
-            <div className="flex gap-1.5 shrink-0 rounded-l bg-muted px-1.5 py-1 items-center">
+          <div
+            key={filter.id}
+            className="inline-flex items-center gap-2 rounded-none px-3 py-1 text-white shadow-sm text-xs"
+            style={{
+              backgroundColor: "var(--color-primary)",
+              border: "1px solid var(--color-primary)",
+            }}
+          >
+            <div className="inline-flex items-center gap-1">
               <FilterIcon type={filter.type} />
-              {filter.type}
+              <span className="font-semibold">{filter.type}</span>
             </div>
-            <FilterOperatorDropdown
-              filterType={filter.type}
-              operator={filter.operator}
-              filterValues={filter.value}
-              setOperator={(operator) => {
-                setFilters((prev) =>
-                  prev.map((f) => (f.id === filter.id ? { ...f, operator } : f))
-                );
-              }}
-            />
             <FilterValueCombobox
               filterType={filter.type}
               filterValues={filter.value}
               setFilterValues={(filterValues) => {
                 setFilters((prev) =>
                   prev.map((f) =>
-                    f.id === filter.id ? { ...f, value: filterValues } : f
+                    f.id === filter.id
+                      ? { ...f, value: filterValues, operator: FilterOperator.IS }
+                      : f
                   )
                 );
               }}
             />
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
+              type="button"
               onClick={() => {
                 setFilters((prev) => prev.filter((f) => f.id !== filter.id));
               }}
-              className="bg-muted rounded-l-none rounded-r-sm h-6 w-6 text-muted-foreground hover:text-primary hover:bg-muted/50 transition shrink-0"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-none text-white transition"
+              style={{
+                backgroundColor: "var(--color-primary)",
+                border: "1px solid transparent",
+              }}
+              aria-label={`Remover filtro ${filter.type}`}
             >
-              <X className="size-3" />
-            </Button>
+              <X className="h-3 w-3" />
+            </button>
           </div>
         ))}
     </div>
