@@ -7,6 +7,7 @@ import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
 import { KanbanCard } from "@/features/kanban/types";
 import { listCards, changeStage } from "@/features/kanban/services";
+import { supabase } from "@/lib/supabaseClient";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
@@ -36,11 +37,33 @@ export function KanbanBoardAnalise({ hora, prazo, date, openCardId }: { hora?: s
   );
 
   useEffect(() => {
-    (async () => {
+    let mounted = true;
+
+    async function load() {
       try {
-        setCards(await listCards("analise", { hora, prazo, date }));
-      } catch {}
-    })();
+        const data = await listCards("analise", { hora, prazo, date });
+        if (mounted) setCards(data);
+      } catch {
+        if (mounted) setCards([]);
+      }
+    }
+
+    load();
+
+    const channel = supabase
+      .channel(`kanban-analise-${hora || "_"}-${prazo || "_"}-${date || "_"}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'kanban_cards',
+        filter: 'area=eq.analise',
+      }, () => { void load(); })
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      try { supabase.removeChannel(channel); } catch {}
+    };
   }, [hora, prazo, date]);
 
   const grouped = useMemo(() => {

@@ -7,7 +7,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { SimpleSelect } from "@/components/ui/select";
 import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
-import { changeStage } from "@/features/kanban/services";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
@@ -231,10 +230,12 @@ export default function CadastroPJPage() {
   async function syncDecisionStatus(decision: ComposerDecision | null) {
     if (!cardIdEff) return;
     try {
-      if (decision === 'aprovado' || decision === 'negado') {
-        await supabase.rpc('set_card_decision', { p_card_id: cardIdEff, p_decision: decision });
-      } else {
+      if (decision === null) {
         await supabase.rpc('set_card_decision', { p_card_id: cardIdEff, p_decision: null });
+      } else if (decision === 'reanalise') {
+        await supabase.rpc('set_card_decision', { p_card_id: cardIdEff, p_decision: 'reanalise' });
+      } else {
+        await supabase.rpc('set_card_decision', { p_card_id: cardIdEff, p_decision: decision });
       }
     } catch (err) {
       console.warn('set_card_decision failed', err);
@@ -267,7 +268,7 @@ export default function CadastroPJPage() {
       if (value.decision === 'aprovado' || value.decision === 'negado') {
         await syncDecisionStatus(value.decision);
       } else if (value.decision === 'reanalise') {
-        await syncDecisionStatus(null);
+        await syncDecisionStatus('reanalise');
       }
     } catch (err: any) {
       setPareceres(prev => (prev || []).filter((n: any) => n.id !== tempNote.id));
@@ -771,10 +772,7 @@ export default function CadastroPJPage() {
                       if (key==='aprovado' || key==='negado' || key==='reanalise') {
                         parecerComposerRef.current?.setDecision(key as ComposerDecision);
                         try {
-                      if (key==='aprovado') await changeStage(cardIdEff, 'analise', 'aprovados');
-                      else if (key==='negado') await changeStage(cardIdEff, 'analise', 'negados');
-                      else if (key==='reanalise') await changeStage(cardIdEff, 'analise', 'reanalise');
-                      await syncDecisionStatus(key === 'reanalise' ? null : (key as ComposerDecision));
+                      await syncDecisionStatus(key as ComposerDecision);
                         } catch (e:any) {
                           alert(e?.message || 'Falha ao mover');
                         }
@@ -1086,14 +1084,11 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
   async function handleDecisionShortcut(cardIdLocal: string, decisionChange: (decision: ComposerDecision | null) => Promise<void>, key: 'aprovado' | 'negado' | 'reanalise') {
     if (!cardIdLocal) return;
     if (key === 'aprovado') {
-      await changeStage(cardIdLocal, 'analise', 'aprovados');
       await decisionChange('aprovado');
     } else if (key === 'negado') {
-      await changeStage(cardIdLocal, 'analise', 'negados');
       await decisionChange('negado');
     } else if (key === 'reanalise') {
-      await changeStage(cardIdLocal, 'analise', 'reanalise');
-      await decisionChange(null);
+      await decisionChange('reanalise');
     }
   }
 
@@ -1177,7 +1172,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                       if (val.decision === 'aprovado' || val.decision === 'negado') {
                         await onDecisionChange(val.decision);
                       } else if (val.decision === 'reanalise') {
-                        await onDecisionChange(null);
+                        await onDecisionChange('reanalise');
                       }
                     }}
                     onCancel={()=> setIsEditingId(null)}
@@ -1253,7 +1248,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                         if (val.decision === 'aprovado' || val.decision === 'negado') {
                           await onDecisionChange(val.decision);
                         } else if (val.decision === 'reanalise') {
-                          await onDecisionChange(null);
+                          await onDecisionChange('reanalise');
                         }
                         const resetVal: ComposerValue = { decision: null, text: '' };
                         setReplyValue(resetVal);
@@ -1378,7 +1373,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                               if (val.decision === 'aprovado' || val.decision === 'negado') {
                                 await onDecisionChange(val.decision);
                               } else if (val.decision === 'reanalise') {
-                                await onDecisionChange(null);
+                                await onDecisionChange('reanalise');
                               }
                             }}
                             onCancel={()=> setIsEditingId(null)}
@@ -1450,11 +1445,11 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                               const trimmed = (val.text || '').trim();
                               if (!trimmed) return;
                               await onReply(c.id, val);
-                              if (val.decision === 'aprovado' || val.decision === 'negado') {
-                                await onDecisionChange(val.decision);
-                              } else if (val.decision === 'reanalise') {
-                                await onDecisionChange(null);
-                              }
+                                      if (val.decision === 'aprovado' || val.decision === 'negado') {
+                                        await onDecisionChange(val.decision);
+                                      } else if (val.decision === 'reanalise') {
+                                        await onDecisionChange('reanalise');
+                                      }
                               const resetVal: ComposerValue = { decision: null, text: '' };
                               setReplyValue(resetVal);
                               requestAnimationFrame(()=> replyComposerRef.current?.setValue(resetVal));

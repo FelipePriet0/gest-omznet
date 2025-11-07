@@ -13,7 +13,7 @@ export async function changeStage(cardId: string, area: 'comercial' | 'analise',
       } else if (stage === 'negados') {
         await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'negado' });
       } else if (stage === 'reanalise') {
-        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: null });
+        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'reanalise' });
       }
     } catch (err) {
       console.warn('set_card_decision failed', err);

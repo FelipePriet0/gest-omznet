@@ -8,7 +8,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
-import { changeStage } from "@/features/kanban/services";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarReady } from "@/components/ui/calendar-ready";
@@ -122,10 +121,12 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
   async function syncDecisionStatus(decision: ComposerDecision | null) {
     try {
-      if (decision === 'aprovado' || decision === 'negado') {
-        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: decision });
-      } else {
+      if (decision === null) {
         await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: null });
+      } else if (decision === 'reanalise') {
+        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'reanalise' });
+      } else {
+        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: decision });
       }
     } catch (err) {
       console.error('set_card_decision failed', err);
@@ -536,13 +537,10 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                           if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
                           if (key==='aprovado' || key==='negado' || key==='reanalise') {
                             composerRef.current?.setDecision(key as any);
+                            try {
+                              await syncDecisionStatus(key as any);
+                            } catch(e:any){ alert(e?.message||'Falha ao mover'); }
                           }
-                          try {
-                            if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
-                            else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
-                            else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
-                            await syncDecisionStatus(key as any);
-                          } catch(e:any){ alert(e?.message||'Falha ao mover'); }
                         }}
                         initialQuery={cmdQueryParecer}
                       />
@@ -1034,13 +1032,10 @@ function NoteItem({
                     if (key==='anexo') { const ev = new CustomEvent('mz-open-attach'); window.dispatchEvent(ev); return; }
                     if (key==='aprovado' || key==='negado' || key==='reanalise') {
                       editComposerRef.current?.setDecision(key as any);
+                      try {
+                        await onDecisionChange(key as any);
+                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
                     }
-                    try {
-                      if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
-                      else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
-                      else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
-                      await onDecisionChange(key as any);
-                    } catch(e:any){ alert(e?.message||'Falha ao mover'); }
                   }}
                   initialQuery={editCmdQuery}
                 />
@@ -1127,13 +1122,10 @@ function NoteItem({
                     if (key==='anexo') { const ev = new CustomEvent('mz-open-attach'); window.dispatchEvent(ev); return; }
                     if (key==='aprovado' || key==='negado' || key==='reanalise') {
                       replyComposerRef.current?.setDecision(key as any);
+                      try {
+                        await onDecisionChange(key as any);
+                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
                     }
-                    try {
-                      if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
-                      else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
-                      else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
-                      await onDecisionChange(key as any);
-                    } catch(e:any){ alert(e?.message||'Falha ao mover'); }
                   }}
                   initialQuery={cmdQuery}
                 />
