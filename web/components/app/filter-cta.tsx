@@ -16,7 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ListFilter } from "lucide-react";
+import { Calendar, ListFilter } from "lucide-react";
 import { nanoid } from "nanoid";
 import * as React from "react";
 import { AnimateChangeInHeight } from "@/components/ui/filters";
@@ -364,145 +364,141 @@ export function FilterCTA({
                 ref={commandInputRef}
               />
               <CommandList className="p-1">
-                {selectedView !== FilterType.PRAZO && (
-                  <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
-                )}
+                <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
                 {selectedView ? (
-                  selectedView === FilterType.PRAZO ? (
-                    <div className="px-3 py-4 space-y-3">
-                      <Flatpickr
-                        value={
-                          prazoValue
-                            ? [new Date(`${prazoValue}T00:00:00`)]
-                            : []
-                        }
-                        options={{
-                          locale: Portuguese,
-                          dateFormat: "Y-m-d",
-                          defaultDate: prazoValue,
-                        }}
-                        onChange={(dates) => {
-                          const [first] = dates;
-                          if (first instanceof Date && !Number.isNaN(first.getTime())) {
-                            setPrazoValue(toYMD(first));
-                          } else {
-                            setPrazoValue(undefined);
+                  <CommandGroup className="p-0">
+                    {(filterViewToFilterOptions[selectedView] ?? []).map(
+                      (filter: FilterOption) => {
+                        const storedValue = filter.value ?? filter.name;
+                        return (
+                          <CommandItem
+                            className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1 command-item"
+                            key={storedValue}
+                            value={filter.name}
+                            onSelect={() => {
+                              if (selectedView === FilterType.AREA) {
+                                const toAnalise = filter.name
+                                  .toLowerCase()
+                                  .includes("análise") || filter.name
+                                  .toLowerCase()
+                                  .includes("analise");
+                                router.push(toAnalise ? "/kanban/analise" : "/kanban");
+                              } else {
+                                setFilters((prev) => {
+                                  const index = prev.findIndex(
+                                    (f) => f.type === selectedView
+                                  );
+                                  if (index >= 0) {
+                                    const next = [...prev];
+                                    const existing = next[index];
+                                    const nextValues = Array.from(
+                                      new Set([...(existing.value ?? []), storedValue])
+                                    );
+                                    next[index] = {
+                                      ...existing,
+                                      value: nextValues,
+                                    };
+                                    return next;
+                                  }
+                                  return [
+                                    ...prev,
+                                    {
+                                      id: nanoid(),
+                                      type: selectedView,
+                                      operator: FilterOperator.IS,
+                                      value: [storedValue],
+                                    },
+                                  ];
+                                });
+                              }
+                              setTimeout(() => {
+                                setSelectedView(null);
+                                setCommandInput("");
+                              }, 200);
+                              setOpen(false);
+                            }}
+                          >
+                            {filter.icon}
+                            <span className="text-sm font-medium">
+                              {filter.name}
+                            </span>
+                            {filter.label && (
+                              <span className="text-muted-foreground text-xs ml-auto">
+                                {filter.label}
+                              </span>
+                            )}
+                          </CommandItem>
+                        );
+                      }
+                    )}
+                  </CommandGroup>
+                ) : (
+                  <>
+                    <CommandGroup className="p-0">
+                      {filterViewOptions
+                        .flat()
+                        .filter((filter: FilterOption) => filter.name !== FilterType.PRAZO)
+                        .map((filter: FilterOption) => (
+                          <CommandItem
+                            className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1 command-item"
+                            key={filter.name}
+                            value={filter.name}
+                            onSelect={(currentValue) => {
+                              setSelectedView(currentValue as FilterType);
+                              setCommandInput("");
+                              commandInputRef.current?.focus();
+                            }}
+                          >
+                            {filter.icon}
+                            <span className="text-sm font-medium">
+                              {filter.name}
+                            </span>
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                    <div className="mt-2 border-t border-gray-100 pt-2 px-1.5">
+                      <div className="text-xs font-semibold text-gray-500 mb-1 px-1 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5" />
+                        Prazo
+                      </div>
+                      <div className="rounded-md border border-gray-200">
+                        <Flatpickr
+                          value={
+                            prazoValue
+                              ? [new Date(`${prazoValue}T00:00:00`)]
+                              : []
                           }
-                          closePicker();
-                        }}
-                        className="w-full rounded-md border border-muted px-3 py-2 text-sm"
-                      />
-                      <div className="flex justify-between gap-2">
+                          options={{
+                            locale: Portuguese,
+                            dateFormat: "Y-m-d",
+                            defaultDate: prazoValue,
+                          }}
+                          onChange={(dates) => {
+                            const [first] = dates;
+                            if (first instanceof Date && !Number.isNaN(first.getTime())) {
+                              setPrazoValue(toYMD(first));
+                            } else {
+                              setPrazoValue(undefined);
+                            }
+                          }}
+                          className="w-full rounded-md border-0 px-3 py-2 text-sm focus:outline-none focus:ring-0"
+                        />
+                      </div>
+                      <div className="flex justify-end mt-2 px-0.5">
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="h-8"
+                          className="h-8 text-xs text-emerald-600 hover:text-emerald-700"
                           onClick={() => {
                             setPrazoValue(undefined);
-                            closePicker();
                           }}
                         >
-                          Limpar
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-8"
-                          onClick={closePicker}
-                        >
-                          Fechar
+                          Limpar prazo
                         </Button>
                       </div>
                     </div>
-                  ) : (
-                    <CommandGroup className="p-0">
-                      {filterViewToFilterOptions[selectedView].map(
-                        (filter: FilterOption) => {
-                          const storedValue = filter.value ?? filter.name;
-                          return (
-                            <CommandItem
-                              className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1 command-item"
-                              key={storedValue}
-                              value={filter.name}
-                              onSelect={() => {
-                                if (selectedView === FilterType.AREA) {
-                                  const toAnalise = filter.name
-                                    .toLowerCase()
-                                    .includes("análise") || filter.name
-                                    .toLowerCase()
-                                    .includes("analise");
-                                  router.push(toAnalise ? "/kanban/analise" : "/kanban");
-                                } else {
-                                  setFilters((prev) => {
-                                    const index = prev.findIndex(
-                                      (f) => f.type === selectedView
-                                    );
-                                    if (index >= 0) {
-                                      const next = [...prev];
-                                      const existing = next[index];
-                                      const nextValues = Array.from(
-                                        new Set([...(existing.value ?? []), storedValue])
-                                      );
-                                      next[index] = {
-                                        ...existing,
-                                        value: nextValues,
-                                      };
-                                      return next;
-                                    }
-                                    return [
-                                      ...prev,
-                                      {
-                                        id: nanoid(),
-                                        type: selectedView,
-                                        operator: FilterOperator.IS,
-                                        value: [storedValue],
-                                      },
-                                    ];
-                                  });
-                                }
-                                setTimeout(() => {
-                                  setSelectedView(null);
-                                  setCommandInput("");
-                                }, 200);
-                                setOpen(false);
-                              }}
-                            >
-                              {filter.icon}
-                              <span className="text-sm font-medium">
-                                {filter.name}
-                              </span>
-                              {filter.label && (
-                                <span className="text-muted-foreground text-xs ml-auto">
-                                  {filter.label}
-                                </span>
-                              )}
-                            </CommandItem>
-                          );
-                        }
-                      )}
-                    </CommandGroup>
-                  )
-                ) : (
-                  <CommandGroup className="p-0">
-                    {filterViewOptions.flat().map((filter: FilterOption) => (
-                      <CommandItem
-                        className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1 command-item"
-                        key={filter.name}
-                        value={filter.name}
-                        onSelect={(currentValue) => {
-                          setSelectedView(currentValue as FilterType);
-                          setCommandInput("");
-                          commandInputRef.current?.focus();
-                        }}
-                      >
-                        {filter.icon}
-                        <span className="text-sm font-medium">
-                          {filter.name}
-                        </span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+                  </>
                 )}
               </CommandList>
             </Command>
