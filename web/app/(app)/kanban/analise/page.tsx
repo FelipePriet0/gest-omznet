@@ -19,6 +19,7 @@ export default function KanbanAnalisePage() {
   const sp = useSearchParams();
   const hora = sp.get('hora') || undefined;
   const prazo = sp.get('prazo') || undefined;
+  const prazoFim = sp.get('prazo_fim') || undefined;
   const openCardId = sp.get('card') || undefined;
   const responsavelParam = sp.get('responsavel') || '';
   const atribuicaoParam = sp.get('atribuicao') || undefined;
@@ -36,11 +37,13 @@ export default function KanbanAnalisePage() {
   const initialFiltersSummary = useMemo<AppliedFilters>(
     () => ({
       responsaveis,
-      prazo: prazo || undefined,
+      prazo: prazo
+        ? { start: prazo, end: prazoFim || undefined }
+        : undefined,
       hora: hora || undefined,
       atribuicao: atribuicaoParam === 'mentions' ? 'mentions' : undefined,
     }),
-    [responsaveis, prazo, hora, atribuicaoParam]
+    [responsaveis, prazo, prazoFim, hora, atribuicaoParam]
   );
   const [filtersSummary, setFiltersSummary] = useState<AppliedFilters>(initialFiltersSummary);
   const [cardsSnapshot, setCardsSnapshot] = useState<KanbanCard[]>([]);
@@ -75,7 +78,9 @@ export default function KanbanAnalisePage() {
   useEffect(() => {
     setFiltersSummary((prev) => {
       const sameResponsaveis = prev.responsaveis.join("|") === initialFiltersSummary.responsaveis.join("|");
-      const samePrazo = prev.prazo === initialFiltersSummary.prazo;
+      const samePrazo =
+        (prev.prazo?.start ?? "") === (initialFiltersSummary.prazo?.start ?? "") &&
+        (prev.prazo?.end ?? "") === (initialFiltersSummary.prazo?.end ?? "");
       const sameHora = prev.hora === initialFiltersSummary.hora;
       const sameAttr = prev.atribuicao === initialFiltersSummary.atribuicao;
       if (sameResponsaveis && samePrazo && sameHora && sameAttr) {
@@ -125,7 +130,8 @@ export default function KanbanAnalisePage() {
           <div className="mt-12">
             <KanbanBoardAnalise
               hora={filtersSummary.hora}
-              date={filtersSummary.prazo}
+              dateStart={filtersSummary.prazo?.start}
+              dateEnd={filtersSummary.prazo?.end}
               responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
               mentionsUserId={filtersSummary.atribuicao === 'mentions' ? userId ?? undefined : undefined}
               mentionsOnly={filtersSummary.atribuicao === 'mentions'}

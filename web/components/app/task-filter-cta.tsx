@@ -1,14 +1,12 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Command, CommandGroup, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ListFilter } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import { DateRangePopover } from "@/components/ui/date-range-popover";
 
 interface TaskFilterCTAProps {
   q: string;
@@ -29,6 +27,7 @@ export function TaskFilterCTA({
   q, setQ, status, setStatus, due, setDue, ds, setDs, de, setDe, onApply, loading
 }: TaskFilterCTAProps) {
   const [open, setOpen] = useState(false);
+  const rangeValue = useMemo(() => ({ start: ds || undefined, end: de || undefined }), [ds, de]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -68,6 +67,75 @@ export function TaskFilterCTA({
                 <span className="text-sm font-medium">Concluídas</span>
               </CommandItem>
             </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup className="p-0">
+              <CommandItem
+                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
+                value="prazo-all"
+                onSelect={() => {
+                  setDue("all");
+                  setDs("");
+                  setDe("");
+                  onApply();
+                  setOpen(false);
+                }}
+              >
+                <span className="text-sm font-medium">Todos os prazos</span>
+              </CommandItem>
+              <CommandItem
+                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1"
+                value="prazo-hoje"
+                onSelect={() => {
+                  setDue("hoje");
+                  setDs("");
+                  setDe("");
+                  onApply();
+                  setOpen(false);
+                }}
+              >
+                <span className="text-sm font-medium">Hoje</span>
+              </CommandItem>
+              <CommandItem
+                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1"
+                value="prazo-amanha"
+                onSelect={() => {
+                  setDue("amanha");
+                  setDs("");
+                  setDe("");
+                  onApply();
+                  setOpen(false);
+                }}
+              >
+                <span className="text-sm font-medium">Amanhã</span>
+              </CommandItem>
+              <CommandItem
+                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1"
+                value="prazo-atrasado"
+                onSelect={() => {
+                  setDue("atrasado");
+                  setDs("");
+                  setDe("");
+                  onApply();
+                  setOpen(false);
+                }}
+              >
+                <span className="text-sm font-medium">Atrasados</span>
+              </CommandItem>
+            </CommandGroup>
+            <div className="px-2 pb-2">
+              <DateRangePopover
+                label="Intervalo"
+                value={rangeValue}
+                onChange={(next) => {
+                  const hasStart = !!next.start;
+                  setDue(hasStart ? "intervalo" : "all");
+                  setDs(next.start ?? "");
+                  setDe(next.end ?? "");
+                  onApply();
+                  setOpen(false);
+                }}
+              />
+            </div>
           </CommandList>
         </Command>
       </PopoverContent>

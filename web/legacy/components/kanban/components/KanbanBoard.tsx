@@ -20,7 +20,8 @@ const columnConfig = [
 
 export function KanbanBoard({
   hora,
-  date,
+  dateStart,
+  dateEnd,
   openCardId,
   responsaveis,
   mentionsUserId,
@@ -28,7 +29,8 @@ export function KanbanBoard({
   onCardsChange,
 }: {
   hora?: string;
-  date?: string;
+  dateStart?: string;
+  dateEnd?: string;
   openCardId?: string;
   responsaveis?: string[];
   mentionsUserId?: string;
@@ -56,7 +58,8 @@ export function KanbanBoard({
     try {
       const data = await listCards('comercial', {
         hora,
-        date,
+        dateStart,
+        dateEnd,
         responsaveis: responsavelIds,
         mentionsUserId: mentionsOnly && mentionsUserId ? mentionsUserId : undefined,
       });
@@ -66,7 +69,7 @@ export function KanbanBoard({
       console.error('Falha ao carregar cards do Kanban Comercial:', error);
       onCardsChange?.([]);
     }
-  }, [hora, date, responsavelIds, mentionsOnly, mentionsUserId, onCardsChange]);
+  }, [hora, dateStart, dateEnd, responsavelIds, mentionsOnly, mentionsUserId, onCardsChange]);
 
   useEffect(() => {
     reload();

@@ -34,9 +34,6 @@ import { Dispatch, SetStateAction, useRef, useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "motion/react";
-import Flatpickr from "react-flatpickr";
-import "flatpickr/dist/themes/material_green.css";
-import { Portuguese } from "flatpickr/dist/l10n/pt.js";
 
 interface AnimateChangeInHeightProps {
   children: React.ReactNode;
@@ -262,70 +259,44 @@ const FilterValueCombobox = ({
     option: resolveOption(value),
   }));
 
+  const formatDateValue = (value: string) => {
+    try {
+      const [y, m, d] = value.split("-").map(Number);
+      if (!y || !m || !d) return value;
+      const date = new Date(Date.UTC(y, m - 1, d));
+      return new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit",
+      }).format(date);
+    } catch {
+      return value;
+    }
+  };
+
+  const formatPrazoRangeLabel = (start?: string, end?: string) => {
+    if (!start) return "Selecionar data";
+    const startLabel = formatDateValue(start);
+    if (!end) return startLabel;
+    const endLabel = formatDateValue(end);
+    return `${startLabel} – ${endLabel}`;
+  };
+
   const formatValueLabel = (value: string, option?: FilterOption) => {
     if (option?.name) return option.name;
     if (filterType === FilterType.PRAZO && value) {
-      try {
-        const [y, m, d] = value.split("-").map(Number);
-        const date = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
-        return new Intl.DateTimeFormat("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        }).format(date);
-      } catch {
-        return value;
-      }
+      return formatDateValue(value);
     }
     return value;
   };
 
   if (filterType === FilterType.PRAZO) {
-    const selected = filterValues[0];
+    const start = filterValues[0];
+    const end = filterValues[1];
     return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full text-current hover:bg-emerald-200/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition">
-          <Calendar className="size-3.5 text-current" />
-          {selected ? formatValueLabel(selected) : "Selecionar data"}
-        </PopoverTrigger>
-        <PopoverContent className="w-[240px] p-3 bg-white border-0 shadow-lg rounded-lg">
-          <div className="space-y-3">
-            <Flatpickr
-              value={selected ? new Date(selected) : undefined}
-              options={{
-                locale: Portuguese,
-                dateFormat: "Y-m-d",
-                defaultDate: selected,
-              }}
-              onChange={(dates) => {
-                const [first] = dates;
-                if (first) {
-                  const iso = toYMD(first);
-                  setFilterValues([iso]);
-                } else {
-                  setFilterValues([]);
-                }
-                setOpen(false);
-              }}
-              className="w-full rounded-md border border-muted px-3 py-2 text-sm"
-            />
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                onClick={() => {
-                  setFilterValues([]);
-                  setOpen(false);
-                }}
-              >
-                Limpar
-              </Button>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+      <span className="text-xs font-medium whitespace-nowrap">
+        {formatPrazoRangeLabel(start, end)}
+      </span>
     );
   }
 

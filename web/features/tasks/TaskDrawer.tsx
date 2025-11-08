@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { addComment } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
+import { CalendarReady } from "@/components/ui/calendar-ready";
+import {
+  DEFAULT_TIMEZONE,
+  clampToBusinessWindow,
+  isWithinBusinessWindow,
+  localDateTimeToUtcISO,
+  startOfDayUtcISO,
+  utcISOToLocalParts,
+} from "@/lib/datetime";
 
 type ProfileLite = { id: string; full_name: string; role?: string | null };
 
@@ -22,7 +31,8 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [assignedTo, setAssignedTo] = useState<string>("");
   const [desc, setDesc] = useState("");
-  const [deadline, setDeadline] = useState<string>("");
+  const [deadlineDate, setDeadlineDate] = useState<string>("");
+  const [deadlineTime, setDeadlineTime] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(0);
   const isEdit = !!taskId;
@@ -56,24 +66,47 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
           if (t) {
             setAssignedTo((t as any).assigned_to ?? '');
             setDesc((t as any).description ?? '');
-            setDeadline((t as any).deadline ? new Date((t as any).deadline).toISOString().slice(0,16) : '');
+          if ((t as any).deadline) {
+            const { dateISO, time } = utcISOToLocalParts((t as any).deadline, DEFAULT_TIMEZONE);
+            setDeadlineDate(dateISO ?? "");
+            setDeadlineTime(time ?? "");
+          } else {
+            setDeadlineDate("");
+            setDeadlineTime("");
+          }
           }
         } else {
-          setAssignedTo(''); setDesc(''); setDeadline('');
+        setAssignedTo('');
+        setDesc('');
+        setDeadlineDate('');
+        setDeadlineTime('');
         }
       } catch {}
     })();
   }, [open, taskId]);
 
+  function resolveDeadlineISO(): string | null {
+    if (!deadlineDate) return null;
+    if (deadlineTime) {
+      const normalized = clampToBusinessWindow(deadlineTime);
+      if (!isWithinBusinessWindow(deadlineTime)) {
+        setDeadlineTime(normalized);
+      }
+      return localDateTimeToUtcISO(deadlineDate, normalized, DEFAULT_TIMEZONE) ?? null;
+    }
+    return startOfDayUtcISO(deadlineDate, DEFAULT_TIMEZONE) ?? null;
+  }
+
   async function createTask() {
     if (!desc.trim()) return;
     setSaving(true);
     try {
+      const deadlineIso = resolveDeadlineISO();
       const payload: any = {
         card_id: cardId,
         description: desc.trim(),
         assigned_to: assignedTo || null,
-        deadline: deadline ? new Date(deadline).toISOString() : null,
+        deadline: deadlineIso,
         comment_id: commentId ?? null,
       };
       const { data: created, error } = await supabase.from("card_tasks").insert(payload).select('id, assigned_to, deadline').single();
@@ -97,9 +130,10 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
     if (!desc.trim()) return;
     setSaving(true);
     try {
+      const deadlineIso = resolveDeadlineISO();
       const { error } = await supabase
         .from('card_tasks')
-        .update({ description: desc.trim(), assigned_to: assignedTo || null, deadline: deadline ? new Date(deadline).toISOString() : null })
+        .update({ description: desc.trim(), assigned_to: assignedTo || null, deadline: deadlineIso })
         .eq('id', taskId);
       if (error) throw error;
       onClose();
@@ -157,7 +191,41 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
           </section>
           <section>
             <div className="text-sm font-semibold text-zinc-800 mb-2">Prazo</div>
-            <input type="datetime-local" value={deadline} onChange={(e)=> setDeadline(e.target.value)} className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500" />
+            <div className="space-y-3">
+              <CalendarReady
+                label="Data"
+                value={deadlineDate || undefined}
+                onChange={(value) => {
+                  const next = value ?? "";
+                  setDeadlineDate(next);
+                  if (!value) {
+                    setDeadlineTime("");
+                  }
+                }}
+                disablePast
+              />
+              <div>
+                <label className="mb-1 block text-xs text-zinc-600">Horário (08:00–18:00)</label>
+                <input
+                  type="time"
+                  value={deadlineTime}
+                  min="08:00"
+                  max="18:00"
+                  step={1800}
+                  disabled={!deadlineDate}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (!raw) {
+                      setDeadlineTime("");
+                      return;
+                    }
+                    const normalized = clampToBusinessWindow(raw);
+                    setDeadlineTime(normalized);
+                  }}
+                  className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-zinc-100 disabled:text-zinc-400"
+                />
+              </div>
+            </div>
           </section>
         </div>
         <footer className="flex justify-end gap-2 border-t px-4 py-3">

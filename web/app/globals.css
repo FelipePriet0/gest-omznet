@@ -1748,71 +1748,38 @@ textarea[placeholder="Analisar"]::placeholder {
   background-color: var(--neutro);
 }
 
-/* Flatpickr Calendar Popover - 8px corner radius */
-.flatpickr-calendar {
-  border-radius: 8px !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-  border: 1px solid #e5e7eb !important;
+/* DayPicker overrides */
+.rdp {
+  --rdp-cell-size: 36px;
+  --rdp-accent-color: var(--verde-primario);
+  --rdp-accent-color-dark: var(--verde-primario);
+  --rdp-range-color: rgba(1, 137, 66, 0.12);
+  --rdp-outline: 2px solid rgba(1, 137, 66, 0.24);
+  margin: 0;
+  font-family: inherit;
+  color: #1f2937;
 }
 
-.flatpickr-months {
-  border-radius: 8px 8px 0 0 !important;
+.rdp-nav_button {
+  color: var(--verde-primario);
+}
+
+.rdp-day:not(.rdp-day_disabled):focus-visible {
+  outline: var(--rdp-outline);
+  outline-offset: 2px;
+}
+
+.rdp-day_range_start,
+.rdp-day_range_end {
   background-color: var(--verde-primario) !important;
-}
-
-.flatpickr-months .flatpickr-month {
-  background-color: transparent !important;
   color: white !important;
 }
 
-.flatpickr-months .flatpickr-current-month {
-  color: white !important;
+.rdp-day_range_middle {
+  background-color: rgba(1, 137, 66, 0.12) !important;
+  color: var(--verde-primario) !important;
 }
 
-.flatpickr-months .flatpickr-current-month .flatpickr-monthDropdown-months {
-  background-color: transparent !important;
-  color: white !important;
-  font-weight: 600;
-}
-
-.flatpickr-months .flatpickr-current-month .numInputWrapper .numInput {
-  color: white !important;
-  font-weight: 600;
-}
-
-.flatpickr-months .flatpickr-prev-month,
-.flatpickr-months .flatpickr-next-month {
-  fill: white !important;
-  color: white !important;
-}
-
-.flatpickr-months .flatpickr-prev-month:hover,
-.flatpickr-months .flatpickr-next-month:hover {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-/* Flatpickr - Dias da semana com cor primária */
-.flatpickr-weekdays {
-  background-color: var(--verde-primario) !important;
-  border: none !important;
-}
-
-.flatpickr-weekday {
-  color: white !important;
-  font-weight: 600 !important;
-}
-
-/* Remover qualquer borda/linha entre weekdays e days */
-.flatpickr-innerContainer {
-  border-top: none !important;
-}
-
-.flatpickr-days {
-  border-top: none !important;
-  border-left: none !important;
-  border-right: none !important;
-}
-
-.flatpickr-rContainer {
-  border-top: none !important;
+.rdp-button[disabled] {
+  opacity: 0.5;
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Check, Circle, X } from "lucide-react";
 import { TaskFilterCTA } from "@/components/app/task-filter-cta";
+import { endOfDayUtcISO, startOfDayUtcISO } from "@/lib/datetime";
 // Nova ficha CTA removido do Drawer: Minhas Tarefas
 
 type TaskRow = {
@@ -51,11 +52,13 @@ export default function MinhasTarefasPage() {
     setLoading(true);
     try {
       const effStatus = nextStatus ?? status;
+      const startDate = ds ? startOfDayUtcISO(ds) : null;
+      const endDate = de ? endOfDayUtcISO(de) : (ds ? endOfDayUtcISO(ds) : null);
       const { data, error } = await supabase.rpc('list_my_tasks', {
         p_status: effStatus==='all'? null : effStatus,
         p_due: due==='all'? null : due,
-        p_date_start: ds? atStart(ds) : null,
-        p_date_end: de? atEnd(de) : null,
+        p_date_start: startDate,
+        p_date_end: endDate,
         p_search: q || null,
       });
       if (!error) setItems((data as any)||[]);
@@ -267,5 +270,3 @@ function DashboardCard({ title, value, icon }: { title: string; value?: number |
   );
 }
 
-function atStart(d: string) { const dt = new Date(d); dt.setHours(0,0,0,0); return dt.toISOString(); }
-function atEnd(d: string) { const dt = new Date(d); dt.setHours(23,59,59,999); return dt.toISOString(); }

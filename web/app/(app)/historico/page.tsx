@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { DateRangePicker } from "@/features/historico/DateRangePicker";
 import { Button } from "@/components/ui/button";
 import { Plus, Check } from "lucide-react";
 import { useState as useModalState } from "react";
@@ -22,6 +21,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { DateRangePopover, type DateRangeValue } from "@/components/ui/date-range-popover";
+import { endOfDayUtcISO, startOfDayUtcISO } from "@/lib/datetime";
 
 type Row = {
   id: string;
@@ -44,8 +45,7 @@ export default function HistoricoPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState("");
-  const [dateStart, setDateStart] = useState<string>("");
-  const [dateEnd, setDateEnd] = useState<string>("");
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
   const [status, setStatus] = useState<string>("");
   const [resp, setResp] = useState<string>("");
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -72,8 +72,10 @@ export default function HistoricoPage() {
 
   async function load() {
     const params: any = { p_search: q || null };
-    if (dateStart) params.p_date_start = atStart(dateStart);
-    if (dateEnd) params.p_date_end = atEnd(dateEnd);
+    if (dateRange.start) {
+      params.p_date_start = startOfDayUtcISO(dateRange.start);
+      params.p_date_end = endOfDayUtcISO(dateRange.end ?? dateRange.start);
+    }
     params.p_status = status || null;
     params.p_responsavel = resp || null;
     const { data, error } = await supabase.rpc('list_historico', params);
@@ -103,15 +105,21 @@ export default function HistoricoPage() {
   return (
     <>
       <div className="space-y-6">
-        <Filters 
-          q={q} onQ={setQ}
-          dateStart={dateStart} onDateStart={setDateStart}
-          dateEnd={dateEnd} onDateEnd={setDateEnd}
-          status={status} onStatus={setStatus}
-          resp={resp} onResp={setResp}
+        <Filters
+          q={q}
+          onQ={setQ}
+          status={status}
+          onStatus={setStatus}
+          resp={resp}
+          onResp={setResp}
           respOptions={respOptions}
           onApply={load}
           loading={loading}
+          dateRange={dateRange}
+          onDateRange={(next) => {
+            setDateRange(next);
+            load();
+          }}
         />
         <HistoricoList rows={filteredRows} onOpenDetails={openDetails} />
       </div>
@@ -146,7 +154,31 @@ export default function HistoricoPage() {
   );
 }
 
-function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, onStatus, resp, onResp, respOptions, onApply, loading }: any) {
+function Filters({
+  q,
+  onQ,
+  status,
+  onStatus,
+  resp,
+  onResp,
+  respOptions,
+  onApply,
+  loading,
+  dateRange,
+  onDateRange,
+}: {
+  q: string;
+  onQ: (value: string) => void;
+  status: string;
+  onStatus: (value: string) => void;
+  resp: string;
+  onResp: (value: string) => void;
+  respOptions: ProfileLite[];
+  onApply: () => void;
+  loading: boolean;
+  dateRange: DateRangeValue;
+  onDateRange: (value: DateRangeValue) => void;
+}) {
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-zinc-200">
       {/* Título e subtítulo */}
@@ -181,15 +213,11 @@ function Filters({ q, onQ, dateStart, onDateStart, dateEnd, onDateEnd, status, o
           </div>
         </div>
 
-        {/* Período de avaliação */}
         <div className="w-[220px]">
-          <DateRangePicker
-            start={dateStart || undefined}
-            end={dateEnd || undefined}
-            onChange={(start, end) => {
-              onDateStart(start || "");
-              onDateEnd(end || "");
-            }}
+          <DateRangePopover
+            label="Período"
+            value={dateRange}
+            onChange={onDateRange}
           />
         </div>
 
@@ -522,8 +550,6 @@ async function listProfiles(): Promise<ProfileLite[]> {
   return (data as any) || [];
 }
 
-function atStart(d: string) { const dt = new Date(d); dt.setHours(0,0,0,0); return dt.toISOString(); }
-function atEnd(d: string) { const dt = new Date(d); dt.setHours(23,59,59,999); return dt.toISOString(); }
 
 // Componente de filtro Status com Popover
 function StatusFilterPopover({ value, onChange }: { value: string; onChange: (val: string) => void }) {

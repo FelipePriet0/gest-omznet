@@ -188,7 +188,7 @@ Faremos FK do id para as tabelas dessas funções para que fique tudo conectado 
     
     **Estrutura:** 
     
-    Feito em (Created at)  | Instalação agendada para (Calendário/Biblioteca: Flatpickr) |  Horário (08:30 / 10:30 / 13:30 / 15:30)  
+    Feito em (Created at)  | Instalação agendada para (Calendário) |  Horário (08:30 / 10:30 / 13:30 / 15:30)  
     
     **Campo Horário**
     

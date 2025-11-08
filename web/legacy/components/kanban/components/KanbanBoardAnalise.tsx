@@ -25,7 +25,8 @@ const columns = [
 
 export function KanbanBoardAnalise({
   hora,
-  date,
+  dateStart,
+  dateEnd,
   openCardId,
   responsaveis,
   mentionsUserId,
@@ -33,7 +34,8 @@ export function KanbanBoardAnalise({
   onCardsChange,
 }: {
   hora?: string;
-  date?: string;
+  dateStart?: string;
+  dateEnd?: string;
   openCardId?: string;
   responsaveis?: string[];
   mentionsUserId?: string;
@@ -61,7 +63,8 @@ export function KanbanBoardAnalise({
     try {
       const data = await listCards("analise", {
         hora,
-        date,
+        dateStart,
+        dateEnd,
         responsaveis: responsavelIds,
         mentionsUserId: mentionsOnly && mentionsUserId ? mentionsUserId : undefined,
       });
@@ -72,14 +75,14 @@ export function KanbanBoardAnalise({
       setCards([]);
       onCardsChange?.([]);
     }
-  }, [hora, date, responsavelIds, mentionsOnly, mentionsUserId, onCardsChange]);
+  }, [hora, dateStart, dateEnd, responsavelIds, mentionsOnly, mentionsUserId, onCardsChange]);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
   useEffect(() => {
-    const channelKey = `kanban-analise-${hora || "_"}-${date || "_"}-${responsavelIds.join("|") || "_"}-${mentionsOnly ? mentionsUserId ?? "_" : "_"}`;
+    const channelKey = `kanban-analise-${hora || "_"}-${dateStart || "_"}-${dateEnd || "_"}-${responsavelIds.join("|") || "_"}-${mentionsOnly ? mentionsUserId ?? "_" : "_"}`;
     const channel = supabase
       .channel(channelKey)
       .on(
@@ -103,7 +106,7 @@ export function KanbanBoardAnalise({
         console.error("Erro ao remover canal do Kanban Análise:", err);
       }
     };
-  }, [hora, date, responsavelIds, mentionsOnly, mentionsUserId, reload]);
+  }, [hora, dateStart, dateEnd, responsavelIds, mentionsOnly, mentionsUserId, reload]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = {

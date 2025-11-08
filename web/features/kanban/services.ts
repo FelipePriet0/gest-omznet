@@ -24,7 +24,7 @@ export async function changeStage(cardId: string, area: 'comercial' | 'analise',
 
 export async function listCards(
   area: 'comercial' | 'analise',
-  opts?: { hora?: string; date?: string; responsaveis?: string[]; mentionsUserId?: string }
+  opts?: { hora?: string; dateStart?: string; dateEnd?: string; responsaveis?: string[]; mentionsUserId?: string }
 ): Promise<KanbanCard[]> {
   const baseSelect = 'id, stage, area, applicant_id, due_at, hora_at, applicants:applicants!inner(id, primary_name, cpf_cnpj, phone, whatsapp, bairro)';
   const includeMentions = !!opts?.mentionsUserId;
@@ -55,13 +55,28 @@ export async function listCards(
     }
   }
 
-  if (opts?.date) {
-    const [y, m, d] = opts.date.split('-').map(Number);
-    if (y && m && d) {
-      const start = new Date(Date.UTC(y, m - 1, d));
-      const end = new Date(start);
-      end.setUTCHours(23, 59, 59, 999);
-      q = q.gte('due_at', start.toISOString()).lte('due_at', end.toISOString());
+  if (opts?.dateStart || opts?.dateEnd) {
+    const parseYMD = (value: string | undefined, endOfDay = false) => {
+      if (!value) return null;
+      const [y, m, d] = value.split('-').map(Number);
+      if (!y || !m || !d) return null;
+      const base = new Date(Date.UTC(y, m - 1, d));
+      if (endOfDay) {
+        base.setUTCHours(23, 59, 59, 999);
+      }
+      return base;
+    };
+
+    const startDate = parseYMD(opts?.dateStart, false);
+    const endDate = opts?.dateEnd
+      ? parseYMD(opts.dateEnd, true)
+      : parseYMD(opts?.dateStart, true);
+
+    if (startDate) {
+      q = q.gte('due_at', startDate.toISOString());
+    }
+    if (endDate) {
+      q = q.lte('due_at', endDate.toISOString());
     }
   }
 

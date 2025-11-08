@@ -16,6 +16,7 @@ import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
+import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts } from "@/lib/datetime";
 
 type AppModel = {
   primary_name?: string; cpf_cnpj?: string; phone?: string; whatsapp?: string; email?: string;
@@ -156,7 +157,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
         setApp(a2||{});
         setPersonType((a as any)?.person_type ?? null);
         setCreatedAt(c?.created_at ? new Date(c.created_at).toLocaleString() : "");
-        setDueAt(c?.due_at ? (()=>{ const d=new Date(c.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; })() : "");
+        const dueParts = utcISOToLocalParts(c?.due_at ?? undefined, DEFAULT_TIMEZONE);
+        setDueAt(dueParts.dateISO ?? "");
         if (Array.isArray((c as any)?.hora_at)) {
           const arr:any[] = (c as any).hora_at;
           const list = arr.map(h => String(h).slice(0,5));
@@ -194,7 +196,10 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
           .channel(`rt-edit-card-${cardId}`)
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `id=eq.${cardId}` }, (payload: any) => {
             const row:any = payload.new || {};
-            if (row.due_at) { const d=new Date(row.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); setDueAt(`${y}-${m}-${day}`); }
+            if (row.due_at) {
+              const { dateISO } = utcISOToLocalParts(row.due_at, DEFAULT_TIMEZONE);
+              setDueAt(dateISO ?? "");
+            }
             if (row.hora_at) {
               const arr = Array.isArray(row.hora_at) ? row.hora_at : [row.hora_at];
               const list = arr.map((h:any)=> String(h).slice(0,5));
@@ -442,7 +447,15 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                 <CalendarReady
                   label="Instalação agendada para"
                   value={dueAt}
-                  onChange={(val)=> { setDueAt(val); queue('card','due_at', new Date(val).toISOString()); }}
+                  onChange={(val)=> {
+                    setDueAt(val ?? "");
+                    if (!val) {
+                      queue('card','due_at', null);
+                      return;
+                    }
+                    const utcValue = startOfDayUtcISO(val, DEFAULT_TIMEZONE);
+                    queue('card','due_at', utcValue ?? null);
+                  }}
                 />
                 <TimeMultiSelect
                   label="Horário"

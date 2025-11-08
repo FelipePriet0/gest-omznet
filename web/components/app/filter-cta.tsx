@@ -29,12 +29,11 @@ import {
   filterViewOptions,
   filterViewToFilterOptions,
 } from "@/components/ui/filters";
+import { type DateRangeValue } from "@/components/ui/date-range-popover";
+import { KanbanRangeCalendar } from "@/components/app/kanban-range-calendar";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import Flatpickr from "react-flatpickr";
-import "flatpickr/dist/themes/material_green.css";
-import { Portuguese } from "flatpickr/dist/l10n/pt.js";
 
 type CachedResponsavel = {
   id: string | null;
@@ -44,7 +43,7 @@ type CachedResponsavel = {
 
 export type AppliedFilters = {
   responsaveis: string[];
-  prazo?: string;
+  prazo?: { start: string; end?: string };
   hora?: string;
   atribuicao?: "mentions";
 };
@@ -87,6 +86,54 @@ export function FilterCTA({
   const [, setResponsavelOptions] = React.useState<FilterOption[]>(
     filterViewToFilterOptions[FilterType.RESPONSAVEL]
   );
+  const [calendarOpen, setCalendarOpen] = React.useState(false);
+  const [popoverRect, setPopoverRect] = React.useState<DOMRect | null>(null);
+  const calendarContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const popoverContentRef = React.useRef<HTMLDivElement | null>(null);
+  const updatePopoverRect = React.useCallback(() => {
+    if (popoverContentRef.current) {
+      setPopoverRect(popoverContentRef.current.getBoundingClientRect());
+    }
+  }, []);
+  const handleCalendarInteractOutside = React.useCallback(
+    (event: Event) => {
+      const customEvent = event as unknown as {
+        target: EventTarget;
+        detail?: { originalEvent?: Event };
+        preventDefault: () => void;
+      };
+      const originalEvent = customEvent.detail?.originalEvent ?? (event as Event);
+      const target = (originalEvent?.target ?? customEvent.target) as Node | null;
+      if (target && calendarContainerRef.current?.contains(target)) {
+        customEvent.preventDefault();
+      }
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (!open && !calendarOpen) return;
+    updatePopoverRect();
+    if (!calendarOpen) return;
+    let observer: ResizeObserver | null = null;
+    if (typeof window !== "undefined") {
+      observer = new ResizeObserver(() => {
+        updatePopoverRect();
+      });
+      if (popoverContentRef.current) {
+        observer.observe(popoverContentRef.current);
+      }
+      window.addEventListener("resize", updatePopoverRect);
+      window.addEventListener("scroll", updatePopoverRect, true);
+    }
+    return () => {
+      observer?.disconnect();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("resize", updatePopoverRect);
+        window.removeEventListener("scroll", updatePopoverRect, true);
+      }
+    };
+  }, [calendarOpen, open, updatePopoverRect]);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -155,11 +202,12 @@ export function FilterCTA({
     };
   }, [area, pathname]);
 
-  // Inicializa a UI a partir da URL (?hora, ?prazo)
+  // Inicializa a UI a partir da URL (?hora, ?prazo, ?prazo_fim)
   React.useEffect(() => {
     const initial: Filter[] = [];
     const hora = searchParams.get("hora");
-    const prazo = searchParams.get("prazo");
+    const prazoInicio = searchParams.get("prazo");
+    const prazoFim = searchParams.get("prazo_fim");
     const responsavel = searchParams.get("responsavel");
     const atribuicao = searchParams.get("atribuicao");
 
@@ -172,14 +220,19 @@ export function FilterCTA({
       });
     }
 
-    if (prazo) {
-      const normalized = prazo.trim();
-      if (normalized) {
+    if (prazoInicio) {
+      const start = prazoInicio.trim();
+      const end = prazoFim?.trim();
+      if (start) {
+        const values =
+          end && end !== start
+            ? (start < end ? [start, end] : [end, start])
+            : [start];
         initial.push({
           id: "prazo",
           type: FilterType.PRAZO,
           operator: FilterOperator.IS,
-          value: [normalized],
+          value: values,
         });
       }
     }
@@ -217,18 +270,32 @@ export function FilterCTA({
     () => filters.find((f) => f.type === FilterType.PRAZO),
     [filters]
   );
-  const prazoValue = prazoFilter?.value?.[0];
+  const prazoValues = prazoFilter?.value ?? [];
+  const prazoStartValue = prazoValues[0];
+  const prazoEndValue = prazoValues[1];
 
-  const setPrazoValue = React.useCallback(
-    (value?: string) => {
+  const prazoRange = React.useMemo<DateRangeValue>(() => {
+    return {
+      start: prazoStartValue,
+      end: prazoEndValue,
+    };
+  }, [prazoStartValue, prazoEndValue]);
+
+  const handlePrazoChange = React.useCallback(
+    (next: DateRangeValue) => {
+      const nextStart = next.start?.trim();
+      const nextEnd = next.end?.trim();
       setFilters((prev) => {
         const index = prev.findIndex((f) => f.type === FilterType.PRAZO);
-        if (!value) {
+        if (!nextStart) {
           if (index === -1) return prev;
-          const next = [...prev];
-          next.splice(index, 1);
-          return next;
+          const clone = [...prev];
+          clone.splice(index, 1);
+          return clone;
         }
+        const inOrder =
+          nextEnd && nextStart && nextEnd < nextStart ? [nextEnd, nextStart] : [nextStart, nextEnd];
+        const sanitized = inOrder.filter(Boolean) as string[];
         if (index === -1) {
           return [
             ...prev,
@@ -236,32 +303,26 @@ export function FilterCTA({
               id: "prazo",
               type: FilterType.PRAZO,
               operator: FilterOperator.IS,
-              value: [value],
+              value: sanitized.length === 1 ? [sanitized[0]] : sanitized,
             },
           ];
         }
-        const next = [...prev];
-        next[index] = {
-          ...next[index],
-          value: [value],
+        const clone = [...prev];
+        clone[index] = {
+          ...clone[index],
+          value: sanitized.length === 1 ? [sanitized[0]] : sanitized,
         };
-        return next;
+        return clone;
       });
     },
     [setFilters]
   );
 
-  const closePicker = React.useCallback(() => {
-    setSelectedView(null);
-    setCommandInput("");
-    setOpen(false);
-  }, [setOpen, setSelectedView, setCommandInput]);
-
   // Aplica efeitos dos filtros na URL (igual ao FilterBar antigo)
   React.useEffect(() => {
     const params = new URLSearchParams(searchParamsStr);
 
-    // Hora (pega o primeiro valor caso o usuário selecione mais de um)
+    // Hora
     const horaFilter = filters.find((f) => f.type === FilterType.HORARIO);
     const hora = horaFilter?.value?.[0];
     if (hora) {
@@ -270,13 +331,17 @@ export function FilterCTA({
       params.delete("hora");
     }
 
-    // Prazo (data única via calendário)
-    const prazoFilter = filters.find((f) => f.type === FilterType.PRAZO);
-    const prazoValue = prazoFilter?.value?.[0];
-    if (prazoValue) {
-      params.set("prazo", prazoValue);
+    // Prazo (dia único ou intervalo)
+    if (prazoStartValue) {
+      params.set("prazo", prazoStartValue);
     } else {
       params.delete("prazo");
+    }
+
+    if (prazoEndValue) {
+      params.set("prazo_fim", prazoEndValue);
+    } else {
+      params.delete("prazo_fim");
     }
 
     const responsavelFilter = filters.find(
@@ -305,7 +370,9 @@ export function FilterCTA({
 
     onFiltersChange?.({
       responsaveis: responsavelIds,
-      prazo: prazoValue,
+      prazo: prazoStartValue
+        ? { start: prazoStartValue, end: prazoEndValue }
+        : undefined,
       hora,
       atribuicao: hasMentions ? "mentions" : undefined,
     });
@@ -326,14 +393,9 @@ export function FilterCTA({
       <Filters filters={filters} setFilters={setFilters} />
       <Popover
         open={open}
-        onOpenChange={(open) => {
-          setOpen(open);
-          if (!open) {
-            setTimeout(() => {
-              setSelectedView(null);
-              setCommandInput("");
-            }, 200);
-          }
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setCalendarOpen(false);
         }}
       >
         <PopoverTrigger asChild>
@@ -351,7 +413,16 @@ export function FilterCTA({
             {filters.length === 0 && "Filtros"}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0 bg-white border-0 shadow-lg rounded-lg popover-content">
+        <PopoverContent
+          ref={popoverContentRef}
+          className="w-[200px] p-0 bg-white border-0 shadow-lg rounded-lg popover-content"
+          side="right"
+          align="start"
+          sideOffset={12}
+          onInteractOutside={handleCalendarInteractOutside}
+          onPointerDownOutside={handleCalendarInteractOutside}
+          onFocusOutside={handleCalendarInteractOutside}
+        >
           <AnimateChangeInHeight>
             <Command className="rounded-lg">
               <CommandInput
@@ -364,7 +435,9 @@ export function FilterCTA({
                 ref={commandInputRef}
               />
               <CommandList className="p-1">
-                <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
+                {selectedView && (
+                  <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
+                )}
                 {selectedView ? (
                   <CommandGroup className="p-0">
                     {(filterViewToFilterOptions[selectedView] ?? []).map(
@@ -372,7 +445,7 @@ export function FilterCTA({
                         const storedValue = filter.value ?? filter.name;
                         return (
                           <CommandItem
-                            className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1 command-item"
+                            className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
                             key={storedValue}
                             value={filter.name}
                             onSelect={() => {
@@ -440,13 +513,14 @@ export function FilterCTA({
                         .filter((filter: FilterOption) => filter.name !== FilterType.PRAZO)
                         .map((filter: FilterOption) => (
                           <CommandItem
-                            className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1 command-item"
+                            className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
                             key={filter.name}
                             value={filter.name}
                             onSelect={(currentValue) => {
                               setSelectedView(currentValue as FilterType);
                               setCommandInput("");
                               commandInputRef.current?.focus();
+                              setCalendarOpen(false);
                             }}
                           >
                             {filter.icon}
@@ -456,48 +530,16 @@ export function FilterCTA({
                           </CommandItem>
                         ))}
                     </CommandGroup>
-                    <div className="mt-2 border-t border-gray-100 pt-2 px-1.5">
-                      <div className="text-xs font-semibold text-gray-500 mb-1 px-1 flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5" />
-                        Prazo
-                      </div>
-                      <div className="rounded-md border border-gray-200">
-                        <Flatpickr
-                          value={
-                            prazoValue
-                              ? [new Date(`${prazoValue}T00:00:00`)]
-                              : []
-                          }
-                          options={{
-                            locale: Portuguese,
-                            dateFormat: "Y-m-d",
-                            defaultDate: prazoValue,
-                          }}
-                          onChange={(dates) => {
-                            const [first] = dates;
-                            if (first instanceof Date && !Number.isNaN(first.getTime())) {
-                              setPrazoValue(toYMD(first));
-                            } else {
-                              setPrazoValue(undefined);
-                            }
-                          }}
-                          className="w-full rounded-md border-0 px-3 py-2 text-sm focus:outline-none focus:ring-0"
-                        />
-                      </div>
-                      <div className="flex justify-end mt-2 px-0.5">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 text-xs text-emerald-600 hover:text-emerald-700"
-                          onClick={() => {
-                            setPrazoValue(undefined);
-                          }}
-                        >
-                          Limpar prazo
-                        </Button>
-                      </div>
-                    </div>
+                    <CommandItem
+                      value="toggle-calendar"
+                      className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                      onSelect={() => setCalendarOpen((prev) => !prev)}
+                    >
+                      <Calendar className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        {calendarOpen ? "Fechar calendário" : "Selecionar período"}
+                      </span>
+                    </CommandItem>
                   </>
                 )}
               </CommandList>
@@ -505,13 +547,29 @@ export function FilterCTA({
           </AnimateChangeInHeight>
         </PopoverContent>
       </Popover>
+      {calendarOpen && (
+        <div
+          ref={calendarContainerRef}
+          className="z-[99]"
+          style={
+            popoverRect
+              ? {
+                  position: "fixed",
+                  top: popoverRect.top,
+                  left: popoverRect.right + 16,
+                }
+              : undefined
+          }
+        >
+          <KanbanRangeCalendar
+            value={prazoRange}
+            onChange={(next) => {
+              handlePrazoChange(next);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function toYMD(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
