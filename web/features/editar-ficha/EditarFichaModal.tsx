@@ -777,7 +777,7 @@ type SectionProps = {
 
 function Section({ title, children, variant, className, titleClassName, cardClassName }: SectionProps) {
   const wrapperClasses = [variant, className].filter(Boolean).join(" ");
-  const cardClasses = ["section-card rounded-xl p-4 sm:p-6", cardClassName].filter(Boolean).join(" ");
+  const cardClasses = ["section-card rounded-lg bg-white p-4 sm:p-6", cardClassName].filter(Boolean).join(" ");
   const headingClasses = ["section-title text-sm font-semibold", titleClassName, variant].filter(Boolean).join(" ");
 
   return (
