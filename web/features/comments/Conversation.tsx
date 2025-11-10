@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { addComment, deleteComment, editComment, listComments, listProfiles, type Comment, type ProfileLite } from "./services";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import { listAttachments, removeAttachment, publicUrl, type CardAttachment } from "@/features/attachments/services";
+import { UnifiedComposer, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 type TaskTrigger = { openTask: (parentCommentId?: string) => void };
 type AttachTrigger = { openAttach: (parentCommentId?: string) => void };
@@ -20,10 +22,21 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
   const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
-  const inputRef = useRef<HTMLTextAreaElement|null>(null);
+  const inputRef = useRef<UnifiedComposerHandle|null>(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<CardTask[]>([]);
   const [attachments, setAttachments] = useState<CardAttachment[]>([]);
+  const [currentUserName, setCurrentUserName] = useState<string>("Você");
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      const uid = data?.user?.id;
+      if (uid) {
+        const me = (profiles || []).find((p) => p.id === uid);
+        if (me?.full_name) setCurrentUserName(me.full_name);
+      }
+    })();
+  }, [profiles]);
 
   useEffect(() => {
     let active = true;
@@ -57,64 +70,20 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
 
   const tree = useMemo(() => buildTree(comments || []), [comments]);
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === '/') {
-      setCmdOpen(true);
-      const ta = inputRef.current || (e.currentTarget as HTMLTextAreaElement);
-      if (ta) {
-        const pos = (ta.selectionStart ?? ta.value.length) + 1;
-        const c = getCaretCoordinates(ta, pos);
-        const top = ta.offsetTop + c.top + c.height + 6;
-        const leftRaw = ta.offsetLeft + c.left;
-        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
-        setCmdAnchor({ top, left });
-      }
-    }
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submitNew();
-    }
-    const val = (e.currentTarget.value || "") + (e.key.length === 1 ? e.key : "");
-    // Mentions
-    const atIdx = val.lastIndexOf("@");
-    if (atIdx >= 0) {
-      setMentionFilter(val.slice(atIdx + 1).trim());
-      setMentionOpen(true);
-    } else {
-      setMentionOpen(false);
-    }
-    // Slash commands (dropdown estilo Notion)
-    const slashIdx = val.lastIndexOf("/");
-    if (slashIdx >= 0) {
-      const q = val.slice(slashIdx + 1);
-      setCmdQuery(q.toLowerCase());
-      setCmdOpen(true);
-      if (inputRef.current) {
-        const ta = inputRef.current;
-        setCmdAnchor({ top: (ta.offsetHeight || 0) + 8, left: 0 });
-      }
-    } else {
-      setCmdOpen(false);
-    }
-  }
-
-  function onKeyUp(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const v = (e.currentTarget.value || '');
-    const slashIdx = v.lastIndexOf('/');
-    if (slashIdx >= 0) {
-      setCmdQuery(v.slice(slashIdx + 1).toLowerCase());
-      setCmdOpen(true);
-      if (inputRef.current) {
-        const ta = inputRef.current;
-        const c = getCaretCoordinates(ta, slashIdx + 1);
-        const top = ta.offsetTop + c.top + c.height + 6;
-        const leftRaw = ta.offsetLeft + c.left;
-        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
-        setCmdAnchor({ top, left });
-      }
-    } else {
-      setCmdOpen(false);
-    }
+  function ComposerHeader() {
+    const initials = (currentUserName || "—").slice(0,2).toUpperCase();
+    const ts = new Date().toLocaleString();
+    return (
+      <div className="mb-2 flex items-center gap-2">
+        <Avatar className="h-7 w-7 text-[10px]">
+          <AvatarFallback>{initials}</AvatarFallback>
+        </Avatar>
+        <div className="text-xs text-zinc-600">
+          <span className="font-medium text-zinc-900">{currentUserName}</span>
+          <span> • {ts}</span>
+        </div>
+      </div>
+    );
   }
 
   async function submitNew(parentId?: string) {
@@ -137,27 +106,19 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
         <div className="section-content space-y-3">
           {/* Campo para nova conversa (Thread Pai) no topo */}
           <div className="border-b border-zinc-100 pb-4 mb-4 relative">
-              <Textarea
+              <ComposerHeader />
+              <UnifiedComposer
                 ref={inputRef}
-                value={input}
-                onChange={(e) => {
-                  const v = e.target.value || '';
-                  setInput(v);
-                  const atIdx = v.lastIndexOf('@');
-                  if (atIdx >= 0) { setMentionFilter(v.slice(atIdx + 1).trim()); setMentionOpen(true); } else { setMentionOpen(false); }
-                  const slashIdx = v.lastIndexOf('/');
-                  if (slashIdx >= 0) {
-                    setCmdQuery(v.slice(slashIdx + 1).toLowerCase()); setCmdOpen(true);
-                    if (inputRef.current) {
-                    const ta = inputRef.current!;
-                    setCmdAnchor({ top: (ta.offsetHeight || 0) + 8, left: 0 });
-                  }
-                } else { setCmdOpen(false); }
-              }}
-                onKeyDown={onKeyDown}
-                onKeyUp={onKeyUp}
                 placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
-                rows={3}
+                onChange={(val)=> setInput(val.text || "")}
+                onSubmit={async (val: ComposerValue)=>{
+                  try { await addComment(cardId, (val.text||'').trim()); setInput(""); } catch(e:any){ alert(e?.message||'Falha ao enviar comentário'); }
+                }}
+                onCancel={()=> { setInput(""); setCmdOpen(false); setMentionOpen(false); }}
+                onMentionTrigger={(query)=> { setMentionFilter((query||'').trim()); setMentionOpen(true); }}
+                onMentionClose={()=> setMentionOpen(false)}
+                onCommandTrigger={(query)=> { setCmdQuery((query||'').toLowerCase()); setCmdOpen(true); }}
+                onCommandClose={()=> setCmdOpen(false)}
               />
             {cmdOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
@@ -177,10 +138,7 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
               <MentionDropdown
                 items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
                 onPick={(p) => {
-                  // Substitui o trecho após o último @
-                  const idx = input.lastIndexOf("@");
-                  const newVal = input.slice(0, idx + 1) + p.full_name + " ";
-                  setInput(newVal);
+                  // A UI do UnifiedComposer já gerencia inserção; usamos apenas fechamento
                   setMentionOpen(false);
                 }}
               />
@@ -468,78 +426,25 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       ) : (
         <div className="mt-2" ref={editRef}>
           <div className="relative">
-            <Textarea
-              ref={editTaRef}
-              value={text}
-              onChange={(e) => {
-                const v = e.target.value || "";
-                setText(v);
-                const atIdx = v.lastIndexOf("@");
-                if (atIdx >= 0) { setEditMentionFilter(v.slice(atIdx + 1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
-                const slashIdx = v.lastIndexOf("/");
-                if (slashIdx >= 0) {
-                  setEditCmdQuery(v.slice(slashIdx + 1).toLowerCase()); setEditCmdOpen(true);
-                  if (editTaRef.current) {
-                    const ta = editTaRef.current;
-                    const c = getCaretCoordinates(ta, slashIdx + 1);
-                    const rect = ta.getBoundingClientRect();
-                    const top = rect.top + window.scrollY + c.top + c.height + 6;
-                    const left = rect.left + window.scrollX + c.left;
-                    setEditCmdAnchor({ top, left });
-                  }
-                } else { setEditCmdOpen(false); }
-              }}
-              onKeyDown={async (e:any)=>{
-                // @ts-ignore
-                if (e.nativeEvent && e.nativeEvent.isComposing) return;
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  try { await onEdit(node.id, (text||'').trim()); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
-                  return;
-                }
-                if (e.key === "Escape") { e.preventDefault(); setIsEditing(false); return; }
-                const v = (e.currentTarget.value || "") + (e.key.length === 1 ? e.key : "");
-                const atIdx = v.lastIndexOf("@");
-                if (atIdx >= 0) { setEditMentionFilter(v.slice(atIdx + 1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
-                const slashIdx = v.lastIndexOf("/");
-                if (slashIdx >= 0) {
-                  setEditCmdQuery(v.slice(slashIdx + 1).toLowerCase()); setEditCmdOpen(true);
-                  if (editTaRef.current) {
-                    const ta = editTaRef.current;
-                    const c = getCaretCoordinates(ta, slashIdx + 1);
-                    const rect = ta.getBoundingClientRect();
-                    const top = rect.top + window.scrollY + c.top + c.height + 6;
-                    const left = rect.left + window.scrollX + c.left;
-                    setEditCmdAnchor({ top, left });
-                  }
-                } else { setEditCmdOpen(false); }
-              }}
-              onKeyUp={(e)=>{
-                const v = e.currentTarget.value || "";
-                const slashIdx = v.lastIndexOf("/");
-                if (slashIdx >= 0) {
-                  setEditCmdQuery(v.slice(slashIdx + 1).toLowerCase()); setEditCmdOpen(true);
-                  if (editTaRef.current) {
-                    const ta = editTaRef.current;
-                    const c = getCaretCoordinates(ta, slashIdx + 1);
-                    const top = ta.offsetTop + c.top + c.height + 6;
-                    const leftRaw = ta.offsetLeft + c.left;
-                    const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
-                    setEditCmdAnchor({ top, left });
-                  }
-                } else { setEditCmdOpen(false); }
-              }}
+            <ComposerHeader />
+            <UnifiedComposer
+              defaultValue={{ decision: null, text: text }}
               placeholder="Edite o comentário… (@mencionar, /tarefa, /anexo)"
-              rows={3}
+              onChange={(val)=> setText(val.text || "")}
+              onSubmit={async (val)=>{
+                try { await onEdit(node.id, (val.text||'').trim()); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
+              }}
+              onCancel={()=> { setIsEditing(false); setEditMentionOpen(false); setEditCmdOpen(false); }}
+              onMentionTrigger={(query)=> { setEditMentionFilter((query||'').trim()); setEditMentionOpen(true); }}
+              onMentionClose={()=> setEditMentionOpen(false)}
+              onCommandTrigger={(query)=> { setEditCmdQuery((query||'').toLowerCase()); setEditCmdOpen(true); }}
+              onCommandClose={()=> setEditCmdOpen(false)}
             />
             {editMentionOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <MentionDropdown
                   items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
                   onPick={(p)=>{
-                    const idx = (text||'').lastIndexOf('@');
-                    const newVal = (text||'').slice(0, idx + 1) + p.full_name + ' ';
-                    setText(newVal);
                     setEditMentionOpen(false);
                   }}
                 />
@@ -578,36 +483,27 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       {isReplying && (
         <div className="mt-2 flex gap-2 items-start relative" ref={replyRef}>
           <div className="flex-1">
-            <Textarea
-              ref={replyTaRef}
-              value={reply}
-              onChange={(e) => {
-                const v = e.target.value || '';
-                setReply(v);
-                const atIdx = v.lastIndexOf('@');
-                if (atIdx >= 0) { setMentionFilter2(v.slice(atIdx + 1).trim()); setMentionOpen2(true); } else { setMentionOpen2(false); }
-                const slashIdx = v.lastIndexOf('/');
-                if (slashIdx >= 0) {
-                  setCmdQuery2(v.slice(slashIdx + 1).toLowerCase()); setCmdOpen2(true);
-                  if (replyTaRef.current) {
-                    const ta = replyTaRef.current;
-                    setCmdAnchor2({ top: (ta.offsetHeight || 0) + 8, left: 0 });
-                  }
-                } else { setCmdOpen2(false); }
-              }}
-              onKeyDown={onReplyKeyDown}
-              onKeyUp={onReplyKeyUp}
+            <ComposerHeader />
+            <UnifiedComposer
+              defaultValue={{ decision: null, text: reply }}
               placeholder="Responder... (/tarefa, /anexo, @mencionar)"
-              rows={3}
+              onChange={(val)=> setReply(val.text || "")}
+              onSubmit={async (val)=>{
+                const trimmed = (val.text||'').trim();
+                if (!trimmed) return;
+                try { await onReply(node.id, trimmed); setReply(""); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder'); }
+              }}
+              onCancel={()=> { setIsReplying(false); setMentionOpen2(false); setCmdOpen2(false); }}
+              onMentionTrigger={(query)=> { setMentionFilter2((query||'').trim()); setMentionOpen2(true); }}
+              onMentionClose={()=> setMentionOpen2(false)}
+              onCommandTrigger={(query)=> { setCmdQuery2((query||'').toLowerCase()); setCmdOpen2(true); }}
+              onCommandClose={()=> setCmdOpen2(false)}
             />
             {mentionOpen2 && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
               <MentionDropdown
                 items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter2.toLowerCase()))}
                 onPick={(p) => {
-                  const idx = reply.lastIndexOf("@");
-                  const newVal = reply.slice(0, idx + 1) + p.full_name + " ";
-                  setReply(newVal);
                   setMentionOpen2(false);
                 }}
               />
