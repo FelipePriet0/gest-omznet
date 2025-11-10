@@ -457,6 +457,11 @@ body {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.section-card:has(.section-title.pareceres),
+.section-card:has(.section-title.conversas) {
+  background: #ffffff;
+}
+
 .section-card:hover {
   transform: none;
   box-shadow: none;
@@ -468,7 +473,7 @@ body {
 .endereco .section-card,
 .planos-servicos .section-card,
 .agendamento .section-card {
-  background: #fcfcfc;
+  background: #ffffff;
 }
 
 .section-header {
@@ -1090,6 +1095,27 @@ body {
 }
 .decision-chip.decision-chip--warning .decision-chip__close {
   color: #1f2937;
+}
+
+.mention-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.mention-chip-inline {
+  margin-right: 4px;
+  vertical-align: middle;
 }
 
 .comment-menu-trigger:hover {

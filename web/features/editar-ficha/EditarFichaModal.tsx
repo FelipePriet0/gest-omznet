@@ -23,6 +23,7 @@ import { UnifiedComposer, type ComposerDecision, type ComposerValue, type Unifie
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
 import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts } from "@/lib/datetime";
+import { renderTextWithChips } from "@/utils/richText";
 
 type AppModel = {
   primary_name?: string; cpf_cnpj?: string; phone?: string; whatsapp?: string; email?: string;
@@ -113,7 +114,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [assigneeId, setAssigneeId] = useState<string>("");
   const vendorName = useMemo(()=> profiles.find(p=> p.id===createdBy)?.full_name || "—", [profiles, createdBy]);
   const analystName = useMemo(()=> profiles.find(p=> p.id===assigneeId)?.full_name || "—", [profiles, assigneeId]);
-  const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "" });
+  const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
   const composerRef = useRef<UnifiedComposerHandle | null>(null);
@@ -387,7 +388,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
     const hasDecision = !!payload.decision;
     if (!hasDecision && !txt) return;
     const payloadText = hasDecision && !txt ? decisionPlaceholder(payload.decision ?? null) : txt;
-    const resetValue: ComposerValue = { decision: null, text: "" };
+    const resetValue: ComposerValue = { decision: null, text: "", mentions: [] };
     setNovoParecer(resetValue);
     requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
     setMentionOpenParecer(false);
@@ -644,14 +645,9 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                       <MentionDropdownParecer
                         items={profiles.filter((p)=> p.full_name.toLowerCase().includes(mentionFilterParecer.toLowerCase()))}
                         onPick={(p)=> {
-                          const base = novoParecer.text || '';
-                          const atIdx = base.lastIndexOf('@');
-                          const replacement = `${p.full_name} `;
-                          const newText = atIdx >= 0 ? base.slice(0, atIdx + 1) + replacement : `${base}${replacement}`;
-                          const nextValue: ComposerValue = { decision: novoParecer.decision, text: newText };
-                          setNovoParecer(nextValue);
-                          composerRef.current?.setValue(nextValue);
+                      composerRef.current?.insertMention({ id: p.id, label: p.full_name });
                           setMentionOpenParecer(false);
+                      setMentionFilterParecer("");
                         }}
                       />
                     </div>
@@ -1035,7 +1031,7 @@ function NoteItem({
     return () => document.removeEventListener('mousedown', onDocMouseDown);
   }, [isEditing, isReplying]);
   const [editValue, setEditValue] = useState<ComposerValue>({ decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || '' });
-  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: '' });
+  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: '', mentions: [] });
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState('');
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -1062,6 +1058,18 @@ function NoteItem({
       setCmdOpen(false);
     }
   }, [isReplying]);
+  useEffect(() => {
+    if (!isReplying) return;
+    const txt = replyValue.text || '';
+    const m = txt.match(/\/([\w]*)$/);
+    if (m) {
+      setCmdQuery((m[1] || '').toLowerCase());
+      setCmdOpen(true);
+    } else {
+      setCmdOpen(false);
+      setCmdQuery('');
+    }
+  }, [replyValue.text, isReplying]);
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : '';
   const nodeTasks = useMemo(() => tasks.filter((t) => t.comment_id === node.id), [tasks, node.id]);
   const trimmedText = (node.text || '').trim();
@@ -1086,7 +1094,7 @@ function NoteItem({
               setIsReplying(prev => {
                 const next = !prev;
                 if (next) {
-                  const initial: ComposerValue = { decision: null, text: '' };
+                  const initial: ComposerValue = { decision: null, text: '', mentions: [] };
                   setReplyValue(initial);
                   requestAnimationFrame(() => {
                     replyComposerRef.current?.setValue(initial);
@@ -1107,7 +1115,7 @@ function NoteItem({
           </button>
           <ParecerMenu
             onEdit={()=>{
-              const initial: ComposerValue = { decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || '' };
+              const initial: ComposerValue = { decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || '', mentions: [] };
               setEditValue(initial);
               setIsEditing(true);
               requestAnimationFrame(() => {
@@ -1123,7 +1131,7 @@ function NoteItem({
         <div className="mt-1 space-y-2">
           {node.decision ? <DecisionTag decision={node.decision} /> : null}
           {trimmedText.length > 0 && (
-            <div className="whitespace-pre-line break-words">{node.text}</div>
+            <div className="break-words">{renderTextWithChips(node.text)}</div>
           )}
         </div>
       ) : (
@@ -1173,14 +1181,9 @@ function NoteItem({
                 <MentionDropdownParecer
                   items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
                   onPick={(p)=>{
-                    const base = editValue.text || '';
-                    const atIdx = base.lastIndexOf('@');
-                    const replacement = `${p.full_name} `;
-                    const newText = atIdx >= 0 ? base.slice(0, atIdx + 1) + replacement : `${base}${replacement}`;
-                    const nextVal: ComposerValue = { decision: editValue.decision, text: newText };
-                    setEditValue(nextVal);
-                    editComposerRef.current?.setValue(nextVal);
+                    editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                     setEditMentionOpen(false);
+                    setEditMentionFilter("");
                   }}
                 />
               </div>
@@ -1247,7 +1250,7 @@ function NoteItem({
                   } else if (val.decision === 'reanalise') {
                     await onDecisionChange('reanalise');
                   }
-                  const resetVal: ComposerValue = { decision: null, text: '' };
+                  const resetVal: ComposerValue = { decision: null, text: '', mentions: [] };
                   setReplyValue(resetVal);
                   replyComposerRef.current?.setValue(resetVal);
                   setIsReplying(false);
@@ -1270,8 +1273,13 @@ function NoteItem({
                 setCmdOpen(true);
               }}
               onCommandClose={()=> {
-                setCmdOpen(false);
-                setCmdQuery('');
+                const txt = replyValue.text || '';
+                if (txt.match(/\/([\w]*)$/)) {
+                  setCmdOpen(true);
+                } else {
+                  setCmdOpen(false);
+                  setCmdQuery('');
+                }
               }}
             />
             {mentionOpen && (
@@ -1279,14 +1287,9 @@ function NoteItem({
                 <MentionDropdownParecer
                   items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(mentionFilter.toLowerCase()))}
                   onPick={(p)=> {
-                    const base = replyValue.text || '';
-                    const atIdx = base.lastIndexOf('@');
-                    const replacement = `${p.full_name} `;
-                    const newText = atIdx >= 0 ? base.slice(0, atIdx + 1) + replacement : `${base}${replacement}`;
-                    const nextVal: ComposerValue = { decision: replyValue.decision, text: newText };
-                    setReplyValue(nextVal);
-                    replyComposerRef.current?.setValue(nextVal);
+                    replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                     setMentionOpen(false);
+                    setMentionFilter("");
                   }}
                 />
               </div>
@@ -1298,6 +1301,8 @@ function NoteItem({
                     { key:'aprovado', label:'Aprovado' },
                     { key:'negado', label:'Negado' },
                     { key:'reanalise', label:'Reanálise' },
+                    { key:'tarefa', label:'Tarefa' },
+                    { key:'anexo', label:'Anexo' },
                   ].filter(i=> i.key.includes(cmdQuery))}
                   onPick={async (key)=>{
                     setCmdOpen(false); setCmdQuery('');
@@ -1306,6 +1311,18 @@ function NoteItem({
                       try {
                         await onDecisionChange(key as any);
                       } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                      return;
+                    }
+                    if (key==='tarefa') {
+                      onOpenTask({ parentId: node.id, source: "parecer" });
+                      return;
+                    }
+                    if (key==='anexo') {
+                      try {
+                        const ev = new CustomEvent('mz-open-attach', { detail: { commentId: node.id, source: 'parecer' } });
+                        window.dispatchEvent(ev);
+                      } catch {}
+                      return;
                     }
                   }}
                   initialQuery={cmdQuery}

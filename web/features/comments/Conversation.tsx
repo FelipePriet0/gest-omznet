@@ -8,6 +8,7 @@ import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services"
 import { TaskCard } from "@/features/tasks/TaskCard";
 import { listAttachments, removeAttachment, publicUrl, type CardAttachment } from "@/features/attachments/services";
 import { UnifiedComposer, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
+import { renderTextWithChips } from "@/utils/richText";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ModalPreview, type PreviewTarget } from "@/components/ui/modal-preview";
 
@@ -248,8 +249,9 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
               <MentionDropdown
                 items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
                 onPick={(p) => {
-                  // A UI do UnifiedComposer já gerencia inserção; usamos apenas fechamento
+                  inputRef.current?.insertMention({ id: p.id, label: p.full_name });
                   setMentionOpen(false);
+                  setMentionFilter("");
                 }}
               />
               </div>
@@ -450,6 +452,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const editRef = useRef<HTMLDivElement | null>(null);
   const replyRef = useRef<HTMLDivElement | null>(null);
   const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
+  const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
       const t = e.target as Node | null;
@@ -470,7 +473,6 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const [mentionFilter2, setMentionFilter2] = useState("");
   const [cmdOpen2, setCmdOpen2] = useState(false);
   const [cmdQuery2, setCmdQuery2] = useState("");
-  const [cmdAnchor2, setCmdAnchor2] = useState<{top:number;left:number}>({ top: 0, left: 0 });
   // Compositor Unificado - edição
   const [editMentionOpen, setEditMentionOpen] = useState(false);
   const [editMentionFilter, setEditMentionFilter] = useState("");
@@ -494,6 +496,19 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
     setReplyOpen(true);
     requestAnimationFrame(() => replyComposerRef.current?.focus());
   }
+  useEffect(() => {
+    if (!replyOpen) {
+      setCmdOpen2(false);
+      return;
+    }
+    const m = reply.match(/\/([\w]*)$/);
+    if (m) {
+      setCmdQuery2((m[1] || "").toLowerCase());
+      setCmdOpen2(true);
+    } else {
+      setCmdOpen2(false);
+    }
+  }, [reply, replyOpen]);
   return (
     <div className="comment-card rounded-lg pl-3" style={{ marginLeft: depth * 16, borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
       <div className="flex items-center justify-between gap-2">
@@ -515,13 +530,14 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       </div>
       {!isEditing ? (
         displayText.trim().length === 0 ? null : (
-          <div className="mt-1 whitespace-pre-line break-words">{displayText}</div>
+          <div className="mt-1 break-words">{renderTextWithChips(displayText)}</div>
         )
       ) : (
         <div className="mt-2" ref={editRef}>
           <div className="relative">
             <ComposerHeader name={currentUserName} />
             <UnifiedComposer
+              ref={editComposerRef}
               defaultValue={{ decision: null, text: text }}
               placeholder="Edite o comentário… (@mencionar, /tarefa, /anexo)"
               onChange={(val)=> setText(val.text || "")}
@@ -539,7 +555,9 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
                 <MentionDropdown
                   items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
                   onPick={(p)=>{
+                  editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                     setEditMentionOpen(false);
+                  setEditMentionFilter("");
                   }}
                 />
               </div>
@@ -596,7 +614,6 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       {replyOpen && (
         <div className="mt-2 flex gap-2 items-start relative" ref={replyRef}>
           <div className="flex-1">
-            <ComposerHeader name={currentUserName} />
             <UnifiedComposer
               ref={replyComposerRef}
               defaultValue={{ decision: null, text: reply }}
@@ -609,36 +626,38 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
                 setReplyOpen(false);
               }}
               onCancel={()=> { openReplyMap.set(node.id, false); setReplyOpen(false); setMentionOpen2(false); setCmdOpen2(false); }}
-              onMentionTrigger={(query, rect)=> {
+              onMentionTrigger={(query)=> {
                 setMentionFilter2((query||'').trim());
                 setMentionOpen2(true);
-                if (rect) {
-                  setCmdAnchor2({ top: rect.top + window.scrollY, left: rect.left + window.scrollX });
-                }
               }}
               onMentionClose={()=> setMentionOpen2(false)}
-              onCommandTrigger={(query, rect)=> {
+              onCommandTrigger={(query)=> {
                 setCmdQuery2((query||'').toLowerCase());
                 setCmdOpen2(true);
-                if (rect) {
-                  setCmdAnchor2({ top: rect.top + window.scrollY, left: rect.left + window.scrollX });
+              }}
+              onCommandClose={()=>{
+                if (reply.match(/\/([\w]*)$/)) {
+                  setCmdOpen2(true);
+                } else {
+                  setCmdOpen2(false);
                 }
               }}
-              onCommandClose={()=> setCmdOpen2(false)}
             />
             {mentionOpen2 && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
               <MentionDropdown
                 items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter2.toLowerCase()))}
                 onPick={(p) => {
+                  replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                   setMentionOpen2(false);
+                  setMentionFilter2("");
                 }}
               />
               </div>
             )}
           </div>
           {cmdOpen2 && (
-            <div className="absolute z-50 left-0 bottom-full mb-2" style={{ top: cmdAnchor2.top, left: cmdAnchor2.left }}>
+            <div className="absolute z-50 left-0 bottom-full mb-2">
               <CmdDropdown
                 items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery2))}
                 onPick={(key)=> { if (key==='tarefa') onOpenTask(node.id); if (key==='anexo') onOpenAttach(node.id); setCmdOpen2(false); setCmdQuery2(''); }}
@@ -815,7 +834,7 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
   const [replying, setReplying] = useState(false);
   const replyRef = useRef<UnifiedComposerHandle | null>(null);
   const replyContainerRef = useRef<HTMLDivElement | null>(null);
-  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "" });
+  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -827,7 +846,7 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
     if (!text) return;
     const commentId = await ensureThread(att);
     await onReply(commentId, value);
-    setReplyValue({ decision: null, text: "" });
+    setReplyValue({ decision: null, text: "", mentions: [] });
     setReplying(false);
   };
 
@@ -902,15 +921,15 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
       </div>
       {replying && (
         <div className="mt-3 relative" ref={replyContainerRef}>
-          <UnifiedComposer
+            <UnifiedComposer
             ref={replyRef}
             placeholder="Responder... (/tarefa, /anexo, @mencionar)"
-            defaultValue={{ decision: null, text: replyValue.text }}
+            defaultValue={replyValue}
             onChange={(val) => setReplyValue(val)}
             onSubmit={handleSubmit}
             onCancel={() => {
               setReplying(false);
-              setReplyValue({ decision: null, text: "" });
+              setReplyValue({ decision: null, text: "", mentions: [] });
               setMentionOpen(false);
               setCmdOpen(false);
             }}
@@ -930,13 +949,9 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
               <MentionDropdown
                 items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(mentionFilter.toLowerCase()))}
                 onPick={(p) => {
-                  const base = replyValue.text || "";
-                  const idx = base.lastIndexOf("@");
-                  const newText = idx >= 0 ? base.slice(0, idx + 1) + p.full_name + " " : `${base}${p.full_name} `;
-                  const next = { decision: replyValue.decision, text: newText };
-                  setReplyValue(next);
-                  replyRef.current?.setValue(next);
+                  replyRef.current?.insertMention({ id: p.id, label: p.full_name });
                   setMentionOpen(false);
+                  setMentionFilter("");
                 }}
               />
           </div>
