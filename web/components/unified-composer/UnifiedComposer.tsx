@@ -3,15 +3,22 @@ import clsx from "clsx";
 
 export type ComposerDecision = "aprovado" | "negado" | "reanalise";
 
+export type ComposerMention = {
+  id?: string | null;
+  label: string;
+};
+
 export type ComposerValue = {
   decision: ComposerDecision | null;
   text: string;
+  mentions?: ComposerMention[];
 };
 
 export type UnifiedComposerHandle = {
   focus: () => void;
   setDecision: (decision: ComposerDecision | null) => void;
   insertText: (text: string) => void;
+  insertMention: (mention: ComposerMention) => void;
   reset: () => void;
   setValue: (value: ComposerValue) => void;
   getSelectionRect: () => DOMRect | null;
@@ -38,6 +45,7 @@ type UnifiedComposerProps = {
 const DEFAULT_VALUE: ComposerValue = {
   decision: null,
   text: "",
+  mentions: [],
 };
 
 const CHIP_META: Record<ComposerDecision, { label: string; className: string }> = {
@@ -54,6 +62,76 @@ const CHIP_META: Record<ComposerDecision, { label: string; className: string }> 
     className: "decision-chip--warning",
   },
 };
+
+function cloneMentions(mentions?: ComposerMention[] | null): ComposerMention[] {
+  return Array.isArray(mentions) ? mentions.map((m) => ({ ...m })) : [];
+}
+
+function extractMentionsFromText(text?: string | null): ComposerMention[] {
+  if (!text) return [];
+  const matches: ComposerMention[] = [];
+  const regex = /@([^\s@]+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    matches.push({ label: match[1] });
+  }
+  return matches;
+}
+
+function normalizeValue(val?: ComposerValue | null): ComposerValue {
+  if (!val) {
+    return { ...DEFAULT_VALUE, mentions: [] };
+  }
+  const normalized: ComposerValue = {
+    decision: val.decision ?? null,
+    text: val.text ?? "",
+    mentions: cloneMentions(val.mentions),
+  };
+  if (!normalized.mentions || normalized.mentions.length === 0) {
+    normalized.mentions = extractMentionsFromText(normalized.text);
+  }
+  return normalized;
+}
+
+function escapeHTML(str: string): string {
+  return (str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function renderTextWithMentions(text: string, mentions?: ComposerMention[]): string {
+  const safeText = text ?? "";
+  const list =
+    mentions && mentions.length > 0 ? cloneMentions(mentions) : extractMentionsFromText(safeText);
+  if (safeText.length === 0) {
+    return "";
+  }
+  let html = "";
+  let cursor = 0;
+  list.forEach((mention) => {
+    const token = `@${mention.label}`;
+    const index = safeText.indexOf(token, cursor);
+    if (index === -1) {
+      return;
+    }
+    const before = safeText.slice(cursor, index);
+    if (before.length > 0) {
+      html += escapeHTML(before).replace(/\n/g, "<br/>");
+    }
+    const labelAttr = escapeHTML(mention.label);
+    const idAttr = mention.id ? ` data-id="${escapeHTML(mention.id)}"` : "";
+    html += `<span class="mention-chip" contenteditable="false" data-role="mention-chip" data-label="${labelAttr}"${idAttr}>@${labelAttr}</span>`;
+    cursor = index + token.length;
+  });
+  const rest = safeText.slice(cursor);
+  if (rest.length > 0) {
+    html += escapeHTML(rest).replace(/\n/g, "<br/>");
+  }
+  return html;
+}
 
 function sanitizeHTML(html: string) {
   return html
@@ -86,7 +164,10 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
     ref
   ) => {
     const rootRef = useRef<HTMLDivElement | null>(null);
-    const [valueState, setValueState] = useState<ComposerValue>(defaultValue ?? DEFAULT_VALUE);
+    const [valueState, setValueState] = useState<ComposerValue>(
+      normalizeValue(defaultValue ?? DEFAULT_VALUE)
+    );
+    const mentionLockRef = useRef(false);
 
     useImperativeHandle(
       ref,
@@ -102,7 +183,11 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
             cleanText = cleanText.replace(/\s*\/[\w]*$/, "").trimEnd();
           }
 
-          const next = { decision, text: cleanText };
+          const next: ComposerValue = {
+            decision,
+            text: cleanText,
+            mentions: cloneMentions(valueState.mentions),
+          };
           setValueState(next);
           if (decision) {
             onRequestDecision?.(decision);
@@ -119,14 +204,45 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
           if (!rootRef.current) return;
           insertTextAtCursor(text);
         },
+        insertMention: (mention) => {
+          if (!rootRef.current) return;
+          const current = getCurrentValue();
+          const root = rootRef.current;
+          root.focus();
+          const preceding = getPrecedingText(root);
+          const match = preceding.match(/@([\w\s]*)$/);
+          if (!match) return;
+          const start = preceding.length - match[0].length;
+          const before = preceding.slice(0, start);
+          const afterSegment = current.text.slice(preceding.length);
+          let tail = afterSegment;
+          if (!(tail.length > 0 && /^\s/.test(tail))) {
+            tail = ` ${tail}`;
+          }
+          const updatedText = `${before}@${mention.label}${tail}`;
+          const nextMentions = [...cloneMentions(current.mentions), { ...mention }];
+          const next: ComposerValue = {
+            decision: current.decision,
+            text: updatedText,
+            mentions: nextMentions,
+          };
+          setValueState(next);
+          applyStateToDOM(next, { skipCaret: true });
+          requestAnimationFrame(() => {
+            if (!rootRef.current) return;
+            focusAfterMention(rootRef.current, mention);
+          });
+        mentionLockRef.current = true;
+          onMentionClose?.();
+        },
         reset: () => {
-          const next = DEFAULT_VALUE;
+          const next = normalizeValue(DEFAULT_VALUE);
           setValueState(next);
           applyStateToDOM(next);
           onChange?.(next);
         },
         setValue: (val) => {
-          const next = val ?? DEFAULT_VALUE;
+          const next = normalizeValue(val ?? DEFAULT_VALUE);
           setValueState(next);
           applyStateToDOM(next);
         },
@@ -138,7 +254,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
           return range.getBoundingClientRect();
         },
       }),
-      [valueState, onRequestDecision, onChange]
+      [valueState, onRequestDecision, onMentionClose, onChange]
     );
 
     useEffect(() => {
@@ -172,29 +288,48 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
         );
       }
 
-      const text = val.text.replace(/\n/g, "<br/>");
-      if (text.length > 0) {
-        parts.push(`<span class="composer-text">${text}</span>`);
+      const textHTML = renderTextWithMentions(val.text, val.mentions);
+      if (textHTML.length > 0) {
+        parts.push(`<span class="composer-text">${textHTML}</span>`);
       }
       return parts.join(" ");
     }
 
     function getCurrentValue(): ComposerValue {
       const root = rootRef.current;
-      if (!root) return DEFAULT_VALUE;
+      if (!root) return normalizeValue(DEFAULT_VALUE);
       const clone = root.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll('[contenteditable="false"]').forEach((el) => el.remove());
+      const mentionNodes = Array.from(
+        clone.querySelectorAll<HTMLElement>('[data-role="mention-chip"]')
+      );
+      const mentions: ComposerMention[] = mentionNodes.map((el) => {
+        const rawLabel = el.getAttribute("data-label") || el.textContent || "";
+        const label = rawLabel.replace(/^@/, "");
+        const idAttr = el.getAttribute("data-id");
+        const textNode = document.createTextNode(`@${label}`);
+        el.replaceWith(textNode);
+        return {
+          id: idAttr || undefined,
+          label,
+        };
+      });
+      clone
+        .querySelectorAll('[contenteditable="false"]')
+        .forEach((el) => el.remove());
       const text = sanitizeHTML(clone.innerHTML).trim();
       return {
         decision: valueState.decision,
         text,
+        mentions,
       };
     }
 
-    function applyStateToDOM(val: ComposerValue) {
+    function applyStateToDOM(val: ComposerValue, options?: { skipCaret?: boolean }) {
       if (!rootRef.current) return;
       rootRef.current.innerHTML = renderHTML(val);
-      placeCaretAtEnd(rootRef.current);
+      if (!options?.skipCaret) {
+        placeCaretAtEnd(rootRef.current);
+      }
     }
 
     function handleInput() {
@@ -212,11 +347,50 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       const rect = range.getBoundingClientRect();
       const preceding = getPrecedingText(root);
 
-      const mentionMatch = preceding.match(/@([\w\s]*)$/);
-      if (mentionMatch) {
-        onMentionTrigger?.(mentionMatch[1] || "", rect);
-      } else {
-        onMentionClose?.();
+      let skipMentionDetection = false;
+      if (mentionLockRef.current) {
+        if (preceding.endsWith("@")) {
+          mentionLockRef.current = false;
+        } else {
+          skipMentionDetection = true;
+          onMentionClose?.();
+        }
+      }
+
+      if (!skipMentionDetection) {
+        const mentionMatch = preceding.match(/@([\w\s]*)$/);
+        if (mentionMatch) {
+          const rawQuery = mentionMatch[1] ?? "";
+          const trimmedQuery = rawQuery.trim();
+          const mentions = valueState.mentions ?? [];
+          const matchedMention = mentions.find(
+            (m) => m.label.toLowerCase() === trimmedQuery.toLowerCase()
+          );
+          const hasCompletedMention =
+            matchedMention &&
+            (preceding.endsWith(`@${matchedMention.label} `) ||
+              preceding.endsWith(`@${matchedMention.label}`));
+
+          if (matchedMention) {
+            const labelLower = matchedMention.label.toLowerCase();
+            const queryLower = trimmedQuery.toLowerCase();
+            const extra = queryLower.slice(labelLower.length).trim();
+            if (extra.length > 0) {
+              onMentionClose?.();
+              skipMentionDetection = true;
+            }
+          }
+
+          if (!skipMentionDetection) {
+            if (hasCompletedMention) {
+              onMentionClose?.();
+            } else {
+              onMentionTrigger?.(rawQuery, rect);
+            }
+          }
+        } else {
+          onMentionClose?.();
+        }
       }
 
       const commandMatch = preceding.match(/\/([\w]*)$/);
@@ -311,6 +485,63 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       if (sel) {
         sel.removeAllRanges();
         sel.addRange(range);
+      }
+    }
+
+    function focusAfterMention(root: HTMLElement, mention: ComposerMention) {
+      const chips = Array.from(root.querySelectorAll<HTMLElement>('[data-role="mention-chip"]'));
+      if (chips.length === 0) {
+        placeCaretAtEnd(root);
+        return;
+      }
+      const expectedId = mention.id ?? null;
+      const expectedLabel = mention.label;
+      let target: HTMLElement | null = null;
+      for (let idx = chips.length - 1; idx >= 0; idx -= 1) {
+        const chip = chips[idx];
+        const chipId = chip.getAttribute("data-id") || null;
+        const chipLabel = (chip.getAttribute("data-label") || "").replace(/^@/, "");
+        if (expectedId) {
+          if (chipId === expectedId) {
+            target = chip;
+            break;
+          }
+        } else if (chipLabel === expectedLabel) {
+          target = chip;
+          break;
+        }
+      }
+      if (!target) {
+        target = chips[chips.length - 1] ?? null;
+      }
+      if (!target) {
+        placeCaretAtEnd(root);
+        return;
+      }
+      const parent = target.parentNode;
+      if (!parent) {
+        placeCaretAtEnd(root);
+        return;
+      }
+      const existingSibling = target.nextSibling;
+      let spaceNode: Text;
+      if (existingSibling && existingSibling.nodeType === Node.TEXT_NODE) {
+        spaceNode = existingSibling as Text;
+        if (!spaceNode.data || spaceNode.data.length === 0) {
+          spaceNode.data = " ";
+        }
+      } else {
+        spaceNode = document.createTextNode(" ");
+        parent.insertBefore(spaceNode, existingSibling);
+      }
+      const range = document.createRange();
+      const offset = Math.min(1, spaceNode.data.length);
+      range.setStart(spaceNode, offset);
+      range.collapse(true);
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
       }
     }
 

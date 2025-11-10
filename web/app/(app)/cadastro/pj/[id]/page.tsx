@@ -16,6 +16,7 @@ import {
   uploadAttachmentBatch,
 } from "@/features/attachments/upload";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
+import { renderTextWithChips } from "@/utils/richText";
 
 function digitsOnly(value: string) {
   return (value || "").replace(/\D+/g, "");
@@ -214,7 +215,7 @@ export default function CadastroPJPage() {
   // Parecer UI states
   const [pareceres, setPareceres] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
-  const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "" });
+  const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
@@ -363,7 +364,7 @@ export default function CadastroPJPage() {
       setPareceres(prev => (prev || []).filter((n: any) => n.id !== tempNote.id));
       alert(err?.message || 'Falha ao adicionar parecer');
     } finally {
-      const resetValue: ComposerValue = { decision: null, text: '' };
+      const resetValue: ComposerValue = { decision: null, text: '', mentions: [] };
       setNovoParecer(resetValue);
       requestAnimationFrame(() => parecerComposerRef.current?.setValue(resetValue));
       setMentionOpenParecer(false);
@@ -836,14 +837,9 @@ export default function CadastroPJPage() {
                   <MentionDropdownParecer
                     items={profiles}
                     onPick={(p)=> {
-                      const base = novoParecer.text || '';
-                      const atIdx = base.lastIndexOf('@');
-                      const replacement = `${p.full_name} `;
-                      const newText = atIdx >= 0 ? base.slice(0, atIdx + 1) + replacement : `${base}${replacement}`;
-                      const nextVal: ComposerValue = { decision: novoParecer.decision, text: newText };
-                      setNovoParecer(nextVal);
-                      parecerComposerRef.current?.setValue(nextVal);
+                      parecerComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                       setMentionOpenParecer(false);
+                      setMentionFilterParecer("");
                     }}
                   />
                 </div>
@@ -1113,10 +1109,10 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
   const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
   const [mentionOpenReply, setMentionOpenReply] = useState(false);
   const [mentionFilterReply, setMentionFilterReply] = useState("");
-  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "" });
+  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [isReplyingId, setIsReplyingId] = useState<string|null>(null);
   const [isEditingId, setIsEditingId] = useState<string|null>(null);
-  const [editValue, setEditValue] = useState<ComposerValue>({ decision: null, text: "" });
+  const [editValue, setEditValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [editMentionOpen, setEditMentionOpen] = useState(false);
   const [editMentionFilter, setEditMentionFilter] = useState("");
   const [editCmdOpen, setEditCmdOpen] = useState(false);
@@ -1253,7 +1249,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                 <ParecerMenu
               onEdit={() => {
                 setIsEditingId(note.id);
-                const nextVal: ComposerValue = { decision: (note.decision as ComposerDecision) ?? null, text: note.text || '' };
+                const nextVal: ComposerValue = { decision: (note.decision as ComposerDecision) ?? null, text: note.text || '', mentions: [] };
                     setEditValue(nextVal);
                     requestAnimationFrame(() => {
                       editComposerRef.current?.setValue(nextVal);
@@ -1268,7 +1264,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
         {!isEditing && (
               <div className="mt-2 space-y-2">
             <DecisionTag decision={note.decision} />
-            <div className="whitespace-pre-line break-words">{note.text}</div>
+            <div className="break-words">{renderTextWithChips(note.text)}</div>
             {isRoot && (
               <>
                 {note.updated_at && (
@@ -1327,14 +1323,9 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                               <MentionDropdownParecer
                     items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(editMentionFilter.toLowerCase()))}
                     onPick={(p) => {
-                                  const base = editValue.text || '';
-                                  const idx = base.lastIndexOf('@');
-                                  const replacement = `${p.full_name} `;
-                                  const newText = idx >= 0 ? base.slice(0, idx + 1) + replacement : `${base}${replacement}`;
-                                  const nextVal: ComposerValue = { decision: editValue.decision, text: newText };
-                                  setEditValue(nextVal);
-                                  editComposerRef.current?.setValue(nextVal);
+                                  editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                                   setEditMentionOpen(false);
+                                  setEditMentionFilter("");
                                 }}
                               />
                             </div>
@@ -1380,7 +1371,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                               } else if (val.decision === 'reanalise') {
                     await onDecisionChange('reanalise');
                               }
-                              const resetVal: ComposerValue = { decision: null, text: '' };
+                              const resetVal: ComposerValue = { decision: null, text: '', mentions: [] };
                               setReplyValue(resetVal);
                   requestAnimationFrame(() => replyComposerRef.current?.setValue(resetVal));
                               setIsReplyingId(null);
@@ -1411,14 +1402,9 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                               <MentionDropdownParecer
                     items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(mentionFilterReply.toLowerCase()))}
                     onPick={(p) => {
-                                  const base = replyValue.text || '';
-                                  const idx = base.lastIndexOf('@');
-                                  const replacement = `${p.full_name} `;
-                                  const newText = idx >= 0 ? base.slice(0, idx + 1) + replacement : `${base}${replacement}`;
-                                  const nextVal: ComposerValue = { decision: replyValue.decision, text: newText };
-                                  setReplyValue(nextVal);
-                                  replyComposerRef.current?.setValue(nextVal);
+                                  replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                                   setMentionOpenReply(false);
+                                  setMentionFilterReply("");
                                 }}
                               />
                             </div>
@@ -1488,9 +1474,9 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                 <span className="hidden sm:inline">Desafixar</span>
               </button>
             </div>
-            <div className="px-4 py-3 text-sm text-zinc-800 whitespace-pre-line break-words overflow-y-auto flex-1">
+            <div className="px-4 py-3 text-sm text-zinc-800 break-words overflow-y-auto flex-1">
               <div className="mb-2"><DecisionTag decision={pinned.decision} /></div>
-              {pinned.text}
+              {renderTextWithChips(pinned.text)}
             </div>
           </div>
         </div>
