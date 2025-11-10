@@ -20,7 +20,9 @@ export function TaskCard({ task, onToggle, applicantName, onEdit }: TaskCardProp
     <div
       className={clsx(
         "rounded-xl border px-4 py-3 text-sm shadow-sm transition",
-        isDone ? "border-emerald-200 bg-emerald-50" : "border-sky-200 bg-sky-50"
+        isDone 
+          ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90" 
+          : "border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100"
       )}
     >
       <div className="flex items-start gap-3">
@@ -31,20 +33,25 @@ export function TaskCard({ task, onToggle, applicantName, onEdit }: TaskCardProp
             e.stopPropagation();
             onToggle(task.id, e.target.checked);
           }}
-          className="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border border-zinc-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500"
+          className={clsx(
+            "mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border focus:ring-2",
+            isDone 
+              ? "border-white/80 text-white focus:ring-white/50" 
+              : "border-blue-400 text-blue-600 focus:ring-blue-500"
+          )}
         />
         <div className="flex-1 space-y-2">
           <div className="flex items-start justify-between gap-3">
             <div
               className={clsx(
                 "flex-1 whitespace-pre-line break-words break-all text-sm",
-                isDone ? "text-emerald-700 line-through" : "text-sky-900"
+                isDone ? "text-white line-through" : "text-blue-900"
               )}
             >
               <span
                 className={clsx(
                   "font-semibold",
-                  isDone ? "text-emerald-800" : "text-zinc-900"
+                  isDone ? "text-white" : "text-blue-900"
                 )}
               >
                 Descrição:
@@ -59,7 +66,12 @@ export function TaskCard({ task, onToggle, applicantName, onEdit }: TaskCardProp
                   e.stopPropagation();
                   onEdit();
                 }}
-                className="rounded-full p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                className={clsx(
+                  "rounded-full p-1 transition focus:outline-none focus-visible:ring-2",
+                  isDone 
+                    ? "text-white/80 hover:bg-white/10 hover:text-white focus-visible:ring-white/50" 
+                    : "text-blue-400 hover:bg-blue-100 hover:text-blue-700 focus-visible:ring-blue-500"
+                )}
                 aria-label="Mais ações da tarefa"
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -70,18 +82,18 @@ export function TaskCard({ task, onToggle, applicantName, onEdit }: TaskCardProp
             <div
               className={clsx(
                 "text-xs font-medium",
-                isDone ? "text-emerald-600 line-through" : "text-zinc-500"
+                isDone ? "text-white line-through" : "text-blue-700"
               )}
             >
               <span
                 className={clsx(
                   "font-semibold",
-                  isDone ? "text-emerald-700" : "text-zinc-600"
+                  isDone ? "text-white" : "text-blue-800"
                 )}
               >
                 Prazo:
               </span>{" "}
-              <span className={clsx("font-normal", isDone ? "text-emerald-700" : "text-zinc-600")}>
+              <span className={clsx("font-normal", isDone ? "text-white" : "text-blue-700")}>
                 {dueTxt}
               </span>
             </div>
