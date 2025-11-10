@@ -8,6 +8,7 @@ import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services"
 import { listAttachments, removeAttachment, publicUrl, type CardAttachment } from "@/features/attachments/services";
 import { UnifiedComposer, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ModalPreview, type PreviewTarget } from "@/components/ui/modal-preview";
 
 type CardAttachmentWithMeta = CardAttachment & { isCardRoot?: boolean };
 
@@ -41,6 +42,7 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<CardTask[]>([]);
   const [attachments, setAttachments] = useState<CardAttachmentWithMeta[]>([]);
+  const [preview, setPreview] = useState<PreviewTarget | null>(null);
   const cardAttachmentIdsRef = useRef<Set<string>>(new Set());
   const [currentUserName, setCurrentUserName] = useState<string>("Você");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -206,6 +208,7 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
 
   return (
     <div>
+      <ModalPreview file={preview} onClose={() => setPreview(null)} />
       <div className="section-card">
         <div className="section-header">
           <h3 className="section-title conversas">Conversas Co-relacionadas</h3>
@@ -280,9 +283,10 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
                         onOpenTask={onOpenTask}
                         onOpenAttach={onOpenAttach}
                         profiles={profiles}
+                        onPreview={(payload) => setPreview(payload)}
                       />
                       {attachmentReplies.length > 0 && (
-                        <div className="ml-4 space-y-2">
+                        <div className="ml-6 space-y-2 mt-2">
                           {attachmentReplies.map((replyNode) => (
                             <CommentItem
                               key={replyNode.id}
@@ -300,6 +304,7 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
                               currentUserName={currentUserName}
                               onEditTask={onEditTask}
                               onSubmitComment={submitComment}
+                              onPreview={(payload) => setPreview(payload)}
                             />
                           ))}
                         </div>
@@ -326,7 +331,8 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
               profiles={profiles}
               currentUserName={currentUserName}
               onEditTask={onEditTask}
-              onSubmitComment={submitComment}
+            onSubmitComment={submitComment}
+            onPreview={(payload) => setPreview(payload)}
             />
           ))}
         </div>
@@ -431,9 +437,11 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
 
 // Notificações agora são geradas por triggers no backend para evitar duplicatas
 
-function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, onEditTask, onSubmitComment }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; }) {
+const openReplyMap = new Map<string, boolean>();
+
+function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, onEditTask, onSubmitComment, onPreview }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isReplying, setIsReplying] = useState(false);
+  const [replyOpen, setReplyOpen] = useState(openReplyMap.get(node.id) ?? false);
   const editRef = useRef<HTMLDivElement | null>(null);
   const replyRef = useRef<HTMLDivElement | null>(null);
   const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
@@ -443,11 +451,14 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       if (isEditing && editRef.current && t && !editRef.current.contains(t)) {
         setIsEditing(false);
       }
-      // Não fechar automaticamente replies; removido para permitir campos múltiplos
+      if (replyOpen && replyRef.current && t && !replyRef.current.contains(t)) {
+        openReplyMap.set(node.id, false);
+        setReplyOpen(false);
+      }
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [isEditing, isReplying]);
+  }, [isEditing, replyOpen, node.id]);
   const [text, setText] = useState(node.text || "");
   const [reply, setReply] = useState("");
   const [mentionOpen2, setMentionOpen2] = useState(false);
@@ -463,10 +474,9 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const [editCmdAnchor, setEditCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : "";
   function openReply() {
-    setIsReplying(true);
-    requestAnimationFrame(() => {
-      replyComposerRef.current?.focus();
-    });
+    openReplyMap.set(node.id, true);
+    setReplyOpen(true);
+    requestAnimationFrame(() => replyComposerRef.current?.focus());
   }
   return (
     <div className="comment-card rounded-lg pl-3" style={{ marginLeft: depth * 16, borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
@@ -542,11 +552,11 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       {attachments && attachments.length > 0 && (
         <div className="mt-2 space-y-2">
           {attachments.map((a) => (
-            <AttachmentRow key={a.id} att={a} />
+            <AttachmentRow key={a.id} att={a} onPreview={onPreview} />
           ))}
         </div>
       )}
-      {isReplying && (
+      {replyOpen && (
         <div className="mt-2 flex gap-2 items-start relative" ref={replyRef}>
           <div className="flex-1">
             <ComposerHeader name={currentUserName} />
@@ -558,9 +568,10 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               onSubmit={async (val)=>{
                 await onSubmitComment(node.id, val);
                 setReply("");
-                setIsReplying(false);
+                openReplyMap.set(node.id, false);
+                setReplyOpen(false);
               }}
-              onCancel={()=> { setIsReplying(false); setMentionOpen2(false); setCmdOpen2(false); }}
+              onCancel={()=> { openReplyMap.set(node.id, false); setReplyOpen(false); setMentionOpen2(false); setCmdOpen2(false); }}
               onMentionTrigger={(query, rect)=> {
                 setMentionFilter2((query||'').trim());
                 setMentionOpen2(true);
@@ -619,6 +630,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               currentUserName={currentUserName}
               onEditTask={onEditTask}
               onSubmitComment={onSubmitComment}
+              onPreview={onPreview}
             />
           ))}
         </div>
@@ -706,41 +718,93 @@ function TaskCard({ task, onToggle, onOpenEdit }: { task: CardTask; onToggle: (i
   );
 }
 
-function AttachmentContent({ att }: { att: CardAttachmentWithMeta }) {
+function AttachmentContent({ att, onDelete, onPreview }: { att: CardAttachmentWithMeta; onDelete?: () => Promise<void>; onPreview?: (payload: PreviewTarget) => void }) {
   const [url, setUrl] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
   useEffect(() => { (async () => setUrl(await publicUrl(att.file_path)))(); }, [att.file_path]);
   const ts = att.created_at ? new Date(att.created_at).toLocaleString() : "";
   return (
-    <div className="flex items-center justify-between rounded border border-zinc-200 bg-white px-3 py-2 text-sm">
+    <div className="flex items-center justify-between rounded-[8px] border border-zinc-200 bg-white px-3 py-2 text-sm">
       <div className="flex items-center gap-2">
         <span className="text-lg">{iconFor(att.file_type || "")}</span>
         <div>
           <div className="font-medium">{att.file_name}</div>
           <div className="text-[11px] text-zinc-500">{ts}</div>
         </div>
+        {url && (
+          <button
+            className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-900"
+            title="Visualizar"
+            onClick={() =>
+              onPreview?.({
+                url,
+                mime: att.file_type ?? undefined,
+                name: att.file_name,
+                extension: att.file_extension ?? undefined,
+              })
+            }
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path d="M1.5 12s3.5-6 10.5-6 10.5 6 10.5 6-3.5 6-10.5 6S1.5 12 1.5 12z" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.4" fill="none"/>
+            </svg>
+          </button>
+        )}
       </div>
       <div className="relative flex items-center gap-2">
-        {url && <a href={url} target="_blank" className="text-zinc-700 hover:underline">↗️</a>}
-        <button className="px-1 text-zinc-700" onClick={()=> setOpen(v=>!v)}>⋮</button>
-        {open && (
-          <div className="absolute right-0 top-6 z-10 w-40 rounded border bg-white shadow">
-            <button className="block w-full px-3 py-2 text-left text-red-600 hover:bg-zinc-50" onClick={async ()=> { setOpen(false); if (confirm('🗑️ Excluir anexo? Esta ação não pode ser desfeita.')) { try { await removeAttachment(att.id); } catch(e:any){ alert(e?.message||'Falha ao excluir anexo'); } } }}>🗑️ Excluir anexo</button>
-          </div>
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-800"
+            title="Abrir anexo"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path d="M12 4v10m0 0 4-4m-4 4-4-4M5 18h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+          </a>
         )}
+        <button
+          className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-red-600"
+          title="Excluir anexo"
+          onClick={async () => {
+            if (!onDelete) return;
+            if (confirm("Excluir este anexo?")) {
+              await onDelete();
+            }
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-3h4m-4 0a1 1 0 00-1 1v1h6V5a1 1 0 00-1-1m-4 0h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </svg>
+        </button>
       </div>
     </div>
   );
 }
 
-function AttachmentRow({ att }: { att: CardAttachment }) {
-  return <AttachmentContent att={att} />;
+function AttachmentRow({ att, onPreview }: { att: CardAttachment; onPreview?: (payload: PreviewTarget) => void }) {
+  return (
+    <AttachmentContent
+      att={{ ...att, isCardRoot: false }}
+      onDelete={async () => {
+        if (confirm("Excluir este anexo?")) {
+          try {
+            await removeAttachment(att.id);
+          } catch (e: any) {
+            alert(e?.message || "Falha ao excluir anexo");
+          }
+        }
+      }}
+      onPreview={onPreview}
+    />
+  );
 }
 
-function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply, onOpenTask, onOpenAttach, profiles }: { att: CardAttachmentWithMeta; authorName: string; authorRole?: string | null; ensureThread: (att: CardAttachmentWithMeta) => Promise<string>; onReply: (parentId: string, value: ComposerValue) => Promise<void>; onOpenTask: (parentId?: string) => void; onOpenAttach: (parentId?: string) => void; profiles: ProfileLite[]; }) {
+function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply, onOpenTask, onOpenAttach, profiles, onPreview }: { att: CardAttachmentWithMeta; authorName: string; authorRole?: string | null; ensureThread: (att: CardAttachmentWithMeta) => Promise<string>; onReply: (parentId: string, value: ComposerValue) => Promise<void>; onOpenTask: (parentId?: string) => void; onOpenAttach: (parentId?: string) => void; profiles: ProfileLite[]; onPreview: (payload: PreviewTarget) => void; }) {
   const createdAt = att.created_at ? new Date(att.created_at).toLocaleString() : "";
   const [replying, setReplying] = useState(false);
   const replyRef = useRef<UnifiedComposerHandle | null>(null);
+  const replyContainerRef = useRef<HTMLDivElement | null>(null);
   const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "" });
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
@@ -756,6 +820,20 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
     setReplyValue({ decision: null, text: "" });
     setReplying(false);
   };
+
+  useEffect(() => {
+    if (!replying) return;
+    function onDocDown(event: MouseEvent) {
+      const target = event.target as Node | null;
+      if (replyContainerRef.current && target && !replyContainerRef.current.contains(target)) {
+        setReplying(false);
+        setMentionOpen(false);
+        setCmdOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [replying]);
 
   return (
     <div
@@ -798,10 +876,22 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
         </div>
       </div>
       <div className="mt-3">
-        <AttachmentContent att={att} />
+        <AttachmentContent
+          att={att}
+          onDelete={async () => {
+            if (confirm("Excluir este anexo?")) {
+              try {
+                await removeAttachment(att.id);
+              } catch (e: any) {
+                alert(e?.message || "Falha ao excluir anexo");
+              }
+            }
+          }}
+          onPreview={onPreview}
+        />
       </div>
       {replying && (
-        <div className="mt-3 relative">
+        <div className="mt-3 relative" ref={replyContainerRef}>
           <UnifiedComposer
             ref={replyRef}
             placeholder="Responder... (/tarefa, /anexo, @mencionar)"
@@ -839,8 +929,8 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
                   setMentionOpen(false);
                 }}
               />
-            </div>
-          )}
+          </div>
+        )}
           {cmdOpen && (
             <div className="absolute left-0 bottom-full mb-2">
               <CmdDropdown
@@ -852,7 +942,7 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
                 }}
                 initialQuery={cmdQuery}
               />
-            </div>
+      </div>
           )}
         </div>
       )}
