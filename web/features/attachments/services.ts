@@ -6,6 +6,9 @@ export type CardAttachment = {
   id: string;
   card_id: string;
   comment_id?: string | null;
+  author_id?: string | null;
+  author_name?: string | null;
+  author_role?: string | null;
   file_name: string;
   file_path: string;
   file_size?: number | null;
@@ -18,7 +21,7 @@ export type CardAttachment = {
 export async function listAttachments(cardId: string): Promise<CardAttachment[]> {
   const { data, error } = await supabase
     .from("card_attachments")
-    .select("id, card_id, comment_id, file_name, file_path, file_size, file_type, file_extension, description, created_at")
+    .select("id, card_id, comment_id, author_id, author_name, author_role, file_name, file_path, file_size, file_type, file_extension, description, created_at")
     .eq("card_id", cardId)
     .order("created_at", { ascending: true });
   if (error) return [];
