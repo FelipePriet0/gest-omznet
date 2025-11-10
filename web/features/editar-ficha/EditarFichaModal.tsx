@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, ChangeEvent } from "react";
 import Image from "next/image";
 import clsx from "clsx";
 import { User as UserIcon, MoreHorizontal, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
-import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
+import {
+  ATTACHMENT_ALLOWED_TYPES,
+  ATTACHMENT_MAX_SIZE,
+  uploadAttachmentBatch,
+} from "@/features/attachments/upload";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarReady } from "@/components/ui/calendar-ready";
@@ -114,11 +118,75 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
   // UI: tarefas/anexos em conversas
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
-  const [attachOpen, setAttachOpen] = useState<{open:boolean, parentId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
 
   const timer = useRef<NodeJS.Timeout | null>(null);
   const pendingApp = useRef<Partial<AppModel>>({});
   const pendingCard = useRef<any>({});
+
+  function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa' }) {
+    attachmentContextRef.current = context ?? null;
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+      attachmentInputRef.current.click();
+    }
+  }
+
+  async function processAttachmentSelection(files: File[]) {
+    if (!cardId || files.length === 0) return;
+    const context = attachmentContextRef.current;
+    attachmentContextRef.current = null;
+
+    const tooBig = files.find((file) => file.size > ATTACHMENT_MAX_SIZE);
+    if (tooBig) {
+      alert(`O arquivo "${tooBig.name}" excede o limite de ${(ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`);
+      return;
+    }
+
+    const invalidType = files.find(
+      (file) => file.type && !ATTACHMENT_ALLOWED_TYPES.includes(file.type)
+    );
+    if (invalidType) {
+      alert(`O tipo de arquivo "${invalidType.type || invalidType.name}" não é permitido para anexos.`);
+      return;
+    }
+
+    try {
+      const uploaded = await uploadAttachmentBatch({
+        cardId,
+        commentId: context?.commentId ?? null,
+        files: files.map((file) => {
+          const dot = file.name.lastIndexOf(".");
+          const baseName = dot > 0 ? file.name.slice(0, dot) : file.name;
+          return { file, displayName: baseName || file.name };
+        }),
+      });
+
+      if (context?.source === "parecer" && uploaded.length > 0) {
+        const names = uploaded.map((f) => f.name).join(", ");
+        try {
+          await supabase.rpc("add_parecer", {
+            p_card_id: cardId,
+            p_text: `📎 Anexo(s): ${names}`,
+            p_parent_id: null,
+            p_decision: null,
+          });
+        } catch (err) {
+          console.error("Falha ao registrar parecer para anexos", err);
+        }
+      }
+    } catch (error: any) {
+      console.error("Falha ao enviar anexos", error);
+      alert(error?.message ?? "Falha ao anexar arquivos.");
+    }
+  }
+
+  async function handleAttachmentInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    await processAttachmentSelection(files);
+  }
 
   async function syncDecisionStatus(decision: ComposerDecision | null) {
     try {
@@ -226,7 +294,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)
   useEffect(() => {
     function onOpenTask() { setTaskOpen({ open: true, parentId: null, taskId: null }); }
-    function onOpenAttach() { setAttachOpen({ open: true, parentId: null }); }
+    function onOpenAttach(event?: Event) {
+      const detail = (event as CustomEvent<{ commentId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;
+      triggerAttachmentPicker({
+        commentId: detail?.commentId ?? null,
+        source: detail?.source ?? 'parecer',
+      });
+    }
     window.addEventListener('mz-open-task', onOpenTask);
     window.addEventListener('mz-open-attach', onOpenAttach);
     return () => {
@@ -549,7 +623,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                         onPick={async (key)=>{
                           setCmdOpenParecer(false); setCmdQueryParecer('');
                           if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
-                          if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
+                          if (key==='anexo') { triggerAttachmentPicker({ commentId: null, source:'parecer' }); return; }
                           if (key==='aprovado' || key==='negado' || key==='reanalise') {
                             composerRef.current?.setDecision(key as any);
                             try {
@@ -611,7 +685,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
               <Conversation
                 cardId={cardId}
                 onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
-                onOpenAttach={(parentId?: string) => setAttachOpen({ open: true, parentId: parentId ?? null, source: 'conversa' })}
+                onOpenAttach={(parentId?: string) => triggerAttachmentPicker({ commentId: parentId ?? null, source: 'conversa' })}
                 onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
               />
             </div>
@@ -634,17 +708,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
           }
         }}
       />
-      <AttachmentsModal
-        open={attachOpen.open}
-        onClose={()=> setAttachOpen({open:false})}
-        cardId={cardId}
-        commentId={attachOpen.parentId ?? null}
-        onCompleted={async (files)=> {
-          if (attachOpen.source === 'parecer' && files.length>0) {
-            const names = files.map(f=> f.name).join(', ');
-            try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: `📎 Anexo(s): ${names}`, p_parent_id: null, p_decision: null }); } catch {}
-          }
-        }}
+      <input
+        ref={attachmentInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleAttachmentInputChange}
+        accept={ATTACHMENT_ALLOWED_TYPES.join(",")}
       />
     </div>
   );

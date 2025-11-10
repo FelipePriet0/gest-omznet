@@ -32,6 +32,9 @@ export async function removeAttachment(id: string) {
 
 export async function publicUrl(path: string) {
   try {
+    // Tenta URL assinada (funciona para bucket privado); fallback para pública
+    const signed = await supabase.storage.from("card-attachments").createSignedUrl(path, 60 * 60);
+    if (!signed.error && signed.data?.signedUrl) return signed.data.signedUrl;
     const { data } = supabase.storage.from("card-attachments").getPublicUrl(path);
     return data.publicUrl;
   } catch {

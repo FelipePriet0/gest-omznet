@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, ChangeEvent } from "react";
 import clsx from "clsx";
 import { useParams, useSearchParams } from "next/navigation";
 import { SimpleSelect } from "@/components/ui/select";
@@ -11,7 +11,11 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
 import { publicUrl } from "@/features/attachments/services";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
-import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
+import {
+  ATTACHMENT_ALLOWED_TYPES,
+  ATTACHMENT_MAX_SIZE,
+  uploadAttachmentBatch,
+} from "@/features/attachments/upload";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 
 const DECISION_META: Record<string, { label: string; className: string }> = {
@@ -222,8 +226,84 @@ export default function CadastroPFPage() {
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
   const parecerComposerRef = useRef<UnifiedComposerHandle | null>(null);
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
-  const [attachOpen, setAttachOpen] = useState<{open:boolean, parentId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
   const [pinnedSpace, setPinnedSpace] = useState<number>(0);
+
+  function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa' }) {
+    attachmentContextRef.current = context ?? null;
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+      attachmentInputRef.current.click();
+    }
+  }
+
+  async function processAttachmentSelection(files: File[]) {
+    if (!cardIdEff || files.length === 0) return;
+    const context = attachmentContextRef.current;
+    attachmentContextRef.current = null;
+
+    const tooBig = files.find((file) => file.size > ATTACHMENT_MAX_SIZE);
+    if (tooBig) {
+      alert(`O arquivo "${tooBig.name}" excede o limite de ${(ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`);
+      return;
+    }
+
+    const invalidType = files.find(
+      (file) => file.type && !ATTACHMENT_ALLOWED_TYPES.includes(file.type)
+    );
+    if (invalidType) {
+      alert(`O tipo de arquivo "${invalidType.type || invalidType.name}" não é permitido para anexos.`);
+      return;
+    }
+
+    try {
+      const uploaded = await uploadAttachmentBatch({
+        cardId: cardIdEff,
+        commentId: context?.commentId ?? null,
+        files: files.map((file) => {
+          const dot = file.name.lastIndexOf(".");
+          const baseName = dot > 0 ? file.name.slice(0, dot) : file.name;
+          return { file, displayName: baseName || file.name };
+        }),
+      });
+
+      if (context?.source === "parecer" && uploaded.length > 0) {
+        const names = uploaded.map((f) => f.name).join(", ");
+        try {
+          await supabase.rpc("add_parecer", {
+            p_card_id: cardIdEff,
+            p_text: `📎 Anexo(s): ${names}`,
+            p_parent_id: null,
+            p_decision: null,
+          });
+        } catch (err) {
+          console.error("Falha ao registrar parecer para anexos", err);
+        }
+      }
+    } catch (error: any) {
+      console.error("Falha ao enviar anexos", error);
+      alert(error?.message ?? "Falha ao anexar arquivos.");
+    }
+  }
+
+  async function handleAttachmentInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    await processAttachmentSelection(files);
+  }
+
+  useEffect(() => {
+    function handleOpenAttach(event?: Event) {
+      const detail = (event as CustomEvent<{ commentId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;
+      triggerAttachmentPicker({
+        commentId: detail?.commentId ?? null,
+        source: detail?.source ?? 'parecer',
+      });
+    }
+    window.addEventListener("mz-open-attach", handleOpenAttach);
+    return () => window.removeEventListener("mz-open-attach", handleOpenAttach);
+  }, []);
 
   async function refreshReanalysisNotes(cardId: string) {
     if (!cardId) return;
@@ -979,7 +1059,7 @@ export default function CadastroPFPage() {
                     onPick={async (key)=>{
                       setCmdOpenParecer(false); setCmdQueryParecer('');
                       if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
-                      if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
+                      if (key==='anexo') { triggerAttachmentPicker({ commentId: null, source:'parecer' }); return; }
                       if (key==='aprovado' || key==='negado' || key==='reanalise') {
                         parecerComposerRef.current?.setDecision(key as ComposerDecision);
                         try {
@@ -1052,17 +1132,13 @@ export default function CadastroPFPage() {
           }
         }}
       />
-      <AttachmentsModal
-        open={attachOpen.open}
-        onClose={()=> setAttachOpen({open:false})}
-        cardId={cardIdEff}
-        commentId={attachOpen.parentId ?? null}
-        onCompleted={async (files)=> {
-            if (attachOpen.source === 'parecer' && files.length>0) {
-              const names = files.map(f=> f.name).join(', ');
-              try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: `📎 Anexo(s): ${names}`, p_parent_id: null, p_decision: null }); } catch {}
-          }
-        }}
+      <input
+        ref={attachmentInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleAttachmentInputChange}
+        accept={ATTACHMENT_ALLOWED_TYPES.join(",")}
       />
     </div>
   );

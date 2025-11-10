@@ -189,6 +189,17 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
           </div>
 
           {loading && <div className="text-xs text-zinc-500">Carregando…</div>}
+          {/* Anexos do card (sem vínculo a um comentário específico) */}
+          {!loading && attachments.filter((a) => !a.comment_id).length > 0 && (
+            <div className="mb-3">
+              <div className="text-[12px] font-semibold text-zinc-700 mb-1">Anexos do card</div>
+              <div className="space-y-2">
+                {attachments.filter((a) => !a.comment_id).map((a) => (
+                  <AttachmentRow key={a.id} att={a} />
+                ))}
+              </div>
+            </div>
+          )}
           {!loading && comments.length === 0 && <div className="text-xs text-zinc-500">Nenhuma conversa iniciada</div>}
           {tree.map((n) => (
             <CommentItem
