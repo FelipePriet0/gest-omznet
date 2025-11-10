@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { addComment } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -13,6 +13,15 @@ import {
   startOfDayUtcISO,
   utcISOToLocalParts,
 } from "@/lib/datetime";
+
+const DRAWER_WIDTH_STORAGE_KEY = "mznet-task-drawer-width";
+const DRAWER_MIN_WIDTH = 320;
+const DRAWER_MAX_WIDTH = 640;
+const DRAWER_DEFAULT_WIDTH = 420;
+
+function clampWidth(value: number) {
+  return Math.min(Math.max(value, DRAWER_MIN_WIDTH), DRAWER_MAX_WIDTH);
+}
 
 type ProfileLite = { id: string; full_name: string; role?: string | null };
 
@@ -35,6 +44,9 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
   const [deadlineTime, setDeadlineTime] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(0);
+  const [drawerWidth, setDrawerWidth] = useState(DRAWER_DEFAULT_WIDTH);
+  const [resizing, setResizing] = useState(false);
+  const resizeOriginRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: DRAWER_DEFAULT_WIDTH });
   const isEdit = !!taskId;
 
   // Update sidebar width on changes
@@ -48,6 +60,67 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
     window.addEventListener('resize', updateWidth);
     return () => window.removeEventListener('resize', updateWidth);
   }, [sidebarOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(DRAWER_WIDTH_STORAGE_KEY);
+      if (stored) {
+        const parsed = Number.parseInt(stored, 10);
+        if (!Number.isNaN(parsed)) {
+          setDrawerWidth(clampWidth(parsed));
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(DRAWER_WIDTH_STORAGE_KEY, String(drawerWidth));
+    } catch {}
+  }, [drawerWidth, open]);
+
+  useEffect(() => {
+    if (!resizing) return;
+    const handleMouseMove = (event: MouseEvent) => {
+      event.preventDefault();
+      const { startX, startWidth } = resizeOriginRef.current;
+      const delta = event.clientX - startX;
+      const next = clampWidth(startWidth + delta);
+      setDrawerWidth(next);
+    };
+    const handleMouseUp = () => {
+      resizeOriginRef.current = { startX: 0, startWidth: drawerWidth };
+      setResizing(false);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "col-resize";
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.removeProperty("cursor");
+    };
+  }, [resizing, drawerWidth]);
+
+  useEffect(() => {
+    if (!open) {
+      setResizing(false);
+    }
+  }, [open]);
+
+  const handleResizeStart = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      resizeOriginRef.current = { startX: event.clientX, startWidth: drawerWidth };
+      setResizing(true);
+    },
+    [drawerWidth]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -158,14 +231,42 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
   const disabled = saving;
 
   return (
-    <div className="fixed inset-0 z-50 flex" style={{ left: sidebarWidth }}>
-      <div className="flex-1 bg-black/30" onClick={() => !disabled && onClose()}></div>
-      <div className="w-full max-w-md bg-white shadow-2xl animate-in slide-in-from-right duration-200">
+    <div className="pointer-events-none fixed inset-0 z-50 flex justify-start p-3 md:p-6" style={{ left: sidebarWidth }}>
+      <div
+        className="pointer-events-auto relative flex h-full max-h-[calc(100vh-24px)] shrink-0 flex-col overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl animate-in slide-in-from-left duration-200 dark:border-neutral-700 dark:bg-neutral-900"
+        style={{
+          width: drawerWidth,
+          minWidth: DRAWER_MIN_WIDTH,
+          maxWidth: DRAWER_MAX_WIDTH,
+        }}
+      >
+        <div
+          role="presentation"
+          aria-hidden="true"
+          onMouseDown={handleResizeStart}
+          className="absolute -right-3 top-0 bottom-0 flex w-3 cursor-col-resize items-center justify-center"
+        >
+          <span className="h-12 w-[3px] rounded-full bg-emerald-400/60 transition-colors hover:bg-emerald-500" />
+        </div>
         <header className="bg-gradient-to-r from-emerald-700 to-emerald-500 px-4 py-4 text-white">
-          <h2 className="text-lg font-semibold">{isEdit ? 'Editar Tarefa' : 'Adicionar Tarefa'}</h2>
-          <p className="text-sm text-white/90">{isEdit ? 'Atualize os dados da tarefa' : 'Crie uma nova tarefa para a equipe'}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">{isEdit ? 'Editar Tarefa' : 'Adicionar Tarefa'}</h2>
+              <p className="text-sm text-white/90">{isEdit ? 'Atualize os dados da tarefa' : 'Crie uma nova tarefa para a equipe'}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => !disabled && onClose()}
+              className="rounded-full p-1 text-white/80 transition hover:bg-white/20 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              aria-label="Fechar painel de tarefas"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 6l12 12M6 18L18 6" />
+              </svg>
+            </button>
+          </div>
         </header>
-        <div className="p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <section>
             <div className="text-sm font-semibold text-zinc-800 mb-2">Atribuição</div>
             <div className="space-y-3">

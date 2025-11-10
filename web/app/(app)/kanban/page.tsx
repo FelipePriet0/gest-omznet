@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { KanbanBoard } from "@/legacy/components/kanban/components/KanbanBoard";
 import { FilterCTA, AppliedFilters } from "@/components/app/filter-cta";
 import { Button } from "@/components/ui/button";
@@ -17,11 +17,11 @@ export default function KanbanPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const sp = useSearchParams();
+  const pathname = usePathname();
   const hora = sp.get("hora") || undefined;
   const prazo = sp.get("prazo") || undefined;
   const prazoFim = sp.get("prazo_fim") || undefined;
   const responsavelParam = sp.get("responsavel") || "";
-  const atribuicaoParam = sp.get("atribuicao") || undefined;
   const responsaveis = useMemo(() => {
     if (!responsavelParam) return [] as string[];
     const unique = Array.from(
@@ -42,13 +42,11 @@ export default function KanbanPage() {
         ? { start: prazo, end: prazoFim || undefined }
         : undefined,
       hora: hora || undefined,
-      atribuicao: atribuicaoParam === "mentions" ? "mentions" : undefined,
     }),
-    [responsaveis, prazo, prazoFim, hora, atribuicaoParam]
+    [responsaveis, prazo, prazoFim, hora]
   );
   const [filtersSummary, setFiltersSummary] = useState<AppliedFilters>(initialFiltersSummary);
   const [cardsSnapshot, setCardsSnapshot] = useState<KanbanCard[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
   
   // Nova ficha modals
   const [openPersonType, setOpenPersonType] = useModalState(false);
@@ -65,7 +63,6 @@ export default function KanbanPage() {
           router.replace("/login");
           return;
         }
-        setUserId(data.user.id ?? null);
         setLoading(false);
       } catch {
         clearStaleSupabaseSession();
@@ -83,8 +80,7 @@ export default function KanbanPage() {
         (prev.prazo?.start ?? "") === (initialFiltersSummary.prazo?.start ?? "") &&
         (prev.prazo?.end ?? "") === (initialFiltersSummary.prazo?.end ?? "");
       const sameHora = prev.hora === initialFiltersSummary.hora;
-      const sameAttr = prev.atribuicao === initialFiltersSummary.atribuicao;
-      if (sameResponsaveis && samePrazo && sameHora && sameAttr) {
+      if (sameResponsaveis && samePrazo && sameHora) {
         return prev;
       }
       return initialFiltersSummary;
@@ -94,6 +90,14 @@ export default function KanbanPage() {
   const handleFiltersChange = useCallback((next: AppliedFilters) => {
     setFiltersSummary(next);
   }, []);
+
+  const handleCardModalClose = useCallback(() => {
+    const params = new URLSearchParams(sp.toString());
+    if (!params.has("card")) return;
+    params.delete("card");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [router, pathname, sp]);
 
   const dashboard = useMemo(() => computeCommercialDashboard(cardsSnapshot), [cardsSnapshot]);
 
@@ -133,9 +137,8 @@ export default function KanbanPage() {
               dateEnd={filtersSummary.prazo?.end}
               openCardId={openCardId}
               responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
-              mentionsUserId={filtersSummary.atribuicao === "mentions" ? userId ?? undefined : undefined}
-              mentionsOnly={filtersSummary.atribuicao === "mentions"}
               onCardsChange={setCardsSnapshot}
+            onCardModalClose={handleCardModalClose}
             />
           </div>
         </div>

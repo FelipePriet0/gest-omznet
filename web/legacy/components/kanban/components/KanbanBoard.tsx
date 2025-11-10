@@ -3,7 +3,7 @@
 import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { KanbanCard } from "@/features/kanban/types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
@@ -24,18 +24,16 @@ export function KanbanBoard({
   dateEnd,
   openCardId,
   responsaveis,
-  mentionsUserId,
-  mentionsOnly,
   onCardsChange,
+  onCardModalClose,
 }: {
   hora?: string;
   dateStart?: string;
   dateEnd?: string;
   openCardId?: string;
   responsaveis?: string[];
-  mentionsUserId?: string;
-  mentionsOnly?: boolean;
   onCardsChange?: (cards: KanbanCard[]) => void;
+  onCardModalClose?: () => void;
 }) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
@@ -48,6 +46,7 @@ export function KanbanBoard({
   );
   
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
+  const lastClosedCardIdRef = useRef<string | null>(null);
 
   const responsavelIds = useMemo(
     () => (responsaveis ?? []).filter((id) => typeof id === 'string' && id.length > 0),
@@ -61,7 +60,6 @@ export function KanbanBoard({
         dateStart,
         dateEnd,
         responsaveis: responsavelIds,
-        mentionsUserId: mentionsOnly && mentionsUserId ? mentionsUserId : undefined,
       });
       setCards(data);
       onCardsChange?.(data);
@@ -69,7 +67,7 @@ export function KanbanBoard({
       console.error('Falha ao carregar cards do Kanban Comercial:', error);
       onCardsChange?.([]);
     }
-  }, [hora, dateStart, dateEnd, responsavelIds, mentionsOnly, mentionsUserId, onCardsChange]);
+  }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange]);
 
   useEffect(() => {
     reload();
@@ -82,7 +80,13 @@ export function KanbanBoard({
   }, [cards]);
 
   useEffect(() => {
-    if (!openCardId) return;
+    if (!openCardId) {
+      lastClosedCardIdRef.current = null;
+      return;
+    }
+    if (lastClosedCardIdRef.current === openCardId) {
+      return;
+    }
     const c = cards.find((x) => x.id === openCardId);
     if (c) setEdit({ cardId: c.id, applicantId: c.applicantId });
   }, [openCardId, cards]);
@@ -151,7 +155,18 @@ export function KanbanBoard({
       <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={reload} />
       <CancelModal open={!!cancel} onClose={()=>setCancel(null)} cardId={cancel?.id||''} area="comercial" onCancelled={reload} />
       
-      <EditarFichaModal open={!!edit} onClose={()=> setEdit(null)} cardId={edit?.cardId||''} applicantId={edit?.applicantId||''} />
+      <EditarFichaModal
+        open={!!edit}
+        onClose={() => {
+          if (edit?.cardId) {
+            lastClosedCardIdRef.current = edit.cardId;
+          }
+          setEdit(null);
+          onCardModalClose?.();
+        }}
+        cardId={edit?.cardId || ''}
+        applicantId={edit?.applicantId || ''}
+      />
     </div>
   );
 }

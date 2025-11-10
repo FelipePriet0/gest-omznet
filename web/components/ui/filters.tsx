@@ -20,16 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import {
-  Calendar,
-  Check,
-  Circle,
-  Tag,
-  UserCircle,
-  X,
-  Clock,
-  MapPin,
-} from "lucide-react";
+import { Calendar, Check, Circle, UserCircle, X, Clock, MapPin } from "lucide-react";
 import { Dispatch, SetStateAction, useRef, useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -80,7 +71,6 @@ export enum FilterType {
   RESPONSAVEL = "Responsável", 
   PRAZO = "Prazo",
   HORARIO = "Horário",
-  ATRIBUIDAS = "Atribuídas",
 }
 
 export enum FilterOperator {
@@ -115,10 +105,6 @@ export enum Horario {
   H1530 = "15:30",
 }
 
-export enum Atribuidas {
-  MINHAS_MENCOES = "Minhas menções",
-}
-
 export type FilterOption = {
   name: string;
   icon: React.ReactNode | undefined;
@@ -136,7 +122,7 @@ export type Filter = {
 const FilterIcon = ({
   type,
 }: {
-  type: FilterType | Area | Responsavel | Prazo | Horario | Atribuidas;
+  type: FilterType | Area | Responsavel | Prazo | Horario;
 }) => {
   switch (type) {
     case FilterType.AREA:
@@ -147,8 +133,6 @@ const FilterIcon = ({
       return <Calendar className="size-4 text-muted-foreground" />;
     case FilterType.HORARIO:
       return <Clock className="size-4 text-muted-foreground" />;
-    case FilterType.ATRIBUIDAS:
-      return <Tag className="size-4 text-muted-foreground" />;
     case Area.COMERCIAL:
       return <div className="bg-blue-400 rounded-full size-2.5" />;
     case Area.ANALISE:
@@ -162,8 +146,6 @@ const FilterIcon = ({
     case Horario.H1330:
     case Horario.H1530:
       return <Clock className="size-3.5 text-blue-400" />;
-    case Atribuidas.MINHAS_MENCOES:
-      return <div className="bg-orange-400 rounded-full size-2.5" />;
     default:
       return <Circle className="size-3.5" />;
   }
@@ -189,10 +171,6 @@ export const filterViewOptions: FilterOption[][] = [
       name: FilterType.HORARIO,
       icon: <FilterIcon type={FilterType.HORARIO} />,
     },
-    {
-      name: FilterType.ATRIBUIDAS,
-      icon: <FilterIcon type={FilterType.ATRIBUIDAS} />,
-    },
   ],
 ];
 
@@ -214,20 +192,11 @@ export const horarioFilterOptions: FilterOption[] = Object.values(Horario).map(
   })
 );
 
-export const atribuidasFilterOptions: FilterOption[] = [
-  {
-    name: Atribuidas.MINHAS_MENCOES,
-    icon: <FilterIcon type={Atribuidas.MINHAS_MENCOES} />,
-    value: "mentions",
-  },
-];
-
 export const filterViewToFilterOptions: Record<FilterType, FilterOption[]> = {
   [FilterType.AREA]: areaFilterOptions,
   [FilterType.RESPONSAVEL]: responsavelFilterOptions,
   [FilterType.PRAZO]: prazoFilterOptions,
   [FilterType.HORARIO]: horarioFilterOptions,
-  [FilterType.ATRIBUIDAS]: atribuidasFilterOptions,
 };
 
 const FilterOperatorDropdown = () => null;
@@ -263,12 +232,9 @@ const FilterValueCombobox = ({
     try {
       const [y, m, d] = value.split("-").map(Number);
       if (!y || !m || !d) return value;
-      const date = new Date(Date.UTC(y, m - 1, d));
-      return new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "2-digit",
-      }).format(date);
+      // Usar data local para evitar regressão de um dia por UTC
+      const date = new Date(y, m - 1, d);
+      return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }).format(date);
     } catch {
       return value;
     }

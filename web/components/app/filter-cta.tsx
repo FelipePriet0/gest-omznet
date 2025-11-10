@@ -16,7 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Calendar, ListFilter } from "lucide-react";
+import { ArrowLeft, Calendar, ListFilter } from "lucide-react";
 import { nanoid } from "nanoid";
 import * as React from "react";
 import { AnimateChangeInHeight } from "@/components/ui/filters";
@@ -45,7 +45,6 @@ export type AppliedFilters = {
   responsaveis: string[];
   prazo?: { start: string; end?: string };
   hora?: string;
-  atribuicao?: "mentions";
 };
 
 function getResponsavelIcon(name: string | undefined | null) {
@@ -220,7 +219,6 @@ export function FilterCTA({
     const prazoInicio = searchParams.get("prazo");
     const prazoFim = searchParams.get("prazo_fim");
     const responsavel = searchParams.get("responsavel");
-    const atribuicao = searchParams.get("atribuicao");
 
     if (hora) {
       initial.push({
@@ -263,14 +261,6 @@ export function FilterCTA({
       }
     }
 
-    if (atribuicao === "mentions") {
-      initial.push({
-        id: "atribuicao",
-        type: FilterType.ATRIBUIDAS,
-        operator: FilterOperator.IS,
-        value: ["mentions"],
-      });
-    }
     setFilters(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -368,24 +358,12 @@ export function FilterCTA({
       params.delete("responsavel");
     }
 
-    const atribuicaoFilter = filters.find(
-      (f) => f.type === FilterType.ATRIBUIDAS
-    );
-    const hasMentions = atribuicaoFilter?.value?.includes("mentions") ?? false;
-
-    if (hasMentions) {
-      params.set("atribuicao", "mentions");
-    } else {
-      params.delete("atribuicao");
-    }
-
     onFiltersChange?.({
       responsaveis: responsavelIds,
       prazo: prazoStartValue
         ? { start: prazoStartValue, end: prazoEndValue }
         : undefined,
       hora,
-      atribuicao: hasMentions ? "mentions" : undefined,
     });
 
     const qs = params.toString();
@@ -406,7 +384,11 @@ export function FilterCTA({
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
-          if (!next) setCalendarOpen(false);
+          if (!next) {
+            setCalendarOpen(false);
+            setSelectedView(null);
+            setCommandInput("");
+          }
         }}
       >
         <PopoverTrigger asChild>
@@ -450,72 +432,86 @@ export function FilterCTA({
                   <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
                 )}
                 {selectedView ? (
-                  <CommandGroup className="p-0">
-                    {(filterViewToFilterOptions[selectedView] ?? []).map(
-                      (filter: FilterOption) => {
-                        const storedValue = filter.value ?? filter.name;
-                        return (
-                          <CommandItem
-                            className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
-                            key={storedValue}
-                            value={filter.name}
-                            onSelect={() => {
-                              if (selectedView === FilterType.AREA) {
-                                const toAnalise = filter.name
-                                  .toLowerCase()
-                                  .includes("análise") || filter.name
-                                  .toLowerCase()
-                                  .includes("analise");
-                                router.push(toAnalise ? "/kanban/analise" : "/kanban");
-                              } else {
-                                setFilters((prev) => {
-                                  const index = prev.findIndex(
-                                    (f) => f.type === selectedView
-                                  );
-                                  if (index >= 0) {
-                                    const next = [...prev];
-                                    const existing = next[index];
-                                    const nextValues = Array.from(
-                                      new Set([...(existing.value ?? []), storedValue])
+                  <>
+                    <CommandItem
+                      className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                      value="voltar"
+                      onSelect={() => {
+                        setSelectedView(null);
+                        setCommandInput("");
+                        commandInputRef.current?.focus();
+                      }}
+                    >
+                      <ArrowLeft className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="text-sm font-medium">Voltar</span>
+                    </CommandItem>
+                    <CommandGroup className="p-0">
+                      {(filterViewToFilterOptions[selectedView] ?? []).map(
+                        (filter: FilterOption) => {
+                          const storedValue = filter.value ?? filter.name;
+                          return (
+                            <CommandItem
+                              className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                              key={storedValue}
+                              value={filter.name}
+                              onSelect={() => {
+                                if (selectedView === FilterType.AREA) {
+                                  const toAnalise = filter.name
+                                    .toLowerCase()
+                                    .includes("análise") || filter.name
+                                    .toLowerCase()
+                                    .includes("analise");
+                                  router.push(toAnalise ? "/kanban/analise" : "/kanban");
+                                } else {
+                                  setFilters((prev) => {
+                                    const index = prev.findIndex(
+                                      (f) => f.type === selectedView
                                     );
-                                    next[index] = {
-                                      ...existing,
-                                      value: nextValues,
-                                    };
-                                    return next;
-                                  }
-                                  return [
-                                    ...prev,
-                                    {
-                                      id: nanoid(),
-                                      type: selectedView,
-                                      operator: FilterOperator.IS,
-                                      value: [storedValue],
-                                    },
-                                  ];
-                                });
-                              }
-                              setTimeout(() => {
-                                setSelectedView(null);
-                                setCommandInput("");
-                              }, 200);
-                              setOpen(false);
-                            }}
-                          >
-                            {filter.icon}
-                            <span className="text-sm font-medium">
-                              {filter.name}
-                            </span>
-                            {filter.label && (
-                              <span className="text-muted-foreground text-xs ml-auto">
-                                {filter.label}
+                                    if (index >= 0) {
+                                      const next = [...prev];
+                                      const existing = next[index];
+                                      const nextValues = Array.from(
+                                        new Set([...(existing.value ?? []), storedValue])
+                                      );
+                                      next[index] = {
+                                        ...existing,
+                                        value: nextValues,
+                                      };
+                                      return next;
+                                    }
+                                    return [
+                                      ...prev,
+                                      {
+                                        id: nanoid(),
+                                        type: selectedView,
+                                        operator: FilterOperator.IS,
+                                        value: [storedValue],
+                                      },
+                                    ];
+                                  });
+                                }
+                                setTimeout(() => {
+                                  setSelectedView(null);
+                                  setCommandInput("");
+                                }, 200);
+                                setOpen(false);
+                              }}
+                            >
+                              {filter.icon}
+                              <span className="text-sm font-medium">
+                                {filter.name}
                               </span>
-                            )}
-                          </CommandItem>
-                        );
-                      }
-                    )}
-                  </CommandGroup>
+                              {filter.label && (
+                                <span className="text-muted-foreground text-xs ml-auto">
+                                  {filter.label}
+                                </span>
+                              )}
+                            </CommandItem>
+                          );
+                        }
+                      )}
+                    </CommandGroup>
+                  </>
                 ) : (
                   <>
                     <CommandGroup className="p-0">

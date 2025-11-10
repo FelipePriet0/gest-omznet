@@ -2,6 +2,7 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import { KanbanCard } from "@/features/kanban/types";
+import { startOfDayUtcISO, endOfDayUtcISO } from "@/lib/datetime";
 
 export async function changeStage(cardId: string, area: 'comercial' | 'analise', stage: string, reason?: string) {
   const { data, error } = await supabase.rpc('change_stage', { p_card_id: cardId, p_area: area, p_stage: stage, p_reason: reason ?? null });
@@ -24,17 +25,13 @@ export async function changeStage(cardId: string, area: 'comercial' | 'analise',
 
 export async function listCards(
   area: 'comercial' | 'analise',
-  opts?: { hora?: string; dateStart?: string; dateEnd?: string; responsaveis?: string[]; mentionsUserId?: string }
+  opts?: { hora?: string; dateStart?: string; dateEnd?: string; responsaveis?: string[] }
 ): Promise<KanbanCard[]> {
   const baseSelect = 'id, stage, area, applicant_id, due_at, hora_at, applicants:applicants!inner(id, primary_name, cpf_cnpj, phone, whatsapp, bairro)';
-  const includeMentions = !!opts?.mentionsUserId;
-  const selectColumns = includeMentions
-    ? `${baseSelect}, inbox_notifications!inner(user_id, type, card_id)`
-    : baseSelect;
 
   let q = supabase
     .from('kanban_cards')
-    .select(selectColumns)
+    .select(baseSelect)
     .eq('area', area)
     .is('deleted_at', null)
     .order('created_at', { ascending: true });
@@ -56,27 +53,16 @@ export async function listCards(
   }
 
   if (opts?.dateStart || opts?.dateEnd) {
-    const parseYMD = (value: string | undefined, endOfDay = false) => {
-      if (!value) return null;
-      const [y, m, d] = value.split('-').map(Number);
-      if (!y || !m || !d) return null;
-      const base = new Date(Date.UTC(y, m - 1, d));
-      if (endOfDay) {
-        base.setUTCHours(23, 59, 59, 999);
-      }
-      return base;
-    };
+    const startIso = opts?.dateStart ? startOfDayUtcISO(opts.dateStart) : undefined;
+    // Se não houver fim, usamos o próprio início como fim do dia local
+    const endBase = opts?.dateEnd ?? opts?.dateStart;
+    const endIso = endBase ? endOfDayUtcISO(endBase) : undefined;
 
-    const startDate = parseYMD(opts?.dateStart, false);
-    const endDate = opts?.dateEnd
-      ? parseYMD(opts.dateEnd, true)
-      : parseYMD(opts?.dateStart, true);
-
-    if (startDate) {
-      q = q.gte('due_at', startDate.toISOString());
+    if (startIso) {
+      q = q.gte('due_at', startIso);
     }
-    if (endDate) {
-      q = q.lte('due_at', endDate.toISOString());
+    if (endIso) {
+      q = q.lte('due_at', endIso);
     }
   }
 
@@ -91,12 +77,6 @@ export async function listCards(
         q = q.in('assignee_id', responsavelIds);
       }
     }
-  }
-
-  if (includeMentions && opts?.mentionsUserId) {
-    q = q
-      .eq('inbox_notifications.user_id', opts.mentionsUserId)
-      .eq('inbox_notifications.type', 'comment');
   }
 
   const { data, error } = await q;

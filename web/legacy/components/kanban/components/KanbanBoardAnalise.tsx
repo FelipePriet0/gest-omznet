@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
@@ -29,18 +29,16 @@ export function KanbanBoardAnalise({
   dateEnd,
   openCardId,
   responsaveis,
-  mentionsUserId,
-  mentionsOnly,
   onCardsChange,
+  onCardModalClose,
 }: {
   hora?: string;
   dateStart?: string;
   dateEnd?: string;
   openCardId?: string;
   responsaveis?: string[];
-  mentionsUserId?: string;
-  mentionsOnly?: boolean;
   onCardsChange?: (cards: KanbanCard[]) => void;
+  onCardModalClose?: () => void;
 }) {
   const router = useRouter();
   const [cards, setCards] = useState<KanbanCard[]>([]);
@@ -49,6 +47,7 @@ export function KanbanBoardAnalise({
   
   
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
+  const lastClosedCardIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string|null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -66,7 +65,6 @@ export function KanbanBoardAnalise({
         dateStart,
         dateEnd,
         responsaveis: responsavelIds,
-        mentionsUserId: mentionsOnly && mentionsUserId ? mentionsUserId : undefined,
       });
       setCards(data);
       onCardsChange?.(data);
@@ -75,14 +73,14 @@ export function KanbanBoardAnalise({
       setCards([]);
       onCardsChange?.([]);
     }
-  }, [hora, dateStart, dateEnd, responsavelIds, mentionsOnly, mentionsUserId, onCardsChange]);
+  }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange]);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
   useEffect(() => {
-    const channelKey = `kanban-analise-${hora || "_"}-${dateStart || "_"}-${dateEnd || "_"}-${responsavelIds.join("|") || "_"}-${mentionsOnly ? mentionsUserId ?? "_" : "_"}`;
+    const channelKey = `kanban-analise-${hora || "_"}-${dateStart || "_"}-${dateEnd || "_"}-${responsavelIds.join("|") || "_"}`;
     const channel = supabase
       .channel(channelKey)
       .on(
@@ -106,7 +104,7 @@ export function KanbanBoardAnalise({
         console.error("Erro ao remover canal do Kanban Análise:", err);
       }
     };
-  }, [hora, dateStart, dateEnd, responsavelIds, mentionsOnly, mentionsUserId, reload]);
+  }, [hora, dateStart, dateEnd, responsavelIds, reload]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = {
@@ -127,7 +125,13 @@ export function KanbanBoardAnalise({
   }, [cards]);
 
   useEffect(() => {
-    if (!openCardId) return;
+    if (!openCardId) {
+      lastClosedCardIdRef.current = null;
+      return;
+    }
+    if (lastClosedCardIdRef.current === openCardId) {
+      return;
+    }
     const c = cards.find((x) => x.id === openCardId);
     if (c) setEdit({ cardId: c.id, applicantId: c.applicantId });
   }, [openCardId, cards]);
@@ -239,7 +243,18 @@ export function KanbanBoardAnalise({
         onCancelled={reload}
       />
       
-      <EditarFichaModal open={!!edit} onClose={()=> setEdit(null)} cardId={edit?.cardId||''} applicantId={edit?.applicantId||''} />
+      <EditarFichaModal
+        open={!!edit}
+        onClose={() => {
+          if (edit?.cardId) {
+            lastClosedCardIdRef.current = edit.cardId;
+          }
+          setEdit(null);
+          onCardModalClose?.();
+        }}
+        cardId={edit?.cardId || ''}
+        applicantId={edit?.applicantId || ''}
+      />
     </div>
   );
 }
