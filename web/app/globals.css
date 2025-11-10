@@ -1745,7 +1745,7 @@ textarea[placeholder="Analisar"]::placeholder {
 }
 /* App background wrapper */
 .route-bg {
-  background-color: var(--neutro);
+  background-color: var(--color-primary);
 }
 
 /* DayPicker overrides */

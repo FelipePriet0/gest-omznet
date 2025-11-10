@@ -111,6 +111,8 @@ export function FilterCTA({
     []
   );
 
+  const animationFrameRef = React.useRef<number | null>(null);
+
   React.useEffect(() => {
     if (!open && !calendarOpen) return;
     updatePopoverRect();
@@ -125,12 +127,21 @@ export function FilterCTA({
       }
       window.addEventListener("resize", updatePopoverRect);
       window.addEventListener("scroll", updatePopoverRect, true);
+      const loop = () => {
+        updatePopoverRect();
+        animationFrameRef.current = requestAnimationFrame(loop);
+      };
+      animationFrameRef.current = requestAnimationFrame(loop);
     }
     return () => {
       observer?.disconnect();
       if (typeof window !== "undefined") {
         window.removeEventListener("resize", updatePopoverRect);
         window.removeEventListener("scroll", updatePopoverRect, true);
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
       }
     };
   }, [calendarOpen, open, updatePopoverRect]);
@@ -407,7 +418,7 @@ export function FilterCTA({
               "transition-all duration-200 group h-9 text-sm items-center flex gap-1.5 filter-cta-hover",
               filters.length > 0 && "w-9"
             )}
-            style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
+            style={{ paddingLeft: "18px", paddingRight: "18px", borderRadius: "10px" }}
           >
             <ListFilter className="size-6 shrink-0 transition-all text-muted-foreground filter-icon" />
             {filters.length === 0 && "Filtros"}

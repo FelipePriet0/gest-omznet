@@ -92,6 +92,7 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
   const isInboxPanel = activePanel === 'inbox';
   const isPanelOpen = isTasksPanel || isInboxPanel;
   const sidebarOffset = isDesktop ? (open ? 300 : 60) : 0;
+  const pageGutter = 6;
 
   // Do not force open the sidebar automatically when opening the Tasks drawer
 
@@ -125,13 +126,21 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
             <Sidebar open={open} setOpen={setOpen}>
               <AppSidebar />
             </Sidebar>
-            <div 
+            <div
               className="flex flex-1 transition-all duration-300 ease-in-out"
-              style={{ 
-                marginLeft: isDesktop ? `${open ? 300 : 60}px` : '0px',
+              style={{
+                marginLeft: isDesktop ? `${open ? 300 : 60}px` : "0px",
+                paddingTop: pageGutter,
+                paddingRight: pageGutter,
+                paddingBottom: pageGutter,
               }}
             >
-              <main className={`p-2 md:p-6 rounded-tl-3xl border border-neutral-200 dark:border-neutral-700 bg-[var(--neutro)] dark:bg-neutral-900 flex flex-col gap-2 flex-1 w-full min-h-screen`}>
+              <main
+                className="flex flex-1 w-full flex-col gap-3 rounded-3xl border border-neutral-200 bg-[var(--neutro)] p-3 text-zinc-900 shadow-xl shadow-emerald-900/15 md:p-6 dark:border-neutral-700 dark:bg-neutral-900 dark:text-zinc-100"
+                style={{
+                  minHeight: `calc(100vh - ${pageGutter * 2}px)`,
+                }}
+              >
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <SidebarTrigger className="hidden md:inline-flex" />
@@ -146,8 +155,13 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
                 {children}
                 {isPanelOpen && (
                   <div
-                    className="fixed z-[85] bg-transparent"
-                    style={{ top: 0, bottom: 0, left: sidebarOffset, right: 0 }}
+              className="fixed z-[85] bg-transparent"
+              style={{
+                top: pageGutter,
+                bottom: pageGutter,
+                left: sidebarOffset,
+                right: pageGutter,
+              }}
                     onClick={closePanel}
                   />
                 )}
@@ -156,8 +170,14 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
                 <div
                   role="dialog"
                   aria-modal
-                  className="fixed top-0 z-[90] h-screen bg-[var(--neutro)] border border-neutral-200 rounded-tl-3xl flex flex-col shadow-[4px_0_12px_rgba(0,0,0,0.12)]"
-                  style={{ left: sidebarOffset, right: isDesktop ? 'auto' as any : 0, width: isDesktop ? 440 : '100%' }}
+              className="fixed z-[90] flex h-[calc(100vh-12px)] flex-col border border-neutral-200 bg-[var(--neutro)] shadow-[4px_0_12px_rgba(0,0,0,0.12)] dark:border-neutral-700 dark:bg-neutral-900 rounded-3xl"
+              style={{
+                top: pageGutter,
+                bottom: pageGutter,
+                left: isDesktop ? sidebarOffset : pageGutter,
+                right: isDesktop ? undefined : pageGutter,
+                width: isDesktop ? 440 : `calc(100% - ${pageGutter * 2}px)`,
+              }}
                 >
                   <div className="px-3 md:px-4 py-2 md:py-3 border-b border-neutral-200 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3 min-w-0">
