@@ -217,7 +217,6 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
         <div className="section-content space-y-3">
           {/* Campo para nova conversa (Thread Pai) no topo */}
           <div className="border-b border-zinc-100 pb-4 mb-4 relative">
-              <ComposerHeader name={currentUserName} />
               <UnifiedComposer
                 ref={inputRef}
                 placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
