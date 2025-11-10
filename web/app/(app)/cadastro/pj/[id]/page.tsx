@@ -851,13 +851,9 @@ export default function CadastroPJPage() {
                       { key:'aprovado', label:'Aprovado' },
                       { key:'negado', label:'Negado' },
                       { key:'reanalise', label:'Reanálise' },
-                      { key:'tarefa', label:'Tarefa' },
-                      { key:'anexo', label:'Anexo' },
                     ].filter(i=> i.key.includes(cmdQueryParecer) || i.label.toLowerCase().includes(cmdQueryParecer))}
                     onPick={async (key)=>{
                       setCmdOpenParecer(false); setCmdQueryParecer('');
-                      if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
-                      if (key==='anexo') { triggerAttachmentPicker({ commentId: null, source:'parecer' }); return; }
                       if (key==='aprovado' || key==='negado' || key==='reanalise') {
                         parecerComposerRef.current?.setDecision(key as ComposerDecision);
                         try {
@@ -1360,7 +1356,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                           <UnifiedComposer
                             ref={replyComposerRef}
                             defaultValue={replyValue}
-                            placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+                            placeholder="Responder... (/aprovado, /negado, /reanalise)"
                 onChange={(val) => setReplyValue(val)}
                 onSubmit={async (val) => {
                               const trimmed = (val.text || '').trim();

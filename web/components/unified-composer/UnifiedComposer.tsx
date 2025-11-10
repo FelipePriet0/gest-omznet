@@ -363,8 +363,8 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
           const rawQuery = mentionMatch[1] ?? "";
           const trimmedQuery = rawQuery.trim();
           const mentions = valueState.mentions ?? [];
-          const matchedMention = mentions.find(
-            (m) => m.label.toLowerCase() === trimmedQuery.toLowerCase()
+          const matchedMention = mentions.find((m) =>
+            trimmedQuery.toLowerCase().startsWith(m.label.toLowerCase())
           );
           const hasCompletedMention =
             matchedMention &&
