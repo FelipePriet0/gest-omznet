@@ -5,6 +5,7 @@ import { User as UserIcon, ClipboardList, Paperclip, Search } from "lucide-react
 import { supabase } from "@/lib/supabaseClient";
 import { addComment, deleteComment, editComment, listComments, listProfiles, type Comment, type ProfileLite } from "./services";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
+import { TaskCard } from "@/features/tasks/TaskCard";
 import { listAttachments, removeAttachment, publicUrl, type CardAttachment } from "@/features/attachments/services";
 import { UnifiedComposer, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -29,7 +30,7 @@ function ComposerHeader({ name }: { name: string }) {
   );
 }
 
-export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: { cardId: string; onOpenTask: TaskTrigger["openTask"]; onOpenAttach: AttachTrigger["openAttach"]; onEditTask?: (taskId: string) => void; }) {
+export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, onEditTask }: { cardId: string; applicantName?: string | null; onOpenTask: TaskTrigger["openTask"]; onOpenAttach: AttachTrigger["openAttach"]; onEditTask?: (taskId: string) => void; }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [input, setInput] = useState("");
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -302,9 +303,11 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
                               onToggleTask={toggleTask}
                               profiles={profiles}
                               currentUserName={currentUserName}
+                              currentUserId={currentUserId}
                               onEditTask={onEditTask}
                               onSubmitComment={submitComment}
                               onPreview={(payload) => setPreview(payload)}
+                              applicantName={applicantName}
                             />
                           ))}
                         </div>
@@ -330,9 +333,11 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
               onToggleTask={toggleTask}
               profiles={profiles}
               currentUserName={currentUserName}
+              currentUserId={currentUserId}
               onEditTask={onEditTask}
-            onSubmitComment={submitComment}
-            onPreview={(payload) => setPreview(payload)}
+              onSubmitComment={submitComment}
+              onPreview={(payload) => setPreview(payload)}
+              applicantName={applicantName}
             />
           ))}
         </div>
@@ -438,8 +443,9 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
 // Notificações agora são geradas por triggers no backend para evitar duplicatas
 
 const openReplyMap = new Map<string, boolean>();
+const AUTO_TASK_COMMENT_RE = /^📋\s*Tarefa criada\s*:\s*/i;
 
-function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, onEditTask, onSubmitComment, onPreview }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; }) {
+function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, currentUserId, onEditTask, onSubmitComment, onPreview, applicantName }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; currentUserId?: string | null; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; applicantName?: string | null; }) {
   const [isEditing, setIsEditing] = useState(false);
   const [replyOpen, setReplyOpen] = useState(openReplyMap.get(node.id) ?? false);
   const editRef = useRef<HTMLDivElement | null>(null);
@@ -473,6 +479,17 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const [editCmdQuery, setEditCmdQuery] = useState("");
   const [editCmdAnchor, setEditCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : "";
+  const rawText = node.text ?? "";
+  const trimmedText = rawText.trim();
+  const hasTasks = tasks.length > 0;
+  const authorDisplayName = (node.author_name || "").trim() || "Um colaborador";
+  const isAutoTaskComment = hasTasks && AUTO_TASK_COMMENT_RE.test(trimmedText);
+  const displayText =
+    trimmedText.length === 0
+      ? ""
+      : isAutoTaskComment
+      ? `${authorDisplayName} criou uma tarefa para você.`
+      : node.text || "";
   function openReply() {
     openReplyMap.set(node.id, true);
     setReplyOpen(true);
@@ -498,7 +515,9 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
         </div>
       </div>
       {!isEditing ? (
-        <div className="mt-1 whitespace-pre-line break-words">{node.text}</div>
+        displayText.trim().length === 0 ? null : (
+          <div className="mt-1 whitespace-pre-line break-words">{displayText}</div>
+        )
       ) : (
         <div className="mt-2" ref={editRef}>
           <div className="relative">
@@ -544,9 +563,28 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       )}
       {tasks && tasks.length > 0 && (
         <div className="mt-2 space-y-2">
-          {tasks.map((t) => (
-            <TaskCard key={t.id} task={t} onToggle={async (id, done)=> { try { await onToggleTask(id, done); } catch (e:any) { alert(e?.message||'Falha ao atualizar tarefa'); } }} onOpenEdit={onEditTask} />
-          ))}
+          {tasks.map((t) => {
+            const creatorProfile = t.created_by ? profiles.find((p) => p.id === t.created_by) : null;
+            const creatorName =
+              creatorProfile?.full_name ??
+              (t.created_by && t.created_by === currentUserId ? currentUserName : "Colaborador");
+            return (
+              <TaskCard
+                key={t.id}
+                task={t}
+                onToggle={async (id, done) => {
+                  try {
+                    await onToggleTask(id, done);
+                  } catch (e: any) {
+                    alert(e?.message || "Falha ao atualizar tarefa");
+                  }
+                }}
+                creatorName={creatorName}
+                applicantName={applicantName}
+                onEdit={onEditTask ? () => onEditTask(t.id) : undefined}
+              />
+            );
+          })}
         </div>
       )}
       {attachments && attachments.length > 0 && (
@@ -687,33 +725,6 @@ function CommentMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-function TaskCard({ task, onToggle, onOpenEdit }: { task: CardTask; onToggle: (id: string, done: boolean) => void | Promise<void>; onOpenEdit?: (taskId: string) => void }) {
-  const [assignee, setAssignee] = useState<string | null>(null);
-  useEffect(() => { (async () => {
-    if (!task.assigned_to) { setAssignee(null); return; }
-    try { const { data } = await supabase.from('profiles').select('full_name').eq('id', task.assigned_to).single(); setAssignee((data as any)?.full_name ?? null); } catch {}
-  })(); }, [task.assigned_to]);
-  const isDone = task.status === 'completed';
-  const now = Date.now();
-  const dueAt = task.deadline ? new Date(task.deadline).getTime() : null;
-  const overdue = !isDone && dueAt !== null && dueAt < now;
-  const dueTxt = task.deadline ? new Date(task.deadline).toLocaleString() : null;
-  const stateCls = overdue ? "bg-red-50 border-red-200" : isDone ? "bg-emerald-50 border-emerald-200" : "bg-blue-50 border-blue-200";
-  return (
-    <div className={`rounded border px-3 py-2 text-sm ${stateCls} cursor-pointer`} onClick={()=> onOpenEdit?.(task.id)}>
-      <div className="flex items-center gap-2">
-        <input type="checkbox" checked={isDone} onChange={(e)=> { e.stopPropagation(); onToggle(task.id, e.target.checked); }} />
-        <div className={`font-semibold ${isDone ? "line-through text-emerald-700" : overdue ? "text-red-700" : "text-zinc-800"}`}>📋 Tarefa</div>
-      </div>
-      <div className={`mt-1 ${isDone ? "line-through text-emerald-700" : overdue ? "text-red-700" : "text-zinc-700"}`}>
-        <div>👤 Para: <span className="font-medium">@{assignee ?? task.assigned_to ?? "—"}</span></div>
-        <div>📝 Descrição: {task.description}</div>
-        {dueTxt && <div>⏰ Prazo: {dueTxt}</div>}
-      </div>
     </div>
   );
 }

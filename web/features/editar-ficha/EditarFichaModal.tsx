@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback } from "react";
 import Image from "next/image";
 import clsx from "clsx";
 import { User as UserIcon, MoreHorizontal, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
+import { TaskCard } from "@/features/tasks/TaskCard";
+import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import {
   ATTACHMENT_ALLOWED_TYPES,
   ATTACHMENT_MAX_SIZE,
@@ -118,6 +120,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
   // UI: tarefas/anexos em conversas
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
+  const [tasks, setTasks] = useState<CardTask[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
 
@@ -181,6 +184,41 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
       alert(error?.message ?? "Falha ao anexar arquivos.");
     }
   }
+
+  const refreshTasks = useCallback(async () => {
+    try {
+      const list = await listTasks(cardId);
+      setTasks(list);
+    } catch {}
+  }, [cardId]);
+
+  useEffect(() => {
+    if (!cardId) return;
+    let active = true;
+    (async () => {
+      if (!active) return;
+      await refreshTasks();
+    })();
+    const channel = supabase
+      .channel(`editar-ficha-tasks-${cardId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "card_tasks", filter: `card_id=eq.${cardId}` }, () => {
+        refreshTasks();
+      })
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [cardId, refreshTasks]);
+
+  const handleTaskToggle = useCallback(async (taskId: string, done: boolean) => {
+    try {
+      await toggleTask(taskId, done);
+      await refreshTasks();
+    } catch (e: any) {
+      alert(e?.message || "Falha ao atualizar tarefa");
+    }
+  }, [refreshTasks]);
 
   async function handleAttachmentInputChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files || []);
@@ -293,7 +331,15 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
   // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)
   useEffect(() => {
-    function onOpenTask() { setTaskOpen({ open: true, parentId: null, taskId: null }); }
+    function onOpenTask(event?: Event) {
+      const detail = (event as CustomEvent<{ parentId?: string | null; taskId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;
+      setTaskOpen({
+        open: true,
+        parentId: detail?.parentId ?? null,
+        taskId: detail?.taskId ?? null,
+        source: detail?.source ?? 'parecer',
+      });
+    }
     function onOpenAttach(event?: Event) {
       const detail = (event as CustomEvent<{ commentId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;
       triggerAttachmentPicker({
@@ -617,13 +663,9 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                           { key:'aprovado', label:'Aprovado' },
                           { key:'negado', label:'Negado' },
                           { key:'reanalise', label:'Reanálise' },
-                          { key:'tarefa', label:'Tarefa' },
-                          { key:'anexo', label:'Anexo' },
                         ].filter(i=> i.key.includes(cmdQueryParecer))}
                         onPick={async (key)=>{
                           setCmdOpenParecer(false); setCmdQueryParecer('');
-                          if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
-                          if (key==='anexo') { triggerAttachmentPicker({ commentId: null, source:'parecer' }); return; }
                           if (key==='aprovado' || key==='negado' || key==='reanalise') {
                             composerRef.current?.setDecision(key as any);
                             try {
@@ -640,6 +682,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   cardId={cardId}
                   notes={pareceres as any}
                   profiles={profiles}
+                  tasks={tasks}
+                  applicantName={app?.primary_name ?? null}
                   onReply={async (pid, value) => {
                     const text = (value.text || '').trim();
                     const hasDecision = !!value.decision;
@@ -676,6 +720,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   }}
                   onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
                   onDecisionChange={syncDecisionStatus}
+                  onOpenTask={(ctx) => setTaskOpen({ open: true, parentId: ctx.parentId ?? null, taskId: ctx.taskId ?? null, source: ctx.source ?? 'parecer' })}
+                  onToggleTask={handleTaskToggle}
                 />
               </div>
             </div>
@@ -684,6 +730,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             <div className="mt-6">
               <Conversation
                 cardId={cardId}
+                applicantName={app?.primary_name ?? null}
                 onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
                 onOpenAttach={(parentId?: string) => triggerAttachmentPicker({ commentId: parentId ?? null, source: 'conversa' })}
                 onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
@@ -698,14 +745,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
       {/* Drawers/Modais auxiliares */}
       <TaskDrawer
         open={taskOpen.open}
-        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null})}
+        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null, source: undefined})}
         cardId={cardId}
         commentId={taskOpen.parentId ?? null}
         taskId={taskOpen.taskId ?? null}
-        onCreated={async (t)=> {
-          if (taskOpen.source === 'parecer') {
-            try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: `📋 Tarefa criada: ${t.description}`, p_parent_id: null, p_decision: null }); } catch {}
-          }
+        source={taskOpen.source ?? 'conversa'}
+        onCreated={async ()=> {
+          await refreshTasks();
         }}
       />
       <input
@@ -896,18 +942,26 @@ function PareceresList({
   cardId,
   notes,
   profiles,
+  tasks,
+  applicantName,
   onReply,
   onEdit,
   onDelete,
   onDecisionChange,
+  onOpenTask,
+  onToggleTask,
 }: {
   cardId: string;
   notes: Note[];
   profiles: ProfileLite[];
+  tasks: CardTask[];
+  applicantName?: string | null;
   onReply: (parentId:string, value: ComposerValue)=>Promise<any>;
   onEdit: (id:string, value: ComposerValue)=>Promise<any>;
   onDelete: (id:string)=>Promise<any>;
   onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
+  onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
+  onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
 }) {
   const tree = useMemo(()=> buildTree(notes||[]), [notes]);
   return (
@@ -920,10 +974,14 @@ function PareceresList({
           node={n}
           depth={0}
           profiles={profiles}
+          tasks={tasks}
           onReply={onReply}
           onEdit={onEdit}
           onDelete={onDelete}
           onDecisionChange={onDecisionChange}
+          onOpenTask={onOpenTask}
+          onToggleTask={onToggleTask}
+          applicantName={applicantName}
         />
       ))}
     </div>
@@ -935,19 +993,27 @@ function NoteItem({
   node,
   depth,
   profiles,
+  tasks,
+  applicantName,
   onReply,
   onEdit,
   onDelete,
   onDecisionChange,
+  onOpenTask,
+  onToggleTask,
 }: {
   cardId: string;
   node: any;
   depth: number;
   profiles: ProfileLite[];
+  tasks: CardTask[];
+  applicantName?: string | null;
   onReply: (parentId:string, value: ComposerValue)=>Promise<any>;
   onEdit: (id:string, value: ComposerValue)=>Promise<any>;
   onDelete: (id:string)=>Promise<any>;
   onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
+  onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
+  onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
@@ -997,6 +1063,8 @@ function NoteItem({
     }
   }, [isReplying]);
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : '';
+  const nodeTasks = useMemo(() => tasks.filter((t) => t.comment_id === node.id), [tasks, node.id]);
+  const trimmedText = (node.text || '').trim();
   if (node.deleted) return null;
   return (
     <div
@@ -1054,7 +1122,9 @@ function NoteItem({
       {!isEditing ? (
         <div className="mt-1 space-y-2">
           {node.decision ? <DecisionTag decision={node.decision} /> : null}
-          <div className="whitespace-pre-line break-words">{node.text}</div>
+          {trimmedText.length > 0 && (
+            <div className="whitespace-pre-line break-words">{node.text}</div>
+          )}
         </div>
       ) : (
         <div className="mt-2" ref={editRef}>
@@ -1122,13 +1192,9 @@ function NoteItem({
                     { key:'aprovado', label:'Aprovado' },
                     { key:'negado', label:'Negado' },
                     { key:'reanalise', label:'Reanálise' },
-                    { key:'tarefa', label:'Tarefa' },
-                    { key:'anexo', label:'Anexo' },
                   ].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
                   onPick={async (key)=>{
                     setEditCmdOpen(false); setEditCmdQuery('');
-                    if (key==='tarefa') { const ev = new CustomEvent('mz-open-task'); window.dispatchEvent(ev); return; }
-                    if (key==='anexo') { const ev = new CustomEvent('mz-open-attach'); window.dispatchEvent(ev); return; }
                     if (key==='aprovado' || key==='negado' || key==='reanalise') {
                       editComposerRef.current?.setDecision(key as any);
                       try {
@@ -1141,6 +1207,26 @@ function NoteItem({
               </div>
             )}
           </div>
+        </div>
+      )}
+      {nodeTasks.length > 0 && (
+        <div className="mt-2 space-y-2">
+          {nodeTasks.map((task) => {
+            const creatorProfile = task.created_by
+              ? profiles.find((p) => p.id === task.created_by)
+              : null;
+            const creatorName = creatorProfile?.full_name ?? "Colaborador";
+            return (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onToggle={(id, done) => onToggleTask(id, done)}
+                creatorName={creatorName}
+                applicantName={applicantName}
+                onEdit={() => onOpenTask({ parentId: node.id, taskId: task.id, source: "parecer" })}
+              />
+            );
+          })}
         </div>
       )}
       {isReplying && (
@@ -1212,13 +1298,9 @@ function NoteItem({
                     { key:'aprovado', label:'Aprovado' },
                     { key:'negado', label:'Negado' },
                     { key:'reanalise', label:'Reanálise' },
-                    { key:'tarefa', label:'Tarefa' },
-                    { key:'anexo', label:'Anexo' },
                   ].filter(i=> i.key.includes(cmdQuery))}
                   onPick={async (key)=>{
                     setCmdOpen(false); setCmdQuery('');
-                    if (key==='tarefa') { const ev = new CustomEvent('mz-open-task'); window.dispatchEvent(ev); return; }
-                    if (key==='anexo') { const ev = new CustomEvent('mz-open-attach'); window.dispatchEvent(ev); return; }
                     if (key==='aprovado' || key==='negado' || key==='reanalise') {
                       replyComposerRef.current?.setDecision(key as any);
                       try {
@@ -1242,10 +1324,13 @@ function NoteItem({
               node={c}
               depth={depth+1}
               profiles={profiles}
+              tasks={tasks}
               onReply={onReply}
               onEdit={onEdit}
               onDelete={onDelete}
               onDecisionChange={onDecisionChange}
+              onOpenTask={onOpenTask}
+              onToggleTask={onToggleTask}
             />
           ))}
         </div>

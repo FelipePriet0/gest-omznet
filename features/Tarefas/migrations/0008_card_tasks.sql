@@ -51,10 +51,10 @@ create policy tasks_insert_access on public.card_tasks for insert
 drop policy if exists tasks_update_access on public.card_tasks;
 create policy tasks_update_access on public.card_tasks for update
   using (
-    created_by = auth.uid() or assigned_to = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor')
+    created_by = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor')
   )
   with check (
-    created_by = auth.uid() or assigned_to = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor')
+    created_by = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor')
   );
 
 -- Delete: only gestor

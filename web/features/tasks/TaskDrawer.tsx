@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { addComment } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CalendarReady } from "@/components/ui/calendar-ready";
+import { Search } from "lucide-react";
 import {
   DEFAULT_TIMEZONE,
   clampToBusinessWindow,
@@ -31,10 +32,18 @@ export type TaskDrawerProps = {
   cardId: string;
   commentId?: string | null;
   taskId?: string | null;
-  onCreated?: (task: { id: string; description: string; assigned_to?: string | null; deadline?: string | null }) => void;
+  source?: "parecer" | "conversa";
+  onCreated?: (task: {
+    id: string;
+    description: string;
+    assigned_to?: string | null;
+    deadline?: string | null;
+    comment_id?: string | null;
+    source: "parecer" | "conversa";
+  }) => void;
 };
 
-export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated }: TaskDrawerProps) {
+export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = "conversa", onCreated }: TaskDrawerProps) {
   const { open: sidebarOpen } = useSidebar();
   const [me, setMe] = useState<ProfileLite | null>(null);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -48,6 +57,8 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
   const [resizing, setResizing] = useState(false);
   const resizeOriginRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: DRAWER_DEFAULT_WIDTH });
   const isEdit = !!taskId;
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignFilter, setAssignFilter] = useState("");
 
   // Update sidebar width on changes
   useEffect(() => {
@@ -171,24 +182,78 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
   }
 
   async function createTask() {
-    if (!desc.trim()) return;
+    const trimmedDesc = desc.trim();
+    if (!trimmedDesc) return;
     setSaving(true);
     try {
       const deadlineIso = resolveDeadlineISO();
+      const creatorName = (me?.full_name || "").trim() || "Um colaborador";
+      const commentText = `${creatorName} criou uma tarefa para você.`;
+      let threadRefId: string | null = null;
+      if (source === "parecer") {
+        const { data: cardRow, error: rpcError } = await supabase.rpc("add_parecer", {
+          p_card_id: cardId,
+          p_text: commentText,
+          p_parent_id: commentId ?? null,
+          p_decision: null,
+        });
+        if (rpcError) throw rpcError;
+        const notes = (cardRow as any)?.reanalysis_notes as Array<Record<string, any>> | undefined;
+        if (Array.isArray(notes)) {
+          const reversed = [...notes].reverse();
+          const match = reversed.find((note) => {
+            if (!note) return false;
+            const sameText = (note.text || "").trim() === commentText.trim();
+            if (!sameText) return false;
+            if (me?.id && note.author_id) return note.author_id === me.id;
+            return true;
+          });
+          if (match?.id) {
+            threadRefId = String(match.id);
+          } else if (reversed[0]?.id) {
+            threadRefId = String(reversed[0].id);
+          }
+        }
+      } else {
+        try {
+          threadRefId = await addComment(cardId, commentText, commentId ?? undefined);
+        } catch (err: any) {
+          throw new Error(err?.message || "Falha ao registrar comentário da tarefa");
+        }
+      }
+      if (!threadRefId) {
+        threadRefId = commentId ?? null;
+      }
       const payload: any = {
         card_id: cardId,
-        description: desc.trim(),
+        description: trimmedDesc,
         assigned_to: assignedTo || null,
         deadline: deadlineIso,
-        comment_id: commentId ?? null,
+        comment_id: threadRefId,
       };
       const { data: created, error } = await supabase.from("card_tasks").insert(payload).select('id, assigned_to, deadline').single();
-      if (error) throw error;
+      if (error) {
+        if (threadRefId) {
+          if (source === "parecer") {
+            try {
+              await supabase.rpc("delete_parecer", { p_card_id: cardId, p_note_id: threadRefId });
+            } catch {}
+          } else {
+            try { await supabase.from("card_comments").delete().eq("id", threadRefId); } catch {}
+          }
+        }
+        throw error;
+      }
       // Notificações agora são geradas por triggers no backend para evitar duplicatas
-      try { onCreated?.({ id: created.id, description: desc.trim(), assigned_to: created.assigned_to ?? null, deadline: created.deadline ?? null }); } catch {}
-      // Comentário especial no feed de conversas (gera thread pai quando commentId não for passado)
       try {
-        await addComment(cardId, `📋 Tarefa criada: ${desc.trim()}`, commentId ?? undefined);
+        onCreated?.({
+          id: created.id,
+          description: trimmedDesc,
+          assigned_to: created.assigned_to ?? null,
+          deadline: created.deadline ?? null,
+          comment_id: threadRefId ?? null,
+          source,
+        });
       } catch {}
       onClose();
     } catch (e: any) {
@@ -231,24 +296,10 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
   const disabled = saving;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 flex justify-start p-3 md:p-6" style={{ left: sidebarWidth }}>
-      <div
-        className="pointer-events-auto relative flex h-full max-h-[calc(100vh-24px)] shrink-0 flex-col overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl animate-in slide-in-from-left duration-200 dark:border-neutral-700 dark:bg-neutral-900"
-        style={{
-          width: drawerWidth,
-          minWidth: DRAWER_MIN_WIDTH,
-          maxWidth: DRAWER_MAX_WIDTH,
-        }}
-      >
-        <div
-          role="presentation"
-          aria-hidden="true"
-          onMouseDown={handleResizeStart}
-          className="absolute -right-3 top-0 bottom-0 flex w-3 cursor-col-resize items-center justify-center"
-        >
-          <span className="h-12 w-[3px] rounded-full bg-emerald-400/60 transition-colors hover:bg-emerald-500" />
-        </div>
-        <header className="bg-gradient-to-r from-emerald-700 to-emerald-500 px-4 py-4 text-white">
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/30" onClick={() => !disabled && onClose()} />
+      <div className="relative mx-auto my-6 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-zinc-200 bg-[var(--color-neutral)] shadow-2xl">
+        <header className="bg-emerald-600 px-4 py-4 text-white">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">{isEdit ? 'Editar Tarefa' : 'Adicionar Tarefa'}</h2>
@@ -267,30 +318,69 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <section>
+          <section className="rounded-lg bg-white p-4">
             <div className="text-sm font-semibold text-zinc-800 mb-2">Atribuição</div>
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs text-zinc-600">De</label>
-                <input value={me?.full_name || ""} disabled className="w-full rounded bg-zinc-100 px-3 py-2 text-sm text-zinc-500" />
+                <input value={me?.full_name || ""} disabled className="w-full rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-500" />
               </div>
               <div>
                 <label className="mb-1 block text-xs text-zinc-600">Para</label>
-                <select value={assignedTo} onChange={(e)=> setAssignedTo(e.target.value)} className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500">
-                  <option value="">Selecione um colaborador</option>
-                  {profiles.map((p) => (
-                    <option key={p.id} value={p.id}>{p.full_name}{p.role ? ` · ${p.role}` : ""}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setAssignOpen((v) => !v)}
+                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-left text-sm outline-none focus:border-emerald-500"
+                  >
+                    {assignedTo
+                      ? (profiles.find((p) => p.id === assignedTo)?.full_name ?? "—")
+                      : "Selecione um colaborador"}
+                  </button>
+                  {assignOpen && (
+                    <div className="absolute z-50 mt-1 w-full rounded-lg border border-zinc-200 bg-white shadow-lg p-[6px]">
+                      <div className="flex items-center gap-2 border-b border-zinc-100 px-3 py-2 rounded-t-lg">
+                        <Search className="w-4 h-4 text-zinc-500" />
+                        <input
+                          value={assignFilter}
+                          onChange={(e) => setAssignFilter(e.target.value)}
+                          placeholder="Buscar pessoa…"
+                          className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
+                        />
+                      </div>
+                      <div className="max-h-56 overflow-auto py-1">
+                        {(profiles || [])
+                          .filter((p) => (p.full_name || "").toLowerCase().includes(assignFilter.toLowerCase()))
+                          .map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                setAssignedTo(p.id);
+                                setAssignOpen(false);
+                                setAssignFilter("");
+                              }}
+                              className="group m-[2px] flex w-[calc(100%-4px)] items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--verde-primario)] hover:text-white"
+                            >
+                              <span className="transition-colors group-hover:text-white">{p.full_name}{p.role ? ` · ${p.role}` : ""}</span>
+                            </button>
+                          ))}
+                        {profiles.filter((p) => (p.full_name || "").toLowerCase().includes(assignFilter.toLowerCase())).length === 0 && (
+                          <div className="px-3 py-2 text-sm text-zinc-500">Sem resultados</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="mt-1 text-[11px] text-zinc-500">● {available} colaborador(es) disponível(is)</div>
               </div>
             </div>
           </section>
-          <section>
+          <section className="rounded-lg bg-white p-4">
             <div className="text-sm font-semibold text-zinc-800 mb-2">Descrição</div>
-            <textarea value={desc} onChange={(e)=> setDesc(e.target.value)} rows={4} placeholder="Ex.: Reagendar instalação para o dia 12/10 às 14h." className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500" />
+            <textarea value={desc} onChange={(e)=> setDesc(e.target.value)} rows={4} placeholder="Ex.: Reagendar instalação para o dia 12/10 às 14h." className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500" />
           </section>
-          <section>
+          <section className="rounded-lg bg-white p-4">
             <div className="text-sm font-semibold text-zinc-800 mb-2">Prazo</div>
             <div className="space-y-3">
               <CalendarReady
@@ -323,21 +413,18 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, onCreated
                     const normalized = clampToBusinessWindow(raw);
                     setDeadlineTime(normalized);
                   }}
-                  className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-zinc-100 disabled:text-zinc-400"
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-zinc-100 disabled:text-zinc-400"
                 />
               </div>
             </div>
           </section>
         </div>
-        <footer className="flex justify-end gap-2 border-t px-4 py-3">
-          {isEdit && (
-            <button onClick={deleteTask} disabled={disabled} className="mr-auto rounded border border-red-300 px-4 py-2 text-sm text-red-700">Excluir</button>
-          )}
-          <button onClick={onClose} disabled={disabled} className="rounded border border-zinc-300 px-4 py-2 text-sm">Cancelar</button>
+        <footer className="flex justify-end gap-2 px-4 py-3">
+          <button onClick={onClose} disabled={disabled} className="rounded-lg border border-zinc-300 px-4 py-2 text-sm">Cancelar</button>
           {!isEdit ? (
-            <button onClick={createTask} disabled={disabled || !desc.trim()} className="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Criar Tarefa</button>
+            <button onClick={createTask} disabled={disabled || !desc.trim()} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Criar Tarefa</button>
           ) : (
-            <button onClick={updateTask} disabled={disabled || !desc.trim()} className="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Salvar Alterações</button>
+            <button onClick={updateTask} disabled={disabled || !desc.trim()} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Salvar Alterações</button>
           )}
         </footer>
       </div>

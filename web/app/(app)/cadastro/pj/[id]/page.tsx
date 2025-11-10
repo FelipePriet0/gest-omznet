@@ -670,13 +670,21 @@ export default function CadastroPJPage() {
       {/* Seção 4: Sócios */}
       <TaskDrawer
         open={taskOpen.open}
-        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null})}
+        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null, source: undefined})}
         cardId={cardIdEff}
         commentId={taskOpen.parentId ?? null}
         taskId={taskOpen.taskId ?? null}
+        source={taskOpen.source ?? 'conversa'}
         onCreated={async (t)=> {
           if (taskOpen.source === 'parecer') {
-            try { await supabase.rpc('add_parecer', { p_card_id: cardIdEff, p_text: `📋 Tarefa criada: ${t.description}`, p_parent_id: null, p_decision: null }); } catch {}
+            try {
+              const { data: card } = await supabase
+                .from('kanban_cards')
+                .select('reanalysis_notes')
+                .eq('id', cardIdEff)
+                .maybeSingle();
+              if (card && Array.isArray((card as any).reanalysis_notes)) setPareceres((card as any).reanalysis_notes);
+            } catch {}
           }
         }}
       />
@@ -1333,24 +1341,22 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                           )}
                           {editCmdOpen && (
                             <div className="absolute z-50 left-0 bottom-full mb-2">
-                              <CmdDropdown
-                    items={[{ key: 'aprovado', label: 'Aprovado' }, { key: 'negado', label: 'Negado' }, { key: 'reanalise', label: 'Reanálise' }, { key: 'tarefa', label: 'Tarefa' }, { key: 'anexo', label: 'Anexo' }].filter((i) => i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
+                  <CmdDropdown
+                    items={[{ key: 'aprovado', label: 'Aprovado' }, { key: 'negado', label: 'Negado' }, { key: 'reanalise', label: 'Reanálise' }].filter((i) => i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
                     onPick={async (key) => {
                       setEditCmdOpen(false);
                       setEditCmdQuery('');
-                      if (key === 'tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
-                      if (key === 'anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
                       if (key === 'aprovado' || key === 'negado' || key === 'reanalise') {
-                                    editComposerRef.current?.setDecision(key as ComposerDecision);
-                                    try {
-                                      await handleDecisionShortcut(cardId, onDecisionChange, key as any);
+                        editComposerRef.current?.setDecision(key as ComposerDecision);
+                        try {
+                          await handleDecisionShortcut(cardId, onDecisionChange, key as any);
                         } catch (e: any) {
-                                      alert(e?.message || 'Falha ao mover');
-                                    }
-                                  }
-                                }}
-                                initialQuery={editCmdQuery}
-                              />
+                          alert(e?.message || 'Falha ao mover');
+                        }
+                      }
+                    }}
+                    initialQuery={editCmdQuery}
+                  />
                             </div>
                           )}
                         </div>
@@ -1419,24 +1425,22 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                           )}
                           {cmdOpen && (
                             <div className="absolute z-50 left-0 bottom-full mb-2">
-                              <CmdDropdown
-                    items={[{ key: 'aprovado', label: 'Aprovado' }, { key: 'negado', label: 'Negado' }, { key: 'reanalise', label: 'Reanálise' }, { key: 'tarefa', label: 'Tarefa' }, { key: 'anexo', label: 'Anexo' }].filter((i) => i.key.includes(cmdQuery) || i.label.toLowerCase().includes(cmdQuery))}
+                  <CmdDropdown
+                    items={[{ key: 'aprovado', label: 'Aprovado' }, { key: 'negado', label: 'Negado' }, { key: 'reanalise', label: 'Reanálise' }].filter((i) => i.key.includes(cmdQuery) || i.label.toLowerCase().includes(cmdQuery))}
                     onPick={async (key) => {
                       setCmdOpen(false);
                       setCmdQuery('');
-                      if (key === 'tarefa') { (window as any).dispatchEvent(new Event('mz-open-task')); return; }
-                      if (key === 'anexo') { (window as any).dispatchEvent(new Event('mz-open-attach')); return; }
                       if (key === 'aprovado' || key === 'negado' || key === 'reanalise') {
-                                    replyComposerRef.current?.setDecision(key as ComposerDecision);
-                                    try {
-                                      await handleDecisionShortcut(cardId, onDecisionChange, key as any);
+                        replyComposerRef.current?.setDecision(key as ComposerDecision);
+                        try {
+                          await handleDecisionShortcut(cardId, onDecisionChange, key as any);
                         } catch (e: any) {
-                                      alert(e?.message || 'Falha ao mover');
-                                    }
-                                  }
-                                }}
-                                initialQuery={cmdQuery}
-                              />
+                          alert(e?.message || 'Falha ao mover');
+                        }
+                      }
+                    }}
+                    initialQuery={cmdQuery}
+                  />
                             </div>
                           )}
                         </div>
