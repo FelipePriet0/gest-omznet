@@ -176,38 +176,6 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
             />
           ))}
         </div>
-        {/* Nova conversa agora está no topo; removido bloco inferior */}
-        <div className="hidden">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
-            rows={3}
-          />
-          {cmdOpen && (
-            <CmdDropdown
-              items={[{key:'tarefa',label:'📋 Tarefa'},{key:'anexo',label:'📎 Anexo'}].filter(i=> i.key.includes(cmdQuery))}
-              onPick={(key)=> {
-                if (key==='tarefa') onOpenTask();
-                if (key==='anexo') onOpenAttach();
-                setCmdOpen(false); setCmdQuery('');
-              }}
-            />
-          )}
-          {mentionOpen && (
-            <MentionDropdown
-              items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
-              onPick={(p) => {
-                // Substitui o trecho após o último @
-                const idx = input.lastIndexOf("@");
-                const newVal = input.slice(0, idx + 1) + p.full_name + " ";
-                setInput(newVal);
-                setMentionOpen(false);
-              }}
-            />
-          )}
-        </div>
       </div>
     </div>
   );
