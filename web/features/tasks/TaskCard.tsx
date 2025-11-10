@@ -37,7 +37,7 @@ export function TaskCard({ task, onToggle, applicantName, onEdit }: TaskCardProp
           <div className="flex items-start justify-between gap-3">
             <div
               className={clsx(
-                "flex-1 whitespace-pre-line break-words text-sm",
+                "flex-1 whitespace-pre-line break-words break-all text-sm",
                 isDone ? "text-emerald-700 line-through" : "text-sky-900"
               )}
             >

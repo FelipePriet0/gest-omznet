@@ -150,36 +150,56 @@ export default function MinhasTarefasPage() {
                 const deadlineLabel = deadlineDate ? formatDateTimeFromDate(deadlineDate) : null;
                 const isOverdue = !isDone && deadlineDate ? deadlineDate.getTime() < Date.now() : false;
                 const creatorLabel = (t.created_name ?? "").trim() || t.created_by || "—";
+                const cardToneClass = isDone
+                  ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90"
+                  : "border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100";
+                const checkboxHoverClass = isDone ? "hover:bg-white/10" : "hover:bg-white";
+                const checkboxFrameClass = isDone
+                  ? "border-white/80 bg-white/10"
+                  : "border-blue-400 bg-white group-hover:border-blue-500";
+                const descriptionClass = isDone
+                  ? "text-white break-all line-through decoration-white/60"
+                  : "text-blue-900 break-all";
+                const metaColumnClass = isDone
+                  ? "flex flex-col items-end gap-1 text-[13px] text-right break-all text-white/90 line-through decoration-white/60"
+                  : "flex flex-col items-end gap-1 text-[13px] text-right break-all text-blue-700";
+                const metaLabelClass = isDone ? "text-white/80" : "text-blue-600";
+                const metaValueClass = isDone ? "text-white" : isOverdue ? "text-red-600" : "text-blue-900";
+                const chipClass = isDone
+                  ? "inline-flex items-center rounded-full px-1.5 py-0.5 text-[13px] font-medium border border-white/40 bg-white/20 text-white"
+                  : "inline-flex items-center rounded-full px-1.5 py-0.5 text-[13px] font-medium border border-blue-200 bg-white/70 text-blue-700";
+                const createdLineClass = isDone
+                  ? "mt-1 text-[13px] text-white/90 break-all line-through decoration-white/60"
+                  : "mt-1 text-[13px] text-blue-700 break-all";
+                const createdValueClass = isDone
+                  ? "font-medium text-white break-all"
+                  : "font-medium text-blue-900 break-all";
                 return (
                   <div key={t.id} className="relative">
                     {/* Card 1: Primary_name + Data e Hora de criação */}
                     <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-medium text-gray-900">{t.applicant_name || "—"}</span>
+                      <div className="flex items-center justify-between mb-3 gap-3">
+                        <span className="flex-1 font-medium text-gray-900 break-words leading-snug">{t.applicant_name || "—"}</span>
                         {createdLabel && (
-                          <span className="text-sm text-gray-500">{createdLabel}</span>
+                          <span className="text-sm text-gray-500 text-right break-words">{createdLabel}</span>
                         )}
                       </div>
                       
                       {/* Card 2: Checkbox (dentro do Card 1) */}
                       <a
                         href={cardHref}
-                        className="group block rounded-md border border-gray-100 bg-gray-50 px-3 py-2 transition-all duration-200 hover:bg-gray-100"
+                        className={`group block rounded-md border px-3 py-2 transition-all duration-200 ${cardToneClass}`}
                       >
                         <div className="flex items-start gap-2">
                           <div className="flex-shrink-0 mt-0.5" onClick={(e) => e.stopPropagation()}>
-                            <label className="relative -m-1 block cursor-pointer rounded-md p-1.5 transition-colors duration-200 hover:bg-white">
+                            <label className={`relative -m-1 block cursor-pointer rounded-md p-1.5 transition-colors duration-200 ${checkboxHoverClass}`}>
                               <input
                                 type="checkbox"
                                 checked={isDone}
                                 onChange={(e) => toggle(t.id, e.target.checked)}
                                 className="sr-only"
                               />
-                              <div className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-all duration-200 ${
-                                isDone 
-                                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)]' 
-                                  : 'border-gray-300 bg-white hover:border-gray-400'
-                              }`}>
+                              <div className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-all duration-200 ${checkboxFrameClass}`}>
                                 {isDone && (
                                   <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -190,30 +210,26 @@ export default function MinhasTarefasPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
-                              <p className={`flex-1 text-[15px] font-medium ${isDone ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                              <p className={`flex-1 text-[15px] font-medium ${descriptionClass}`}>
                                 Descrição: {t.description}
                               </p>
-                              <div className="flex flex-col items-end gap-1 text-[13px]">
+                              <div className={metaColumnClass}>
                                 {deadlineLabel && (
                                   <div className="text-right">
-                                    <div className="text-gray-500">Prazo</div>
-                                    <div className={`font-medium ${isOverdue ? "text-red-600" : "text-gray-700"}`}>
+                                    <div className={metaLabelClass}>Prazo</div>
+                                    <div className={`font-medium ${metaValueClass}`}>
                                       {deadlineLabel}
                                     </div>
                                   </div>
                                 )}
-                                <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[13px] font-medium ${
-                                  isDone 
-                                    ? 'bg-green-100 text-green-700' 
-                                    : 'bg-blue-100 text-blue-700'
-                                }`}>
+                                <span className={chipClass}>
                                   {isDone ? "Concluída" : "Pendente"}
                                 </span>
                               </div>
                             </div>
-                            <div className="mt-1 text-[13px] text-gray-500">
+                            <div className={createdLineClass}>
                               <span>Criado por: </span>
-                              <span className="font-medium text-gray-700">{creatorLabel}</span>
+                              <span className={createdValueClass}>{creatorLabel}</span>
                             </div>
                           </div>
                         </div>
