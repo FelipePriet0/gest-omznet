@@ -1771,8 +1771,27 @@ textarea[placeholder="Analisar"]::placeholder {
 }
 /* App background wrapper */
 .route-bg {
-  background-color: var(--color-primary);
+  background-color: #000000;
 }
+
+/* Mini-dashboard headers and drawers: brand primary */
+.bg-\[\#000000\] {
+  background-color: #000000 !important;
+  border-color: #000000 !important;
+}
+
+/* Drawer top bar inside aside.group/panel */
+.group\/panel > div:first-child {
+  background-color: #000000 !important;
+  border-color: #000000 !important;
+}
+.group\/panel > div:first-child .text-h4,
+.group\/panel > div:first-child span,
+.group\/panel > div:first-child button,
+.group\/panel > div:first-child svg {
+  color: #ffffff !important;
+}
+
 
 /* DayPicker overrides */
 .rdp {

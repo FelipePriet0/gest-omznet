@@ -91,7 +91,7 @@ export const DesktopSidebar = ({
       className={cn(
         "h-screen py-4 hidden md:flex md:flex-col w-[300px] flex-shrink-0 fixed left-0 top-0 overflow-x-hidden",
         open ? "px-4" : "px-2",
-        "bg-[var(--color-primary)] text-white",
+        "bg-black text-white",
         className
       )}
       animate={{
@@ -115,7 +115,7 @@ export const MobileSidebar = ({
       <div
         className={cn(
           "h-10 px-4 py-4 flex flex-row md:hidden items-center justify-between w-full border-b",
-          "bg-[var(--color-primary)] text-white border-white/20"
+          "bg-black text-white border-white/20"
         )}
         {...props}
       >
@@ -137,7 +137,7 @@ export const MobileSidebar = ({
               }}
               className={cn(
                 "fixed h-full w-full inset-0 p-10 z-[100] flex flex-col justify-between",
-                "bg-[var(--color-primary)] text-white",
+                "bg-black text-white",
                 className
               )}
             >

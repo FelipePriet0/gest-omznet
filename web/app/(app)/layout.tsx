@@ -189,7 +189,7 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
     <RouteBg>
       <SidebarProvider open={open} setOpen={setOpen}>
         <InboxProvider panelOpen={isInboxPanel}>
-          <div className="text-zinc-900 min-h-screen" style={{ backgroundColor: 'var(--color-primary)' }}>
+          <div className="text-zinc-900 min-h-screen" style={{ backgroundColor: '#000000' }}>
             <Sidebar open={open} setOpen={setOpen}>
               <AppSidebar />
             </Sidebar>
@@ -200,6 +200,7 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
                 paddingTop: pageGutter,
                 paddingRight: pageGutter,
                 paddingBottom: pageGutter,
+                backgroundColor: '#000000',
               }}
             >
               <main
