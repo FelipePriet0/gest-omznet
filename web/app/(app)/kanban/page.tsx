@@ -107,7 +107,7 @@ export default function KanbanPage() {
 
   return (
     <>
-      <div className="relative">
+      <div id="kanban-page-root" className="relative">
         <div className="absolute top-0 left-0 z-10">
           <FilterCTA area="comercial" onFiltersChange={handleFiltersChange} />
         </div>
@@ -142,30 +142,30 @@ export default function KanbanPage() {
             />
           </div>
         </div>
+
+        {/* Modals de Cadastro — escopados ao Kanban */}
+        <PersonTypeModal
+          open={openPersonType}
+          onClose={() => setOpenPersonType(false)}
+          onSelect={(tipo) => {
+            setTipoSel(tipo);
+            setOpenPersonType(false);
+            setOpenBasicInfo(true);
+          }}
+        />
+        <BasicInfoModal
+          open={openBasicInfo}
+          tipo={tipoSel}
+          onBack={() => {
+            setOpenBasicInfo(false);
+            setOpenPersonType(true);
+          }}
+          onClose={() => {
+            setOpenBasicInfo(false);
+            setTipoSel(null);
+          }}
+        />
       </div>
-      
-      {/* Modals de Cadastro */}
-      <PersonTypeModal
-        open={openPersonType}
-        onClose={() => setOpenPersonType(false)}
-        onSelect={(tipo) => {
-          setTipoSel(tipo);
-          setOpenPersonType(false);
-          setOpenBasicInfo(true);
-        }}
-      />
-      <BasicInfoModal
-        open={openBasicInfo}
-        tipo={tipoSel}
-        onBack={() => {
-          setOpenBasicInfo(false);
-          setOpenPersonType(true);
-        }}
-        onClose={() => {
-          setOpenBasicInfo(false);
-          setTipoSel(null);
-        }}
-      />
     </>
   );
 }

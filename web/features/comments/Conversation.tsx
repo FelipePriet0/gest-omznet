@@ -253,8 +253,8 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
             )}
             {mentionOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
-              <MentionDropdown
-                items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
+                <MentionDropdown
+                items={profiles.filter((p) => p.id !== currentUserId && p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
                 onPick={(p) => {
                   inputRef.current?.insertMention({ id: p.id, label: p.full_name });
                   setMentionOpen(false);
@@ -532,7 +532,9 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          <CommentMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }} />
+          {currentUserId && node.author_id === currentUserId ? (
+            <CommentMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }} />
+          ) : null}
         </div>
       </div>
       {!isEditing ? (
@@ -560,7 +562,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
             {editMentionOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <MentionDropdown
-                  items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                  items={(profiles || []).filter((p)=> p.id !== currentUserId && (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
                   onPick={(p)=>{
                   editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                     setEditMentionOpen(false);
@@ -653,7 +655,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
             {mentionOpen2 && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
               <MentionDropdown
-                items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter2.toLowerCase()))}
+                items={profiles.filter((p) => p.id !== currentUserId && p.full_name.toLowerCase().includes(mentionFilter2.toLowerCase()))}
                 onPick={(p) => {
                   replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                   setMentionOpen2(false);
@@ -691,6 +693,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               onToggleTask={onToggleTask}
               profiles={profiles}
               currentUserName={currentUserName}
+              currentUserId={currentUserId}
               onEditTask={onEditTask}
               onSubmitComment={onSubmitComment}
               onPreview={onPreview}

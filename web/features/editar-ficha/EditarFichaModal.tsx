@@ -82,7 +82,6 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   const [createdAt, setCreatedAt] = useState<string>("");
   const [pareceres, setPareceres] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
-  const [leftOffset, setLeftOffset] = useState(0);
 
   // Update sidebar width on changes
   useEffect(() => {
@@ -99,19 +98,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const updateLeft = () => {
-      try {
-        const el = document.getElementById('kanban-page-root');
-        const left = el ? Math.max(0, Math.round(el.getBoundingClientRect().left)) : 0;
-        setLeftOffset(left);
-      } catch { setLeftOffset(0); }
-    };
-    updateLeft();
-    window.addEventListener('resize', updateLeft);
-    return () => window.removeEventListener('resize', updateLeft);
-  }, [open, sidebarOpen]);
+  // Backdrop deve cobrir a viewport inteira no modal de ficha
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
   const [createdBy, setCreatedBy] = useState<string>("");
@@ -129,6 +116,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const timer = useRef<NodeJS.Timeout | null>(null);
   const pendingApp = useRef<Partial<AppModel>>({});
@@ -225,6 +213,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
         const { data } = await supabase.auth.getUser();
         const uid = data.user?.id;
         if (!uid) return;
+        setCurrentUserId(uid);
         const me = profiles.find((p) => p.id === uid);
         const role = (me?.role || null) as string | null;
         setCurrentUserRole(role);
@@ -492,17 +481,9 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   return (
     <Fragment>
       {/* Backdrop: abaixo do Drawer/Sidebar (z-40) e acima do Kanban */}
-      <div
-        className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm"
-        style={{ left: leftOffset }}
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm" onClick={onClose} />
       {/* Conteúdo do modal: acima do Drawer/Sidebar (z-70) */}
-      <div
-        className="fixed inset-0 z-[70] flex items-start justify-center overflow-hidden pt-8 pb-6 sm:pt-12 sm:pb-8"
-        style={{ left: leftOffset }}
-        onClick={onClose}
-      >
+      <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-hidden pt-8 pb-6 sm:pt-12 sm:pb-8" onClick={onClose}>
       <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] bg-[var(--neutro)] shadow-2xl flex flex-col overflow-hidden" style={{ borderRadius: '28px' }} onClick={(e)=> e.stopPropagation()}>
         {/* Header completo ocupando toda a largura */}
         <div className="header-editar-ficha flex-shrink-0">
@@ -677,7 +658,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                   {mentionOpenParecer && (
                     <div className="absolute z-50 left-0 bottom-full mb-2">
                       <MentionDropdownParecer
-                        items={profiles.filter((p)=> p.full_name.toLowerCase().includes(mentionFilterParecer.toLowerCase()))}
+                        items={profiles.filter((p)=> p.full_name.toLowerCase().includes(mentionFilterParecer.toLowerCase()) && p.id !== currentUserId)}
                         onPick={(p)=> {
                       composerRef.current?.insertMention({ id: p.id, label: p.full_name });
                           setMentionOpenParecer(false);
@@ -714,6 +695,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                   profiles={profiles}
                   tasks={tasks}
                   applicantName={app?.primary_name ?? null}
+                  currentUserId={currentUserId}
                   onReply={async (pid, value) => {
                     const text = (value.text || '').trim();
                     const hasDecision = !!value.decision;
@@ -948,7 +930,7 @@ function DecisionTag({ decision }: { decision?: string | null }) {
   return <span className={clsx('decision-chip', meta.className)}>{meta.label}</span>;
 }
 
-type Note = { id: string; text: string; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean; decision?: ComposerDecision | string | null };
+type Note = { id: string; text: string; author_id?: string | null; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean; decision?: ComposerDecision | string | null };
 function buildTree(notes: Note[]): Note[] {
   const byId = new Map<string, any>();
   const normalizeText = (note: any) => {
@@ -981,6 +963,7 @@ function PareceresList({
   onDecisionChange,
   onOpenTask,
   onToggleTask,
+  currentUserId,
 }: {
   cardId: string;
   notes: Note[];
@@ -993,6 +976,7 @@ function PareceresList({
   onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
   onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
   onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
+  currentUserId?: string | null;
 }) {
   const tree = useMemo(()=> buildTree(notes||[]), [notes]);
   return (
@@ -1013,6 +997,7 @@ function PareceresList({
           onOpenTask={onOpenTask}
           onToggleTask={onToggleTask}
           applicantName={applicantName}
+          currentUserId={currentUserId}
         />
       ))}
     </div>
@@ -1032,6 +1017,7 @@ function NoteItem({
   onDecisionChange,
   onOpenTask,
   onToggleTask,
+  currentUserId,
 }: {
   cardId: string;
   node: any;
@@ -1045,6 +1031,7 @@ function NoteItem({
   onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
   onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
   onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
+  currentUserId?: string | null;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
@@ -1148,6 +1135,7 @@ function NoteItem({
               <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
+          {currentUserId && node.author_id && node.author_id === currentUserId ? (
           <ParecerMenu
             onEdit={()=>{
               const initial: ComposerValue = { decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || '', mentions: [] };
@@ -1160,6 +1148,7 @@ function NoteItem({
             }}
             onDelete={async ()=> { if (confirm('Excluir este parecer?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir parecer'); } } }}
           />
+          ) : null}
         </div>
       </div>
       {!isEditing ? (
@@ -1214,7 +1203,7 @@ function NoteItem({
             {editMentionOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <MentionDropdownParecer
-                  items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                  items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()) && p.id !== currentUserId)}
                   onPick={(p)=>{
                     editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                     setEditMentionOpen(false);
@@ -1320,7 +1309,7 @@ function NoteItem({
             {mentionOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <MentionDropdownParecer
-                  items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(mentionFilter.toLowerCase()))}
+                  items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(mentionFilter.toLowerCase()) && p.id !== currentUserId)}
                   onPick={(p)=> {
                     replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                     setMentionOpen(false);

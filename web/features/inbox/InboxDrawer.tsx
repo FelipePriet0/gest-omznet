@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { listInbox, markRead, type InboxItem } from "@/features/inbox/services";
+import { listInbox, markRead, type InboxItem, type NotificationType } from "@/features/inbox/services";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -45,8 +45,11 @@ function useInboxController(panelOpen: boolean) {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [uid, setUid] = useState<string | null>(null);
   const mountedRef = useRef(true);
-
-  const unread = useMemo(() => items.filter((i) => !i.read_at).length, [items]);
+  const HIDDEN_TYPES: NotificationType[] = ['ass_app', 'fichas_atrasadas'];
+  const unread = useMemo(
+    () => items.filter((i) => !i.read_at && !HIDDEN_TYPES.includes(i.type as NotificationType)).length,
+    [items]
+  );
 
   useEffect(() => {
     return () => {
@@ -193,6 +196,7 @@ const inboxFilterLabels: Record<InboxFilterOption, string> = {
 export function InboxPanel() {
   const { items, refresh } = useInbox();
   const [filterType, setFilterType] = useState<InboxFilterOption | null>(null);
+  const HIDDEN_TYPES: NotificationType[] = ['ass_app', 'fichas_atrasadas'];
 
   const metrics = [
     {
@@ -216,12 +220,31 @@ export function InboxPanel() {
   ];
 
   const filteredItems = useMemo(() => {
-    if (!filterType) return items;
-    const needle = inboxFilterLabels[filterType].toLowerCase();
-    return items.filter((item) => {
-      const haystack = `${item.title ?? ""} ${item.body ?? ""}`.toLowerCase();
-      return haystack.includes(needle);
-    });
+    const base = items.filter((it) => !HIDDEN_TYPES.includes(it.type as NotificationType));
+    if (!filterType) return base;
+    const byType = (item: InboxItem, types: NotificationType[]) => types.includes(item.type as NotificationType);
+    if (filterType === 'mentions') {
+      return base.filter((item) =>
+        byType(item, ['mention']) || /menç(ão|ões)/i.test(`${item.title || ''} ${item.body || ''}`)
+      );
+    }
+    if (filterType === 'parecer') {
+      return base.filter((item) =>
+        byType(item, ['parecer_reply']) ||
+        (String(item.type) === 'comment' && (
+          item.meta?.is_parecer_reply || /parecer/i.test(`${item.title || ''} ${item.body || ''}`)
+        ))
+      );
+    }
+    if (filterType === 'comentarios') {
+      return base.filter((item) =>
+        byType(item, ['comment_reply']) ||
+        (String(item.type) === 'comment' && (
+          item.meta?.is_comment_reply || /comentár/i.test(`${item.title || ''} ${item.body || ''}`)
+        ))
+      );
+    }
+    return base;
   }, [items, filterType]);
 
   const handleDismiss = useCallback(
@@ -400,6 +423,7 @@ function NotificationCard({ item, active, dragging }: { item: InboxItem; active:
   const icon = getNotificationSymbol(item);
   const isRead = !!item.read_at;
   const notificationData = getNotificationData(item);
+  const preview = buildPreviewText(item, notificationData.sample);
 
   return (
     <Card
@@ -437,7 +461,7 @@ function NotificationCard({ item, active, dragging }: { item: InboxItem; active:
         )}
       >
         <div className={cn("break-words leading-relaxed", isRead ? "text-white" : "text-blue-900")}>
-          {item.content || item.body || notificationData.sample || "Nova notificação"}
+          {preview}
         </div>
       </div>
 
@@ -451,9 +475,10 @@ function NotificationCard({ item, active, dragging }: { item: InboxItem; active:
 }
 
 function getNotificationSymbol(item: InboxItem) {
-  if (item.type === "comment") return "💬";
-  if (item.type === "card") return "🔥";
-  return "🔔";
+  if (item.type === 'mention' || item.type === 'parecer_reply' || item.type === 'comment_reply' || item.type === 'comment') return '💬';
+  if (item.type === 'ass_app') return '📱';
+  if (item.type === 'fichas_atrasadas') return '⏰';
+  return '🔔';
 }
 
 function normalizeName(value: unknown) {
@@ -480,21 +505,20 @@ function getNotificationData(item: InboxItem) {
   const sample = meta.sample || meta.content_preview || "";
 
   // Determinar o tipo de notificação baseado no tipo e contexto
-  let subtitle = "";
-  
-  if (item.type === "comment") {
-    // Verificar se é resposta a parecer ou comentário
-    if (meta.is_parecer_reply || item.title?.includes("parecer")) {
-      subtitle = `Respondeu seu parecer - ${subtitleTarget}`;
-    } else if (meta.is_comment_reply || item.title?.includes("comentário")) {
-      subtitle = `Respondeu seu comentário - ${subtitleTarget}`;
-    } else {
-      subtitle = `Mencionou você em - ${subtitleTarget}`;
-    }
-  } else if (item.type === "card") {
-    subtitle = `Nova ficha disponível - ${subtitleTarget}`;
+  let subtitle = '';
+
+  if (item.type === 'mention') {
+    subtitle = `Mencionou você em – ${subtitleTarget}`;
+  } else if (item.type === 'parecer_reply' || (String(item.type) === 'comment' && (meta.is_parecer_reply || item.title?.includes('parecer')))) {
+    subtitle = `Respondeu seu parecer – ${subtitleTarget}`;
+  } else if (item.type === 'comment_reply' || (String(item.type) === 'comment' && (meta.is_comment_reply || item.title?.includes('comentário')))) {
+    subtitle = `Respondeu seu comentário – ${subtitleTarget}`;
+  } else if (item.type === 'ass_app') {
+    subtitle = `Ass App – ${subtitleTarget}`;
+  } else if (item.type === 'fichas_atrasadas') {
+    subtitle = primaryName ? `Fichas atrasadas – ${subtitleTarget}` : 'Fichas atrasadas';
   } else {
-    subtitle = item.title || "Nova notificação";
+    subtitle = item.title || 'Nova notificação';
   }
 
   return {
@@ -503,6 +527,13 @@ function getNotificationData(item: InboxItem) {
     sample: sample ? sample.substring(0, 150) + (sample.length > 150 ? "..." : "") : null,
     primaryName: subtitleTarget,
   };
+}
+
+function buildPreviewText(item: InboxItem, fallbackSample?: string | null): string {
+  const raw = (item.content || item.body || fallbackSample || 'Nova notificação') as string;
+  const max = 180;
+  const clean = String(raw);
+  return clean.length > max ? clean.slice(0, max) + '...' : clean;
 }
 
 function DashboardCard({ title, value, icon }: { title: string; value?: number | null; icon?: ReactNode }) {
@@ -520,4 +551,3 @@ function DashboardCard({ title, value, icon }: { title: string; value?: number |
     </div>
   );
 }
-

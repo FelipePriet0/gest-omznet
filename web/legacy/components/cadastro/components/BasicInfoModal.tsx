@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, Fragment } from "react";
 import Image from "next/image";
 import { BasicInfoPF, BasicInfoPJ, PessoaTipo } from "@/features/cadastro/types";
 import { criarFichaPF, criarFichaPJ, checkDuplicidadeQuery } from "@/features/cadastro/services";
@@ -16,6 +16,20 @@ export function BasicInfoModal({
   onBack: () => void;
   onClose: () => void;
 }) {
+  const [leftOffset, setLeftOffset] = useState(0);
+  useEffect(() => {
+    if (!open) return;
+    const updateLeft = () => {
+      try {
+        const el = document.getElementById('kanban-page-root');
+        const left = el ? Math.max(0, Math.round(el.getBoundingClientRect().left)) : 0;
+        setLeftOffset(left);
+      } catch { setLeftOffset(0); }
+    };
+    updateLeft();
+    window.addEventListener('resize', updateLeft);
+    return () => window.removeEventListener('resize', updateLeft);
+  }, [open]);
   function digitsOnly(s: string) {
     return (s || "").replace(/\D+/g, "");
   }
@@ -126,9 +140,10 @@ export function BasicInfoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-[92vw] max-w-[760px] overflow-hidden rounded-2xl bg-neutral-50 shadow-xl">
+    <Fragment>
+      <div className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm" style={{ left: leftOffset }} onClick={onClose} />
+      <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ left: leftOffset }} onClick={onClose}>
+      <div className="relative w-[92vw] max-w-[760px] overflow-hidden rounded-2xl bg-neutral-50 shadow-xl" onClick={(e)=> e.stopPropagation()}>
         <div className="rounded-t-2xl bg-emerald-700 px-6 py-4 text-white">
           <div className="flex items-center gap-3">
             <Image src="/brand/mznet.png" alt="MZNET" width={72} height={24} priority />
@@ -250,7 +265,8 @@ export function BasicInfoModal({
         </div>
         </div>
       </div>
-    </div>
+      </div>
+    </Fragment>
   );
 }
 

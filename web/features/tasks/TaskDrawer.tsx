@@ -296,7 +296,7 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
   const disabled = saving;
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-[90]">
       <div className="absolute inset-0 bg-black/30" onClick={() => !disabled && onClose()} />
       <div className="relative mx-auto my-6 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-zinc-200 bg-[var(--color-neutral)] shadow-2xl">
         <header className="bg-emerald-600 px-4 py-4 text-white">

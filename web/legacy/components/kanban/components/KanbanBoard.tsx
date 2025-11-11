@@ -12,8 +12,8 @@ import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
 
 const columnConfig = [
   { key: "entrada", title: "Entrada", color: "blue", icon: "🔵" },
-  { key: "feitas", title: "Feitas", color: "green", icon: "🟢" },
-  { key: "aguardando", title: "Aguardando", color: "amber", icon: "🟡" },
+  { key: "feitas", title: "Feitas / Cadastrar no MK", color: "green", icon: "🟢" },
+  { key: "aguardando", title: "Aguardando documentos", color: "amber", icon: "🟡" },
   { key: "canceladas", title: "Canceladas", color: "red", icon: "🔴" },
   { key: "concluidas", title: "Concluídas", color: "purple", icon: "🟣" },
 ];
