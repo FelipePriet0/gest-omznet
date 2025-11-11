@@ -5,22 +5,48 @@ import { KanbanCard } from "@/features/kanban/types";
 import { startOfDayUtcISO, endOfDayUtcISO } from "@/lib/datetime";
 
 export async function changeStage(cardId: string, area: 'comercial' | 'analise', stage: string, reason?: string) {
-  const { data, error } = await supabase.rpc('change_stage', { p_card_id: cardId, p_area: area, p_stage: stage, p_reason: reason ?? null });
-  if (error) throw error;
-  if (area === 'analise') {
-    try {
-      if (stage === 'aprovados') {
-        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'aprovado' });
-      } else if (stage === 'negados') {
-        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'negado' });
-      } else if (stage === 'reanalise') {
-        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'reanalise' });
+  // 1) Tenta via RPC centralizado
+  const rpc = await supabase.rpc('change_stage', { p_card_id: cardId, p_area: area, p_stage: stage, p_reason: reason ?? null });
+  if (!rpc.error) {
+    // Atualiza decisão quando for pipeline de análise
+    if (area === 'analise') {
+      try {
+        if (stage === 'aprovados') {
+          await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'aprovado' });
+        } else if (stage === 'negados') {
+          await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'negado' });
+        } else if (stage === 'reanalise') {
+          await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'reanalise' });
+        } else if (stage === 'em_analise' || stage === 'recebidos') {
+          await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: null });
+        }
+      } catch (err) {
+        console.warn('set_card_decision failed', err);
       }
-    } catch (err) {
-      console.warn('set_card_decision failed', err);
     }
+    return rpc.data;
   }
-  return data;
+
+  // 2) Fallback: atualiza diretamente a tabela (caso RPC tenha sido removido com triggers)
+  const patch: any = { stage, area };
+  // Opcional: manter motivo localmente se houver coluna específica (ignorado se não existir)
+  try {
+    const { data, error } = await supabase.from('kanban_cards').update(patch).eq('id', cardId).select('id').single();
+    if (error) throw error;
+    // Também tenta sincronizar decisão quando área analise
+    if (area === 'analise') {
+      try {
+        if (stage === 'aprovados') await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'aprovado' });
+        else if (stage === 'negados') await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'negado' });
+        else if (stage === 'reanalise') await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'reanalise' });
+        else await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: null });
+      } catch {}
+    }
+    return data;
+  } catch (e) {
+    // Retorna o erro original do RPC se existir, senão o fallback
+    throw rpc.error || e;
+  }
 }
 
 export async function listCards(

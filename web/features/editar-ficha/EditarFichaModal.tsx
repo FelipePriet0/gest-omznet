@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback, Fragment } from "react";
 import Image from "next/image";
 import clsx from "clsx";
 import { User as UserIcon, MoreHorizontal, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, Search } from "lucide-react";
@@ -9,6 +9,7 @@ import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import { TaskCard } from "@/features/tasks/TaskCard";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
+import { changeStage } from "@/features/kanban/services";
 import {
   ATTACHMENT_ALLOWED_TYPES,
   ATTACHMENT_MAX_SIZE,
@@ -81,7 +82,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   const [createdAt, setCreatedAt] = useState<string>("");
   const [pareceres, setPareceres] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
-  const [sidebarWidth, setSidebarWidth] = useState(0);
+  const [leftOffset, setLeftOffset] = useState(0);
 
   // Update sidebar width on changes
   useEffect(() => {
@@ -99,15 +100,18 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   }, [open]);
 
   useEffect(() => {
-    const updateWidth = () => {
-      const isDesktop = window.innerWidth >= 768;
-      setSidebarWidth(isDesktop ? (sidebarOpen ? 300 : 60) : 0);
+    if (!open) return;
+    const updateLeft = () => {
+      try {
+        const el = document.getElementById('kanban-page-root');
+        const left = el ? Math.max(0, Math.round(el.getBoundingClientRect().left)) : 0;
+        setLeftOffset(left);
+      } catch { setLeftOffset(0); }
     };
-    
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, [sidebarOpen]);
+    updateLeft();
+    window.addEventListener('resize', updateLeft);
+    return () => window.removeEventListener('resize', updateLeft);
+  }, [open, sidebarOpen]);
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
   const [createdBy, setCreatedBy] = useState<string>("");
@@ -260,7 +264,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
       } else {
         await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: decision });
       }
-      // Após alterar decisão, peça atualização do Kanban (quando modal estiver embutido no board)
+      // Fallback: se triggers foram removidas, mova o card explicitamente no Kanban de Análise
+      try {
+        if (decision === 'aprovado') await changeStage(cardId, 'analise', 'aprovados');
+        else if (decision === 'negado') await changeStage(cardId, 'analise', 'negados');
+        else if (decision === 'reanalise') await changeStage(cardId, 'analise', 'reanalise');
+      } catch {}
+      // Atualiza o board
       try { onStageChange?.(); } catch {}
     } catch (err) {
       console.error('set_card_decision failed', err);
@@ -480,12 +490,20 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   if (!open) return null;
   
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden pt-8 pb-6 sm:pt-12 sm:pb-8"
-      style={{ left: sidebarWidth }}
-    >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] bg-[var(--neutro)] shadow-2xl flex flex-col overflow-hidden" style={{ borderRadius: '28px' }}>
+    <Fragment>
+      {/* Backdrop: abaixo do Drawer/Sidebar (z-40) e acima do Kanban */}
+      <div
+        className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm"
+        style={{ left: leftOffset }}
+        onClick={onClose}
+      />
+      {/* Conteúdo do modal: acima do Drawer/Sidebar (z-70) */}
+      <div
+        className="fixed inset-0 z-[70] flex items-start justify-center overflow-hidden pt-8 pb-6 sm:pt-12 sm:pb-8"
+        style={{ left: leftOffset }}
+        onClick={onClose}
+      >
+      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] bg-[var(--neutro)] shadow-2xl flex flex-col overflow-hidden" style={{ borderRadius: '28px' }} onClick={(e)=> e.stopPropagation()}>
         {/* Header completo ocupando toda a largura */}
         <div className="header-editar-ficha flex-shrink-0">
           <div className="header-content">
@@ -754,6 +772,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
 
         </div>
       </div>
+      </div>
       {/* Drawers/Modais auxiliares */}
       <TaskDrawer
         open={taskOpen.open}
@@ -774,7 +793,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
         onChange={handleAttachmentInputChange}
         accept={ATTACHMENT_ALLOWED_TYPES.join(",")}
       />
-    </div>
+    </Fragment>
   );
 }
 
