@@ -492,11 +492,13 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const hasTasks = tasks.length > 0;
   const authorDisplayName = (node.author_name || "").trim() || "Um colaborador";
   const isAutoTaskComment = hasTasks && AUTO_TASK_COMMENT_RE.test(trimmedText);
+  const assigneeId = (tasks.find((t) => t.assigned_to)?.assigned_to as string | undefined) || null;
+  const assigneeName = assigneeId ? (profiles.find((p) => p.id === assigneeId)?.full_name || "um colaborador") : "um colaborador";
   const displayText =
     trimmedText.length === 0
       ? ""
       : isAutoTaskComment
-      ? `${authorDisplayName} criou uma tarefa para você.`
+      ? `${authorDisplayName} criou uma tarefa para "${assigneeName}".`
       : node.text || "";
   function openReply() {
     openReplyMap.set(node.id, true);
