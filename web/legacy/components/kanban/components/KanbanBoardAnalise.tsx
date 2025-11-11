@@ -254,6 +254,7 @@ export function KanbanBoardAnalise({
         }}
         cardId={edit?.cardId || ''}
         applicantId={edit?.applicantId || ''}
+        onStageChange={reload}
       />
     </div>
   );

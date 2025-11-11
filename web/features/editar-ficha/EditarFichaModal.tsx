@@ -70,7 +70,7 @@ const SVA_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
 
 const VENC_OPTIONS = ["5","10","15","20","25"] as const;
 
-export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open: boolean; onClose: () => void; cardId: string; applicantId: string; }) {
+export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageChange }: { open: boolean; onClose: () => void; cardId: string; applicantId: string; onStageChange?: () => void; }) {
   const { open: sidebarOpen } = useSidebar();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"idle"|"saving"|"saved"|"error">("idle");
@@ -260,6 +260,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
       } else {
         await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: decision });
       }
+      // Após alterar decisão, peça atualização do Kanban (quando modal estiver embutido no board)
+      try { onStageChange?.(); } catch {}
     } catch (err) {
       console.error('set_card_decision failed', err);
     }
