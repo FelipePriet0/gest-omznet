@@ -1,6 +1,10 @@
 import { Fragment } from "react";
 
-const MENTION_REGEX = /@([^\s@]+)/g;
+// Menções no conteúdo salvo (sem metadados):
+// - Suporta nome com 2 partes (ex.: @Felipe Prieto ou @Felipe\u00A0Prieto)
+// - Suporta preposições comuns: da/de/do/das/dos (ex.: @José da Silva)
+// Evita engolir texto digitado depois limitando a até 2 partes significativas
+const MENTION_REGEX = /@([^\s@]+(?:[ \u00A0](?:da|de|do|das|dos))?(?:[ \u00A0][^\s@]+))/g;
 
 export function renderTextWithChips(text?: string | null) {
   if (!text) return null;
@@ -13,12 +17,13 @@ export function renderTextWithChips(text?: string | null) {
       if (match.index > lastIndex) {
         nodes.push(line.slice(lastIndex, match.index));
       }
+      const label = match[1]?.replace(/\u00A0/g, " ") || "";
       nodes.push(
         <span
           key={`mention-${lineIdx}-${match.index}`}
           className="mention-chip mention-chip-inline"
         >
-          @{match[1]}
+          @{label}
         </span>
       );
       lastIndex = match.index + match[0].length;

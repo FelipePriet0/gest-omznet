@@ -124,6 +124,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [tasks, setTasks] = useState<CardTask[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   const timer = useRef<NodeJS.Timeout | null>(null);
   const pendingApp = useRef<Partial<AppModel>>({});
@@ -211,6 +212,24 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
       supabase.removeChannel(channel);
     };
   }, [cardId, refreshTasks]);
+
+  // Para usuários com role 'vendedor', focar o compositor de Parecer ao abrir (KISS: comportamento simples e útil)
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const uid = data.user?.id;
+        if (!uid) return;
+        const me = profiles.find((p) => p.id === uid);
+        const role = (me?.role || null) as string | null;
+        setCurrentUserRole(role);
+        if (role === 'vendedor') {
+          requestAnimationFrame(() => composerRef.current?.focus());
+        }
+      } catch {}
+    })();
+  }, [open, profiles]);
 
   const handleTaskToggle = useCallback(async (taskId: string, done: boolean) => {
     // Otimista: atualiza lista local imediatamente para uma UX fluida

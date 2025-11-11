@@ -70,10 +70,13 @@ function cloneMentions(mentions?: ComposerMention[] | null): ComposerMention[] {
 function extractMentionsFromText(text?: string | null): ComposerMention[] {
   if (!text) return [];
   const matches: ComposerMention[] = [];
-  const regex = /@([^\s@]+)/g;
+  // Apenas NBSP (\u00A0) dentro do nome da menção para evitar capturar texto seguinte
+  // Ex.: @Felipe\u00A0Prieto texto comum → captura só "Felipe\u00A0Prieto"
+  const regex = /@([^\s@]+(?:\u00A0[^\s@]+)*)/g;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
-    matches.push({ label: match[1] });
+    const label = match[1].replace(/\u00A0/g, " ");
+    matches.push({ label });
   }
   return matches;
 }
@@ -112,18 +115,31 @@ function renderTextWithMentions(text: string, mentions?: ComposerMention[]): str
   let html = "";
   let cursor = 0;
   list.forEach((mention) => {
-    const token = `@${mention.label}`;
-    const index = safeText.indexOf(token, cursor);
-    if (index === -1) {
-      return;
+    const label = mention.label || "";
+    const tokenNbsp = `@${label.replace(/ /g, "\u00A0")}`;
+    const tokenSpace = `@${label}`;
+    const idxNbsp = safeText.indexOf(tokenNbsp, cursor);
+    const idxSpace = safeText.indexOf(tokenSpace, cursor);
+    let index = -1;
+    let token = tokenNbsp;
+    if (idxNbsp >= 0 && idxSpace >= 0) {
+      index = Math.min(idxNbsp, idxSpace);
+      token = index === idxNbsp ? tokenNbsp : tokenSpace;
+    } else if (idxNbsp >= 0) {
+      index = idxNbsp;
+      token = tokenNbsp;
+    } else if (idxSpace >= 0) {
+      index = idxSpace;
+      token = tokenSpace;
     }
+    if (index === -1) return;
     const before = safeText.slice(cursor, index);
     if (before.length > 0) {
       html += escapeHTML(before).replace(/\n/g, "<br/>");
     }
-    const labelAttr = escapeHTML(mention.label);
+    const labelAttr = escapeHTML(label);
     const idAttr = mention.id ? ` data-id="${escapeHTML(mention.id)}"` : "";
-    html += `<span class="mention-chip" contenteditable="false" data-role="mention-chip" data-label="${labelAttr}"${idAttr}>@${labelAttr}</span>`;
+    html += `<span class=\"mention-chip\" contenteditable=\"false\" data-role=\"mention-chip\" data-label=\"${labelAttr}\"${idAttr}>@${labelAttr}</span>`;
     cursor = index + token.length;
   });
   const rest = safeText.slice(cursor);
@@ -219,7 +235,8 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
           if (!(tail.length > 0 && /^\s/.test(tail))) {
             tail = ` ${tail}`;
           }
-          const updatedText = `${before}@${mention.label}${tail}`;
+          const labelNbsp = (mention.label || '').replace(/ /g, "\u00A0");
+          const updatedText = `${before}@${labelNbsp}${tail}`;
           const nextMentions = [...cloneMentions(current.mentions), { ...mention }];
           const next: ComposerValue = {
             decision: current.decision,
@@ -306,7 +323,9 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
         const rawLabel = el.getAttribute("data-label") || el.textContent || "";
         const label = rawLabel.replace(/^@/, "");
         const idAttr = el.getAttribute("data-id");
-        const textNode = document.createTextNode(`@${label}`);
+        // Preserva nomes completos no texto com NBSP para evitar quebra do chip fora do composer
+        const safeLabel = label.replace(/ /g, "\u00A0");
+        const textNode = document.createTextNode(`@${safeLabel}`);
         el.replaceWith(textNode);
         return {
           id: idAttr || undefined,

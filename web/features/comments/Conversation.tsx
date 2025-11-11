@@ -223,7 +223,14 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                 placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
                 onChange={(val)=> setInput(val.text || "")}
                 onSubmit={async (val: ComposerValue)=>{
-                  try { await addComment(cardId, (val.text||'').trim()); setInput(""); } catch(e:any){ alert(e?.message||'Falha ao enviar comentário'); }
+                  try {
+                    await addComment(cardId, (val.text||'').trim());
+                    // Limpa o campo visualmente e o estado após envio
+                    setInput("");
+                    requestAnimationFrame(() => inputRef.current?.setValue({ decision: null, text: "", mentions: [] }));
+                  } catch(e:any){
+                    alert(e?.message||'Falha ao enviar comentário');
+                  }
                 }}
                 onCancel={()=> { setInput(""); setCmdOpen(false); setMentionOpen(false); }}
                 onMentionTrigger={(query)=> { setMentionFilter((query||'').trim()); setMentionOpen(true); }}
