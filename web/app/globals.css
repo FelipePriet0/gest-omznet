@@ -1776,8 +1776,8 @@ textarea[placeholder="Analisar"]::placeholder {
 
 /* Mini-dashboard headers and drawers: brand primary */
 .bg-\[\#000000\] {
-  background-color: #000000 !important;
-  border-color: #000000 !important;
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
 }
 
 /* Drawer top bar inside aside.group/panel */
