@@ -213,12 +213,6 @@ export function InboxPanel() {
       icon: <AtSign className="w-4 h-4 text-white" />,
       value: 0,
     },
-    {
-      key: "tarefas",
-      title: "Tarefas",
-      icon: <ClipboardList className="w-4 h-4 text-white" />,
-      value: 0,
-    },
   ];
 
   const filteredItems = useMemo(() => {
@@ -404,6 +398,8 @@ function InboxNotificationsStack({ items, onDismiss }: { items: InboxItem[]; onD
 function NotificationCard({ item, active, dragging }: { item: InboxItem; active: boolean; dragging: boolean }) {
   const when = item.created_at ? new Date(item.created_at).toLocaleString() : "";
   const icon = getNotificationSymbol(item);
+  const isRead = !!item.read_at;
+  const notificationData = getNotificationData(item);
 
   return (
     <Card
@@ -415,20 +411,37 @@ function NotificationCard({ item, active, dragging }: { item: InboxItem; active:
       data-dragging={dragging}
       data-active={active}
     >
-      <div className="flex items-start justify-between gap-3">
+      {/* Header: Autor + Data */}
+      <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
           <span className="text-xl leading-none">{icon}</span>
-          <span className="line-clamp-1 text-sm font-semibold text-zinc-900">
-            {item.title || "Notificação"}
-          </span>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-zinc-900">
+              {notificationData.authorName || "Sistema"}
+            </span>
+            <span className="text-xs text-zinc-600">
+              {notificationData.subtitle}
+            </span>
+          </div>
         </div>
         {when && <span className="text-[11px] text-zinc-500">{when}</span>}
       </div>
-      {item.body && (
-        <p className="mt-3 line-clamp-4 text-sm leading-5 text-zinc-700">
-          {item.body}
-        </p>
-      )}
+
+      {/* Card 2: Conteúdo */}
+      <div
+        className={cn(
+          "rounded-lg border px-3 py-2 text-sm transition-all duration-200",
+          isRead 
+            ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white" 
+            : "border-blue-200 bg-blue-50 text-blue-900"
+        )}
+      >
+        <div className={cn("break-words leading-relaxed", isRead ? "text-white" : "text-blue-900")}>
+          {item.content || item.body || notificationData.sample || "Nova notificação"}
+        </div>
+      </div>
+
+      {/* Footer: CTAs */}
       <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500">
         <span>Arraste para marcar como lida</span>
         {item.link_url && <span className="font-medium text-[var(--color-primary)]">Clique para abrir</span>}
@@ -438,10 +451,58 @@ function NotificationCard({ item, active, dragging }: { item: InboxItem; active:
 }
 
 function getNotificationSymbol(item: InboxItem) {
-  if (item.type === "task") return "📋";
   if (item.type === "comment") return "💬";
   if (item.type === "card") return "🔥";
   return "🔔";
+}
+
+function normalizeName(value: unknown) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : "";
+}
+
+function getNotificationData(item: InboxItem) {
+  // Extrair dados do meta se disponível
+  const meta = item.meta || {};
+  const authorName = normalizeName(meta.author_name) || normalizeName(meta.full_name) || "Sistema";
+  const candidateNames = [
+    meta.primary_name,
+    meta.applicant_name,
+    meta.card_title,
+    meta.card_name,
+    meta.applicant,
+    meta.primaryName,
+    meta.applicantPrimaryName,
+  ];
+  const primaryName = candidateNames.map(normalizeName).find(Boolean) || "";
+  const subtitleTarget = primaryName || "—";
+  const sample = meta.sample || meta.content_preview || "";
+
+  // Determinar o tipo de notificação baseado no tipo e contexto
+  let subtitle = "";
+  
+  if (item.type === "comment") {
+    // Verificar se é resposta a parecer ou comentário
+    if (meta.is_parecer_reply || item.title?.includes("parecer")) {
+      subtitle = `Respondeu seu parecer - ${subtitleTarget}`;
+    } else if (meta.is_comment_reply || item.title?.includes("comentário")) {
+      subtitle = `Respondeu seu comentário - ${subtitleTarget}`;
+    } else {
+      subtitle = `Mencionou você em - ${subtitleTarget}`;
+    }
+  } else if (item.type === "card") {
+    subtitle = `Nova ficha disponível - ${subtitleTarget}`;
+  } else {
+    subtitle = item.title || "Nova notificação";
+  }
+
+  return {
+    authorName,
+    subtitle,
+    sample: sample ? sample.substring(0, 150) + (sample.length > 150 ? "..." : "") : null,
+    primaryName: subtitleTarget,
+  };
 }
 
 function DashboardCard({ title, value, icon }: { title: string; value?: number | null; icon?: ReactNode }) {
