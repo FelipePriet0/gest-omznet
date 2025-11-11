@@ -104,6 +104,10 @@ declare
   v_body text;
   v_decision text;
 begin
+  if not public.user_has_role(array['analista','gestor']::user_role[]) then
+    raise exception 'not_allowed' using message = 'Somente analistas ou gestores podem registrar parecer.';
+  end if;
+
   if not public.can_user_manage_card(p_card_id) then
     raise exception 'not_allowed' using message = 'Você não tem permissão.';
   end if;
@@ -208,6 +212,10 @@ declare
   v_author record;
   v_decision text;
 begin
+  if not public.user_has_role(array['analista','gestor']::user_role[]) then
+    raise exception 'not_allowed' using message = 'Somente analistas ou gestores podem editar parecer.';
+  end if;
+
   if not public.can_user_manage_card(p_card_id) then
     raise exception 'not_allowed' using message = 'Sem permissão.';
   end if;
@@ -256,6 +264,57 @@ begin
 end;$$;
 
 grant execute on function public.edit_parecer(uuid, uuid, text, text) to authenticated;
+
+-- 5) Atualiza delete_parecer para considerar autor
+drop function if exists public.delete_parecer(uuid, uuid);
+create or replace function public.delete_parecer(
+  p_card_id uuid,
+  p_note_id uuid
+)
+returns public.kanban_cards
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row public.kanban_cards;
+begin
+  if not public.user_has_role(array['analista','gestor']::user_role[]) then
+    raise exception 'not_allowed' using message = 'Somente analistas ou gestores podem excluir parecer.';
+  end if;
+
+  if not public.can_user_manage_card(p_card_id) then
+    raise exception 'not_allowed' using message = 'Sem permissão.';
+  end if;
+
+  if not exists (
+    select 1
+    from public.kanban_cards kc
+    cross join jsonb_array_elements(coalesce(kc.reanalysis_notes,'[]'::jsonb)) elem
+    where kc.id = p_card_id
+      and (elem->>'id')::uuid = p_note_id
+      and (elem->>'author_id')::uuid = auth.uid()
+  ) then
+    raise exception 'not_allowed' using message = 'Apenas o autor pode excluir o parecer.';
+  end if;
+
+  update public.kanban_cards kc
+  set reanalysis_notes = (
+    select jsonb_agg(
+      case when (elem->>'id')::uuid = p_note_id then
+        elem || jsonb_build_object('deleted', true, 'updated_at', now())
+      else elem end
+    )
+    from jsonb_array_elements(coalesce(kc.reanalysis_notes,'[]'::jsonb)) elem
+  ), updated_at = now()
+  where kc.id = p_card_id
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+grant execute on function public.delete_parecer(uuid, uuid) to authenticated;
 
 commit;
 

@@ -29,29 +29,35 @@ for each row execute function public.set_updated_at();
 
 alter table public.kanban_cards enable row level security;
 
--- RLS: cards visible/editable by assignee, creator, or gestores
 drop policy if exists kanban_select_access on public.kanban_cards;
-create policy kanban_select_access on public.kanban_cards for select
-  using (
-    assignee_id = auth.uid() or created_by = auth.uid() or exists (
-      select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'
-    )
-  );
+drop policy if exists kanban_select_roles on public.kanban_cards;
+create policy kanban_select_roles on public.kanban_cards for select
+  using (public.user_has_role(array['vendedor','analista','gestor']::user_role[]));
 
 drop policy if exists kanban_update_access on public.kanban_cards;
-create policy kanban_update_access on public.kanban_cards for update
+drop policy if exists kanban_update_analyst_gestor on public.kanban_cards;
+create policy kanban_update_analyst_gestor on public.kanban_cards for update
+  using (public.user_has_role(array['analista','gestor']::user_role[]))
+  with check (public.user_has_role(array['analista','gestor']::user_role[]));
+
+drop policy if exists kanban_update_vendor_creator on public.kanban_cards;
+create policy kanban_update_vendor_creator on public.kanban_cards for update
   using (
-    assignee_id = auth.uid() or created_by = auth.uid() or exists (
-      select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'
-    )
+    public.user_has_role(array['vendedor']::user_role[])
+    and created_by = auth.uid()
   )
   with check (
-    assignee_id = auth.uid() or created_by = auth.uid() or exists (
-      select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'
-    )
+    public.user_has_role(array['vendedor']::user_role[])
+    and created_by = auth.uid()
   );
 
 drop policy if exists kanban_insert_roles on public.kanban_cards;
 create policy kanban_insert_roles on public.kanban_cards for insert
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('vendedor','analista','gestor')));
+  with check (
+    exists (
+      select 1
+      from public.profiles p
+      where p.id = auth.uid() and p.role in ('vendedor','analista','gestor')
+    )
+  );
 

@@ -66,7 +66,7 @@ do $$ begin
 
     -- Only Analista/Gestor can ingress: Recebidos/Reanálise -> Em Análise
     if p_area = 'analise' and p_stage = 'em_analise' and v_row.stage in ('recebidos', 'reanalise') then
-      select exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('analista','gestor')) into v_is_analista_gestor;
+      select public.user_has_role(array['analista','gestor']::user_role[]) into v_is_analista_gestor;
       if not coalesce(v_is_analista_gestor, false) then
         raise exception 'not_allowed' using message = 'Apenas Analistas ou Gestores podem ingressar a ficha.';
       end if;

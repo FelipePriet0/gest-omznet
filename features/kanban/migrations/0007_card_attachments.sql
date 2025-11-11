@@ -27,35 +27,29 @@ for each row execute function public.set_updated_at();
 
 alter table public.card_attachments enable row level security;
 
--- Visibility: users with access to related card or gestores
+-- Visibilidade: liberada para vendedores, analistas e gestores.
 drop policy if exists attachments_select_access on public.card_attachments;
-create policy attachments_select_access on public.card_attachments for select
-  using (
-    exists (
-      select 1 from public.kanban_cards kc
-      where kc.id = card_attachments.card_id
-        and (kc.assignee_id = auth.uid() or kc.created_by = auth.uid())
-    ) or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor')
-  );
+drop policy if exists attachments_select_roles on public.card_attachments;
+create policy attachments_select_roles on public.card_attachments for select
+  using (public.user_has_role(array['vendedor','analista','gestor']::user_role[]));
 
--- Insert: any role if has access to card
+-- Inserção: mesmos papéis.
 drop policy if exists attachments_insert_access on public.card_attachments;
-create policy attachments_insert_access on public.card_attachments for insert
-  with check (
-    exists (
-      select 1 from public.kanban_cards kc
-      where kc.id = card_attachments.card_id
-        and (kc.assignee_id = auth.uid() or kc.created_by = auth.uid())
-    )
-  );
+drop policy if exists attachments_insert_roles on public.card_attachments;
+create policy attachments_insert_roles on public.card_attachments for insert
+  with check (public.user_has_role(array['vendedor','analista','gestor']::user_role[]));
 
 -- Update/Delete: author or gestor
 drop policy if exists attachments_update_own on public.card_attachments;
 create policy attachments_update_own on public.card_attachments for update
-  using (author_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'))
-  with check (author_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'));
+  using (author_id = auth.uid() or public.user_has_role(array['gestor']::user_role[]))
+  with check (author_id = auth.uid() or public.user_has_role(array['gestor']::user_role[]));
 
 drop policy if exists attachments_delete_own on public.card_attachments;
-create policy attachments_delete_own on public.card_attachments for delete
-  using (author_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'));
+drop policy if exists attachments_delete_author_or_gestor on public.card_attachments;
+create policy attachments_delete_author_or_gestor on public.card_attachments for delete
+  using (
+    author_id = auth.uid()
+    or public.user_has_role(array['gestor']::user_role[])
+  );
 

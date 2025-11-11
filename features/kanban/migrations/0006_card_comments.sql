@@ -25,37 +25,26 @@ for each row execute function public.set_updated_at();
 
 alter table public.card_comments enable row level security;
 
--- Visibility: users with access to the related card, or gestores
+-- Visibilidade: liberada para vendedores, analistas e gestores.
 drop policy if exists comments_select_access on public.card_comments;
-create policy comments_select_access on public.card_comments for select
-  using (
-    exists (
-      select 1 from public.kanban_cards kc
-      where kc.id = card_comments.card_id
-        and (kc.assignee_id = auth.uid() or kc.created_by = auth.uid())
-    )
-    or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor')
-  );
+drop policy if exists comments_select_roles on public.card_comments;
+create policy comments_select_roles on public.card_comments for select
+  using (public.user_has_role(array['vendedor','analista','gestor']::user_role[]));
 
--- Insert: user must have access to the related card
+-- Inserção: mesmos papéis.
 drop policy if exists comments_insert_access on public.card_comments;
-create policy comments_insert_access on public.card_comments for insert
-  with check (
-    exists (
-      select 1 from public.kanban_cards kc
-      where kc.id = card_comments.card_id
-        and (kc.assignee_id = auth.uid() or kc.created_by = auth.uid())
-    )
-    or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('vendedor','analista','gestor'))
-  );
+drop policy if exists comments_insert_roles on public.card_comments;
+create policy comments_insert_roles on public.card_comments for insert
+  with check (public.user_has_role(array['vendedor','analista','gestor']::user_role[]));
 
 -- Update/Delete: own comment or gestor
 drop policy if exists comments_update_own on public.card_comments;
 create policy comments_update_own on public.card_comments for update
-  using (author_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'))
-  with check (author_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'));
+  using (author_id = auth.uid() or public.user_has_role(array['gestor']::user_role[]))
+  with check (author_id = auth.uid() or public.user_has_role(array['gestor']::user_role[]));
 
 drop policy if exists comments_delete_own on public.card_comments;
-create policy comments_delete_own on public.card_comments for delete
-  using (author_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'));
+drop policy if exists comments_delete_author on public.card_comments;
+create policy comments_delete_author on public.card_comments for delete
+  using (author_id = auth.uid());
 

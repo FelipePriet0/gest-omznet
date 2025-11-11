@@ -25,7 +25,7 @@ alter table public.inbox_notifications enable row level security;
 -- Only recipient can read, gestor can read all
 drop policy if exists inbox_select_own_or_gestor on public.inbox_notifications;
 create policy inbox_select_own_or_gestor on public.inbox_notifications for select
-  using (user_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'));
+  using (user_id = auth.uid() or public.user_has_role(array['gestor']::user_role[]));
 
 -- Inserts allowed (system or app) — no strict check here
 drop policy if exists inbox_insert_all on public.inbox_notifications;
@@ -35,6 +35,6 @@ create policy inbox_insert_all on public.inbox_notifications for insert
 -- Allow recipient to update read_at; gestor too
 drop policy if exists inbox_update_read on public.inbox_notifications;
 create policy inbox_update_read on public.inbox_notifications for update
-  using (user_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'))
-  with check (user_id = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'));
+  using (user_id = auth.uid() or public.user_has_role(array['gestor']::user_role[]))
+  with check (user_id = auth.uid() or public.user_has_role(array['gestor']::user_role[]));
 
