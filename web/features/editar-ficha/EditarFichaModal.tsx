@@ -1,21 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback, Fragment } from "react";
 import Image from "next/image";
+import clsx from "clsx";
 import { User as UserIcon, MoreHorizontal, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
-import { AttachmentsModal } from "@/features/attachments/AttachmentsModal";
+import { TaskCard } from "@/features/tasks/TaskCard";
+import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import { changeStage } from "@/features/kanban/services";
+import {
+  ATTACHMENT_ALLOWED_TYPES,
+  ATTACHMENT_MAX_SIZE,
+  uploadAttachmentBatch,
+} from "@/features/attachments/upload";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarReady } from "@/components/ui/calendar-ready";
 import { SimpleSelect } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
+import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
+import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts } from "@/lib/datetime";
+import { renderTextWithChips } from "@/utils/richText";
 
 type AppModel = {
   primary_name?: string; cpf_cnpj?: string; phone?: string; whatsapp?: string; email?: string;
@@ -62,7 +71,7 @@ const SVA_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
 
 const VENC_OPTIONS = ["5","10","15","20","25"] as const;
 
-export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open: boolean; onClose: () => void; cardId: string; applicantId: string; }) {
+export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageChange }: { open: boolean; onClose: () => void; cardId: string; applicantId: string; onStageChange?: () => void; }) {
   const { open: sidebarOpen } = useSidebar();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"idle"|"saving"|"saved"|"error">("idle");
@@ -73,38 +82,189 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   const [createdAt, setCreatedAt] = useState<string>("");
   const [pareceres, setPareceres] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
-  const [sidebarWidth, setSidebarWidth] = useState(0);
 
   // Update sidebar width on changes
   useEffect(() => {
-    const updateWidth = () => {
-      const isDesktop = window.innerWidth >= 768;
-      setSidebarWidth(isDesktop ? (sidebarOpen ? 300 : 60) : 0);
-    };
-    
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, [sidebarOpen]);
+    // Bloqueia o scroll da página quando o modal está aberto
+    if (open) {
+      const prevBody = document.body.style.overflow;
+      const prevHtml = document.documentElement.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevBody;
+        document.documentElement.style.overflow = prevHtml;
+      };
+    }
+  }, [open]);
+
+  // Backdrop deve cobrir a viewport inteira no modal de ficha
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
   const [createdBy, setCreatedBy] = useState<string>("");
   const [assigneeId, setAssigneeId] = useState<string>("");
   const vendorName = useMemo(()=> profiles.find(p=> p.id===createdBy)?.full_name || "—", [profiles, createdBy]);
   const analystName = useMemo(()=> profiles.find(p=> p.id===assigneeId)?.full_name || "—", [profiles, assigneeId]);
-  const [novoParecer, setNovoParecer] = useState<string>("");
+  const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
-  const [cmdAnchorParecer, setCmdAnchorParecer] = useState<{top:number;left:number}>({ top: 0, left: 0 });
-  const parecerRef = useRef<HTMLTextAreaElement|null>(null);
+  const composerRef = useRef<UnifiedComposerHandle | null>(null);
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
   // UI: tarefas/anexos em conversas
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
-  const [attachOpen, setAttachOpen] = useState<{open:boolean, parentId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
+  const [tasks, setTasks] = useState<CardTask[]>([]);
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const timer = useRef<NodeJS.Timeout | null>(null);
   const pendingApp = useRef<Partial<AppModel>>({});
   const pendingCard = useRef<any>({});
+
+  function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa' }) {
+    attachmentContextRef.current = context ?? null;
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+      attachmentInputRef.current.click();
+    }
+  }
+
+  async function processAttachmentSelection(files: File[]) {
+    if (!cardId || files.length === 0) return;
+    const context = attachmentContextRef.current;
+    attachmentContextRef.current = null;
+
+    const tooBig = files.find((file) => file.size > ATTACHMENT_MAX_SIZE);
+    if (tooBig) {
+      alert(`O arquivo "${tooBig.name}" excede o limite de ${(ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`);
+      return;
+    }
+
+    const invalidType = files.find(
+      (file) => file.type && !ATTACHMENT_ALLOWED_TYPES.includes(file.type)
+    );
+    if (invalidType) {
+      alert(`O tipo de arquivo "${invalidType.type || invalidType.name}" não é permitido para anexos.`);
+      return;
+    }
+
+    try {
+      const uploaded = await uploadAttachmentBatch({
+        cardId,
+        commentId: context?.commentId ?? null,
+        files: files.map((file) => {
+          const dot = file.name.lastIndexOf(".");
+          const baseName = dot > 0 ? file.name.slice(0, dot) : file.name;
+          return { file, displayName: baseName || file.name };
+        }),
+      });
+
+      if (context?.source === "parecer" && uploaded.length > 0) {
+        const names = uploaded.map((f) => f.name).join(", ");
+        try {
+          await supabase.rpc("add_parecer", {
+            p_card_id: cardId,
+            p_text: `📎 Anexo(s): ${names}`,
+            p_parent_id: null,
+            p_decision: null,
+          });
+        } catch (err) {
+          console.error("Falha ao registrar parecer para anexos", err);
+        }
+      }
+    } catch (error: any) {
+      console.error("Falha ao enviar anexos", error);
+      alert(error?.message ?? "Falha ao anexar arquivos.");
+    }
+  }
+
+  const refreshTasks = useCallback(async () => {
+    try {
+      const list = await listTasks(cardId);
+      setTasks(list);
+    } catch {}
+  }, [cardId]);
+
+  useEffect(() => {
+    if (!cardId) return;
+    let active = true;
+    (async () => {
+      if (!active) return;
+      await refreshTasks();
+    })();
+    const channel = supabase
+      .channel(`editar-ficha-tasks-${cardId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "card_tasks", filter: `card_id=eq.${cardId}` }, () => {
+        refreshTasks();
+      })
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [cardId, refreshTasks]);
+
+  // Para usuários com role 'vendedor', focar o compositor de Parecer ao abrir (KISS: comportamento simples e útil)
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const uid = data.user?.id;
+        if (!uid) return;
+        setCurrentUserId(uid);
+        const me = profiles.find((p) => p.id === uid);
+        const role = (me?.role || null) as string | null;
+        setCurrentUserRole(role);
+        if (role === 'vendedor') {
+          requestAnimationFrame(() => composerRef.current?.focus());
+        }
+      } catch {}
+    })();
+  }, [open, profiles]);
+
+  const handleTaskToggle = useCallback(async (taskId: string, done: boolean) => {
+    // Otimista: atualiza lista local imediatamente para uma UX fluida
+    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: done ? 'completed' : 'pending' } : t));
+    try {
+      await toggleTask(taskId, done);
+      // Faz um refresh leve para sincronizar completed_at e estados vindos do backend
+      await refreshTasks();
+    } catch (e: any) {
+      // Reverte em caso de erro
+      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: !done ? 'completed' : 'pending' } : t));
+      alert(e?.message || "Falha ao atualizar tarefa");
+    }
+  }, [refreshTasks]);
+
+  async function handleAttachmentInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    await processAttachmentSelection(files);
+  }
+
+  async function syncDecisionStatus(decision: ComposerDecision | null) {
+    try {
+      if (decision === null) {
+        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: null });
+      } else if (decision === 'reanalise') {
+        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'reanalise' });
+      } else {
+        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: decision });
+      }
+      // Fallback: se triggers foram removidas, mova o card explicitamente no Kanban de Análise
+      try {
+        if (decision === 'aprovado') await changeStage(cardId, 'analise', 'aprovados');
+        else if (decision === 'negado') await changeStage(cardId, 'analise', 'negados');
+        else if (decision === 'reanalise') await changeStage(cardId, 'analise', 'reanalise');
+      } catch {}
+      // Atualiza o board
+      try { onStageChange?.(); } catch {}
+    } catch (err) {
+      console.error('set_card_decision failed', err);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -129,7 +289,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
         setApp(a2||{});
         setPersonType((a as any)?.person_type ?? null);
         setCreatedAt(c?.created_at ? new Date(c.created_at).toLocaleString() : "");
-        setDueAt(c?.due_at ? (()=>{ const d=new Date(c.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; })() : "");
+        const dueParts = utcISOToLocalParts(c?.due_at ?? undefined, DEFAULT_TIMEZONE);
+        setDueAt(dueParts.dateISO ?? "");
         if (Array.isArray((c as any)?.hora_at)) {
           const arr:any[] = (c as any).hora_at;
           const list = arr.map(h => String(h).slice(0,5));
@@ -167,7 +328,10 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
           .channel(`rt-edit-card-${cardId}`)
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `id=eq.${cardId}` }, (payload: any) => {
             const row:any = payload.new || {};
-            if (row.due_at) { const d=new Date(row.due_at); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); setDueAt(`${y}-${m}-${day}`); }
+            if (row.due_at) {
+              const { dateISO } = utcISOToLocalParts(row.due_at, DEFAULT_TIMEZONE);
+              setDueAt(dateISO ?? "");
+            }
             if (row.hora_at) {
               const arr = Array.isArray(row.hora_at) ? row.hora_at : [row.hora_at];
               const list = arr.map((h:any)=> String(h).slice(0,5));
@@ -193,9 +357,22 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
 
   // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)
   useEffect(() => {
-    (window as any).mz_card_id = cardId;
-    function onOpenTask() { setTaskOpen({ open: true, parentId: null, taskId: null }); }
-    function onOpenAttach() { setAttachOpen({ open: true, parentId: null }); }
+    function onOpenTask(event?: Event) {
+      const detail = (event as CustomEvent<{ parentId?: string | null; taskId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;
+      setTaskOpen({
+        open: true,
+        parentId: detail?.parentId ?? null,
+        taskId: detail?.taskId ?? null,
+        source: detail?.source ?? 'parecer',
+      });
+    }
+    function onOpenAttach(event?: Event) {
+      const detail = (event as CustomEvent<{ commentId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;
+      triggerAttachmentPicker({
+        commentId: detail?.commentId ?? null,
+        source: detail?.source ?? 'parecer',
+      });
+    }
     window.addEventListener('mz-open-task', onOpenTask);
     window.addEventListener('mz-open-attach', onOpenAttach);
     return () => {
@@ -230,14 +407,35 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
     timer.current = setTimeout(flush, 600);
   }
 
-  async function addParecer() {
-    const txt = novoParecer.trim();
-    if (!txt) return;
-    setNovoParecer('');
+  async function addParecer(val?: ComposerValue) {
+    const payload = val ?? novoParecer;
+    const txt = (payload.text || "").trim();
+    const hasDecision = !!payload.decision;
+    if (!hasDecision && !txt) return;
+    const payloadText = hasDecision && !txt ? decisionPlaceholder(payload.decision ?? null) : txt;
+    const resetValue: ComposerValue = { decision: null, text: "", mentions: [] };
+    setNovoParecer(resetValue);
+    requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
+    setMentionOpenParecer(false);
+    setCmdOpenParecer(false);
     try {
-      await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: txt, p_parent_id: null });
+      await supabase.rpc('add_parecer', {
+        p_card_id: cardId,
+        p_text: payloadText,
+        p_parent_id: null,
+        p_decision: payload.decision ?? null
+      });
+      if (payload.decision === 'aprovado' || payload.decision === 'negado') {
+        await syncDecisionStatus(payload.decision);
+      } else if (payload.decision === 'reanalise') {
+        await syncDecisionStatus('reanalise');
+      }
       // Realtime vai atualizar a lista
-    } catch {}
+    } catch (err: any) {
+      setNovoParecer(payload);
+      requestAnimationFrame(() => composerRef.current?.setValue(payload));
+      alert(err?.message || 'Falha ao adicionar parecer');
+    }
   }
 
   const horarios = ["08:30","10:30","13:30","15:30"];
@@ -281,44 +479,49 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   if (!open) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ left: sidebarWidth }}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] overflow-y-auto overflow-x-hidden bg-white shadow-2xl" style={{ borderRadius: '28px' }}>
-        <div className="p-6">
-        <div className="mb-6">
-          <div className="header-editar-ficha">
-            <div className="header-content flex items-center justify-between">
-              <div className="flex items-center gap-3">
+    <Fragment>
+      {/* Backdrop: abaixo do Drawer/Sidebar (z-40) e acima do Kanban */}
+      <div className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      {/* Conteúdo do modal: acima do Drawer/Sidebar (z-70) */}
+      <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-hidden pt-8 pb-6 sm:pt-12 sm:pb-8" onClick={onClose}>
+      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] bg-[var(--neutro)] shadow-2xl flex flex-col overflow-hidden" style={{ borderRadius: '28px' }} onClick={(e)=> e.stopPropagation()}>
+        {/* Header completo ocupando toda a largura */}
+        <div className="header-editar-ficha flex-shrink-0">
+          <div className="header-content">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex-shrink-0">
                 <Image
-                  src="/mznet-logo.png"
-                  alt="MZNET Logo"
-                  width={36}
-                  height={36}
+                  src="/brand/mznet.png"
+                  alt="MZNET"
+                  width={72}
+                  height={24}
                   priority
-                  style={{ width: '36px', height: '36px', objectFit: 'contain' }}
                 />
-                <div className="header-title">
-                  <h2>Editar Ficha</h2>
-                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={openExpanded} className="btn-secondary-mznet no-hover">
-                  Analisar
-                </button>
+              <div className="header-title min-w-0">
+                <h2 className="truncate">Editar Ficha</h2>
+                <p className="header-subtitle truncate">Consultar e atualizar dados essenciais da ficha</p>
               </div>
             </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button type="button" onClick={openExpanded} className="btn-secondary-mznet no-hover whitespace-nowrap">
+                Analisar
+              </button>
+            </div>
           </div>
-          {statusText && (
-            <div className="mt-3 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
-          )}
         </div>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain modal-scroll scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300">
+        <div className="p-6 pb-12 sm:pb-16">
+        {statusText && (
+          <div className="mb-6 mt-3 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
+        )}
 
         {loading ? (
           <div className="text-sm text-zinc-600">Carregando…</div>
         ) : (
           <div className="space-y-6">
             {/* Informações Pessoais */}
-            <Section title="Informações Pessoais" className="info-pessoais">
+            <Section title="Informações Pessoais" variant="info-pessoais">
               <Grid cols={2}>
                 <Field label={personType==='PJ' ? 'Razão Social' : 'Nome do Cliente'} value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queue('app','primary_name', v); }} />
                 {personType === 'PJ' ? (
@@ -330,7 +533,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Contato */}
-            <Section title="Informações de Contato" className="info-contato">
+            <Section title="Informações de Contato" variant="info-contato">
               <Grid cols={2}>
                 <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queue('app','phone', m); }} />
                 <Field label="Whatsapp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queue('app','whatsapp', m); }} />
@@ -343,7 +546,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Endereço */}
-            <Section title="Endereço" className="endereco">
+            <Section title="Endereço" variant="endereco">
               <Grid cols={2}>
                 <div className="mt-1">
                   <Field label="Logradouro" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queue('app','address_line', v); }} />
@@ -364,33 +567,31 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Preferências e serviços */}
-            <Section title="Planos e Serviços" className="planos-servicos">
+            <Section title="Planos e Serviços" variant="planos-servicos">
               <Grid cols={2}>
                 <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ setApp({...app, plano_acesso:v}); queue('app','plano_acesso', v); }} options={PLANO_OPTIONS as any} />
-                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queue('app','venc', v); }} options={VENC_OPTIONS as any}
-                  triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
-                  contentClassName="border-0 bg-white shadow-none"
-                  triggerStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
-                  contentStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
-                />
+                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queue('app','venc', v); }} options={VENC_OPTIONS as any} />
                 <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ setApp({...app, sva_avulso:v}); queue('app','sva_avulso', v); }} options={SVA_OPTIONS as any} />
-                <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queue('app','carne_impresso', val); }} options={["Sim","Não"]}
-                  triggerClassName="border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent"
-                  contentClassName="border-0 bg-white shadow-none"
-                  triggerStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
-                  contentStyle={{ boxShadow: 'none', outline: 'none', border: 'none' }}
-                />
+                <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queue('app','carne_impresso', val); }} options={["Sim","Não"]} />
               </Grid>
             </Section>
 
             {/* Agendamento */}
-            <Section title="Agendamento" className="agendamento">
+            <Section title="Agendamento" variant="agendamento">
               <Grid cols={3}>
                 <Field label="Feito em" value={createdAt} onChange={()=>{}} disabled />
                 <CalendarReady
                   label="Instalação agendada para"
                   value={dueAt}
-                  onChange={(val)=> { setDueAt(val); queue('card','due_at', new Date(val).toISOString()); }}
+                  onChange={(val)=> {
+                    setDueAt(val ?? "");
+                    if (!val) {
+                      queue('card','due_at', null);
+                      return;
+                    }
+                    const utcValue = startOfDayUtcISO(val, DEFAULT_TIMEZONE);
+                    queue('card','due_at', utcValue ?? null);
+                  }}
                 />
                 <TimeMultiSelect
                   label="Horário"
@@ -408,7 +609,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
             </Section>
 
             {/* Equipe Responsável */}
-            <Section title="Equipe Responsável" className="info-contato">
+            <Section title="Equipe Responsável" variant="info-contato">
               <Grid cols={2}>
                 <Field label="Vendedor" value={vendorName} onChange={()=>{}} disabled />
                 <Field label="Analistas" value={analystName} onChange={()=>{}} disabled />
@@ -425,83 +626,45 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
               {/* Content Area - Yellow Box */}
               <div className="section-content">
                 <div className="mb-3 relative">
-                <Textarea
-                  ref={parecerRef}
-                  value={novoParecer}
-                  onChange={(e)=> {
-                    const v = e.target.value || '';
-                    setNovoParecer(v);
-                    const atIdx = v.lastIndexOf('@');
-                    if (atIdx >= 0) { setMentionFilterParecer(v.slice(atIdx + 1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
-                    const slashIdx = v.lastIndexOf('/');
-                    if (slashIdx>=0) {
-                      setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
-                      if (parecerRef.current) {
-                        const ta = parecerRef.current;
-                        const c = getCaretCoordinates(ta, slashIdx + 1);
-                        const rect = ta.getBoundingClientRect();
-                        const top = rect.top + window.scrollY + c.top + c.height + 6;
-                        const left = rect.left + window.scrollX + c.left;
-                        setCmdAnchorParecer({ top, left });
-                      }
-                    }
-                    else { setCmdOpenParecer(false); }
-                  }}
-                  onKeyDown={(e)=>{
-                    // Enviar via Enter (sem Shift), anexando abaixo
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      addParecer();
-                      return;
-                    }
-                    // Atalhos /tarefa e /anexo + menções
-                    const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
-                    const atIdx = v.lastIndexOf('@');
-                    if (atIdx>=0) { setMentionFilterParecer(v.slice(atIdx+1).trim()); setMentionOpenParecer(true); } else { setMentionOpenParecer(false); }
-                    const slashIdx = v.lastIndexOf('/');
-                    if (slashIdx>=0) {
-                      setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
-                      if (parecerRef.current) {
-                        const ta = parecerRef.current;
-                        const c = getCaretCoordinates(ta, slashIdx + 1);
-                        const rect = ta.getBoundingClientRect();
-                        const top = rect.top + window.scrollY + c.top + c.height + 6;
-                        const left = rect.left + window.scrollX + c.left;
-                        setCmdAnchorParecer({ top, left });
-                      }
-                    } else { setCmdOpenParecer(false); }
-                    if (v.endsWith('/tarefa')) { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); }
-                    else if (v.endsWith('/anexo')) { setAttachOpen({ open:true, parentId:null, source:'parecer' }); }
-                  }}
-                  onKeyUp={(e)=>{
-                    const v = e.currentTarget.value || '';
-                    const slashIdx = v.lastIndexOf('/');
-                    if (slashIdx>=0) {
-                      setCmdOpenParecer(true); setCmdQueryParecer(v.slice(slashIdx+1).toLowerCase());
-                      if (parecerRef.current) {
-                        const ta = parecerRef.current;
-                        const c = getCaretCoordinates(ta, slashIdx + 1);
-                        const top = ta.offsetTop + c.top + c.height + 6;
-                        const leftRaw = ta.offsetLeft + c.left;
-                        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 256));
-                        setCmdAnchorParecer({ top, left });
-                      }
-                    } else { setCmdOpenParecer(false); }
-                  }}
-                  placeholder="Escreva um novo parecer… Use @ para mencionar"
-                  rows={4}
-                />
+                  <UnifiedComposer
+                    ref={composerRef}
+                    placeholder="Escreva um novo parecer… Use @ para mencionar"
+                    onChange={(val)=> {
+                      setNovoParecer(val);
+                    }}
+                    onSubmit={(val)=> {
+                      addParecer(val);
+                    }}
+                    onCancel={()=> {
+                      setCmdOpenParecer(false);
+                      setMentionOpenParecer(false);
+                    }}
+                    onMentionTrigger={(query)=>{
+                      setMentionFilterParecer(query.trim());
+                      setMentionOpenParecer(true);
+                    }}
+                    onMentionClose={()=> {
+                      setMentionOpenParecer(false);
+                    }}
+                    onCommandTrigger={(query)=>{
+                      setCmdQueryParecer(query.toLowerCase());
+                      setCmdOpenParecer(true);
+                    }}
+                    onCommandClose={()=> {
+                      setCmdOpenParecer(false);
+                      setCmdQueryParecer("");
+                    }}
+                  />
                   {mentionOpenParecer && (
                     <div className="absolute z-50 left-0 bottom-full mb-2">
-                    <MentionDropdownParecer
-                      items={profiles.filter((p)=> p.full_name.toLowerCase().includes(mentionFilterParecer.toLowerCase()))}
-                      onPick={(p)=> {
-                        const idx = (novoParecer || '').lastIndexOf('@');
-                        const newVal = (novoParecer || '').slice(0, idx + 1) + p.full_name + ' ';
-                        setNovoParecer(newVal);
-                        setMentionOpenParecer(false);
-                      }}
-                    />
+                      <MentionDropdownParecer
+                        items={profiles.filter((p)=> p.full_name.toLowerCase().includes(mentionFilterParecer.toLowerCase()) && p.id !== currentUserId)}
+                        onPick={(p)=> {
+                      composerRef.current?.insertMention({ id: p.id, label: p.full_name });
+                          setMentionOpenParecer(false);
+                      setMentionFilterParecer("");
+                        }}
+                      />
                     </div>
                   )}
                   {cmdOpenParecer && (
@@ -511,18 +674,15 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                           { key:'aprovado', label:'Aprovado' },
                           { key:'negado', label:'Negado' },
                           { key:'reanalise', label:'Reanálise' },
-                          { key:'tarefa', label:'Tarefa' },
-                          { key:'anexo', label:'Anexo' },
                         ].filter(i=> i.key.includes(cmdQueryParecer))}
                         onPick={async (key)=>{
                           setCmdOpenParecer(false); setCmdQueryParecer('');
-                          if (key==='tarefa') { setTaskOpen({ open:true, parentId:null, taskId:null, source:'parecer' }); return; }
-                          if (key==='anexo') { setAttachOpen({ open:true, parentId:null, source:'parecer' }); return; }
-                          try {
-                            if (key==='aprovado') await changeStage(cardId, 'analise', 'aprovados');
-                            else if (key==='negado') await changeStage(cardId, 'analise', 'negados');
-                            else if (key==='reanalise') await changeStage(cardId, 'analise', 'reanalise');
-                          } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                          if (key==='aprovado' || key==='negado' || key==='reanalise') {
+                            composerRef.current?.setDecision(key as any);
+                            try {
+                              await syncDecisionStatus(key as any);
+                            } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                          }
                         }}
                         initialQuery={cmdQueryParecer}
                       />
@@ -533,65 +693,115 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
                   cardId={cardId}
                   notes={pareceres as any}
                   profiles={profiles}
-                  onReply={async (pid, text) => { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: text, p_parent_id: pid }); }}
-                  onEdit={async (id, text) => { await supabase.rpc('edit_parecer', { p_card_id: cardId, p_note_id: id, p_text: text }); }}
+                  tasks={tasks}
+                  applicantName={app?.primary_name ?? null}
+                  currentUserId={currentUserId}
+                  onReply={async (pid, value) => {
+                    const text = (value.text || '').trim();
+                    const hasDecision = !!value.decision;
+                    if (!hasDecision && !text) return;
+                    const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
+                    await supabase.rpc('add_parecer', {
+                      p_card_id: cardId,
+                      p_text: payloadText,
+                      p_parent_id: pid,
+                      p_decision: value.decision ?? null,
+                    });
+                    if (value.decision === 'aprovado' || value.decision === 'negado') {
+                      await syncDecisionStatus(value.decision);
+                    } else if (value.decision === 'reanalise') {
+                      await syncDecisionStatus('reanalise');
+                    }
+                  }}
+                  onEdit={async (id, value) => {
+                    const text = (value.text || '').trim();
+                    const hasDecision = !!value.decision;
+                    if (!hasDecision && !text) return;
+                    const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
+                    await supabase.rpc('edit_parecer', {
+                      p_card_id: cardId,
+                      p_note_id: id,
+                      p_text: payloadText,
+                      p_decision: value.decision ?? null,
+                    });
+                    if (value.decision === 'aprovado' || value.decision === 'negado') {
+                      await syncDecisionStatus(value.decision);
+                    } else if (value.decision === 'reanalise') {
+                      await syncDecisionStatus('reanalise');
+                    }
+                  }}
                   onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
+                  onDecisionChange={syncDecisionStatus}
+                  onOpenTask={(ctx) => setTaskOpen({ open: true, parentId: ctx.parentId ?? null, taskId: ctx.taskId ?? null, source: ctx.source ?? 'parecer' })}
+                  onToggleTask={handleTaskToggle}
                 />
               </div>
             </div>
+
+            {/* Conversas co-relacionadas */}
+            <div className="mt-6">
+              <Conversation
+                cardId={cardId}
+                applicantName={app?.primary_name ?? null}
+                onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
+                onOpenAttach={(parentId?: string) => triggerAttachmentPicker({ commentId: parentId ?? null, source: 'conversa' })}
+                onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
+              />
+            </div>
           </div>
         )}
-
-        {/* Conversas co-relacionadas */}
-        <div className="mt-4">
-          <Conversation
-            cardId={cardId}
-            onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
-            onOpenAttach={(parentId?: string) => setAttachOpen({ open: true, parentId: parentId ?? null, source: 'conversa' })}
-            onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
-          />
         </div>
 
-        {/* CTA "Fechar" removido: fechamento apenas pelo clique no backdrop */}
         </div>
+      </div>
       </div>
       {/* Drawers/Modais auxiliares */}
       <TaskDrawer
         open={taskOpen.open}
-        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null})}
+        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null, source: undefined})}
         cardId={cardId}
         commentId={taskOpen.parentId ?? null}
         taskId={taskOpen.taskId ?? null}
-        onCreated={async (t)=> {
-          if (taskOpen.source === 'parecer') {
-            try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: `📋 Tarefa criada: ${t.description}`, p_parent_id: null }); } catch {}
-          }
+        source={taskOpen.source ?? 'conversa'}
+        onCreated={async ()=> {
+          await refreshTasks();
         }}
       />
-      <AttachmentsModal
-        open={attachOpen.open}
-        onClose={()=> setAttachOpen({open:false})}
-        cardId={cardId}
-        commentId={attachOpen.parentId ?? null}
-        onCompleted={async (files)=> {
-          if (attachOpen.source === 'parecer' && files.length>0) {
-            const names = files.map(f=> f.name).join(', ');
-            try { await supabase.rpc('add_parecer', { p_card_id: cardId, p_text: `📎 Anexo(s): ${names}`, p_parent_id: null }); } catch {}
-          }
-        }}
+      <input
+        ref={attachmentInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleAttachmentInputChange}
+        accept={ATTACHMENT_ALLOWED_TYPES.join(",")}
       />
-    </div>
+    </Fragment>
   );
 }
 
-function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
+type SectionProps = {
+  title: string;
+  children: React.ReactNode;
+  variant?: string;
+  className?: string;
+  titleClassName?: string;
+  cardClassName?: string;
+};
+
+function Section({ title, children, variant, className, titleClassName, cardClassName }: SectionProps) {
+  const wrapperClasses = [variant, className].filter(Boolean).join(" ");
+  const cardClasses = ["section-card rounded-lg bg-white p-4 sm:p-6", cardClassName].filter(Boolean).join(" ");
+  const headingClasses = ["section-title text-sm font-semibold", titleClassName, variant].filter(Boolean).join(" ");
+
   return (
-    <div className="section-card rounded-xl p-4 sm:p-6">
-      <div className="section-header mb-4 sm:mb-6">
-        <h3 className={`section-title text-sm font-semibold ${className || ''}`}>{title}</h3>
+    <section className={wrapperClasses || undefined}>
+      <div className={cardClasses}>
+        <div className="section-header mb-4 sm:mb-6">
+          <h3 className={headingClasses}>{title}</h3>
+        </div>
+        <div>{children}</div>
       </div>
-      <div>{children}</div>
-    </div>
+    </section>
   );
 }
 
@@ -667,12 +877,22 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
       {decisions.length > 0 && (
         <div className="py-1">
           <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Decisão da análise</div>
-          {decisions.map((i) => (
-            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left">
-              {iconFor(i.key)}
-              <span>{i.label}</span>
-            </button>
-          ))}
+          {decisions.map((i) => {
+            let variantCls = '';
+            if (i.key === 'negado') variantCls = 'cmd-menu-item--destructive';
+            else if (i.key === 'aprovado') variantCls = 'cmd-menu-item--primary';
+            else if (i.key === 'reanalise') variantCls = 'cmd-menu-item--warning';
+            return (
+              <button
+                key={i.key}
+                onClick={() => onPick(i.key)}
+                className={`cmd-menu-item ${variantCls} flex w-full items-center gap-2 px-2 py-1.5 text-left`}
+              >
+                {iconFor(i.key)}
+                <span>{i.label}</span>
+              </button>
+            );
+          })}
         </div>
       )}
       {actions.length > 0 && (
@@ -693,10 +913,33 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
   );
 }
 
-type Note = { id: string; text: string; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
+const DECISION_META: Record<string, { label: string; className: string }> = {
+  aprovado: { label: 'Aprovado', className: 'decision-chip--primary' },
+  negado: { label: 'Negado', className: 'decision-chip--destructive' },
+  reanalise: { label: 'Reanálise', className: 'decision-chip--warning' },
+};
+
+function decisionPlaceholder(decision: ComposerDecision | string | null | undefined) {
+  return decision ? `[decision:${decision}]` : '';
+}
+
+function DecisionTag({ decision }: { decision?: string | null }) {
+  if (!decision) return null;
+  const meta = DECISION_META[decision];
+  if (!meta) return null;
+  return <span className={clsx('decision-chip', meta.className)}>{meta.label}</span>;
+}
+
+type Note = { id: string; text: string; author_id?: string | null; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean; decision?: ComposerDecision | string | null };
 function buildTree(notes: Note[]): Note[] {
   const byId = new Map<string, any>();
-  notes.forEach(n => byId.set(n.id, { ...n, children: [] as any[] }));
+  const normalizeText = (note: any) => {
+    if (!note) return '';
+    if (!note.decision) return note.text || '';
+    const placeholder = decisionPlaceholder(note.decision as any);
+    return note.text === placeholder ? '' : (note.text || '');
+  };
+  notes.forEach(n => byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] }));
   const roots: any[] = [];
   notes.forEach(n => {
     const node = byId.get(n.id)!;
@@ -708,23 +951,94 @@ function buildTree(notes: Note[]): Note[] {
   return roots as any;
 }
 
-function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
+function PareceresList({
+  cardId,
+  notes,
+  profiles,
+  tasks,
+  applicantName,
+  onReply,
+  onEdit,
+  onDelete,
+  onDecisionChange,
+  onOpenTask,
+  onToggleTask,
+  currentUserId,
+}: {
+  cardId: string;
+  notes: Note[];
+  profiles: ProfileLite[];
+  tasks: CardTask[];
+  applicantName?: string | null;
+  onReply: (parentId:string, value: ComposerValue)=>Promise<any>;
+  onEdit: (id:string, value: ComposerValue)=>Promise<any>;
+  onDelete: (id:string)=>Promise<any>;
+  onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
+  onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
+  onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
+  currentUserId?: string | null;
+}) {
   const tree = useMemo(()=> buildTree(notes||[]), [notes]);
   return (
     <div className="space-y-2">
       {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
-      {tree.map(n => <NoteItem key={n.id} node={n} depth={0} profiles={profiles} onReply={onReply} onEdit={onEdit} onDelete={onDelete} />)}
+      {tree.map(n => (
+        <NoteItem
+          key={n.id}
+          cardId={cardId}
+          node={n}
+          depth={0}
+          profiles={profiles}
+          tasks={tasks}
+          onReply={onReply}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onDecisionChange={onDecisionChange}
+          onOpenTask={onOpenTask}
+          onToggleTask={onToggleTask}
+          applicantName={applicantName}
+          currentUserId={currentUserId}
+        />
+      ))}
     </div>
   );
 }
 
-function NoteItem({ node, depth, profiles, onReply, onEdit, onDelete }: { node: any; depth: number; profiles: ProfileLite[]; onReply: (parentId:string, text:string)=>Promise<any>; onEdit: (id:string, text:string)=>Promise<any>; onDelete: (id:string)=>Promise<any> }) {
+function NoteItem({
+  cardId,
+  node,
+  depth,
+  profiles,
+  tasks,
+  applicantName,
+  onReply,
+  onEdit,
+  onDelete,
+  onDecisionChange,
+  onOpenTask,
+  onToggleTask,
+  currentUserId,
+}: {
+  cardId: string;
+  node: any;
+  depth: number;
+  profiles: ProfileLite[];
+  tasks: CardTask[];
+  applicantName?: string | null;
+  onReply: (parentId:string, value: ComposerValue)=>Promise<any>;
+  onEdit: (id:string, value: ComposerValue)=>Promise<any>;
+  onDelete: (id:string)=>Promise<any>;
+  onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
+  onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
+  onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
+  currentUserId?: string | null;
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
   const editRef = useRef<HTMLDivElement | null>(null);
   const replyRef = useRef<HTMLDivElement | null>(null);
-  const replyTaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
+  const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
       const t = e.target as Node | null;
@@ -738,8 +1052,8 @@ function NoteItem({ node, depth, profiles, onReply, onEdit, onDelete }: { node: 
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
   }, [isEditing, isReplying]);
-  const [text, setText] = useState(node.text || '');
-  const [reply, setReply] = useState('');
+  const [editValue, setEditValue] = useState<ComposerValue>({ decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || '' });
+  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: '', mentions: [] });
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState('');
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -749,7 +1063,38 @@ function NoteItem({ node, depth, profiles, onReply, onEdit, onDelete }: { node: 
   const [editMentionFilter, setEditMentionFilter] = useState('');
   const [editCmdOpen, setEditCmdOpen] = useState(false);
   const [editCmdQuery, setEditCmdQuery] = useState('');
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue({ decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || '' });
+    }
+  }, [node.text, node.decision, isEditing]);
+  useEffect(() => {
+    if (!isEditing) {
+      setEditMentionOpen(false);
+      setEditCmdOpen(false);
+    }
+  }, [isEditing]);
+  useEffect(() => {
+    if (!isReplying) {
+      setMentionOpen(false);
+      setCmdOpen(false);
+    }
+  }, [isReplying]);
+  useEffect(() => {
+    if (!isReplying) return;
+    const txt = replyValue.text || '';
+    const m = txt.match(/\/([\w]*)$/);
+    if (m) {
+      setCmdQuery((m[1] || '').toLowerCase());
+      setCmdOpen(true);
+    } else {
+      setCmdOpen(false);
+      setCmdQuery('');
+    }
+  }, [replyValue.text, isReplying]);
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : '';
+  const nodeTasks = useMemo(() => tasks.filter((t) => t.comment_id === node.id), [tasks, node.id]);
+  const trimmedText = (node.text || '').trim();
   if (node.deleted) return null;
   return (
     <div
@@ -765,56 +1110,104 @@ function NoteItem({ node, depth, profiles, onReply, onEdit, onDelete }: { node: 
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button aria-label="Responder" onClick={()=> setIsReplying(v=>!v)} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
+          <button
+            aria-label="Responder"
+            onClick={()=>{
+              setIsReplying(prev => {
+                const next = !prev;
+                if (next) {
+                  const initial: ComposerValue = { decision: null, text: '', mentions: [] };
+                  setReplyValue(initial);
+                  requestAnimationFrame(() => {
+                    replyComposerRef.current?.setValue(initial);
+                    replyComposerRef.current?.focus();
+                  });
+                } else {
+                  setMentionOpen(false);
+                  setCmdOpen(false);
+                }
+                return next;
+              });
+            }}
+            className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
+          >
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          <ParecerMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este parecer?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir parecer'); } } }} />
+          {currentUserId && node.author_id && node.author_id === currentUserId ? (
+          <ParecerMenu
+            onEdit={()=>{
+              const initial: ComposerValue = { decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || '', mentions: [] };
+              setEditValue(initial);
+              setIsEditing(true);
+              requestAnimationFrame(() => {
+                editComposerRef.current?.setValue(initial);
+                editComposerRef.current?.focus();
+              });
+            }}
+            onDelete={async ()=> { if (confirm('Excluir este parecer?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir parecer'); } } }}
+          />
+          ) : null}
         </div>
       </div>
       {!isEditing ? (
-        <div className="mt-1 whitespace-pre-line break-words">{node.text}</div>
+        <div className="mt-1 space-y-2">
+          {node.decision ? <DecisionTag decision={node.decision} /> : null}
+          {trimmedText.length > 0 && (
+            <div className="break-words">{renderTextWithChips(node.text)}</div>
+          )}
+        </div>
       ) : (
         <div className="mt-2" ref={editRef}>
           <div className="relative">
-            <Textarea
-              value={text}
-              onChange={(e)=> {
-                const v = e.target.value || '';
-                setText(v);
-                const atIdx = v.lastIndexOf('@');
-                if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
-                const slashIdx = v.lastIndexOf('/');
-                if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
-              }}
-              onKeyDown={async (e:any)=>{
-                // @ts-ignore
-                if (e.nativeEvent && e.nativeEvent.isComposing) return;
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  try { await onEdit(node.id, (text||'').trim()); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); }
-                  return;
-                }
-                if (e.key==='Escape') { e.preventDefault(); setIsEditing(false); return; }
-                const v = (e.currentTarget.value || '') + (e.key.length===1? e.key : '');
-                const atIdx = v.lastIndexOf('@');
-                if (atIdx>=0) { setEditMentionFilter(v.slice(atIdx+1).trim()); setEditMentionOpen(true); } else { setEditMentionOpen(false); }
-                const slashIdx = v.lastIndexOf('/');
-                if (slashIdx>=0) { setEditCmdOpen(true); setEditCmdQuery(v.slice(slashIdx+1).toLowerCase()); } else { setEditCmdOpen(false); }
-              }}
+            <UnifiedComposer
+              ref={editComposerRef}
+              defaultValue={editValue}
               placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
-              rows={4}
+              onChange={(val)=> setEditValue(val)}
+              onSubmit={async (val)=>{
+                const trimmed = (val.text || '').trim();
+                if (!trimmed) return;
+                try {
+                  await onEdit(node.id, val);
+                  if (val.decision === 'aprovado' || val.decision === 'negado') {
+                    await onDecisionChange(val.decision);
+                  } else if (val.decision === 'reanalise') {
+                    await onDecisionChange('reanalise');
+                  }
+                  setIsEditing(false);
+                  setEditMentionOpen(false);
+                  setEditCmdOpen(false);
+                } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); }
+              }}
+              onCancel={()=> {
+                setIsEditing(false);
+                setEditMentionOpen(false);
+                setEditCmdOpen(false);
+              }}
+              onMentionTrigger={(query)=>{
+                setEditMentionFilter(query.trim());
+                setEditMentionOpen(true);
+              }}
+              onMentionClose={()=> setEditMentionOpen(false)}
+              onCommandTrigger={(query)=>{
+                setEditCmdQuery(query.toLowerCase());
+                setEditCmdOpen(true);
+              }}
+              onCommandClose={()=> {
+                setEditCmdOpen(false);
+                setEditCmdQuery('');
+              }}
             />
             {editMentionOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <MentionDropdownParecer
-                  items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                  items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()) && p.id !== currentUserId)}
                   onPick={(p)=>{
-                    const idx = (text||'').lastIndexOf('@');
-                    const newVal = (text||'').slice(0, idx + 1) + p.full_name + ' ';
-                    setText(newVal);
+                    editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                     setEditMentionOpen(false);
+                    setEditMentionFilter("");
                   }}
                 />
               </div>
@@ -826,74 +1219,105 @@ function NoteItem({ node, depth, profiles, onReply, onEdit, onDelete }: { node: 
                     { key:'aprovado', label:'Aprovado' },
                     { key:'negado', label:'Negado' },
                     { key:'reanalise', label:'Reanálise' },
-                    { key:'tarefa', label:'Tarefa' },
-                    { key:'anexo', label:'Anexo' },
                   ].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
                   onPick={async (key)=>{
                     setEditCmdOpen(false); setEditCmdQuery('');
-                    if (key==='tarefa') { const ev = new CustomEvent('mz-open-task'); window.dispatchEvent(ev); return; }
-                    if (key==='anexo') { const ev = new CustomEvent('mz-open-attach'); window.dispatchEvent(ev); return; }
-                    try {
-                      const cid = (window as any).mz_card_id || '';
-                      if (key==='aprovado') await changeStage(cid, 'analise', 'aprovados');
-                      else if (key==='negado') await changeStage(cid, 'analise', 'negados');
-                      else if (key==='reanalise') await changeStage(cid, 'analise', 'reanalise');
-                    } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                    if (key==='aprovado' || key==='negado' || key==='reanalise') {
+                      editComposerRef.current?.setDecision(key as any);
+                      try {
+                        await onDecisionChange(key as any);
+                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                    }
                   }}
                   initialQuery={editCmdQuery}
                 />
               </div>
             )}
           </div>
-          {/* Removidos CTAs; envio via Enter, cancelar via Esc */}
+        </div>
+      )}
+      {nodeTasks.length > 0 && (
+        <div className="mt-2 space-y-2">
+          {nodeTasks.map((task) => {
+            const creatorProfile = task.created_by
+              ? profiles.find((p) => p.id === task.created_by)
+              : null;
+            const creatorName = creatorProfile?.full_name ?? "Colaborador";
+            return (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onToggle={(id, done) => onToggleTask(id, done)}
+                creatorName={creatorName}
+                applicantName={applicantName}
+                onEdit={() => onOpenTask({ parentId: node.id, taskId: task.id, source: "parecer" })}
+              />
+            );
+          })}
         </div>
       )}
       {isReplying && (
         <div className="mt-2 flex gap-2 relative" ref={replyRef}>
-          <div className="flex-1">
-            <Textarea
-              ref={replyTaRef}
-              value={reply}
-              onChange={(e)=> {
-                const v = e.target.value || '';
-                setReply(v);
-                const atIdx = v.lastIndexOf('@');
-                if (atIdx>=0) { setMentionFilter(v.slice(atIdx+1).trim()); setMentionOpen(true); } else { setMentionOpen(false); }
-                const slashIdx = v.lastIndexOf('/');
-                if (slashIdx>=0) { setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current) { const c = getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } }
-                else { setCmdOpen(false); }
+          <div className="flex-1 relative">
+            <UnifiedComposer
+              ref={replyComposerRef}
+              defaultValue={replyValue}
+              placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+              onChange={(val)=> setReplyValue(val)}
+              onSubmit={async (val)=>{
+                const trimmed = (val.text || '').trim();
+                if (!trimmed) return;
+                try {
+                  await onReply(node.id, val);
+                  if (val.decision === 'aprovado' || val.decision === 'negado') {
+                    await onDecisionChange(val.decision);
+                  } else if (val.decision === 'reanalise') {
+                    await onDecisionChange('reanalise');
+                  }
+                  const resetVal: ComposerValue = { decision: null, text: '', mentions: [] };
+                  setReplyValue(resetVal);
+                  replyComposerRef.current?.setValue(resetVal);
+                  setIsReplying(false);
+                  setMentionOpen(false);
+                  setCmdOpen(false);
+                } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); }
               }}
-              onKeyDown={(e)=>{
-                // Evita enviar durante composição (IME)
-                // @ts-ignore
-                if (e.nativeEvent && e.nativeEvent.isComposing) return;
-                const v = (e.currentTarget.value || '') + (e.key.length===1 ? e.key : '');
-                const slashIdx = v.lastIndexOf('/');
-                if (slashIdx>=0) { setCmdOpen(true); setCmdQuery(v.slice(slashIdx+1).toLowerCase()); if (replyTaRef.current) { const c = getCaretCoordinates(replyTaRef.current, slashIdx+1); setCmdAnchor({ top: c.top + c.height + 6, left: Math.max(0, Math.min(c.left, replyTaRef.current.clientWidth - 256)) }); } } else { setCmdOpen(false); }
-                if (e.key==='Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  const t = reply.trim();
-                  if (!t) return;
-                  (async ()=>{ try { await onReply(node.id, t); setReply(''); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); } })();
-                  return;
+              onCancel={()=> {
+                setIsReplying(false);
+                setMentionOpen(false);
+                setCmdOpen(false);
+              }}
+              onMentionTrigger={(query)=>{
+                setMentionFilter(query.trim());
+                setMentionOpen(true);
+              }}
+              onMentionClose={()=> setMentionOpen(false)}
+              onCommandTrigger={(query)=>{
+                setCmdQuery(query.toLowerCase());
+                setCmdOpen(true);
+              }}
+              onCommandClose={()=> {
+                const txt = replyValue.text || '';
+                if (txt.match(/\/([\w]*)$/)) {
+                  setCmdOpen(true);
+                } else {
+                  setCmdOpen(false);
+                  setCmdQuery('');
                 }
               }}
-              placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
-              rows={3}
             />
-          {mentionOpen && (
-            <div className="absolute z-50 left-0 bottom-full mb-2">
-            <MentionDropdownParecer
-              items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(mentionFilter.toLowerCase()))}
-              onPick={(p)=> {
-                const idx = (reply || '').lastIndexOf('@');
-                const newVal = (reply || '').slice(0, idx + 1) + p.full_name + ' ';
-                setReply(newVal);
-                setMentionOpen(false);
-              }}
-            />
-            </div>
-          )}
+            {mentionOpen && (
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+                <MentionDropdownParecer
+                  items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(mentionFilter.toLowerCase()) && p.id !== currentUserId)}
+                  onPick={(p)=> {
+                    replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
+                    setMentionOpen(false);
+                    setMentionFilter("");
+                  }}
+                />
+              </div>
+            )}
             {cmdOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <CmdDropdown
@@ -906,13 +1330,24 @@ function NoteItem({ node, depth, profiles, onReply, onEdit, onDelete }: { node: 
                   ].filter(i=> i.key.includes(cmdQuery))}
                   onPick={async (key)=>{
                     setCmdOpen(false); setCmdQuery('');
-                    if (key==='tarefa') { const ev = new CustomEvent('mz-open-task'); window.dispatchEvent(ev); return; }
-                    if (key==='anexo') { const ev = new CustomEvent('mz-open-attach'); window.dispatchEvent(ev); return; }
-                    try {
-                      if (key==='aprovado') await changeStage((window as any).mz_card_id || '', 'analise', 'aprovados');
-                      else if (key==='negado') await changeStage((window as any).mz_card_id || '', 'analise', 'negados');
-                      else if (key==='reanalise') await changeStage((window as any).mz_card_id || '', 'analise', 'reanalise');
-                    } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                    if (key==='aprovado' || key==='negado' || key==='reanalise') {
+                      replyComposerRef.current?.setDecision(key as any);
+                      try {
+                        await onDecisionChange(key as any);
+                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                      return;
+                    }
+                    if (key==='tarefa') {
+                      onOpenTask({ parentId: node.id, source: "parecer" });
+                      return;
+                    }
+                    if (key==='anexo') {
+                      try {
+                        const ev = new CustomEvent('mz-open-attach', { detail: { commentId: node.id, source: 'parecer' } });
+                        window.dispatchEvent(ev);
+                      } catch {}
+                      return;
+                    }
                   }}
                   initialQuery={cmdQuery}
                 />
@@ -921,11 +1356,26 @@ function NoteItem({ node, depth, profiles, onReply, onEdit, onDelete }: { node: 
           </div>
         </div>
       )}
-          {node.children && node.children.length>0 && (
-            <div className="mt-2 space-y-2">
-              {node.children.map((c:any)=> <NoteItem key={c.id} node={c} depth={depth+1} profiles={profiles} onReply={onReply} onEdit={onEdit} onDelete={onDelete} />)}
-            </div>
-          )}
+      {node.children && node.children.length>0 && (
+        <div className="mt-2 space-y-2">
+          {node.children.map((c:any)=> (
+            <NoteItem
+              key={c.id}
+              cardId={cardId}
+              node={c}
+              depth={depth+1}
+              profiles={profiles}
+              tasks={tasks}
+              onReply={onReply}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onDecisionChange={onDecisionChange}
+              onOpenTask={onOpenTask}
+              onToggleTask={onToggleTask}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -981,31 +1431,6 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
 }
 
 // Utilitário local para obter a posição do caret no textarea
-function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number) {
-  const style = window.getComputedStyle(textarea);
-  const mirror = document.createElement('div');
-  const props = [
-    'direction','boxSizing','height','overflowX','overflowY','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth','paddingTop','paddingRight','paddingBottom','paddingLeft','fontStyle','fontVariant','fontWeight','fontStretch','fontSize','fontFamily','lineHeight','textAlign','textTransform','textIndent','textDecoration','letterSpacing','tabSize','MozTabSize'
-  ];
-  props.forEach((p:any)=> { (mirror.style as any)[p] = (style as any)[p] ?? style.getPropertyValue(p); });
-  mirror.style.position = 'absolute';
-  mirror.style.visibility = 'hidden';
-  mirror.style.whiteSpace = 'pre-wrap';
-  mirror.style.wordWrap = 'break-word';
-  mirror.style.width = `${textarea.clientWidth}px`;
-  mirror.textContent = textarea.value.substring(0, position);
-  const span = document.createElement('span');
-  span.textContent = textarea.value.substring(position) || '.';
-  mirror.appendChild(span);
-  document.body.appendChild(mirror);
-  const spRect = span.getBoundingClientRect();
-  const top = spRect.top + textarea.scrollTop;
-  const left = spRect.left + textarea.scrollLeft;
-  const height = spRect.height || parseFloat(style.lineHeight) || 16;
-  document.body.removeChild(mirror);
-  return { top, left, height };
-}
-
 function MentionDropdownParecer({ items, onPick }: { items: ProfileLite[]; onPick: (p: ProfileLite) => void }) {
   const [q, setQ] = useState("");
   const filtered = items.filter((p) => p.full_name.toLowerCase().includes(q.toLowerCase()));

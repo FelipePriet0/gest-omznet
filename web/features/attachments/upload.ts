@@ -1,0 +1,89 @@
+"use client";
+
+import { supabase } from "@/lib/supabaseClient";
+
+export const ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+export const ATTACHMENT_ALLOWED_TYPES = [
+  // imagens
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  // documentos
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+  "application/zip",
+  "application/x-rar-compressed",
+  "application/vnd.rar",
+  "application/x-zip-compressed",
+];
+
+function slugify(value: string) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9\-_. ]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+}
+
+export async function uploadAttachmentBatch({
+  cardId,
+  commentId,
+  files,
+  description,
+}: {
+  cardId: string;
+  commentId?: string | null;
+  files: Array<{ file: File; displayName?: string }>;
+  description?: string | null;
+}): Promise<Array<{ name: string; path: string }>> {
+  if (!cardId) throw new Error("cardId é obrigatório para anexar arquivos.");
+  if (!files || files.length === 0) return [];
+
+  const uploaded: Array<{ name: string; path: string }> = [];
+
+  for (const item of files) {
+    const { file, displayName } = item;
+    const ext = file.name.includes(".") ? file.name.split(".").pop() : undefined;
+    const clean = slugify(displayName || file.name);
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    const path = `${cardId}/${clean}_${ts}.${ext ?? "bin"}`;
+
+    const { error: uploadError } = await supabase
+      .storage
+      .from("card-attachments")
+      .upload(path, file, { upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    const { error: metaError } = await supabase
+      .from("card_attachments")
+      .insert({
+        card_id: cardId,
+        comment_id: commentId ?? null,
+        file_name: displayName || file.name,
+        description: description ?? null,
+        file_path: path,
+        file_size: file.size,
+        file_type: file.type || null,
+        file_extension: ext || null,
+      });
+
+    if (metaError) throw metaError;
+
+    uploaded.push({ name: displayName || file.name, path });
+  }
+
+  return uploaded;
+}
+

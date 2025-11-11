@@ -24,41 +24,39 @@ for each row execute function public.set_updated_at();
 
 alter table public.card_tasks enable row level security;
 
--- Visibility: access to related card or gestor
+-- Visibilidade: liberada para vendedores, analistas e gestores.
 drop policy if exists tasks_select_access on public.card_tasks;
-create policy tasks_select_access on public.card_tasks for select
-  using (
-    exists (
-      select 1 from public.kanban_cards kc
-      where kc.id = card_tasks.card_id
-        and (kc.assignee_id = auth.uid() or kc.created_by = auth.uid())
-    )
-    or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor')
-  );
+drop policy if exists tasks_select_roles on public.card_tasks;
+create policy tasks_select_roles on public.card_tasks for select
+  using (public.user_has_role(array['vendedor','analista','gestor']::user_role[]));
 
--- Insert: allowed for vendedor/analista/gestor when has access to card
+-- Inserção: mesmos papéis.
 drop policy if exists tasks_insert_access on public.card_tasks;
-create policy tasks_insert_access on public.card_tasks for insert
-  with check (
-    exists (
-      select 1 from public.kanban_cards kc
-      where kc.id = card_tasks.card_id
-        and (kc.assignee_id = auth.uid() or kc.created_by = auth.uid())
-    )
-  );
+drop policy if exists tasks_insert_roles on public.card_tasks;
+create policy tasks_insert_roles on public.card_tasks for insert
+  with check (public.user_has_role(array['vendedor','analista','gestor']::user_role[]));
 
--- Update: creator or assignee or gestor
+-- Atualização: analistas/gestores em qualquer tarefa; vendedores apenas se criaram.
 drop policy if exists tasks_update_access on public.card_tasks;
-create policy tasks_update_access on public.card_tasks for update
+drop policy if exists tasks_update_roles on public.card_tasks;
+create policy tasks_update_roles on public.card_tasks for update
   using (
-    created_by = auth.uid() or assigned_to = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor')
+    public.user_has_role(array['analista','gestor']::user_role[])
+    or (
+      public.user_has_role(array['vendedor']::user_role[])
+      and created_by = auth.uid()
+    )
   )
   with check (
-    created_by = auth.uid() or assigned_to = auth.uid() or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor')
+    public.user_has_role(array['analista','gestor']::user_role[])
+    or (
+      public.user_has_role(array['vendedor']::user_role[])
+      and created_by = auth.uid()
+    )
   );
 
--- Delete: only gestor
+-- Delete: apenas gestor.
 drop policy if exists tasks_delete_gestor on public.card_tasks;
 create policy tasks_delete_gestor on public.card_tasks for delete
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'));
+  using (public.user_has_role(array['gestor']::user_role[]));
 

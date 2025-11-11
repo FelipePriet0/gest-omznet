@@ -1,17 +1,37 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Textarea } from "@/components/ui/textarea";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { User as UserIcon, ClipboardList, Paperclip, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { addComment, deleteComment, editComment, listComments, listProfiles, type Comment, type ProfileLite } from "./services";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
+import { TaskCard } from "@/features/tasks/TaskCard";
 import { listAttachments, removeAttachment, publicUrl, type CardAttachment } from "@/features/attachments/services";
+import { UnifiedComposer, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
+import { renderTextWithChips } from "@/utils/richText";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ModalPreview, type PreviewTarget } from "@/components/ui/modal-preview";
+
+type CardAttachmentWithMeta = CardAttachment & { isCardRoot?: boolean };
 
 type TaskTrigger = { openTask: (parentCommentId?: string) => void };
 type AttachTrigger = { openAttach: (parentCommentId?: string) => void };
 
-export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: { cardId: string; onOpenTask: TaskTrigger["openTask"]; onOpenAttach: AttachTrigger["openAttach"]; onEditTask?: (taskId: string) => void; }) {
+function ComposerHeader({ name }: { name: string }) {
+  return (
+    <div className="mb-2 flex items-center gap-2">
+      <Avatar className="h-7 w-7 text-[10px]">
+        <AvatarFallback>{name.slice(0, 2).toUpperCase()}</AvatarFallback>
+      </Avatar>
+      <div className="text-xs text-zinc-600">
+        <span className="font-medium text-zinc-900">{name}</span>
+        <span> • {new Date().toLocaleString()}</span>
+      </div>
+    </div>
+  );
+}
+
+export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, onEditTask }: { cardId: string; applicantName?: string | null; onOpenTask: TaskTrigger["openTask"]; onOpenAttach: AttachTrigger["openAttach"]; onEditTask?: (taskId: string) => void; }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [input, setInput] = useState("");
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -20,10 +40,43 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
   const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
-  const inputRef = useRef<HTMLTextAreaElement|null>(null);
+  const inputRef = useRef<UnifiedComposerHandle|null>(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<CardTask[]>([]);
-  const [attachments, setAttachments] = useState<CardAttachment[]>([]);
+  const [attachments, setAttachments] = useState<CardAttachmentWithMeta[]>([]);
+  const [preview, setPreview] = useState<PreviewTarget | null>(null);
+  const cardAttachmentIdsRef = useRef<Set<string>>(new Set());
+  const [currentUserName, setCurrentUserName] = useState<string>("Você");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      const uid = data?.user?.id ?? null;
+      setCurrentUserId(uid);
+      if (uid) {
+        const me = (profiles || []).find((p) => p.id === uid);
+        if (me?.full_name) setCurrentUserName(me.full_name);
+      }
+    })();
+  }, [profiles]);
+
+  const profilesById = useMemo(() => {
+    const map = new Map<string, ProfileLite>();
+    profiles?.forEach((p) => {
+      if (p?.id) map.set(p.id, p);
+    });
+    return map;
+  }, [profiles]);
+
+  const submitComment = async (parentId: string | null, value: ComposerValue) => {
+    const text = (value.text || "").trim();
+    if (!text) return;
+    try {
+      await addComment(cardId, text, parentId ?? undefined);
+    } catch (e: any) {
+      alert(e?.message || "Falha ao enviar comentário");
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -32,7 +85,16 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
       setComments(await listComments(cardId));
       setProfiles(await listProfiles());
       setTasks(await listTasks(cardId));
-      setAttachments(await listAttachments(cardId));
+      const loadedAttachments = await listAttachments(cardId);
+      loadedAttachments.forEach((att) => {
+        if (!att.comment_id) cardAttachmentIdsRef.current.add(att.id);
+      });
+      setAttachments(
+        loadedAttachments.map((att) => ({
+          ...att,
+          isCardRoot: cardAttachmentIdsRef.current.has(att.id) || !att.comment_id,
+        }))
+      );
       setLoading(false);
     })();
     const channel = supabase
@@ -51,71 +113,89 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
       .subscribe();
     async function refresh() { if (!active) return; setComments(await listComments(cardId)); }
     async function refreshTasks() { if (!active) return; setTasks(await listTasks(cardId)); }
-    async function refreshAtt() { if (!active) return; setAttachments(await listAttachments(cardId)); }
+    async function refreshAtt() {
+      if (!active) return;
+      const loaded = await listAttachments(cardId);
+      loaded.forEach((att) => {
+        if (!att.comment_id && !cardAttachmentIdsRef.current.has(att.id)) {
+          cardAttachmentIdsRef.current.add(att.id);
+        }
+      });
+      setAttachments(
+        loaded.map((att) => ({
+          ...att,
+          isCardRoot: cardAttachmentIdsRef.current.has(att.id) || !att.comment_id,
+        }))
+      );
+    }
     return () => { active = false; supabase.removeChannel(channel); supabase.removeChannel(chTasks); supabase.removeChannel(chAtt); };
   }, [cardId]);
 
   const tree = useMemo(() => buildTree(comments || []), [comments]);
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === '/') {
-      setCmdOpen(true);
-      const ta = inputRef.current || (e.currentTarget as HTMLTextAreaElement);
-      if (ta) {
-        const pos = (ta.selectionStart ?? ta.value.length) + 1;
-        const c = getCaretCoordinates(ta, pos);
-        const top = ta.offsetTop + c.top + c.height + 6;
-        const leftRaw = ta.offsetLeft + c.left;
-        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
-        setCmdAnchor({ top, left });
-      }
-    }
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submitNew();
-    }
-    const val = (e.currentTarget.value || "") + (e.key.length === 1 ? e.key : "");
-    // Mentions
-    const atIdx = val.lastIndexOf("@");
-    if (atIdx >= 0) {
-      setMentionFilter(val.slice(atIdx + 1).trim());
-      setMentionOpen(true);
-    } else {
-      setMentionOpen(false);
-    }
-    // Slash commands (dropdown estilo Notion)
-    const slashIdx = val.lastIndexOf("/");
-    if (slashIdx >= 0) {
-      const q = val.slice(slashIdx + 1);
-      setCmdQuery(q.toLowerCase());
-      setCmdOpen(true);
-      if (inputRef.current) {
-        const ta = inputRef.current;
-        setCmdAnchor({ top: (ta.offsetHeight || 0) + 8, left: 0 });
-      }
-    } else {
-      setCmdOpen(false);
-    }
-  }
+  const attachmentCommentIds = useMemo(() => {
+    const set = new Set<string>();
+    attachments
+      .filter((att) => att.isCardRoot && att.comment_id)
+      .forEach((att) => {
+        if (att.comment_id) set.add(att.comment_id);
+      });
+    return set;
+  }, [attachments]);
 
-  function onKeyUp(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const v = (e.currentTarget.value || '');
-    const slashIdx = v.lastIndexOf('/');
-    if (slashIdx >= 0) {
-      setCmdQuery(v.slice(slashIdx + 1).toLowerCase());
-      setCmdOpen(true);
-      if (inputRef.current) {
-        const ta = inputRef.current;
-        const c = getCaretCoordinates(ta, slashIdx + 1);
-        const top = ta.offsetTop + c.top + c.height + 6;
-        const leftRaw = ta.offsetLeft + c.left;
-        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
-        setCmdAnchor({ top, left });
-      }
-    } else {
-      setCmdOpen(false);
+  const attachmentReplyIds = useMemo(() => {
+    const ids = new Set<string>();
+    attachments
+      .filter((att) => att.isCardRoot && att.comment_id)
+      .forEach((att) => {
+        tree
+          .filter((node: any) => node.parent_id === att.comment_id)
+          .forEach((child: any) => ids.add(child.id));
+      });
+    return ids;
+  }, [attachments, tree]);
+
+  const conversationTree = useMemo(() => {
+    const clone = JSON.parse(JSON.stringify(tree));
+    return (clone as any[]).filter(
+      (node: any) => !attachmentCommentIds.has(node.id) && !attachmentReplyIds.has(node.id)
+    );
+  }, [tree, attachmentCommentIds, attachmentReplyIds]);
+
+  const ensureAttachmentComment = useCallback(async (attachment: CardAttachmentWithMeta) => {
+    if (attachment.comment_id) return attachment.comment_id;
+    const basePayload: any = {
+      card_id: cardId,
+      content: "",
+    };
+    if (currentUserId) {
+      basePayload.author_id = currentUserId;
+      basePayload.author_name = currentUserName;
     }
-  }
+    const { data, error } = await supabase
+      .from("card_comments")
+      .insert(basePayload)
+      .select("id")
+      .single();
+    if (error || !data?.id) {
+      throw new Error(error?.message ?? "Falha ao vincular comentário ao anexo");
+    }
+    const newCommentId = data.id as string;
+    await supabase.from("card_attachments").update({ comment_id: newCommentId }).eq("id", attachment.id);
+    cardAttachmentIdsRef.current.add(attachment.id);
+    setAttachments((prev) =>
+      prev.map((a) =>
+        a.id === attachment.id
+          ? {
+              ...a,
+              comment_id: newCommentId,
+              isCardRoot: true,
+            }
+          : a
+      )
+    );
+    return newCommentId;
+  }, [cardId, currentUserId, currentUserName]);
 
   async function submitNew(parentId?: string) {
     const text = input.trim();
@@ -129,7 +209,8 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
   }
 
   return (
-    <div className="space-y-3">
+    <div>
+      <ModalPreview file={preview} onClose={() => setPreview(null)} />
       <div className="section-card">
         <div className="section-header">
           <h3 className="section-title conversas">Conversas Co-relacionadas</h3>
@@ -137,27 +218,25 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
         <div className="section-content space-y-3">
           {/* Campo para nova conversa (Thread Pai) no topo */}
           <div className="border-b border-zinc-100 pb-4 mb-4 relative">
-              <Textarea
+              <UnifiedComposer
                 ref={inputRef}
-                value={input}
-                onChange={(e) => {
-                  const v = e.target.value || '';
-                  setInput(v);
-                  const atIdx = v.lastIndexOf('@');
-                  if (atIdx >= 0) { setMentionFilter(v.slice(atIdx + 1).trim()); setMentionOpen(true); } else { setMentionOpen(false); }
-                  const slashIdx = v.lastIndexOf('/');
-                  if (slashIdx >= 0) {
-                    setCmdQuery(v.slice(slashIdx + 1).toLowerCase()); setCmdOpen(true);
-                    if (inputRef.current) {
-                    const ta = inputRef.current!;
-                    setCmdAnchor({ top: (ta.offsetHeight || 0) + 8, left: 0 });
-                  }
-                } else { setCmdOpen(false); }
-              }}
-                onKeyDown={onKeyDown}
-                onKeyUp={onKeyUp}
                 placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
-                rows={3}
+                onChange={(val)=> setInput(val.text || "")}
+                onSubmit={async (val: ComposerValue)=>{
+                  try {
+                    await addComment(cardId, (val.text||'').trim());
+                    // Limpa o campo visualmente e o estado após envio
+                    setInput("");
+                    requestAnimationFrame(() => inputRef.current?.setValue({ decision: null, text: "", mentions: [] }));
+                  } catch(e:any){
+                    alert(e?.message||'Falha ao enviar comentário');
+                  }
+                }}
+                onCancel={()=> { setInput(""); setCmdOpen(false); setMentionOpen(false); }}
+                onMentionTrigger={(query)=> { setMentionFilter((query||'').trim()); setMentionOpen(true); }}
+                onMentionClose={()=> setMentionOpen(false)}
+                onCommandTrigger={(query)=> { setCmdQuery((query||'').toLowerCase()); setCmdOpen(true); }}
+                onCommandClose={()=> setCmdOpen(false)}
               />
             {cmdOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
@@ -174,14 +253,12 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
             )}
             {mentionOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
-              <MentionDropdown
-                items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
+                <MentionDropdown
+                items={profiles.filter((p) => p.id !== currentUserId && p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
                 onPick={(p) => {
-                  // Substitui o trecho após o último @
-                  const idx = input.lastIndexOf("@");
-                  const newVal = input.slice(0, idx + 1) + p.full_name + " ";
-                  setInput(newVal);
+                  inputRef.current?.insertMention({ id: p.id, label: p.full_name });
                   setMentionOpen(false);
+                  setMentionFilter("");
                 }}
               />
               </div>
@@ -189,8 +266,67 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
           </div>
 
           {loading && <div className="text-xs text-zinc-500">Carregando…</div>}
+          {/* Anexos do card (sem vínculo a um comentário específico) */}
+          {!loading && attachments.filter((a) => a.isCardRoot).length > 0 && (
+             <div className="space-y-3 mb-3">
+               {attachments
+                 .filter((a) => a.isCardRoot)
+                 .map((att) => {
+                  const threadCommentId = att.comment_id ?? null;
+                  const attachmentReplies = threadCommentId
+                    ? buildTree(comments.filter((c) => c.parent_id === threadCommentId) as any)
+                    : [];
+                  const profile = att.author_id ? profilesById.get(att.author_id) : undefined;
+                  const authorName = att.author_name
+                    ?? profile?.full_name
+                    ?? (att.author_id && att.author_id === currentUserId ? currentUserName : "Colaborador");
+                  const authorRole = att.author_role ?? profile?.role ?? null;
+                  return (
+                    <div key={att.id} className="space-y-2">
+                      <AttachmentMessage
+                        att={att}
+                        authorName={authorName}
+                        authorRole={authorRole}
+                        ensureThread={ensureAttachmentComment}
+                        onReply={(parentId, value) => submitComment(parentId, value)}
+                        onOpenTask={onOpenTask}
+                        onOpenAttach={onOpenAttach}
+                        profiles={profiles}
+                        onPreview={(payload) => setPreview(payload)}
+                      />
+                      {attachmentReplies.length > 0 && (
+                        <div className="ml-6 space-y-2 mt-2">
+                          {attachmentReplies.map((replyNode) => (
+                            <CommentItem
+                              key={replyNode.id}
+                              node={replyNode}
+                              depth={1}
+                              onReply={(id, text) => addComment(cardId, text, id)}
+                              onEdit={editComment}
+                              onDelete={deleteComment}
+                              onOpenAttach={onOpenAttach}
+                              onOpenTask={onOpenTask}
+                              tasks={tasks.filter((t) => t.comment_id === replyNode.id)}
+                              attachments={attachments.filter((a) => a.comment_id === replyNode.id)}
+                              onToggleTask={toggleTask}
+                              profiles={profiles}
+                              currentUserName={currentUserName}
+                              currentUserId={currentUserId}
+                              onEditTask={onEditTask}
+                              onSubmitComment={submitComment}
+                              onPreview={(payload) => setPreview(payload)}
+                              applicantName={applicantName}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+             </div>
+           )}
           {!loading && comments.length === 0 && <div className="text-xs text-zinc-500">Nenhuma conversa iniciada</div>}
-          {tree.map((n) => (
+          {conversationTree.map((n) => (
             <CommentItem
               key={n.id}
               node={n}
@@ -204,40 +340,14 @@ export function Conversation({ cardId, onOpenTask, onOpenAttach, onEditTask }: {
               attachments={attachments.filter((a) => a.comment_id === n.id)}
               onToggleTask={toggleTask}
               profiles={profiles}
+              currentUserName={currentUserName}
+              currentUserId={currentUserId}
+              onEditTask={onEditTask}
+              onSubmitComment={submitComment}
+              onPreview={(payload) => setPreview(payload)}
+              applicantName={applicantName}
             />
           ))}
-        </div>
-        {/* Nova conversa agora está no topo; removido bloco inferior */}
-        <div className="hidden">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
-            rows={3}
-          />
-          {cmdOpen && (
-            <CmdDropdown
-              items={[{key:'tarefa',label:'📋 Tarefa'},{key:'anexo',label:'📎 Anexo'}].filter(i=> i.key.includes(cmdQuery))}
-              onPick={(key)=> {
-                if (key==='tarefa') onOpenTask();
-                if (key==='anexo') onOpenAttach();
-                setCmdOpen(false); setCmdQuery('');
-              }}
-            />
-          )}
-          {mentionOpen && (
-            <MentionDropdown
-              items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
-              onPick={(p) => {
-                // Substitui o trecho após o último @
-                const idx = input.lastIndexOf("@");
-                const newVal = input.slice(0, idx + 1) + p.full_name + " ";
-                setInput(newVal);
-                setMentionOpen(false);
-              }}
-            />
-          )}
         </div>
       </div>
     </div>
@@ -340,92 +450,74 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
 
 // Notificações agora são geradas por triggers no backend para evitar duplicatas
 
-function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; }) {
+const openReplyMap = new Map<string, boolean>();
+const AUTO_TASK_COMMENT_RE = /^📋\s*Tarefa criada\s*:\s*/i;
+
+function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, currentUserId, onEditTask, onSubmitComment, onPreview, applicantName }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; currentUserId?: string | null; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; applicantName?: string | null; }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isReplying, setIsReplying] = useState(false);
+  const [replyOpen, setReplyOpen] = useState(openReplyMap.get(node.id) ?? false);
   const editRef = useRef<HTMLDivElement | null>(null);
   const replyRef = useRef<HTMLDivElement | null>(null);
+  const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
+  const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
       const t = e.target as Node | null;
       if (isEditing && editRef.current && t && !editRef.current.contains(t)) {
         setIsEditing(false);
       }
-      if (isReplying && replyRef.current && t && !replyRef.current.contains(t)) {
-        setIsReplying(false);
+      if (replyOpen && replyRef.current && t && !replyRef.current.contains(t)) {
+        openReplyMap.set(node.id, false);
+        setReplyOpen(false);
       }
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [isEditing, isReplying]);
+  }, [isEditing, replyOpen, node.id]);
   const [text, setText] = useState(node.text || "");
   const [reply, setReply] = useState("");
   const [mentionOpen2, setMentionOpen2] = useState(false);
   const [mentionFilter2, setMentionFilter2] = useState("");
   const [cmdOpen2, setCmdOpen2] = useState(false);
   const [cmdQuery2, setCmdQuery2] = useState("");
-  const [cmdAnchor2, setCmdAnchor2] = useState<{top:number;left:number}>({ top: 0, left: 0 });
-  const replyTaRef = useRef<HTMLTextAreaElement|null>(null);
+  // Compositor Unificado - edição
+  const [editMentionOpen, setEditMentionOpen] = useState(false);
+  const [editMentionFilter, setEditMentionFilter] = useState("");
+  const [editCmdOpen, setEditCmdOpen] = useState(false);
+  const [editCmdQuery, setEditCmdQuery] = useState("");
+  const [editCmdAnchor, setEditCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : "";
-  function onReplyKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    // @ts-ignore
-    if (e.nativeEvent && e.nativeEvent.isComposing) return;
-    if (e.key === '/') {
-      setCmdOpen2(true);
-      const ta = replyTaRef.current || (e.currentTarget as HTMLTextAreaElement);
-      if (ta) {
-        const pos = (ta.selectionStart ?? ta.value.length) + 1;
-        const c = getCaretCoordinates(ta, pos);
-        const top = ta.offsetTop + c.top + c.height + 6;
-        const leftRaw = ta.offsetLeft + c.left;
-        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
-        setCmdAnchor2({ top, left });
-      }
-    }
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      const t = reply.trim();
-      if (!t) return;
-      (async () => { try { await onReply(node.id, t); setReply(""); setIsReplying(false); } catch(e:any){ alert(e?.message||'Falha ao responder'); } })();
+  const rawText = node.text ?? "";
+  const trimmedText = rawText.trim();
+  const hasTasks = tasks.length > 0;
+  const authorDisplayName = (node.author_name || "").trim() || "Um colaborador";
+  const isAutoTaskComment = hasTasks && AUTO_TASK_COMMENT_RE.test(trimmedText);
+  const assigneeId = (tasks.find((t) => t.assigned_to)?.assigned_to as string | undefined) || null;
+  const assigneeName = assigneeId ? (profiles.find((p) => p.id === assigneeId)?.full_name || "um colaborador") : "um colaborador";
+  const displayText =
+    trimmedText.length === 0
+      ? ""
+      : isAutoTaskComment
+      ? `${authorDisplayName} criou uma tarefa para "${assigneeName}".`
+      : node.text || "";
+  function openReply() {
+    openReplyMap.set(node.id, true);
+    setReplyOpen(true);
+    requestAnimationFrame(() => replyComposerRef.current?.focus());
+  }
+  useEffect(() => {
+    if (!replyOpen) {
+      setCmdOpen2(false);
       return;
     }
-    const val = (e.currentTarget.value || "") + (e.key.length === 1 ? e.key : "");
-    const atIdx = val.lastIndexOf("@");
-    if (atIdx >= 0) { setMentionFilter2(val.slice(atIdx + 1).trim()); setMentionOpen2(true); } else { setMentionOpen2(false); }
-    const slashIdx = val.lastIndexOf("/");
-    if (slashIdx >= 0) {
-      setCmdQuery2(val.slice(slashIdx + 1).toLowerCase()); setCmdOpen2(true);
-      if (replyTaRef.current) {
-        const ta = replyTaRef.current;
-        const c = getCaretCoordinates(ta, slashIdx + 1);
-        const rect = ta.getBoundingClientRect();
-        const top = rect.top + window.scrollY + c.top + c.height + 6;
-        const left = rect.left + window.scrollX + c.left;
-        setCmdAnchor2({ top, left });
-      }
-    } else { setCmdOpen2(false); }
-    if (val.endsWith("/tarefa")) { onOpenTask(node.id); }
-    else if (val.endsWith("/anexo")) { onOpenAttach(node.id); }
-  }
-
-  function onReplyKeyUp(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const v = (e.currentTarget.value || '');
-    const slashIdx = v.lastIndexOf('/');
-    if (slashIdx >= 0) {
-      setCmdQuery2(v.slice(slashIdx + 1).toLowerCase());
+    const m = reply.match(/\/([\w]*)$/);
+    if (m) {
+      setCmdQuery2((m[1] || "").toLowerCase());
       setCmdOpen2(true);
-      if (replyTaRef.current) {
-        const ta = replyTaRef.current;
-        const c = getCaretCoordinates(ta, slashIdx + 1);
-        const top = ta.offsetTop + c.top + c.height + 6;
-        const leftRaw = ta.offsetLeft + c.left;
-        const left = Math.max(0, Math.min(leftRaw, ta.clientWidth - 224));
-        setCmdAnchor2({ top, left });
-      }
     } else {
       setCmdOpen2(false);
     }
-  }
+  }, [reply, replyOpen]);
   return (
     <div className="comment-card rounded-lg pl-3" style={{ marginLeft: depth * 16, borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}>
       <div className="flex items-center justify-between gap-2">
@@ -437,79 +529,139 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button aria-label="Responder" className="text-emerald-700 hover:opacity-90" onClick={() => setIsReplying((v) => !v)}>
-            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <button aria-label="Responder" onClick={openReply} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
-          <CommentMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }} />
+          {currentUserId && node.author_id === currentUserId ? (
+            <CommentMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }} />
+          ) : null}
         </div>
       </div>
       {!isEditing ? (
-        <div className="mt-1 whitespace-pre-line break-words">{node.text}</div>
+        displayText.trim().length === 0 ? null : (
+          <div className="mt-1 break-words">{renderTextWithChips(displayText)}</div>
+        )
       ) : (
         <div className="mt-2" ref={editRef}>
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={async (e)=>{
-              // @ts-ignore
-              if (e.nativeEvent && e.nativeEvent.isComposing) return;
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                try { await onEdit(node.id, text); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
-              }
-            }}
-            rows={3}
-          />
+          <div className="relative">
+            <ComposerHeader name={currentUserName} />
+            <UnifiedComposer
+              ref={editComposerRef}
+              defaultValue={{ decision: null, text: text }}
+              placeholder="Edite o comentário… (@mencionar, /tarefa, /anexo)"
+              onChange={(val)=> setText(val.text || "")}
+              onSubmit={async (val)=>{
+                try { await onEdit(node.id, (val.text||'').trim()); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
+              }}
+              onCancel={()=> { setIsEditing(false); setEditMentionOpen(false); setEditCmdOpen(false); }}
+              onMentionTrigger={(query)=> { setEditMentionFilter((query||'').trim()); setEditMentionOpen(true); }}
+              onMentionClose={()=> setEditMentionOpen(false)}
+              onCommandTrigger={(query)=> { setEditCmdQuery((query||'').toLowerCase()); setEditCmdOpen(true); }}
+              onCommandClose={()=> setEditCmdOpen(false)}
+            />
+            {editMentionOpen && (
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+                <MentionDropdown
+                  items={(profiles || []).filter((p)=> p.id !== currentUserId && (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                  onPick={(p)=>{
+                  editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
+                    setEditMentionOpen(false);
+                  setEditMentionFilter("");
+                  }}
+                />
+              </div>
+            )}
+            {editCmdOpen && (
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+                <CmdDropdown
+                  items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(editCmdQuery))}
+                  onPick={(key)=> {
+                    if (key==='tarefa') onOpenTask(node.id);
+                    if (key==='anexo') onOpenAttach(node.id);
+                    setEditCmdOpen(false); setEditCmdQuery('');
+                  }}
+                  initialQuery={editCmdQuery}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
       {tasks && tasks.length > 0 && (
         <div className="mt-2 space-y-2">
-          {tasks.map((t) => (
-            <TaskCard key={t.id} task={t} onToggle={async (id, done)=> { try { await onToggleTask(id, done); } catch (e:any) { alert(e?.message||'Falha ao atualizar tarefa'); } }} onOpenEdit={onEditTask} />
-          ))}
+          {tasks.map((t) => {
+            const creatorProfile = t.created_by ? profiles.find((p) => p.id === t.created_by) : null;
+            const creatorName =
+              creatorProfile?.full_name ??
+              (t.created_by && t.created_by === currentUserId ? currentUserName : "Colaborador");
+            return (
+              <TaskCard
+                key={t.id}
+                task={t}
+                onToggle={async (id, done) => {
+                  try {
+                    await onToggleTask(id, done);
+                  } catch (e: any) {
+                    alert(e?.message || "Falha ao atualizar tarefa");
+                  }
+                }}
+                creatorName={creatorName}
+                applicantName={applicantName}
+                onEdit={onEditTask ? () => onEditTask(t.id) : undefined}
+              />
+            );
+          })}
         </div>
       )}
       {attachments && attachments.length > 0 && (
         <div className="mt-2 space-y-2">
           {attachments.map((a) => (
-            <AttachmentRow key={a.id} att={a} />
+            <AttachmentRow key={a.id} att={a} onPreview={onPreview} />
           ))}
         </div>
       )}
-      {isReplying && (
+      {replyOpen && (
         <div className="mt-2 flex gap-2 items-start relative" ref={replyRef}>
           <div className="flex-1">
-            <Textarea
-              ref={replyTaRef}
-              value={reply}
-              onChange={(e) => {
-                const v = e.target.value || '';
-                setReply(v);
-                const atIdx = v.lastIndexOf('@');
-                if (atIdx >= 0) { setMentionFilter2(v.slice(atIdx + 1).trim()); setMentionOpen2(true); } else { setMentionOpen2(false); }
-                const slashIdx = v.lastIndexOf('/');
-                if (slashIdx >= 0) {
-                  setCmdQuery2(v.slice(slashIdx + 1).toLowerCase()); setCmdOpen2(true);
-                  if (replyTaRef.current) {
-                    const ta = replyTaRef.current;
-                    setCmdAnchor2({ top: (ta.offsetHeight || 0) + 8, left: 0 });
-                  }
-                } else { setCmdOpen2(false); }
-              }}
-              onKeyDown={onReplyKeyDown}
-              onKeyUp={onReplyKeyUp}
+            <UnifiedComposer
+              ref={replyComposerRef}
+              defaultValue={{ decision: null, text: reply }}
               placeholder="Responder... (/tarefa, /anexo, @mencionar)"
-              rows={3}
+              onChange={(val)=> setReply(val.text || "")}
+              onSubmit={async (val)=>{
+                await onSubmitComment(node.id, val);
+                setReply("");
+                openReplyMap.set(node.id, false);
+                setReplyOpen(false);
+              }}
+              onCancel={()=> { openReplyMap.set(node.id, false); setReplyOpen(false); setMentionOpen2(false); setCmdOpen2(false); }}
+              onMentionTrigger={(query)=> {
+                setMentionFilter2((query||'').trim());
+                setMentionOpen2(true);
+              }}
+              onMentionClose={()=> setMentionOpen2(false)}
+              onCommandTrigger={(query)=> {
+                setCmdQuery2((query||'').toLowerCase());
+                setCmdOpen2(true);
+              }}
+              onCommandClose={()=>{
+                if (reply.match(/\/([\w]*)$/)) {
+                  setCmdOpen2(true);
+                } else {
+                  setCmdOpen2(false);
+                }
+              }}
             />
             {mentionOpen2 && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
               <MentionDropdown
-                items={profiles.filter((p) => p.full_name.toLowerCase().includes(mentionFilter2.toLowerCase()))}
+                items={profiles.filter((p) => p.id !== currentUserId && p.full_name.toLowerCase().includes(mentionFilter2.toLowerCase()))}
                 onPick={(p) => {
-                  const idx = reply.lastIndexOf("@");
-                  const newVal = reply.slice(0, idx + 1) + p.full_name + " ";
-                  setReply(newVal);
+                  replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                   setMentionOpen2(false);
+                  setMentionFilter2("");
                 }}
               />
               </div>
@@ -542,6 +694,11 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               attachments={attachments.filter((a)=> a.comment_id === c.id)}
               onToggleTask={onToggleTask}
               profiles={profiles}
+              currentUserName={currentUserName}
+              currentUserId={currentUserId}
+              onEditTask={onEditTask}
+              onSubmitComment={onSubmitComment}
+              onPreview={onPreview}
             />
           ))}
         </div>
@@ -602,56 +759,230 @@ function CommentMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
   );
 }
 
-function TaskCard({ task, onToggle, onOpenEdit }: { task: CardTask; onToggle: (id: string, done: boolean) => void | Promise<void>; onOpenEdit?: (taskId: string) => void }) {
-  const [assignee, setAssignee] = useState<string | null>(null);
-  useEffect(() => { (async () => {
-    if (!task.assigned_to) { setAssignee(null); return; }
-    try { const { data } = await supabase.from('profiles').select('full_name').eq('id', task.assigned_to).single(); setAssignee((data as any)?.full_name ?? null); } catch {}
-  })(); }, [task.assigned_to]);
-  const isDone = task.status === 'completed';
-  const now = Date.now();
-  const dueAt = task.deadline ? new Date(task.deadline).getTime() : null;
-  const overdue = !isDone && dueAt !== null && dueAt < now;
-  const dueTxt = task.deadline ? new Date(task.deadline).toLocaleString() : null;
-  const stateCls = overdue ? "bg-red-50 border-red-200" : isDone ? "bg-emerald-50 border-emerald-200" : "bg-blue-50 border-blue-200";
-  return (
-    <div className={`rounded border px-3 py-2 text-sm ${stateCls} cursor-pointer`} onClick={()=> onOpenEdit?.(task.id)}>
-      <div className="flex items-center gap-2">
-        <input type="checkbox" checked={isDone} onChange={(e)=> { e.stopPropagation(); onToggle(task.id, e.target.checked); }} />
-        <div className={`font-semibold ${isDone ? "line-through text-emerald-700" : overdue ? "text-red-700" : "text-zinc-800"}`}>📋 Tarefa</div>
-      </div>
-      <div className={`mt-1 ${isDone ? "line-through text-emerald-700" : overdue ? "text-red-700" : "text-zinc-700"}`}>
-        <div>👤 Para: <span className="font-medium">@{assignee ?? task.assigned_to ?? "—"}</span></div>
-        <div>📝 Descrição: {task.description}</div>
-        {dueTxt && <div>⏰ Prazo: {dueTxt}</div>}
-      </div>
-    </div>
-  );
-}
-
-function AttachmentRow({ att }: { att: CardAttachment }) {
+function AttachmentContent({ att, onDelete, onPreview }: { att: CardAttachmentWithMeta; onDelete?: () => Promise<void>; onPreview?: (payload: PreviewTarget) => void }) {
   const [url, setUrl] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
   useEffect(() => { (async () => setUrl(await publicUrl(att.file_path)))(); }, [att.file_path]);
   const ts = att.created_at ? new Date(att.created_at).toLocaleString() : "";
   return (
-    <div className="flex items-center justify-between rounded border border-zinc-200 bg-white px-3 py-2 text-sm">
+    <div className="flex items-center justify-between rounded-[8px] border border-zinc-200 bg-white px-3 py-2 text-sm">
       <div className="flex items-center gap-2">
         <span className="text-lg">{iconFor(att.file_type || "")}</span>
         <div>
           <div className="font-medium">{att.file_name}</div>
           <div className="text-[11px] text-zinc-500">{ts}</div>
         </div>
-      </div>
-      <div className="relative flex items-center gap-2">
-        {url && <a href={url} target="_blank" className="text-zinc-700 hover:underline">↗️</a>}
-        <button className="px-1 text-zinc-700" onClick={()=> setOpen(v=>!v)}>⋮</button>
-        {open && (
-          <div className="absolute right-0 top-6 z-10 w-40 rounded border bg-white shadow">
-            <button className="block w-full px-3 py-2 text-left text-red-600 hover:bg-zinc-50" onClick={async ()=> { setOpen(false); if (confirm('🗑️ Excluir anexo? Esta ação não pode ser desfeita.')) { try { await removeAttachment(att.id); } catch(e:any){ alert(e?.message||'Falha ao excluir anexo'); } } }}>🗑️ Excluir anexo</button>
-          </div>
+        {url && (
+          <button
+            className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-900"
+            title="Visualizar"
+            onClick={() =>
+              onPreview?.({
+                url,
+                mime: att.file_type ?? undefined,
+                name: att.file_name,
+                extension: att.file_extension ?? undefined,
+              })
+            }
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path d="M1.5 12s3.5-6 10.5-6 10.5 6 10.5 6-3.5 6-10.5 6S1.5 12 1.5 12z" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.4" fill="none"/>
+            </svg>
+          </button>
         )}
       </div>
+      <div className="relative flex items-center gap-2">
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-800"
+            title="Abrir anexo"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path d="M12 4v10m0 0 4-4m-4 4-4-4M5 18h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+          </a>
+        )}
+        <button
+          className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-red-600"
+          title="Excluir anexo"
+          onClick={async () => {
+            if (!onDelete) return;
+            if (confirm("Excluir este anexo?")) {
+              await onDelete();
+            }
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-3h4m-4 0a1 1 0 00-1 1v1h6V5a1 1 0 00-1-1m-4 0h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AttachmentRow({ att, onPreview }: { att: CardAttachment; onPreview?: (payload: PreviewTarget) => void }) {
+  return (
+    <AttachmentContent
+      att={{ ...att, isCardRoot: false }}
+      onDelete={async () => {
+        if (confirm("Excluir este anexo?")) {
+          try {
+            await removeAttachment(att.id);
+          } catch (e: any) {
+            alert(e?.message || "Falha ao excluir anexo");
+          }
+        }
+      }}
+      onPreview={onPreview}
+    />
+  );
+}
+
+function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply, onOpenTask, onOpenAttach, profiles, onPreview }: { att: CardAttachmentWithMeta; authorName: string; authorRole?: string | null; ensureThread: (att: CardAttachmentWithMeta) => Promise<string>; onReply: (parentId: string, value: ComposerValue) => Promise<void>; onOpenTask: (parentId?: string) => void; onOpenAttach: (parentId?: string) => void; profiles: ProfileLite[]; onPreview: (payload: PreviewTarget) => void; }) {
+  const createdAt = att.created_at ? new Date(att.created_at).toLocaleString() : "";
+  const [replying, setReplying] = useState(false);
+  const replyRef = useRef<UnifiedComposerHandle | null>(null);
+  const replyContainerRef = useRef<HTMLDivElement | null>(null);
+  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState("");
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [cmdQuery, setCmdQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const handleSubmit = async (value: ComposerValue) => {
+    const text = (value.text || "").trim();
+    if (!text) return;
+    const commentId = await ensureThread(att);
+    await onReply(commentId, value);
+    setReplyValue({ decision: null, text: "", mentions: [] });
+    setReplying(false);
+  };
+
+  useEffect(() => {
+    if (!replying) return;
+    function onDocDown(event: MouseEvent) {
+      const target = event.target as Node | null;
+      if (replyContainerRef.current && target && !replyContainerRef.current.contains(target)) {
+        setReplying(false);
+        setMentionOpen(false);
+        setCmdOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [replying]);
+
+  return (
+    <div
+      className="comment-card rounded-lg border border-emerald-100 bg-emerald-50/40 p-3"
+      style={{ borderLeftColor: "var(--verde-primario)", borderLeftWidth: "8px", borderLeftStyle: "solid" }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex items-center gap-2">
+          <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+          <div className="min-w-0">
+            <div className="truncate font-medium text-zinc-900">{authorName || "Colaborador"} <span className="comment-timestamp">{createdAt}</span></div>
+            {authorRole && <div className="text-[11px] text-zinc-700 truncate">{authorRole}</div>}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            aria-label="Responder"
+            onClick={() => {
+              setReplying(true);
+              requestAnimationFrame(() => replyRef.current?.focus());
+            }}
+            className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <CommentMenu
+            onEdit={() => alert("Anexos do card não podem ser editados diretamente.")}
+            onDelete={async () => {
+              if (confirm('Excluir este anexo?')) {
+                try {
+                  await removeAttachment(att.id);
+                } catch (e: any) {
+                  alert(e?.message || 'Falha ao excluir anexo');
+                }
+              }
+            }}
+          />
+        </div>
+      </div>
+      <div className="mt-3">
+        <AttachmentContent
+          att={att}
+          onDelete={async () => {
+            if (confirm("Excluir este anexo?")) {
+              try {
+                await removeAttachment(att.id);
+              } catch (e: any) {
+                alert(e?.message || "Falha ao excluir anexo");
+              }
+            }
+          }}
+          onPreview={onPreview}
+        />
+      </div>
+      {replying && (
+        <div className="mt-3 relative" ref={replyContainerRef}>
+            <UnifiedComposer
+            ref={replyRef}
+            placeholder="Responder... (/tarefa, /anexo, @mencionar)"
+            defaultValue={replyValue}
+            onChange={(val) => setReplyValue(val)}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setReplying(false);
+              setReplyValue({ decision: null, text: "", mentions: [] });
+              setMentionOpen(false);
+              setCmdOpen(false);
+            }}
+            onMentionTrigger={(query, rect) => {
+              setMentionFilter((query || "").trim());
+              setMentionOpen(true);
+            }}
+            onMentionClose={() => setMentionOpen(false)}
+            onCommandTrigger={(query, rect) => {
+              setCmdQuery((query || "").toLowerCase());
+              setCmdOpen(true);
+            }}
+            onCommandClose={() => setCmdOpen(false)}
+          />
+          {mentionOpen && (
+            <div className="absolute left-0 bottom-full mb-2">
+              <MentionDropdown
+                items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(mentionFilter.toLowerCase()))}
+                onPick={(p) => {
+                  replyRef.current?.insertMention({ id: p.id, label: p.full_name });
+                  setMentionOpen(false);
+                  setMentionFilter("");
+                }}
+              />
+          </div>
+        )}
+          {cmdOpen && (
+            <div className="absolute left-0 bottom-full mb-2">
+              <CmdDropdown
+                items={[{ key:'tarefa', label:'Tarefa' }, { key:'anexo', label:'Anexo' }].filter((i)=> i.key.includes(cmdQuery))}
+                onPick={(key)=> {
+                  if (key==='tarefa') onOpenTask();
+                  if (key==='anexo') onOpenAttach();
+                  setCmdOpen(false); setCmdQuery('');
+                }}
+                initialQuery={cmdQuery}
+              />
+      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

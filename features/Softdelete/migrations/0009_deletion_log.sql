@@ -15,7 +15,7 @@ alter table public.deletion_log enable row level security;
 -- Only gestores can read; inserts typically via triggers (to be added per table later)
 drop policy if exists deletion_log_select_gestor on public.deletion_log;
 create policy deletion_log_select_gestor on public.deletion_log for select
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'gestor'));
+  using (public.user_has_role(array['gestor']::user_role[]));
 
 drop policy if exists deletion_log_insert_all on public.deletion_log;
 create policy deletion_log_insert_all on public.deletion_log for insert

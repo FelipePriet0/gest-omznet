@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 
 const COMERCIAL = [
   { value: 'entrada', label: 'Entrada' },
-  { value: 'feitas', label: 'Feitas' },
-  { value: 'aguardando', label: 'Aguardando' },
+  { value: 'feitas', label: 'Feitas / Cadastrar no MK' },
+  { value: 'aguardando', label: 'Aguardando documentos' },
   { value: 'canceladas', label: 'Canceladas' },
   { value: 'concluidas', label: 'Concluídas' },
 ];
@@ -138,4 +138,3 @@ export function MoveModal({ open, onClose, cardId, presetArea, onMoved }: { open
     </Modal>
   );
 }
-

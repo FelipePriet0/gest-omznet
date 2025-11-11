@@ -18,10 +18,11 @@ import {
   ListFilter,
   MessageCircle,
   MessageSquare,
+  X,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { listInbox, markRead, type InboxItem } from "@/features/inbox/services";
+import { listInbox, markRead, type InboxItem, type NotificationType } from "@/features/inbox/services";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,8 +45,11 @@ function useInboxController(panelOpen: boolean) {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [uid, setUid] = useState<string | null>(null);
   const mountedRef = useRef(true);
-
-  const unread = useMemo(() => items.filter((i) => !i.read_at).length, [items]);
+  const HIDDEN_TYPES: NotificationType[] = ['ass_app', 'fichas_atrasadas'];
+  const unread = useMemo(
+    () => items.filter((i) => !i.read_at && !HIDDEN_TYPES.includes(i.type as NotificationType)).length,
+    [items]
+  );
 
   useEffect(() => {
     return () => {
@@ -192,6 +196,7 @@ const inboxFilterLabels: Record<InboxFilterOption, string> = {
 export function InboxPanel() {
   const { items, refresh } = useInbox();
   const [filterType, setFilterType] = useState<InboxFilterOption | null>(null);
+  const HIDDEN_TYPES: NotificationType[] = ['ass_app', 'fichas_atrasadas'];
 
   const metrics = [
     {
@@ -212,21 +217,34 @@ export function InboxPanel() {
       icon: <AtSign className="w-4 h-4 text-white" />,
       value: 0,
     },
-    {
-      key: "tarefas",
-      title: "Tarefas",
-      icon: <ClipboardList className="w-4 h-4 text-white" />,
-      value: 0,
-    },
   ];
 
   const filteredItems = useMemo(() => {
-    if (!filterType) return items;
-    const needle = inboxFilterLabels[filterType].toLowerCase();
-    return items.filter((item) => {
-      const haystack = `${item.title ?? ""} ${item.body ?? ""}`.toLowerCase();
-      return haystack.includes(needle);
-    });
+    const base = items.filter((it) => !HIDDEN_TYPES.includes(it.type as NotificationType));
+    if (!filterType) return base;
+    const byType = (item: InboxItem, types: NotificationType[]) => types.includes(item.type as NotificationType);
+    if (filterType === 'mentions') {
+      return base.filter((item) =>
+        byType(item, ['mention']) || /menç(ão|ões)/i.test(`${item.title || ''} ${item.body || ''}`)
+      );
+    }
+    if (filterType === 'parecer') {
+      return base.filter((item) =>
+        byType(item, ['parecer_reply']) ||
+        (String(item.type) === 'comment' && (
+          item.meta?.is_parecer_reply || /parecer/i.test(`${item.title || ''} ${item.body || ''}`)
+        ))
+      );
+    }
+    if (filterType === 'comentarios') {
+      return base.filter((item) =>
+        byType(item, ['comment_reply']) ||
+        (String(item.type) === 'comment' && (
+          item.meta?.is_comment_reply || /comentár/i.test(`${item.title || ''} ${item.body || ''}`)
+        ))
+      );
+    }
+    return base;
   }, [items, filterType]);
 
   const handleDismiss = useCallback(
@@ -247,17 +265,26 @@ export function InboxPanel() {
         <div className="flex items-center gap-2">
           <InboxFilterCTA value={filterType} onSelect={(next) => setFilterType(next)} />
           {filterType && (
-            <div className="flex gap-[1px] items-center text-xs">
-              <div className="flex gap-1.5 shrink-0 rounded-l bg-neutral-200 px-1.5 py-1 items-center">
-                Tipo
-              </div>
-              <div className="bg-neutral-100 px-2 py-1 text-neutral-700">{inboxFilterLabels[filterType]}</div>
+            <div
+              className="inline-flex items-center gap-2 rounded-none px-3 py-1 text-white shadow-sm text-xs"
+              style={{
+                backgroundColor: "var(--color-primary)",
+                border: "1px solid var(--color-primary)",
+              }}
+            >
+              <span className="font-semibold">Tipo</span>
+              <span className="font-medium">{inboxFilterLabels[filterType]}</span>
               <button
                 onClick={() => setFilterType(null)}
-                className="bg-neutral-200 rounded-l-none rounded-r-sm h-6 w-6 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-300 transition shrink-0"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-none text-white transition"
+                style={{
+                  backgroundColor: "var(--color-primary)",
+                  border: "1px solid transparent",
+                }}
                 aria-label="Limpar filtro da inbox"
+                type="button"
               >
-                ×
+                <X className="h-3 w-3" />
               </button>
             </div>
           )}
@@ -394,6 +421,9 @@ function InboxNotificationsStack({ items, onDismiss }: { items: InboxItem[]; onD
 function NotificationCard({ item, active, dragging }: { item: InboxItem; active: boolean; dragging: boolean }) {
   const when = item.created_at ? new Date(item.created_at).toLocaleString() : "";
   const icon = getNotificationSymbol(item);
+  const isRead = !!item.read_at;
+  const notificationData = getNotificationData(item);
+  const preview = buildPreviewText(item, notificationData.sample);
 
   return (
     <Card
@@ -405,20 +435,37 @@ function NotificationCard({ item, active, dragging }: { item: InboxItem; active:
       data-dragging={dragging}
       data-active={active}
     >
-      <div className="flex items-start justify-between gap-3">
+      {/* Header: Autor + Data */}
+      <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
           <span className="text-xl leading-none">{icon}</span>
-          <span className="line-clamp-1 text-sm font-semibold text-zinc-900">
-            {item.title || "Notificação"}
-          </span>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-zinc-900">
+              {notificationData.authorName || "Sistema"}
+            </span>
+            <span className="text-xs text-zinc-600">
+              {notificationData.subtitle}
+            </span>
+          </div>
         </div>
         {when && <span className="text-[11px] text-zinc-500">{when}</span>}
       </div>
-      {item.body && (
-        <p className="mt-3 line-clamp-4 text-sm leading-5 text-zinc-700">
-          {item.body}
-        </p>
-      )}
+
+      {/* Card 2: Conteúdo */}
+      <div
+        className={cn(
+          "rounded-lg border px-3 py-2 text-sm transition-all duration-200",
+          isRead 
+            ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white" 
+            : "border-blue-200 bg-blue-50 text-blue-900"
+        )}
+      >
+        <div className={cn("break-words leading-relaxed", isRead ? "text-white" : "text-blue-900")}>
+          {preview}
+        </div>
+      </div>
+
+      {/* Footer: CTAs */}
       <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500">
         <span>Arraste para marcar como lida</span>
         {item.link_url && <span className="font-medium text-[var(--color-primary)]">Clique para abrir</span>}
@@ -428,10 +475,65 @@ function NotificationCard({ item, active, dragging }: { item: InboxItem; active:
 }
 
 function getNotificationSymbol(item: InboxItem) {
-  if (item.type === "task") return "📋";
-  if (item.type === "comment") return "💬";
-  if (item.type === "card") return "🔥";
-  return "🔔";
+  if (item.type === 'mention' || item.type === 'parecer_reply' || item.type === 'comment_reply' || item.type === 'comment') return '💬';
+  if (item.type === 'ass_app') return '📱';
+  if (item.type === 'fichas_atrasadas') return '⏰';
+  return '🔔';
+}
+
+function normalizeName(value: unknown) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : "";
+}
+
+function getNotificationData(item: InboxItem) {
+  // Extrair dados do meta se disponível
+  const meta = item.meta || {};
+  const authorName = normalizeName(meta.author_name) || normalizeName(meta.full_name) || "Sistema";
+  const candidateNames = [
+    meta.primary_name,
+    meta.applicant_name,
+    meta.card_title,
+    meta.card_name,
+    meta.applicant,
+    meta.primaryName,
+    meta.applicantPrimaryName,
+  ];
+  const primaryName = candidateNames.map(normalizeName).find(Boolean) || "";
+  const subtitleTarget = primaryName || "—";
+  const sample = meta.sample || meta.content_preview || "";
+
+  // Determinar o tipo de notificação baseado no tipo e contexto
+  let subtitle = '';
+
+  if (item.type === 'mention') {
+    subtitle = `Mencionou você em – ${subtitleTarget}`;
+  } else if (item.type === 'parecer_reply' || (String(item.type) === 'comment' && (meta.is_parecer_reply || item.title?.includes('parecer')))) {
+    subtitle = `Respondeu seu parecer – ${subtitleTarget}`;
+  } else if (item.type === 'comment_reply' || (String(item.type) === 'comment' && (meta.is_comment_reply || item.title?.includes('comentário')))) {
+    subtitle = `Respondeu seu comentário – ${subtitleTarget}`;
+  } else if (item.type === 'ass_app') {
+    subtitle = `Ass App – ${subtitleTarget}`;
+  } else if (item.type === 'fichas_atrasadas') {
+    subtitle = primaryName ? `Fichas atrasadas – ${subtitleTarget}` : 'Fichas atrasadas';
+  } else {
+    subtitle = item.title || 'Nova notificação';
+  }
+
+  return {
+    authorName,
+    subtitle,
+    sample: sample ? sample.substring(0, 150) + (sample.length > 150 ? "..." : "") : null,
+    primaryName: subtitleTarget,
+  };
+}
+
+function buildPreviewText(item: InboxItem, fallbackSample?: string | null): string {
+  const raw = (item.content || item.body || fallbackSample || 'Nova notificação') as string;
+  const max = 180;
+  const clean = String(raw);
+  return clean.length > max ? clean.slice(0, max) + '...' : clean;
 }
 
 function DashboardCard({ title, value, icon }: { title: string; value?: number | null; icon?: ReactNode }) {
@@ -449,4 +551,3 @@ function DashboardCard({ title, value, icon }: { title: string; value?: number |
     </div>
   );
 }
-

@@ -7,21 +7,32 @@ create extension if not exists pg_cron;
 
 -- Safety helper: check if current user can manage a card (creator, assignee, or gestor)
 create or replace function public.can_user_manage_card(p_card_id uuid)
-returns boolean language sql stable as $$
-  select exists (
-    select 1
-    from public.kanban_cards kc
-    where kc.id = p_card_id
-      and (
-        kc.created_by = auth.uid()
-        or kc.assignee_id = auth.uid()
-        or exists (
-          select 1 from public.profiles p
-          where p.id = auth.uid() and p.role = 'gestor'
-        )
-      )
-  );
+returns boolean
+language plpgsql
+security definer
+stable
+set search_path = public
+as $$
+declare
+  is_manager boolean := public.user_has_role(array['analista','gestor']::user_role[]);
+  is_vendor boolean := public.user_has_role(array['vendedor']::user_role[]);
+begin
+  if is_manager then
+    return exists (select 1 from public.kanban_cards kc where kc.id = p_card_id);
+  elsif is_vendor then
+    return exists (
+      select 1
+      from public.kanban_cards kc
+      where kc.id = p_card_id
+        and kc.created_by = auth.uid()
+    );
+  else
+    return false;
+  end if;
+end;
 $$;
+
+grant execute on function public.can_user_manage_card(uuid) to authenticated;
 
 -- Add columns to support lifecycle timestamps
 do $$ begin

@@ -9,6 +9,7 @@ do $$ begin
     a.primary_name as applicant_name,
     a.cpf_cnpj,
     kc.final_decision,
+    kc.decision_status,
     kc.finalized_at,
     kc.archived_at,
     kc.created_by as vendedor_id,
@@ -39,7 +40,7 @@ do $$ begin
   as $fn$
     select * from public.v_historico_cards h
     where (p_search is null or unaccent(h.applicant_name) ilike unaccent('%'||p_search||'%'))
-      and (p_status is null or h.final_decision = p_status)
+      and (p_status is null or h.decision_status = p_status)
       and (p_responsavel is null or h.analista_id = p_responsavel)
       and (p_date_start is null or h.finalized_at >= p_date_start)
       and (p_date_end is null or h.finalized_at <= p_date_end)

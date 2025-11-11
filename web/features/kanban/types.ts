@@ -21,6 +21,7 @@ export interface KanbanCard {
   whatsapp?: string;
   bairro?: string;
   dueAt?: string;
+  horaAt?: string;
   area?: 'comercial' | 'analise';
   stage?: string;
   onOpen?: () => void;

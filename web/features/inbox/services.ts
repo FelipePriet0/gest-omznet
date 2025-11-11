@@ -2,37 +2,46 @@
 
 import { supabase } from "@/lib/supabaseClient";
 
-export type NotificationType = 'mention' | 'task_assigned' | 'task_due' | 'card_new' | 'card_overdue';
+// Tipos de notificação oficiais da aplicação
+export type NotificationType =
+  | 'mention'
+  | 'parecer_reply'
+  | 'comment_reply'
+  | 'ass_app'
+  | 'fichas_atrasadas'
+  | string; // compatibilidade futura/legada até migração completa
 
-export async function notifyTaskAssigned(params: { userId: string; cardId: string; taskId: string; description: string; deadline?: string | null }) {
-  try {
-    const title = '📋 Nova tarefa atribuída';
-    const body = params.deadline
-      ? `Você tem uma tarefa agendada: ${params.description}`
-      : `Você recebeu uma nova tarefa: ${params.description}`;
-    await supabase.from('inbox_notifications').insert({
-      user_id: params.userId,
-      card_id: params.cardId,
-      task_id: params.taskId,
-      type: 'task_assigned',
-      title,
-      body,
-      meta: { deadline: params.deadline ?? null },
-    } as any);
-  } catch {}
-}
-
-export async function notifyMention(params: { userId: string; cardId: string; commentId: string; authorName?: string | null }) {
+export async function notifyMention(params: {
+  userId: string;
+  cardId: string;
+  commentId?: string; // quando menção veio de um comentário
+  noteId?: string; // quando menção veio de um parecer (kanban_cards.reanalysis_notes[].id)
+  authorName?: string | null;
+  applicantName?: string | null;
+  contentPreview?: string | null;
+  linkUrl?: string | null;
+  meta?: any;
+}) {
   try {
     const title = '💬 Nova menção';
     const body = params.authorName ? `${params.authorName} mencionou você em uma conversa` : 'Você foi mencionado em uma conversa';
+    const meta = {
+      author_name: params.authorName ?? null,
+      primary_name: params.applicantName ?? null,
+      applicant_name: params.applicantName ?? null,
+      content_preview: params.contentPreview ?? null,
+      ...(params.noteId ? { note_id: params.noteId } : {}),
+      ...(params.meta ?? {}),
+    };
     await supabase.from('inbox_notifications').insert({
       user_id: params.userId,
       card_id: params.cardId,
-      comment_id: params.commentId,
+      comment_id: params.commentId ?? null,
       type: 'mention',
       title,
       body,
+      link_url: params.linkUrl ?? null,
+      meta,
     } as any);
   } catch {}
 }
@@ -40,29 +49,29 @@ export async function notifyMention(params: { userId: string; cardId: string; co
 export type InboxItem = {
   id: string;
   user_id: string;
-  type: 'task'|'comment'|'card'|'system';
-  priority?: 'low'|'medium'|'high'|null;
-  title?: string|null;
-  body?: string|null;
+  type: NotificationType;
+  priority?: 'low' | 'medium' | 'high' | null;
+  title?: string | null;
+  body?: string | null;
+  content?: string | null;
   meta?: any;
-  task_id?: string|null;
-  card_id?: string|null;
-  comment_id?: string|null;
-  link_url?: string|null;
-  transient?: boolean|null;
-  expires_at?: string|null;
-  read_at?: string|null;
-  created_at?: string|null;
+  card_id?: string | null;
+  comment_id?: string | null;
+  link_url?: string | null;
+  transient?: boolean | null;
+  expires_at?: string | null;
+  read_at?: string | null;
+  created_at?: string | null;
+  applicant_id?: string | null;
 };
 
 export async function listInbox(): Promise<InboxItem[]> {
-  const { data, error } = await supabase
-    .from('inbox_notifications')
-    .select('id, user_id, type, priority, title, body, meta, task_id, card_id, comment_id, link_url, transient, expires_at, read_at, created_at')
-    .order('created_at', { ascending: false });
-  if (error) return [];
-  const nowIso = new Date().toISOString();
-  return (data as any[]).filter(n => !n.expires_at || n.expires_at > nowIso);
+  const { data, error } = await supabase.rpc('list_inbox_notifications');
+  if (error) {
+    console.error('Failed to list inbox notifications', error);
+    return [];
+  }
+  return (data as InboxItem[]) ?? [];
 }
 
 export async function markRead(id: string) {
@@ -70,3 +79,90 @@ export async function markRead(id: string) {
   if (error) throw error;
 }
 
+// Helpers para gerar notificações padronizadas
+
+type BaseNotifyParams = {
+  userId: string;
+  authorName?: string | null;
+  applicantName?: string | null; // public.applicant.primary_name
+  linkUrl?: string | null;
+  contentPreview?: string | null;
+  cardId?: string | null;
+  commentId?: string | null;
+  meta?: any;
+};
+
+export async function notifyParecerReply(params: BaseNotifyParams & { cardId: string; noteId?: string }) {
+  try {
+    const title = '💬 Respondeu seu parecer';
+    const body = params.authorName ? `${params.authorName} respondeu seu parecer` : 'Responderam seu parecer';
+    const meta = {
+      author_name: params.authorName ?? null,
+      primary_name: params.applicantName ?? null,
+      applicant_name: params.applicantName ?? null,
+      content_preview: params.contentPreview ?? null,
+      is_parecer_reply: true,
+      ...(params.noteId ? { note_id: params.noteId } : {}),
+      ...(params.meta ?? {}),
+    };
+    await supabase.from('inbox_notifications').insert({
+      user_id: params.userId,
+      type: 'parecer_reply',
+      title,
+      body,
+      card_id: params.cardId,
+      link_url: params.linkUrl ?? null,
+      meta,
+    } as any);
+  } catch {}
+}
+
+export async function notifyCommentReply(params: BaseNotifyParams & { cardId: string; commentId: string }) {
+  try {
+    const title = '💬 Respondeu seu comentário';
+    const body = params.authorName ? `${params.authorName} respondeu seu comentário` : 'Responderam seu comentário';
+    const meta = {
+      author_name: params.authorName ?? null,
+      primary_name: params.applicantName ?? null,
+      applicant_name: params.applicantName ?? null,
+      content_preview: params.contentPreview ?? null,
+      is_comment_reply: true,
+      ...(params.meta ?? {}),
+    };
+    await supabase.from('inbox_notifications').insert({
+      user_id: params.userId,
+      type: 'comment_reply',
+      title,
+      body,
+      card_id: params.cardId,
+      comment_id: params.commentId,
+      link_url: params.linkUrl ?? null,
+      meta,
+    } as any);
+  } catch {}
+}
+
+export async function notifyAssApp(params: BaseNotifyParams & { title?: string | null; body?: string | null }) {
+  try {
+    const defaultTitle = 'Ass App';
+    const title = params.title ?? defaultTitle;
+    const body = params.body ?? (params.authorName ? `${params.authorName} gerou um evento Ass App` : 'Novo evento Ass App');
+    const meta = {
+      author_name: params.authorName ?? null,
+      primary_name: params.applicantName ?? null,
+      applicant_name: params.applicantName ?? null,
+      content_preview: params.contentPreview ?? null,
+      ...(params.meta ?? {}),
+    };
+    await supabase.from('inbox_notifications').insert({
+      user_id: params.userId,
+      type: 'ass_app',
+      title,
+      body,
+      card_id: params.cardId ?? null,
+      comment_id: params.commentId ?? null,
+      link_url: params.linkUrl ?? null,
+      meta,
+    } as any);
+  } catch {}
+}

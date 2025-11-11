@@ -140,6 +140,32 @@ body {
   background: #94a3b8;
 }
 
+/* Modal scroll container: keep scrollbar inside the modal card gutter */
+.modal-scroll {
+  /* gutter apenas no lado do scrollbar para não criar sobra à esquerda */
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  /* desloca visualmente o trilho/garra do scroll alguns px para dentro do cartão */
+  padding-right: 8px;
+}
+
+/* Offset visual do scrollbar apenas no modal (WebKit/Blink) */
+.modal-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.modal-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-left: 6px solid transparent; /* cria o recuo para a esquerda do trilho */
+  background-clip: content-box;
+  border-radius: 6px;
+}
+.modal-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-left: 6px solid transparent; /* mantém o offset também no thumb */
+  background-clip: padding-box;
+  border-radius: 6px;
+}
+
 .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
   background: #d1d5db;
 }
@@ -358,20 +384,23 @@ body {
 /* Header Editar Ficha - Estilo da imagem */
 .header-editar-ficha {
   background: linear-gradient(135deg, var(--verde-primario) 0%, #016835 100%);
-  border-radius: 16px;
+  border-radius: 28px 28px 0 0; /* apenas nos cantos superiores para colar no modal */
   padding: 0;
-  overflow: hidden;
-  box-shadow: 
-    0 8px 32px rgba(1, 137, 66, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  overflow: visible;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  position: relative;
+  z-index: 10;
 }
 
 .header-content {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
+  gap: clamp(8px, 2vw, 16px);
+  padding: clamp(16px, 3vw, 24px) clamp(16px, 3vw, 32px);
   position: relative;
+  min-height: 72px;
 }
 
 .header-logo {
@@ -401,11 +430,20 @@ body {
 
 .header-title h2 {
   color: white;
-  font-size: 24px;
+  font-size: clamp(16px, 3vw, 20px);
   font-weight: 700;
   margin: 0;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.header-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: clamp(10px, 2vw, 12px);
+  font-weight: 500;
+  margin-top: 2px;
+  line-height: 1.3;
 }
 
 /* Section Cards - Demo Style */
@@ -413,10 +451,15 @@ body {
   background: #f8f9fa;
   border: none;
   border-radius: clamp(8px, 2vw, 14px);
-  margin-bottom: clamp(16px, 4vw, 28px);
+  margin-bottom: 0;
   padding: clamp(8px, 1.5vw, 12px);
   overflow: visible;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.section-card:has(.section-title.pareceres),
+.section-card:has(.section-title.conversas) {
+  background: #ffffff;
 }
 
 .section-card:hover {
@@ -424,11 +467,19 @@ body {
   box-shadow: none;
 }
 
+/* Editar Ficha - Seções principais com fundo mais claro (#fcfcfc) */
+.info-pessoais .section-card,
+.info-contato .section-card,
+.endereco .section-card,
+.planos-servicos .section-card,
+.agendamento .section-card {
+  background: #ffffff;
+}
+
 .section-header {
   background: transparent;
   border: none;
   padding: 0;
-  margin: 0;
 }
 
 .section-title {
@@ -730,9 +781,7 @@ body {
 }
 
 /* Specific adjustment for the 3-column grid (Complemento | Bairro | CEP) */
-.endereco div[class*="grid-cols-3"] {
-  margin-top: 4px;
-}
+/* Removed extra top margin to avoid inconsistent internal spacing between rows */
 
 /* Pareceres Section Styling - Visual Areas */
 .pareceres .section-header {
@@ -945,6 +994,130 @@ body {
   color: #ffffff;
 }
 
+/* Decision hover variants (aprovado/negado) - override defaults */
+.cmd-menu-item--primary:hover,
+.cmd-menu-item--primary[aria-selected="true"],
+.cmd-menu-item--primary:focus {
+  background: var(--verde-primario, #34a853);
+  color: #ffffff;
+}
+.cmd-menu-item--destructive:hover,
+.cmd-menu-item--destructive[aria-selected="true"],
+.cmd-menu-item--destructive:focus,
+.cmd-menu-item--warning:hover,
+.cmd-menu-item--warning[aria-selected="true"],
+.cmd-menu-item--warning:focus {
+  background: var(--verde-primario, #34a853);
+  color: #ffffff;
+}
+.cmd-menu-item--primary:hover span,
+.cmd-menu-item--primary:hover svg,
+.cmd-menu-item--destructive:hover span,
+.cmd-menu-item--destructive:hover svg,
+.cmd-menu-item--warning:hover span,
+.cmd-menu-item--warning:hover svg {
+  color: #ffffff !important;
+}
+
+.composer-root {
+  position: relative;
+}
+.composer-input {
+  min-height: 128px;
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: auto;
+}
+.composer-input:focus {
+  border-color: var(--verde-primario, #34a853);
+  box-shadow: 0 0 0 3px rgba(1, 137, 66, 0.12);
+}
+.composer-input-disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+.composer-placeholder {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #9ca3af;
+  pointer-events: none;
+}
+.decision-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.decision-chip__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.decision-chip__close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.decision-chip__close:hover {
+  opacity: 0.8;
+}
+
+.decision-chip.decision-chip--primary {
+  background: var(--verde-primario, #34a853);
+}
+.decision-chip.decision-chip--destructive {
+  background: #ef4444;
+}
+.decision-chip.decision-chip--warning {
+  background: #facc15;
+  color: #1f2937;
+}
+.decision-chip.decision-chip--warning .decision-chip__close {
+  color: #1f2937;
+}
+
+.mention-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.mention-chip-inline {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 .comment-menu-trigger:hover {
   background: rgba(0, 0, 0, 0.05);
   transform: scale(1.05);
@@ -1059,9 +1232,7 @@ body {
 }
 
 /* Specific spacing for contact section grids */
-.info-contato > div:first-child {
-  margin-bottom: clamp(20px, 4cqw, 32px) !important;
-}
+/* Removed outer margin on first child to prevent collapsing extra space between sections */
 
 /* Target the actual grid divs in contact section */
 .info-contato div[class*="grid"]:not(:last-child) {
@@ -1069,10 +1240,10 @@ body {
 }
 
 /* Container-responsive spacing with fluid units */
-.info-contato .field-group,
-.info-contato .w-full.space-y-2,
-.endereco .field-group,
-.endereco .w-full.space-y-2 {
+.info-contato .field-group:not(:last-child),
+.info-contato .w-full.space-y-2:not(:last-child),
+.endereco .field-group:not(:last-child),
+.endereco .w-full.space-y-2:not(:last-child) {
   margin-bottom: clamp(16px, 3cqw, 24px);
 }
 
@@ -1082,7 +1253,6 @@ body {
   .endereco .section-card {
     padding: clamp(8px, 2cqw, 16px);
     border-radius: clamp(8px, 1.5cqw, 14px);
-    margin-bottom: clamp(16px, 4cqw, 28px);
   }
 }
 
@@ -1147,13 +1317,14 @@ body {
     padding: 0 2px;
   }
   
-  .info-contato > div:first-child,
   .info-contato div[class*="grid"]:not(:last-child) {
     margin-bottom: 16px !important;
   }
   
-  .info-contato .field-group,
-  .info-contato .w-full.space-y-2 {
+  .info-contato .field-group:not(:last-child),
+  .info-contato .w-full.space-y-2:not(:last-child),
+  .endereco .field-group:not(:last-child),
+  .endereco .w-full.space-y-2:not(:last-child) {
     margin-bottom: 12px;
   }
   
@@ -1179,7 +1350,6 @@ body {
   }
   
   .section-card {
-    margin-bottom: 12px;
     padding: 4px;
     border-radius: 6px;
   }
@@ -1191,13 +1361,14 @@ body {
     padding: 0 4px;
   }
   
-  .info-contato > div:first-child,
   .info-contato div[class*="grid"]:not(:last-child) {
     margin-bottom: 22px !important;
   }
   
-  .info-contato .field-group,
-  .info-contato .w-full.space-y-2 {
+  .info-contato .field-group:not(:last-child),
+  .info-contato .w-full.space-y-2:not(:last-child),
+  .endereco .field-group:not(:last-child),
+  .endereco .w-full.space-y-2:not(:last-child) {
     margin-bottom: 18px;
   }
   
@@ -1223,7 +1394,6 @@ body {
   }
   
   .section-card {
-    margin-bottom: 20px;
     padding: 8px;
     border-radius: 10px;
   }
@@ -1235,13 +1405,14 @@ body {
     padding: 0 6px;
   }
   
-  .info-contato > div:first-child,
   .info-contato div[class*="grid"]:not(:last-child) {
     margin-bottom: 26px !important;
   }
   
-  .info-contato .field-group,
-  .info-contato .w-full.space-y-2 {
+  .info-contato .field-group:not(:last-child),
+  .info-contato .w-full.space-y-2:not(:last-child),
+  .endereco .field-group:not(:last-child),
+  .endereco .w-full.space-y-2:not(:last-child) {
     margin-bottom: 20px;
   }
   
@@ -1267,7 +1438,6 @@ body {
   }
   
   .section-card {
-    margin-bottom: 22px;
     padding: 10px;
     border-radius: 12px;
   }
@@ -1279,13 +1449,14 @@ body {
     padding: 0 8px;
   }
   
-  .info-contato > div:first-child,
   .info-contato div[class*="grid"]:not(:last-child) {
     margin-bottom: 30px !important;
   }
   
-  .info-contato .field-group,
-  .info-contato .w-full.space-y-2 {
+  .info-contato .field-group:not(:last-child),
+  .info-contato .w-full.space-y-2:not(:last-child),
+  .endereco .field-group:not(:last-child),
+  .endereco .w-full.space-y-2:not(:last-child) {
     margin-bottom: 24px;
   }
   
@@ -1311,7 +1482,6 @@ body {
   }
   
   .section-card {
-    margin-bottom: 26px;
     padding: 12px;
     border-radius: 14px;
   }
@@ -1422,7 +1592,7 @@ body {
 }
 
 .comment-author {
-  color: var(--verde-primario);
+  color: var(--preto);
   font-weight: 600;
 }
 
@@ -1601,74 +1771,41 @@ textarea[placeholder="Analisar"]::placeholder {
 }
 /* App background wrapper */
 .route-bg {
-  background-color: var(--neutro);
+  background-color: var(--color-primary);
 }
 
-/* Flatpickr Calendar Popover - 8px corner radius */
-.flatpickr-calendar {
-  border-radius: 8px !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-  border: 1px solid #e5e7eb !important;
+/* DayPicker overrides */
+.rdp {
+  --rdp-cell-size: 36px;
+  --rdp-accent-color: var(--verde-primario);
+  --rdp-accent-color-dark: var(--verde-primario);
+  --rdp-range-color: rgba(1, 137, 66, 0.12);
+  --rdp-outline: 2px solid rgba(1, 137, 66, 0.24);
+  margin: 0;
+  font-family: inherit;
+  color: #1f2937;
 }
 
-.flatpickr-months {
-  border-radius: 8px 8px 0 0 !important;
+.rdp-nav_button {
+  color: var(--verde-primario);
+}
+
+.rdp-day:not(.rdp-day_disabled):focus-visible {
+  outline: var(--rdp-outline);
+  outline-offset: 2px;
+}
+
+.rdp-day_range_start,
+.rdp-day_range_end {
   background-color: var(--verde-primario) !important;
-}
-
-.flatpickr-months .flatpickr-month {
-  background-color: transparent !important;
   color: white !important;
 }
 
-.flatpickr-months .flatpickr-current-month {
-  color: white !important;
+.rdp-day_range_middle {
+  background-color: rgba(1, 137, 66, 0.12) !important;
+  color: var(--verde-primario) !important;
 }
 
-.flatpickr-months .flatpickr-current-month .flatpickr-monthDropdown-months {
-  background-color: transparent !important;
-  color: white !important;
-  font-weight: 600;
-}
-
-.flatpickr-months .flatpickr-current-month .numInputWrapper .numInput {
-  color: white !important;
-  font-weight: 600;
-}
-
-.flatpickr-months .flatpickr-prev-month,
-.flatpickr-months .flatpickr-next-month {
-  fill: white !important;
-  color: white !important;
-}
-
-.flatpickr-months .flatpickr-prev-month:hover,
-.flatpickr-months .flatpickr-next-month:hover {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-/* Flatpickr - Dias da semana com cor primária */
-.flatpickr-weekdays {
-  background-color: var(--verde-primario) !important;
-  border: none !important;
-}
-
-.flatpickr-weekday {
-  color: white !important;
-  font-weight: 600 !important;
-}
-
-/* Remover qualquer borda/linha entre weekdays e days */
-.flatpickr-innerContainer {
-  border-top: none !important;
-}
-
-.flatpickr-days {
-  border-top: none !important;
-  border-left: none !important;
-  border-right: none !important;
-}
-
-.flatpickr-rContainer {
-  border-top: none !important;
+.rdp-button[disabled] {
+  opacity: 0.5;
 }

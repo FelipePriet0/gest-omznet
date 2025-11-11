@@ -75,13 +75,14 @@ export function TimeMultiSelect({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="mt-1 flex h-12 w-full items-center justify-between rounded-lg border-0 bg-white px-5 py-3 text-left text-sm text-zinc-900 shadow-none outline-none focus-visible:ring-0"
+              className="mt-1 flex h-12 w-full items-center justify-between rounded-lg border border-zinc-300 bg-white px-5 py-3 text-left text-sm text-zinc-900 shadow-none outline-none focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20"
+              style={{ boxShadow: "0 1px 4px rgba(24, 50, 71, 0.08)" }}
             >
               <span className="truncate">{labelText}</span>
               <span aria-hidden className="ml-2 inline-block align-middle" style={{ color: 'var(--verde-primario)', transform: 'rotate(90deg)' }}>&gt;</span>
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" sideOffset={6} className="w-[260px] p-2 bg-white border-0 shadow-none rounded-md mz-time-popover">
+          <PopoverContent align="start" sideOffset={6} className="w-[260px] p-2 bg-white border border-zinc-200 shadow-md rounded-md mz-time-popover">
             <div className="space-y-1">
               {times.map((t) => {
                 const active = sel.includes(t);

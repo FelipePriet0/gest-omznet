@@ -7,7 +7,7 @@ export const Logo = () => {
   return (
     <Link
       href="/kanban"
-      className="font-normal flex items-center text-sm py-1 relative z-20"
+      className="font-normal flex items-center text-sm py-1 relative z-20 rounded-lg hover:bg-white/20 transition-colors px-2"
     >
       <Image 
         src="/mznet-logo.png" 
@@ -25,7 +25,7 @@ export const LogoIcon = () => {
   return (
     <Link
       href="/kanban"
-      className="font-normal flex items-center text-sm py-1 relative z-20"
+      className="font-normal flex items-center text-sm py-1 relative z-20 rounded-lg hover:bg-white/20 transition-colors px-2"
     >
       <Image 
         src="/mznet-logo.png" 

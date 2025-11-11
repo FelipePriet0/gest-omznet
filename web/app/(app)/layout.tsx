@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import RouteBg from "./RouteBg";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
 import { Columns3, ListTodo, Clock } from "lucide-react";
@@ -12,6 +12,15 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { InboxSidebarEntry, InboxProvider, InboxPanel } from "@/features/inbox/InboxDrawer";
 const TasksPanelProxy = dynamic(() => import("@/app/(app)/tarefas/page"), { ssr: false });
+
+const PANEL_WIDTH_STORAGE_KEY = "mznet-app-panel-width";
+const PANEL_MIN_WIDTH = 320;
+const PANEL_MAX_WIDTH = 720;
+const PANEL_DEFAULT_WIDTH = 440;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
 
 function AppSidebar() {
   const { open } = useSidebar();
@@ -82,6 +91,9 @@ function AppSidebar() {
 export default function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const [open, setOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
+  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
+  const [isResizingPanel, setIsResizingPanel] = useState(false);
+  const resizeOriginRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: PANEL_DEFAULT_WIDTH });
   const pathname = usePathname() || "/";
   const search = useSearchParams();
   const router = useRouter();
@@ -91,7 +103,8 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
   const isTasksPanel = activePanel === 'tarefas';
   const isInboxPanel = activePanel === 'inbox';
   const isPanelOpen = isTasksPanel || isInboxPanel;
-  const sidebarOffset = isDesktop ? (open ? 300 : 60) : 0;
+  const pageGutter = 6;
+  const panelHeight = `calc(100vh - ${pageGutter * 2}px)`;
 
   // Do not force open the sidebar automatically when opening the Tasks drawer
 
@@ -107,6 +120,17 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
   const panelTitle = isTasksPanel ? 'Minhas Tarefas' : isInboxPanel ? 'Caixa de Entrada' : '';
   const panelContent = isTasksPanel ? <TasksPanelProxy /> : isInboxPanel ? <InboxPanel /> : null;
 
+  const handlePanelResizeStart = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!isDesktop) return;
+      if (event.button !== 0) return;
+      event.preventDefault();
+      resizeOriginRef.current = { startX: event.clientX, startWidth: panelWidth };
+      setIsResizingPanel(true);
+    },
+    [isDesktop, panelWidth]
+  );
+
   useEffect(() => {
     const checkScreenSize = () => {
       setIsDesktop(window.innerWidth >= 768);
@@ -117,6 +141,50 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY);
+      if (stored) {
+        const parsed = Number.parseInt(stored, 10);
+        if (!Number.isNaN(parsed)) {
+          setPanelWidth(clamp(parsed, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH));
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!isPanelOpen) return;
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(panelWidth));
+    } catch {}
+  }, [panelWidth, isPanelOpen]);
+
+  useEffect(() => {
+    if (!isResizingPanel) return;
+    const handleMouseMove = (event: MouseEvent) => {
+      event.preventDefault();
+      const { startX, startWidth } = resizeOriginRef.current;
+      const delta = event.clientX - startX;
+      const next = clamp(startWidth + delta, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH);
+      setPanelWidth(next);
+    };
+    const handleMouseUp = () => {
+      resizeOriginRef.current = { startX: 0, startWidth: PANEL_DEFAULT_WIDTH };
+      setIsResizingPanel(false);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "col-resize";
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.removeProperty("cursor");
+    };
+  }, [isResizingPanel]);
+
   return (
     <RouteBg>
       <SidebarProvider open={open} setOpen={setOpen}>
@@ -125,13 +193,21 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
             <Sidebar open={open} setOpen={setOpen}>
               <AppSidebar />
             </Sidebar>
-            <div 
-              className="flex flex-1 transition-all duration-300 ease-in-out"
-              style={{ 
-                marginLeft: isDesktop ? `${open ? 300 : 60}px` : '0px',
+            <div
+              className="flex flex-1 flex-col gap-3 transition-all duration-300 ease-in-out md:flex-row"
+              style={{
+                marginLeft: isDesktop ? `${open ? 300 : 60}px` : "0px",
+                paddingTop: pageGutter,
+                paddingRight: pageGutter,
+                paddingBottom: pageGutter,
               }}
             >
-              <main className={`p-2 md:p-6 rounded-tl-3xl border border-neutral-200 dark:border-neutral-700 bg-[var(--neutro)] dark:bg-neutral-900 flex flex-col gap-2 flex-1 w-full min-h-screen`}>
+              <main
+                className="flex flex-1 w-full flex-col gap-3 rounded-3xl border border-neutral-200 bg-[var(--neutro)] p-3 text-zinc-900 shadow-xl shadow-emerald-900/15 md:min-w-0 md:p-6 dark:border-neutral-700 dark:bg-neutral-900 dark:text-zinc-100"
+                style={{
+                  minHeight: `calc(100vh - ${pageGutter * 2}px)`,
+                }}
+              >
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <SidebarTrigger className="hidden md:inline-flex" />
@@ -144,22 +220,30 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
                   )}
                 </div>
                 {children}
-                {isPanelOpen && (
-                  <div
-                    className="fixed z-[85] bg-transparent"
-                    style={{ top: 0, bottom: 0, left: sidebarOffset, right: 0 }}
-                    onClick={closePanel}
-                  />
-                )}
               </main>
               {isPanelOpen && (
-                <div
-                  role="dialog"
-                  aria-modal
-                  className="fixed top-0 z-[90] h-screen bg-[var(--neutro)] border border-neutral-200 rounded-tl-3xl flex flex-col shadow-[4px_0_12px_rgba(0,0,0,0.12)]"
-                  style={{ left: sidebarOffset, right: isDesktop ? 'auto' as any : 0, width: isDesktop ? 440 : '100%' }}
+                <aside
+                  role="complementary"
+                  aria-label={panelTitle}
+                  className="group/panel relative flex shrink-0 flex-col rounded-3xl border border-neutral-200 bg-[var(--neutro)] shadow-[4px_0_12px_rgba(0,0,0,0.12)] dark:border-neutral-700 dark:bg-neutral-900 md:order-first"
+                  style={{
+                    width: isDesktop ? panelWidth : `calc(100% - ${pageGutter * 2}px)`,
+                    minWidth: isDesktop ? PANEL_MIN_WIDTH : undefined,
+                    maxWidth: isDesktop ? PANEL_MAX_WIDTH : undefined,
+                    height: isDesktop ? panelHeight : "auto",
+                  }}
                 >
-                  <div className="px-3 md:px-4 py-2 md:py-3 border-b border-neutral-200 flex items-center justify-between gap-2">
+                  {isDesktop && (
+                    <div
+                      role="presentation"
+                      aria-hidden="true"
+                      onMouseDown={handlePanelResizeStart}
+                      className="absolute -right-3 top-0 bottom-0 flex w-3 cursor-col-resize items-center justify-center"
+                    >
+                      <span className="h-12 w-[3px] rounded-full bg-neutral-300 transition-colors group-hover/panel:bg-[var(--color-primary)]" />
+                    </div>
+                  )}
+                  <div className="px-3 py-2 border-b border-neutral-200 md:px-4 md:py-3 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3 min-w-0">
                       <SidebarTrigger className="hidden md:inline-flex" />
                       <span className="text-h4 font-semibold text-[var(--color-primary)] truncate">{panelTitle}</span>
@@ -173,7 +257,7 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
                   <div className="flex-1 overflow-auto p-3 md:p-4">
                     {panelContent}
                   </div>
-                </div>
+                </aside>
               )}
             </div>
           </div>

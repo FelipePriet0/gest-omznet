@@ -2,33 +2,32 @@
 
 import { Button } from "@/components/ui/button";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ListFilter } from "lucide-react";
 import { useState } from "react";
 
+type StatusValue = "all" | "pending" | "completed";
+
 interface TaskFilterCTAProps {
-  q: string;
-  setQ: (value: string) => void;
-  status: 'all' | 'pending' | 'completed';
-  setStatus: (value: 'all' | 'pending' | 'completed') => void;
-  due: 'all' | 'hoje' | 'amanha' | 'atrasado' | 'intervalo';
-  setDue: (value: 'all' | 'hoje' | 'amanha' | 'atrasado' | 'intervalo') => void;
-  ds: string;
-  setDs: (value: string) => void;
-  de: string;
-  setDe: (value: string) => void;
-  onApply: (nextStatus?: 'all' | 'pending' | 'completed') => void;
-  loading: boolean;
+  status: StatusValue;
+  setStatus: (value: StatusValue) => void;
+  onApply: (nextStatus?: StatusValue) => void;
 }
 
-export function TaskFilterCTA({
-  q, setQ, status, setStatus, due, setDue, ds, setDs, de, setDe, onApply, loading
-}: TaskFilterCTAProps) {
+const statusOptions: Array<{ value: StatusValue; label: string }> = [
+  { value: "all", label: "Todos" },
+  { value: "pending", label: "Pendentes" },
+  { value: "completed", label: "Concluídas" },
+];
+
+export function TaskFilterCTA({ status, setStatus, onApply }: TaskFilterCTAProps) {
   const [open, setOpen] = useState(false);
+
+  const handleSelect = (next: StatusValue) => {
+    setStatus(next);
+    onApply(next);
+    setOpen(false);
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -36,37 +35,33 @@ export function TaskFilterCTA({
         <Button
           variant="ghost"
           size="sm"
-          className="transition-all duration-200 group h-6 text-xs items-center rounded-sm flex gap-1.5 hover:bg-neutral-100 hover:text-neutral-700"
+          className="group flex h-6 items-center gap-1.5 rounded-sm text-xs transition-all duration-200 hover:bg-neutral-100 hover:text-neutral-700"
         >
-          <ListFilter className="size-3 shrink-0 transition-all text-muted-foreground group-hover:text-neutral-700" />
+          <ListFilter className="size-3 shrink-0 text-muted-foreground transition-all group-hover:text-neutral-700" />
           Filtros
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0 bg-white border-0 shadow-lg rounded-lg">
+      <PopoverContent className="w-[200px] rounded-lg border-0 bg-white p-0 shadow-lg">
         <Command className="rounded-lg">
           <CommandList className="p-1">
             <CommandGroup className="p-0">
-              <CommandItem
-                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
-                value="Todos"
-                onSelect={() => { setStatus('all'); onApply('all'); setOpen(false); }}
-              >
-                <span className="text-sm font-medium">Todos</span>
-              </CommandItem>
-              <CommandItem
-                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
-                value="Pendentes"
-                onSelect={() => { setStatus('pending'); onApply('pending'); setOpen(false); }}
-              >
-                <span className="text-sm font-medium">Pendentes</span>
-              </CommandItem>
-              <CommandItem
-                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-150 cursor-pointer rounded-sm mx-1"
-                value="Concluídas"
-                onSelect={() => { setStatus('completed'); onApply('completed'); setOpen(false); }}
-              >
-                <span className="text-sm font-medium">Concluídas</span>
-              </CommandItem>
+              {statusOptions.map((option) => {
+                const isActive = status === option.value;
+                return (
+                  <CommandItem
+                    key={option.value}
+                    value={option.label}
+                    onSelect={() => handleSelect(option.value)}
+                    className={`mx-1 flex cursor-pointer items-center gap-3 rounded-sm px-2 py-2 text-sm font-medium transition-all duration-150 ${
+                      isActive
+                        ? "bg-neutral-100 text-neutral-900"
+                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    }`}
+                  >
+                    {option.label}
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>

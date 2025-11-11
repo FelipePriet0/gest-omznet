@@ -39,7 +39,7 @@ Todo id que a role for: “Vendedor” deve ter o public.profiles.Full_name no d
 - Atrasado 
 - Escolher data 
 
-OBS: Ao selecionar “Escolher Data” abre calendário (Biblioteca: Flatpickr) na tela para escolha da “Data”: Dia / Mês / Ano.**  |
+OBS: Ao selecionar “Escolher Data” abre calendário na tela para escolha da “Data”: Dia / Mês / Ano.**  |
 | **Horário** | Escolher data de agendamento, baseado em: 
 
 `- public.kanban_cards.due_at

@@ -30,9 +30,10 @@ export async function listTasks(cardId: string): Promise<CardTask[]> {
 }
 
 export async function toggleTask(id: string, done: boolean) {
-  const { error } = await supabase
-    .from("card_tasks")
-    .update({ status: done ? 'completed' : 'pending', completed_at: done ? new Date().toISOString() : null })
-    .eq("id", id);
+  // Usa a mesma RPC utilizada no Drawer para manter a regra centralizada
+  const { error } = await supabase.rpc('update_my_task', {
+    p_task_id: id,
+    p_status: done ? 'completed' : 'pending',
+  });
   if (error) throw new Error(error.message || "Falha ao atualizar status da tarefa");
 }

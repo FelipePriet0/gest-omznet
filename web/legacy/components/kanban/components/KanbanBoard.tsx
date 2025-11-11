@@ -3,31 +3,75 @@
 import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { KanbanCard } from "@/features/kanban/types";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
-import { DndContext } from "@dnd-kit/core";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
-import { DeleteFlow } from "@/legacy/components/kanban/components/DeleteModals";
-import { QuickActionsModal } from "@/legacy/components/kanban/components/QuickActionsModal";
 import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
 
 const columnConfig = [
   { key: "entrada", title: "Entrada", color: "blue", icon: "🔵" },
-  { key: "feitas", title: "Feitas", color: "green", icon: "🟢" },
-  { key: "aguardando", title: "Aguardando", color: "amber", icon: "🟡" },
+  { key: "feitas", title: "Feitas / Cadastrar no MK", color: "green", icon: "🟢" },
+  { key: "aguardando", title: "Aguardando documentos", color: "amber", icon: "🟡" },
   { key: "canceladas", title: "Canceladas", color: "red", icon: "🔴" },
   { key: "concluidas", title: "Concluídas", color: "purple", icon: "🟣" },
 ];
 
-export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; prazo?: 'hoje'|'amanha'|'atrasado'|'data'; date?: string; openCardId?: string }) {
+export function KanbanBoard({
+  hora,
+  dateStart,
+  dateEnd,
+  openCardId,
+  responsaveis,
+  onCardsChange,
+  onCardModalClose,
+}: {
+  hora?: string;
+  dateStart?: string;
+  dateEnd?: string;
+  openCardId?: string;
+  responsaveis?: string[];
+  onCardsChange?: (cards: KanbanCard[]) => void;
+  onCardModalClose?: () => void;
+}) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
   const [cancel, setCancel] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
-  const [del, setDel] = useState<{id:string,name:string,cpf:string}|null>(null);
-  const [actions, setActions] = useState<{id:string,name:string,cpf:string}|null>(null);
+  
+  const [activeId, setActiveId] = useState<string|null>(null);
+  const sensors = useSensors(
+    // Estilo Trello: ativa drag após mover uma distância; clique curto abre
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+  
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
+  const lastClosedCardIdRef = useRef<string | null>(null);
 
-  useEffect(() => { (async () => { try { setCards(await listCards('comercial', { hora, prazo, date })); } catch {} })(); }, [hora, prazo, date]);
+  const responsavelIds = useMemo(
+    () => (responsaveis ?? []).filter((id) => typeof id === 'string' && id.length > 0),
+    [responsaveis]
+  );
+
+  const reload = useCallback(async () => {
+    try {
+      const data = await listCards('comercial', {
+        hora,
+        dateStart,
+        dateEnd,
+        responsaveis: responsavelIds,
+      });
+      setCards(data);
+      onCardsChange?.(data);
+    } catch (error) {
+      console.error('Falha ao carregar cards do Kanban Comercial:', error);
+      onCardsChange?.([]);
+    }
+  }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = { entrada:[], feitas:[], aguardando:[], canceladas:[], concluidas:[] };
@@ -36,7 +80,13 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
   }, [cards]);
 
   useEffect(() => {
-    if (!openCardId) return;
+    if (!openCardId) {
+      lastClosedCardIdRef.current = null;
+      return;
+    }
+    if (lastClosedCardIdRef.current === openCardId) {
+      return;
+    }
     const c = cards.find((x) => x.id === openCardId);
     if (c) setEdit({ cardId: c.id, applicantId: c.applicantId });
   }, [openCardId, cards]);
@@ -48,14 +98,20 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
     const target = over.id as string;
     if (target === 'entrada') { alert('Entrada não recebe cards.'); return; }
     if (target === 'canceladas') { setCancel({ id: cardId, area: 'comercial' }); return; }
-    try { await changeStage(cardId, 'comercial', target); setCards(await listCards('comercial')); } catch (e:any) { alert(e.message ?? 'Falha ao mover'); }
+    try { await changeStage(cardId, 'comercial', target); await reload(); } catch (e:any) { alert(e.message ?? 'Falha ao mover'); }
   }
 
-  function openMenu(c: KanbanCard) { setActions({ id: c.id, name: c.applicantName, cpf: c.cpfCnpj }); }
+  function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial' }); }
 
   return (
     <div className="relative">
-      <DndContext onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        autoScroll
+        onDragStart={({ active }) => setActiveId(String(active.id))}
+        onDragCancel={() => setActiveId(null)}
+        onDragEnd={(event)=> { setActiveId(null); handleDragEnd(event); }}
+      >
         <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
             {columnConfig.map((column) => (
@@ -71,17 +127,47 @@ export function KanbanBoard({ hora, prazo, date, openCardId }: { hora?: string; 
             ))}
           </div>
         </div>
+        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}>
+          {activeId ? (
+            (() => { const c = cards.find(x=> x.id===activeId); if (!c) return null; return (
+              <div className="rounded-2xl border border-emerald-100/40 bg-white p-3 shadow-[0_6px_16px_rgba(30,41,59,0.06)] pointer-events-none">
+                <div className="mb-0.5 truncate text-[13px] font-semibold text-zinc-900">{c.applicantName}</div>
+                <div className="text-[11px] text-zinc-500">CPF: {c.cpfCnpj}</div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-zinc-700">
+                  {c.phone && (
+                    <span className="inline-flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-zinc-400" />{c.phone}</span>
+                  )}
+                  {c.whatsapp && (
+                    <span className="inline-flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5 text-zinc-400" />WhatsApp</span>
+                  )}
+                  {c.bairro && (
+                    <span className="inline-flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-zinc-400" />Bairro: {c.bairro}</span>
+                  )}
+                  {c.dueAt && (
+                    <span className="inline-flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-zinc-400" />Ag.: {new Date(c.dueAt).toLocaleDateString()}</span>
+                  )}
+                </div>
+              </div>
+            ); })()
+          ) : null}
+        </DragOverlay>
       </DndContext>
-      <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
-      <CancelModal open={!!cancel} onClose={()=>setCancel(null)} cardId={cancel?.id||''} area="comercial" onCancelled={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
-      <DeleteFlow open={!!del} onClose={()=>setDel(null)} cardId={del?.id||''} applicantName={del?.name||''} cpfCnpj={del?.cpf||''} onDeleted={async ()=> setCards(await listCards('comercial', { hora, prazo, date }))} />
-      <QuickActionsModal
-        open={!!actions}
-        onClose={() => setActions(null)}
-        onMove={() => { if(actions) setMove({ id: actions.id, area: 'comercial' }); setActions(null); }}
-        onDelete={() => { if(actions) setDel(actions); setActions(null); }}
+      <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={reload} />
+      <CancelModal open={!!cancel} onClose={()=>setCancel(null)} cardId={cancel?.id||''} area="comercial" onCancelled={reload} />
+      
+      <EditarFichaModal
+        open={!!edit}
+        onClose={() => {
+          if (edit?.cardId) {
+            lastClosedCardIdRef.current = edit.cardId;
+          }
+          setEdit(null);
+          onCardModalClose?.();
+        }}
+        cardId={edit?.cardId || ''}
+        applicantId={edit?.applicantId || ''}
+        onStageChange={reload}
       />
-      <EditarFichaModal open={!!edit} onClose={()=> setEdit(null)} cardId={edit?.cardId||''} applicantId={edit?.applicantId||''} />
     </div>
   );
 }

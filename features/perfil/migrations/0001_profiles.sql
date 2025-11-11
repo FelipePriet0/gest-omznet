@@ -66,11 +66,40 @@ for each row execute function public.sync_profile_from_auth();
 
 alter table public.profiles enable row level security;
 
--- Only the owner can select/update their profile. Insert guarded by trigger or explicit id match.
+-- Helper: check if current user has any of the given roles (used across RLS policies)
+drop function if exists public.user_has_role(user_role[]);
+create or replace function public.user_has_role(target_roles user_role[] default array[]::user_role[])
+returns boolean
+language plpgsql
+security definer
+stable
+set search_path = public
+as $$
+declare
+  roles user_role[] := coalesce(target_roles, array[]::user_role[]);
+begin
+  return exists (
+    select 1
+    from public.profiles pr
+    where pr.id = auth.uid()
+      and (
+        roles = '{}'::user_role[]
+        or pr.role = any(roles)
+      )
+  );
+end;
+$$;
+
+grant execute on function public.user_has_role(user_role[]) to authenticated;
+
+-- Seleção liberada para vendedores, analistas e gestores.
 drop policy if exists profiles_select_own on public.profiles;
-create policy profiles_select_own
+drop policy if exists profiles_select_roles on public.profiles;
+create policy profiles_select_roles
   on public.profiles for select
-  using (auth.uid() = id);
+  using (
+    public.user_has_role(array['vendedor','analista','gestor']::user_role[])
+  );
 
 drop policy if exists profiles_update_own on public.profiles;
 create policy profiles_update_own

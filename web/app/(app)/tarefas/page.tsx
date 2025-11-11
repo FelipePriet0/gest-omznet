@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Check, Circle } from "lucide-react";
+import { Check, Circle, X } from "lucide-react";
 import { TaskFilterCTA } from "@/components/app/task-filter-cta";
 // Nova ficha CTA removido do Drawer: Minhas Tarefas
 
@@ -17,18 +17,34 @@ type TaskRow = {
   applicant_name: string;
   cpf_cnpj: string;
   area?: 'comercial'|'analise'|string;
+  created_by?: string|null;
   created_name?: string|null;
   creator_role?: 'vendedor'|'analista'|'gestor'|null;
 };
 
+function parseDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateTimeFromDate(date: Date) {
+  const datePart = date.toLocaleDateString("pt-BR");
+  const timePart = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (timePart === "00:00") {
+    return datePart;
+  }
+  return `${datePart} às ${timePart}`;
+}
+
+function formatDateTime(value?: string | null) {
+  const date = parseDate(value);
+  return date ? formatDateTimeFromDate(date) : null;
+}
+
 export default function MinhasTarefasPage() {
   const [items, setItems] = useState<TaskRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all'|'pending'|'completed'>('all');
-  const [due, setDue] = useState<'all'|'hoje'|'amanha'|'atrasado'|'intervalo'>('all');
-  const [ds, setDs] = useState('');
-  const [de, setDe] = useState('');
   const [counts, setCounts] = useState<{pending:number; completed:number}>({ pending: 0, completed: 0 });
   
   // Removidos modais/estado de "Nova ficha" no Drawer
@@ -48,18 +64,11 @@ export default function MinhasTarefasPage() {
   }
 
   async function load(nextStatus?: 'all'|'pending'|'completed') {
-    setLoading(true);
-    try {
-      const effStatus = nextStatus ?? status;
-      const { data, error } = await supabase.rpc('list_my_tasks', {
-        p_status: effStatus==='all'? null : effStatus,
-        p_due: due==='all'? null : due,
-        p_date_start: ds? atStart(ds) : null,
-        p_date_end: de? atEnd(de) : null,
-        p_search: q || null,
-      });
-      if (!error) setItems((data as any)||[]);
-    } finally { setLoading(false); }
+    const effStatus = nextStatus ?? status;
+    const { data, error } = await supabase.rpc('list_my_tasks', {
+      p_status: effStatus === 'all' ? null : effStatus,
+    });
+    if (!error) setItems((data as any)||[]);
   }
 
   async function toggle(taskId: string, done: boolean) {
@@ -83,26 +92,32 @@ export default function MinhasTarefasPage() {
         <div className="absolute top-0 left-0 z-10">
           <div className="flex items-center gap-2">
             <TaskFilterCTA 
-              q={q} setQ={setQ}
               status={status} setStatus={setStatus}
-              due={due} setDue={setDue}
-              ds={ds} setDs={setDs}
-              de={de} setDe={setDe}
               onApply={load}
-              loading={loading}
             />
             {status !== 'all' && (
-              <div className="flex gap-[1px] items-center text-xs">
-                <div className="flex gap-1.5 shrink-0 rounded-l bg-neutral-200 px-1.5 py-1 items-center">
-                  Status
-                </div>
-                <div className="bg-neutral-100 px-2 py-1 text-neutral-700">{status === 'pending' ? 'Pendentes' : 'Concluídas'}</div>
+              <div
+                className="inline-flex items-center gap-2 rounded-none px-3 py-1 text-white shadow-sm text-xs"
+                style={{
+                  backgroundColor: "var(--color-primary)",
+                  border: "1px solid var(--color-primary)",
+                }}
+              >
+                <span className="font-semibold">Status</span>
+                <span className="font-medium capitalize">
+                  {status === 'pending' ? 'Pendentes' : 'Concluídas'}
+                </span>
                 <button
                   onClick={() => { setStatus('all'); load('all'); }}
-                  className="bg-neutral-200 rounded-l-none rounded-r-sm h-6 w-6 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-300 transition shrink-0"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-none text-white transition"
+                  style={{
+                    backgroundColor: "var(--color-primary)",
+                    border: "1px solid transparent",
+                  }}
                   aria-label="Limpar filtro de status"
+                  type="button"
                 >
-                  ×
+                  <X className="h-3 w-3" />
                 </button>
               </div>
             )}
@@ -115,7 +130,7 @@ export default function MinhasTarefasPage() {
             <DashboardCard title="A avaliar" value={counts.pending} icon={<Circle className="w-4 h-4 text-white" />} />
             <DashboardCard title="Concluídas" value={counts.completed} icon={<Check className="w-4 h-4 text-white" />} />
           </div>
-          <div className="space-y-3">
+          <div className="space-y-6">
             {items.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
@@ -129,105 +144,98 @@ export default function MinhasTarefasPage() {
             ) : (
               items.map((t) => {
                 const cardHref = `${(t.area || 'analise') === 'analise' ? '/kanban/analise' : '/kanban'}?card=${t.card_id}`;
+                const isDone = t.status === 'completed';
+                const createdLabel = formatDateTime(t.created_at);
+                const deadlineDate = parseDate(t.deadline);
+                const deadlineLabel = deadlineDate ? formatDateTimeFromDate(deadlineDate) : null;
+                const isOverdue = !isDone && deadlineDate ? deadlineDate.getTime() < Date.now() : false;
+                const creatorLabel = (t.created_name ?? "").trim() || t.created_by || "—";
+                const cardToneClass = isDone
+                  ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90"
+                  : "border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100";
+                const checkboxHoverClass = isDone ? "hover:bg-white/10" : "hover:bg-white";
+                const checkboxFrameClass = isDone
+                  ? "border-white/80 bg-white/10"
+                  : "border-blue-400 bg-white group-hover:border-blue-500";
+                const descriptionClass = isDone
+                  ? "text-white break-all line-through decoration-white/60"
+                  : "text-blue-900 break-all";
+                const metaColumnClass = isDone
+                  ? "flex flex-col items-end gap-1 text-[13px] text-right break-all text-white/90 line-through decoration-white/60"
+                  : "flex flex-col items-end gap-1 text-[13px] text-right break-all text-blue-700";
+                const metaLabelClass = isDone ? "text-white/80" : "text-blue-600";
+                const metaValueClass = isDone ? "text-white" : isOverdue ? "text-red-600" : "text-blue-900";
+                const chipClass = isDone
+                  ? "inline-flex items-center rounded-full px-1.5 py-0.5 text-[13px] font-medium border border-white/40 bg-white/20 text-white"
+                  : "inline-flex items-center rounded-full px-1.5 py-0.5 text-[13px] font-medium border border-blue-200 bg-white/70 text-blue-700";
+                const createdLineClass = isDone
+                  ? "mt-1 text-[13px] text-white/90 break-all line-through decoration-white/60"
+                  : "mt-1 text-[13px] text-blue-700 break-all";
+                const createdValueClass = isDone
+                  ? "font-medium text-white break-all"
+                  : "font-medium text-blue-900 break-all";
                 return (
-                  <a
-                    key={t.id}
-                    href={cardHref}
-                    className="group block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all duration-200"
-                  >
-                    <div className="flex items-start gap-4">
-                      {/* Checkbox customizado */}
-                      <div className="flex-shrink-0 pt-1" onClick={(e) => e.stopPropagation()}>
-                        <label className="relative flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            checked={t.status === 'completed'} 
-                            onChange={(e) => toggle(t.id, e.target.checked)}
-                            className="sr-only"
-                          />
-                          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
-                            t.status === 'completed' 
-                              ? 'bg-emerald-500 border-emerald-500' 
-                              : 'border-gray-300 hover:border-emerald-400'
-                          }`}>
-                            {t.status === 'completed' && (
-                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </div>
-                        </label>
+                  <div key={t.id} className="relative">
+                    {/* Card 1: Primary_name + Data e Hora de criação */}
+                    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                      <div className="flex items-center justify-between mb-3 gap-3">
+                        <span className="flex-1 font-medium text-gray-900 break-words leading-snug">{t.applicant_name || "—"}</span>
+                        {createdLabel && (
+                          <span className="text-sm text-gray-500 text-right break-words">{createdLabel}</span>
+                        )}
                       </div>
-                      {/* Conteúdo principal */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <h3 className={`text-sm font-medium leading-5 truncate ${
-                              t.status === 'completed' 
-                                ? 'line-through text-gray-500' 
-                                : 'text-gray-900'
-                            }`}>
-                              {t.description}
-                            </h3>
-                            <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                              <span className="inline-flex items-center gap-1 truncate max-w-[150px]">
-                                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                <span className="truncate">{t.applicant_name}</span>
-                              </span>
-                              <span className="flex-shrink-0">•</span>
-                              <span className="truncate">{t.cpf_cnpj}</span>
-                              {t.created_name && (
-                                <>
-                                  <span className="flex-shrink-0">•</span>
-                                  <span className="inline-flex items-center gap-1 text-xs text-gray-600 truncate">
-                                    <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                                    </svg>
-                                    <span className="truncate">
-                                      Criado por: <span className="font-medium">{t.created_name}</span>
-                                      {t.creator_role && (
-                                        <span className="text-gray-500"> ({
-                                          t.creator_role === 'vendedor' ? 'Vendedor' :
-                                          t.creator_role === 'analista' ? 'Analista' :
-                                          t.creator_role === 'gestor' ? 'Gestor' : t.creator_role
-                                        })</span>
-                                      )}
-                                    </span>
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* Status e prazo */}
-                          <div className="flex items-center gap-4 text-xs flex-shrink-0">
-                            {t.deadline && (
-                              <div className="text-right">
-                                <div className="text-gray-500">Prazo</div>
-                                <div className={`font-medium ${
-                                  t.deadline && new Date(t.deadline) < new Date() && t.status !== 'completed' 
-                                    ? 'text-red-600' 
-                                    : 'text-gray-700'
-                                }`}>
-                                  {new Date(t.deadline).toLocaleDateString('pt-BR')}
-                                </div>
+                      
+                      {/* Card 2: Checkbox (dentro do Card 1) */}
+                      <a
+                        href={cardHref}
+                        className={`group block rounded-md border px-3 py-2 transition-all duration-200 ${cardToneClass}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="flex-shrink-0 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                            <label className={`relative -m-1 block cursor-pointer rounded-md p-1.5 transition-colors duration-200 ${checkboxHoverClass}`}>
+                              <input
+                                type="checkbox"
+                                checked={isDone}
+                                onChange={(e) => toggle(t.id, e.target.checked)}
+                                className="sr-only"
+                              />
+                              <div className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-all duration-200 ${checkboxFrameClass}`}>
+                                {isDone && (
+                                  <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
                               </div>
-                            )}
-                            
-                            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                              t.status === 'completed'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-amber-100 text-amber-700'
-                            }`}>
-                              {t.status === 'completed' ? 'Concluída' : 'Pendente'}
+                            </label>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className={`flex-1 text-[15px] font-medium ${descriptionClass}`}>
+                                Descrição: {t.description}
+                              </p>
+                              <div className={metaColumnClass}>
+                                {deadlineLabel && (
+                                  <div className="text-right">
+                                    <div className={metaLabelClass}>Prazo</div>
+                                    <div className={`font-medium ${metaValueClass}`}>
+                                      {deadlineLabel}
+                                    </div>
+                                  </div>
+                                )}
+                                <span className={chipClass}>
+                                  {isDone ? "Concluída" : "Pendente"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className={createdLineClass}>
+                              <span>Criado por: </span>
+                              <span className={createdValueClass}>{creatorLabel}</span>
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </a>
                     </div>
-                  </a>
+                  </div>
                 );
               })
             )}
@@ -256,5 +264,3 @@ function DashboardCard({ title, value, icon }: { title: string; value?: number |
   );
 }
 
-function atStart(d: string) { const dt = new Date(d); dt.setHours(0,0,0,0); return dt.toISOString(); }
-function atEnd(d: string) { const dt = new Date(d); dt.setHours(23,59,59,999); return dt.toISOString(); }

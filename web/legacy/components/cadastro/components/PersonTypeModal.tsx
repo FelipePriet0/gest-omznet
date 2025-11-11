@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState, Fragment } from "react";
 import Image from "next/image";
 import { PessoaTipo } from "@/features/cadastro/types";
 
@@ -13,11 +13,26 @@ export function PersonTypeModal({
   onClose: () => void;
   onSelect: (tipo: PessoaTipo) => void;
 }) {
+  const [leftOffset, setLeftOffset] = useState(0);
+  useEffect(() => {
+    if (!open) return;
+    const updateLeft = () => {
+      try {
+        const el = document.getElementById('kanban-page-root');
+        const left = el ? Math.max(0, Math.round(el.getBoundingClientRect().left)) : 0;
+        setLeftOffset(left);
+      } catch { setLeftOffset(0); }
+    };
+    updateLeft();
+    window.addEventListener('resize', updateLeft);
+    return () => window.removeEventListener('resize', updateLeft);
+  }, [open]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-[96vw] sm:w-[95vw] max-w-[720px] bg-zinc-50 shadow-2xl" style={{ borderRadius: '28px' }}>
+    <Fragment>
+      <div className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm" style={{ left: leftOffset }} onClick={onClose} />
+      <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ left: leftOffset }} onClick={onClose}>
+        <div className="relative w-[96vw] sm:w-[95vw] max-w-[720px] bg-zinc-50 shadow-2xl" style={{ borderRadius: '28px' }} onClick={(e)=> e.stopPropagation()}>
         {/* Header verde com logo e título */}
         <div className="rounded-t-[28px] bg-[var(--verde-primario)] px-6 py-4 text-white">
           <div className="flex items-center gap-3">
@@ -110,5 +125,6 @@ export function PersonTypeModal({
         {/* Removido CTA Cancelar conforme solicitação */}
       </div>
     </div>
+    </Fragment>
   );
 }

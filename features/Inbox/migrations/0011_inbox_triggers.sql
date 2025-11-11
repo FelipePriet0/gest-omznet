@@ -85,7 +85,7 @@ do $$ begin
     -- resolve author name if available
     v_author := coalesce(new.author_name, 'Alguém');
     for r_prof in select id, full_name from public.profiles loop
-      if (new.content ilike '%'||'@'||coalesce(r_prof.full_name,'')||'%') then
+      if (new.content ilike '%'||'@'||coalesce(r_prof.full_name,'')||'%' and new.author_id is distinct from r_prof.id) then
         select area into v_area from public.kanban_cards where id = new.card_id;
         v_url := case when v_area = 'analise' then '/kanban/analise?card=' else '/kanban?card=' end || new.card_id::text;
         insert into public.inbox_notifications(user_id, type, priority, title, body, comment_id, card_id, transient, link_url)

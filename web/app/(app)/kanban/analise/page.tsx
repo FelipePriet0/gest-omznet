@@ -1,27 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { KanbanBoardAnalise } from "@/legacy/components/kanban/components/KanbanBoardAnalise";
-import { FilterCTA } from "@/components/app/filter-cta";
+import { FilterCTA, AppliedFilters } from "@/components/app/filter-cta";
 import { Button } from "@/components/ui/button";
-import { Plus, Inbox, FileSearch, RefreshCw, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Inbox, FileSearch, CheckCircle, AppWindow, Clock, XCircle } from "lucide-react";
 import { useState as useModalState } from "react";
 import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonTypeModal";
 import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
 import type { PessoaTipo } from "@/features/cadastro/types";
 import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
-import { getKanbanDashboard, KanbanDashboard } from "@/features/kanban/services";
+import { KanbanCard } from "@/features/kanban/types";
 
 export default function KanbanAnalisePage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const sp = useSearchParams();
+  const pathname = usePathname();
   const hora = sp.get('hora') || undefined;
-  const prazo = (sp.get('prazo') as any) || undefined;
-  const date = sp.get('data') || undefined;
+  const prazo = sp.get('prazo') || undefined;
+  const prazoFim = sp.get('prazo_fim') || undefined;
   const openCardId = sp.get('card') || undefined;
-  const [dash, setDash] = useState<KanbanDashboard | null>(null);
+  const responsavelParam = sp.get('responsavel') || '';
+  const responsaveis = useMemo(() => {
+    if (!responsavelParam) return [] as string[];
+    return Array.from(
+      new Set(
+        responsavelParam
+          .split(',')
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0)
+      )
+    );
+  }, [responsavelParam]);
+  const initialFiltersSummary = useMemo<AppliedFilters>(
+    () => ({
+      responsaveis,
+      prazo: prazo
+        ? { start: prazo, end: prazoFim || undefined }
+        : undefined,
+      hora: hora || undefined,
+    }),
+    [responsaveis, prazo, prazoFim, hora]
+  );
+  const [filtersSummary, setFiltersSummary] = useState<AppliedFilters>(initialFiltersSummary);
+  const [cardsSnapshot, setCardsSnapshot] = useState<KanbanCard[]>([]);
   
   // Nova ficha modals
   const [openPersonType, setOpenPersonType] = useModalState(false);
@@ -39,11 +63,6 @@ export default function KanbanAnalisePage() {
           return;
         }
         setLoading(false);
-        // Carrega dashboard Análise (backend-first)
-        try {
-          const d = await getKanbanDashboard('analise');
-          if (mounted) setDash(d);
-        } catch {}
       } catch {
         clearStaleSupabaseSession();
       }
@@ -53,6 +72,34 @@ export default function KanbanAnalisePage() {
     };
   }, [router]);
 
+  useEffect(() => {
+    setFiltersSummary((prev) => {
+      const sameResponsaveis = prev.responsaveis.join("|") === initialFiltersSummary.responsaveis.join("|");
+      const samePrazo =
+        (prev.prazo?.start ?? "") === (initialFiltersSummary.prazo?.start ?? "") &&
+        (prev.prazo?.end ?? "") === (initialFiltersSummary.prazo?.end ?? "");
+      const sameHora = prev.hora === initialFiltersSummary.hora;
+      if (sameResponsaveis && samePrazo && sameHora) {
+        return prev;
+      }
+      return initialFiltersSummary;
+    });
+  }, [initialFiltersSummary]);
+
+  const handleFiltersChange = useCallback((next: AppliedFilters) => {
+    setFiltersSummary(next);
+  }, []);
+
+  const handleCardModalClose = useCallback(() => {
+    const params = new URLSearchParams(sp.toString());
+    if (!params.has("card")) return;
+    params.delete("card");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [router, pathname, sp]);
+
+  const dashboard = useMemo(() => computeAnaliseDashboard(cardsSnapshot), [cardsSnapshot]);
+
   if (loading) {
     return <div className="text-sm text-zinc-600">Carregando…</div>;
   }
@@ -61,7 +108,7 @@ export default function KanbanAnalisePage() {
     <>
       <div className="relative">
         <div className="absolute top-0 left-0 z-10">
-          <FilterCTA />
+          <FilterCTA area="analise" onFiltersChange={handleFiltersChange} />
         </div>
         <div className="absolute top-0 right-0 z-10">
           <Button
@@ -74,17 +121,26 @@ export default function KanbanAnalisePage() {
           </Button>
         </div>
         <div className="pt-12">
-          {/* Mini dashboard: Recebidos / Em análise / Reanálise / Finalizados / Canceladas */}
-          <div className="grid grid-cols-5 gap-3 sm:gap-4 md:gap-6 w-full mb-6">
-            <DashboardCard title="Recebidos" value={dash?.recebidos} icon={<Inbox className="w-4 h-4 text-white" />} />
-            <DashboardCard title="Em análise" value={dash?.emAnalise} icon={<FileSearch className="w-4 h-4 text-white" />} />
-            <DashboardCard title="Reanálise" value={dash?.reanalise} icon={<RefreshCw className="w-4 h-4 text-white" />} />
-            <DashboardCard title="Finalizados" value={dash?.finalizados} icon={<CheckCircle className="w-4 h-4 text-white" />} />
-            <DashboardCard title="Canceladas" value={dash?.analiseCanceladas} icon={<XCircle className="w-4 h-4 text-white" />} />
+          {/* Mini dashboard: A Avaliar / Em análise / Avaliadas / Ass APP / Atrasadas / Canceladas */}
+          <div className="grid grid-cols-6 gap-3 sm:gap-4 md:gap-6 w-full mb-6">
+            <DashboardCard title="A Avaliar" value={dashboard.avaliar} icon={<Inbox className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Em análise" value={dashboard.emAnalise} icon={<FileSearch className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Avaliadas" value={dashboard.avaliadas} icon={<CheckCircle className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Ass APP" value={dashboard.assApp} icon={<AppWindow className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Atrasadas" value={dashboard.atrasadas} icon={<Clock className="w-4 h-4 text-white" />} />
+            <DashboardCard title="Canceladas" value={dashboard.canceladas} icon={<XCircle className="w-4 h-4 text-white" />} />
           </div>
           {/* Espaçamento igual ao usado entre filtros/CTA e colunas */}
           <div className="mt-12">
-            <KanbanBoardAnalise hora={hora as any} prazo={prazo} date={date} openCardId={openCardId} />
+            <KanbanBoardAnalise
+              hora={filtersSummary.hora}
+              dateStart={filtersSummary.prazo?.start}
+              dateEnd={filtersSummary.prazo?.end}
+              responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
+              openCardId={openCardId}
+              onCardsChange={setCardsSnapshot}
+            onCardModalClose={handleCardModalClose}
+            />
           </div>
         </div>
       </div>
@@ -129,4 +185,61 @@ function DashboardCard({ title, value, icon }: { title: string; value?: number |
       </div>
     </div>
   );
+}
+
+type AnaliseDashboard = {
+  avaliar: number;
+  emAnalise: number;
+  avaliadas: number;
+  assApp: number;
+  atrasadas: number;
+  canceladas: number;
+};
+
+function computeAnaliseDashboard(cards: KanbanCard[]): AnaliseDashboard {
+  const normalizeStage = (stage?: string | null) => (stage ?? '').toLowerCase();
+  const now = new Date();
+  const nowTime = now.getTime();
+
+  let avaliar = 0;
+  let emAnalise = 0;
+  let avaliadas = 0;
+  let assApp = 0;
+  let atrasadas = 0;
+  let canceladas = 0;
+
+  for (const card of cards) {
+    const stage = normalizeStage(card.stage);
+    switch (stage) {
+      case 'recebidos':
+        avaliar += 1;
+        break;
+      case 'em_analise':
+      case 'reanalise':
+      case 'aprovados':
+      case 'negados':
+        emAnalise += 1;
+        break;
+      case 'ass_app':
+        assApp += 1;
+        break;
+      case 'finalizados':
+        avaliadas += 1;
+        break;
+      case 'canceladas':
+        canceladas += 1;
+        break;
+      default:
+        break;
+    }
+
+    if (card.dueAt) {
+      const dueDate = new Date(card.dueAt);
+      if (!Number.isNaN(dueDate.getTime()) && dueDate.getTime() < nowTime) {
+        atrasadas += 1;
+      }
+    }
+  }
+
+  return { avaliar, emAnalise, avaliadas, assApp, atrasadas, canceladas };
 }
