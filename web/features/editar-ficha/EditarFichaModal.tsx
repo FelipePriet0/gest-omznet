@@ -213,10 +213,15 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId }: { open:
   }, [cardId, refreshTasks]);
 
   const handleTaskToggle = useCallback(async (taskId: string, done: boolean) => {
+    // Otimista: atualiza lista local imediatamente para uma UX fluida
+    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: done ? 'completed' : 'pending' } : t));
     try {
       await toggleTask(taskId, done);
+      // Faz um refresh leve para sincronizar completed_at e estados vindos do backend
       await refreshTasks();
     } catch (e: any) {
+      // Reverte em caso de erro
+      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: !done ? 'completed' : 'pending' } : t));
       alert(e?.message || "Falha ao atualizar tarefa");
     }
   }, [refreshTasks]);
