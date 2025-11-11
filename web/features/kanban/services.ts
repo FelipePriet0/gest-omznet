@@ -91,7 +91,7 @@ export async function listCards(
   }
 
   return Array.from(uniqueRows.values()).map((row: any) => {
-    const hours = Array.isArray(row.hora_at) ? row.hora_at : row.hora_at ? [row.hora_at] : [];
+    const hours = Array.isArray(row.hora_at) ? row.hora_at : (row.hora_at ? [row.hora_at] : []);
     const horaLabel = hours.length > 1
       ? hours.map((h: any) => String(h).slice(0, 5)).join(' e ')
       : hours[0]

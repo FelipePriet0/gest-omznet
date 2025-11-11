@@ -5,7 +5,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { KanbanCard as Card } from "@/features/kanban/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MoreVertical, Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
+import { MoreVertical, Phone, MapPin, Calendar, Clock } from "lucide-react";
 
 export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () => void; onMenu: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
@@ -70,14 +70,20 @@ export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () =>
         )}
         {card.whatsapp && (
           <span className="inline-flex items-center gap-1.5">
-            <MessageCircle className="w-3.5 h-3.5 text-zinc-400" />
-            WhatsApp
+            <img src="/whatsapp.svg" alt="WhatsApp" className="w-3.5 h-3.5" />
+            {card.whatsapp}
           </span>
         )}
         {card.bairro && (
           <span className="inline-flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-zinc-400" />
             Bairro: {card.bairro}
+          </span>
+        )}
+        {card.horaAt && (
+          <span className="inline-flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-zinc-400" />
+            {card.horaAt}
           </span>
         )}
         {card.dueAt && (
@@ -91,4 +97,3 @@ export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () =>
     </div>
   );
 }
-
