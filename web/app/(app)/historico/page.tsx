@@ -91,7 +91,8 @@ export default function HistoricoPage() {
     () =>
       profiles.filter((p) => {
         const role = (p.role || "").toLowerCase();
-        return role === "analista" || role === "gestor" || role === "vendedor";
+        // No Histórico, manter vendedores, analistas e gestores como opções
+        return role === "vendedor" || role === "analista" || role === "gestor";
       }),
     [profiles]
   );

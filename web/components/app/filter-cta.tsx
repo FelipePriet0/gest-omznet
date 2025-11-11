@@ -58,14 +58,21 @@ function getResponsavelIcon(name: string | undefined | null) {
 }
 
 function buildResponsavelOptions(profiles: CachedResponsavel[]): FilterOption[] {
-  return profiles
-    .filter((profile) => !!profile.id)
-    .map((profile) => ({
-      name: profile.full_name ?? "—",
-      icon: getResponsavelIcon(profile.full_name ?? undefined),
-      label: profile.role ?? undefined,
-      value: profile.id ?? undefined,
-    }));
+  const seen = new Set<string>();
+  const unique: CachedResponsavel[] = [];
+  for (const p of profiles) {
+    const id = p.id ?? undefined;
+    if (!id) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    unique.push(p);
+  }
+  return unique.map((profile) => ({
+    name: profile.full_name ?? "—",
+    icon: getResponsavelIcon(profile.full_name ?? undefined),
+    label: profile.role ?? undefined,
+    value: profile.id ?? undefined,
+  }));
 }
 
 export function FilterCTA({
@@ -579,4 +586,3 @@ export function FilterCTA({
     </div>
   );
 }
-

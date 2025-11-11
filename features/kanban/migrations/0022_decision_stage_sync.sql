@@ -95,6 +95,7 @@ declare
   v_author record;
   v_note jsonb;
   v_parent jsonb;
+  v_parent_author uuid;
   v_thread_id uuid;
   v_level int := 0;
   v_cmd text := lower(coalesce(trim(p_text),''));
@@ -143,6 +144,7 @@ begin
     if v_parent is null then raise exception 'parent_not_found' using message = 'Parecer pai não encontrado'; end if;
     v_level := coalesce((v_parent->>'level')::int, 0) + 1;
     v_thread_id := coalesce((v_parent->>'thread_id')::uuid, (v_parent->>'id')::uuid);
+    v_parent_author := nullif((v_parent->>'author_id')::uuid, null);
   end if;
 
   v_note_id := gen_random_uuid();
@@ -165,6 +167,33 @@ begin
         updated_at = now()
     where id = p_card_id
     returning * into v_row;
+
+  -- Reply notification to the parent author (if any and not self)
+  if p_parent_id is not null and v_parent_author is not null and v_parent_author <> v_author.author_id then
+    insert into public.inbox_notifications(
+      user_id,
+      type,
+      priority,
+      title,
+      body,
+      card_id,
+      applicant_id,
+      transient,
+      link_url,
+      meta
+    ) values (
+      v_parent_author,
+      'parecer_reply',
+      'low',
+      '↩️ Nova resposta no parecer',
+      left(coalesce(p_text,''), 600),
+      p_card_id,
+      v_applicant,
+      false,
+      '/kanban/analise?card=' || p_card_id::text,
+      jsonb_build_object('note_id', v_note_id, 'author_name', v_author.author_name)
+    );
+  end if;
 
   -- Mentions: extrai tokens iniciados por '@' e notifica perfis cujo full_name contenha o termo
   for v_term in
