@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
+import { TABLE_KANBAN_CARDS } from "@/lib/constants";
 import { KanbanCard } from "@/features/kanban/types";
 import { startOfDayUtcISO, endOfDayUtcISO } from "@/lib/datetime";
 
@@ -38,7 +39,7 @@ export async function changeStage(cardId: string, area: 'comercial' | 'analise',
   try {
     // Evita 406 quando nenhuma linha é retornada usando single();
     const { data, error } = await supabase
-      .from('kanban_cards')
+      .from(TABLE_KANBAN_CARDS)
       .update(patch)
       .eq('id', cardId)
       .select('id')
@@ -69,7 +70,7 @@ export async function listCards(
   const baseSelect = 'id, stage, area, applicant_id, due_at, hora_at, applicants:applicants!inner(id, primary_name, cpf_cnpj, phone, whatsapp, bairro)';
 
   let q = supabase
-    .from('kanban_cards')
+    .from(TABLE_KANBAN_CARDS)
     .select(baseSelect)
     .eq('area', area)
     .is('deleted_at', null)
@@ -154,7 +155,7 @@ export async function listCards(
 
 export async function listHours(area: 'comercial' | 'analise'): Promise<string[]> {
   const { data, error } = await supabase
-    .from('kanban_cards')
+    .from(TABLE_KANBAN_CARDS)
     .select('hora_at')
     .eq('area', area)
     .is('deleted_at', null)
@@ -190,7 +191,7 @@ export type KanbanDashboard = {
 async function computeDashboardFromClient(area: 'comercial' | 'analise', nowISO?: string): Promise<KanbanDashboard> {
   const now = nowISO ? new Date(nowISO) : new Date();
   const { data, error } = await supabase
-    .from('kanban_cards')
+    .from(TABLE_KANBAN_CARDS)
     .select('stage, area, due_at')
     .eq('area', area)
     .is('deleted_at', null);

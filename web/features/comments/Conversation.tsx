@@ -7,6 +7,7 @@ import { addComment, deleteComment, editComment, listComments, listProfiles, typ
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import { TaskCard } from "@/features/tasks/TaskCard";
 import { listAttachments, removeAttachment, publicUrl, type CardAttachment } from "@/features/attachments/services";
+import { TABLE_CARD_ATTACHMENTS } from "@/lib/constants";
 import { UnifiedComposer, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { renderTextWithChips } from "@/utils/richText";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -181,7 +182,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
       throw new Error(error?.message ?? "Falha ao vincular comentário ao anexo");
     }
     const newCommentId = data.id as string;
-    await supabase.from("card_attachments").update({ comment_id: newCommentId }).eq("id", attachment.id);
+    await supabase.from(TABLE_CARD_ATTACHMENTS).update({ comment_id: newCommentId }).eq("id", attachment.id);
     cardAttachmentIdsRef.current.add(attachment.id);
     setAttachments((prev) =>
       prev.map((a) =>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback, Fragment } from "react";
 import Image from "next/image";
 import clsx from "clsx";
-import { User as UserIcon, MoreHorizontal, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, Search } from "lucide-react";
+import { User as UserIcon, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
@@ -11,61 +11,23 @@ import { TaskCard } from "@/features/tasks/TaskCard";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import { changeStage } from "@/features/kanban/services";
 import Attach from "@/features/attachments/upload";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { CalendarReady } from "@/components/ui/calendar-ready";
-import { SimpleSelect } from "@/components/ui/select";
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
-import { listProfiles, type ProfileLite } from "@/features/comments/services";
+import { type ProfileLite } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
 import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts } from "@/lib/datetime";
 import { renderTextWithChips } from "@/utils/richText";
+import type { AppModel } from "./types";
+import { PLANO_OPTIONS, SVA_OPTIONS, VENC_OPTIONS } from "./constants";
+import { Section, Grid } from "./components/Layout";
+import { Field, Select, SelectAdv } from "./components/Fields";
+import { CmdDropdown } from "./components/CmdDropdown";
+import { DecisionTag, decisionPlaceholder } from "./utils/decision";
+import { PareceresList } from "./components/PareceresList";
+import { addParecer, editParecer, deleteParecer, setCardDecision } from "./services";
+import { useEditarFichaData } from "./hooks/useEditarFichaData";
 
-type AppModel = {
-  primary_name?: string; cpf_cnpj?: string; phone?: string; whatsapp?: string; email?: string;
-  address_line?: string; address_number?: string; address_complement?: string; cep?: string; bairro?: string;
-  plano_acesso?: string; venc?: string | number | null; carne_impresso?: boolean; sva_avulso?: string;
-};
-
-// Dropdown contents (mesmos do Expanded)
-const PLANO_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
-  { label: '— Normais —', value: '__hdr_norm', disabled: true },
-  { label: '100 Mega - R$ 59,90', value: '100 Mega - R$ 59,90' },
-  { label: '250 Mega - R$ 69,90', value: '250 Mega - R$ 69,90' },
-  { label: '500 Mega - R$ 79,90', value: '500 Mega - R$ 79,90' },
-  { label: '1000 Mega (1Gb) - R$ 99,90', value: '1000 Mega (1Gb) - R$ 99,90' },
-  { label: '— IP Dinâmico —', value: '__hdr_ipdin', disabled: true },
-  { label: '100 Mega + IP Dinâmico - R$ 74,90', value: '100 Mega + IP Dinâmico - R$ 74,90' },
-  { label: '250 Mega + IP Dinâmico - R$ 89,90', value: '250 Mega + IP Dinâmico - R$ 89,90' },
-  { label: '500 Mega + IP Dinâmico - R$ 94,90', value: '500 Mega + IP Dinâmico - R$ 94,90' },
-  { label: '1000 Mega (1Gb) + IP Dinâmico - R$ 114,90', value: '1000 Mega (1Gb) + IP Dinâmico - R$ 114,90' },
-  { label: '— IP Fixo —', value: '__hdr_ipfixo', disabled: true },
-  { label: '100 Mega + IP Fixo - R$ 259,90', value: '100 Mega + IP Fixo - R$ 259,90' },
-  { label: '250 Mega + IP Fixo - R$ 269,90', value: '250 Mega + IP Fixo - R$ 269,90' },
-  { label: '500 Mega + IP Fixo - R$ 279,90', value: '500 Mega + IP Fixo - R$ 279,90' },
-  { label: '1000 Mega (1Gb) + IP Fixo - R$ 299,90', value: '1000 Mega (1Gb) + IP Fixo - R$ 299,90' },
-];
-
-const SVA_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
-  { label: 'XXXXX', value: 'XXXXX' },
-  { label: '— Streaming e TV —', value: '__hdr_stream', disabled: true },
-  { label: 'MZ TV+ (MZPLAY PLUS - ITTV): R$ 29,90 (01 TELA)', value: 'MZ TV+ (MZPLAY PLUS - ITTV): R$ 29,90 (01 TELA)' },
-  { label: 'DEZZER: R$ 15,00', value: 'DEZZER: R$ 15,00' },
-  { label: 'MZ CINE-PLAY: R$ 19,90', value: 'MZ CINE-PLAY: R$ 19,90' },
-  { label: '— Hardware e Equipamentos —', value: '__hdr_hw', disabled: true },
-  { label: 'SETUP BOX MZNET: R$ 100,00', value: 'SETUP BOX MZNET: R$ 100,00' },
-  { label: '— Wi‑Fi Extend — Sem fio —', value: '__hdr_wifi_sf', disabled: true },
-  { label: '01 WI‑FI EXTEND (SEM FIO): R$ 25,90', value: '01 WI‑FI EXTEND (SEM FIO): R$ 25,90' },
-  { label: '02 WI‑FI EXTEND (SEM FIO): R$ 49,90', value: '02 WI‑FI EXTEND (SEM FIO): R$ 49,90' },
-  { label: '03 WI‑FI EXTEND (SEM FIO): R$ 74,90', value: '03 WI‑FI EXTEND (SEM FIO): R$ 74,90' },
-  { label: '— Wi‑Fi Extend — Cabo —', value: '__hdr_wifi_cab', disabled: true },
-  { label: '01 WI‑FI EXTEND (CABEADO): R$ 35,90', value: '01 WI‑FI EXTEND (CABEADO): R$ 35,90' },
-  { label: '02 WI‑FI EXTEND (CABEADO): R$ 69,90', value: '02 WI‑FI EXTEND (CABEADO): R$ 69,90' },
-  { label: '03 WI‑FI EXTEND (CABEADO): R$ 100,00', value: '03 WI‑FI EXTEND (CABEADO): R$ 100,00' },
-];
-
-const VENC_OPTIONS = ["5","10","15","20","25"] as const;
 
 export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageChange }: { open: boolean; onClose: () => void; cardId: string; applicantId: string; onStageChange?: () => void; }) {
   const { open: sidebarOpen } = useSidebar();
@@ -98,8 +60,6 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   // Menções no Parecer: popover desativado (continua aceitando texto com @)
   const [createdBy, setCreatedBy] = useState<string>("");
   const [assigneeId, setAssigneeId] = useState<string>("");
-  const vendorName = useMemo(()=> profiles.find(p=> p.id===createdBy)?.full_name || "—", [profiles, createdBy]);
-  const analystName = useMemo(()=> profiles.find(p=> p.id===assigneeId)?.full_name || "—", [profiles, assigneeId]);
   const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
@@ -158,12 +118,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
       if (context?.source === "parecer" && uploaded.length > 0) {
         const names = uploaded.map((f) => f.name).join(", ");
         try {
-          await supabase.rpc("add_parecer", {
-            p_card_id: cardId,
-            p_text: `📎 Anexo(s): ${names}`,
-            p_parent_id: null,
-            p_decision: null,
-          });
+          await addParecer({ cardId, text: `📎 Anexo(s): ${names}`, parentId: null, decision: null });
         } catch (err) {
           console.error("Falha ao registrar parecer para anexos", err);
         }
@@ -241,13 +196,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
 
   async function syncDecisionStatus(decision: ComposerDecision | null) {
     try {
-      if (decision === null) {
-        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: null });
-      } else if (decision === 'reanalise') {
-        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: 'reanalise' });
-      } else {
-        await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: decision });
-      }
+      await setCardDecision(cardId, decision);
       // Fallback: se triggers foram removidas, mova o card explicitamente no Kanban de Análise
       try {
         if (decision === 'aprovado') await changeStage(cardId, 'analise', 'aprovados');
@@ -261,94 +210,27 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
     }
   }
 
+  const data = useEditarFichaData({ open, applicantId, cardId });
+  const vendorName = data.vendorName;
+  const analystName = data.analystName;
   useEffect(() => {
     if (!open) return;
-    let active = true;
-    let chApp: any; let chCard: any;
-    (async () => {
-      try {
-        setLoading(true);
-        const { data: a } = await supabase
-          .from('applicants')
-          .select('primary_name, cpf_cnpj, phone, whatsapp, email, address_line, address_number, address_complement, cep, bairro, plano_acesso, venc, sva_avulso, carne_impresso, person_type')
-          .eq('id', applicantId)
-          .single();
-        const { data: c } = await supabase
-          .from('kanban_cards')
-          .select('created_at, due_at, hora_at, reanalysis_notes, created_by, assignee_id')
-          .eq('id', cardId)
-          .single();
-        if (!active) return;
-        const a2:any = { ...(a||{}) };
-        if (a2 && typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
-        setApp(a2||{});
-        setPersonType((a as any)?.person_type ?? null);
-        setCreatedAt(c?.created_at ? new Date(c.created_at).toLocaleString() : "");
-        const dueParts = utcISOToLocalParts(c?.due_at ?? undefined, DEFAULT_TIMEZONE);
-        setDueAt(dueParts.dateISO ?? "");
-        if (Array.isArray((c as any)?.hora_at)) {
-          const arr:any[] = (c as any).hora_at;
-          const list = arr.map(h => String(h).slice(0,5));
-          setHoraArr(list);
-          setHoraAt(list[0] || "");
-        } else {
-          const v = c?.hora_at ? String(c.hora_at).slice(0,5) : "";
-          setHoraAt(v);
-          setHoraArr(v ? [v] : []);
-        }
-        setPareceres(Array.isArray(c?.reanalysis_notes) ? c!.reanalysis_notes as any : []);
-        setCreatedBy((c as any)?.created_by || "");
-        setAssigneeId((c as any)?.assignee_id || "");
-
-        try {
-          setProfiles(await listProfiles());
-        } catch {}
-
-        // Realtime: applicants (payload.new) and kanban_cards
-        chApp = supabase
-          .channel(`rt-edit-app-${applicantId}`)
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applicants', filter: `id=eq.${applicantId}` }, (payload: any) => {
-            const row:any = payload.new || {};
-            const a3:any = { ...app };
-            ['primary_name','cpf_cnpj','phone','whatsapp','email','address_line','address_number','address_complement','cep','bairro','plano_acesso','sva_avulso','carne_impresso','venc','person_type'].forEach((k)=>{
-              if (k in row) (a3 as any)[k] = row[k];
-            });
-            if (typeof a3.venc !== 'undefined' && a3.venc !== null) a3.venc = String(a3.venc);
-            setApp(a3);
-            if (row.person_type) setPersonType(row.person_type);
-          })
-          .subscribe();
-
-        chCard = supabase
-          .channel(`rt-edit-card-${cardId}`)
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `id=eq.${cardId}` }, (payload: any) => {
-            const row:any = payload.new || {};
-            if (row.due_at) {
-              const { dateISO } = utcISOToLocalParts(row.due_at, DEFAULT_TIMEZONE);
-              setDueAt(dateISO ?? "");
-            }
-            if (row.hora_at) {
-              const arr = Array.isArray(row.hora_at) ? row.hora_at : [row.hora_at];
-              const list = arr.map((h:any)=> String(h).slice(0,5));
-              setHoraAt(list[0] || "");
-              setHoraArr(list);
-            }
-            if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
-            if (typeof row.created_by !== 'undefined') setCreatedBy(row.created_by || "");
-            if (typeof row.assignee_id !== 'undefined') setAssigneeId(row.assignee_id || "");
-          })
-          .subscribe();
-      } finally { if (active) setLoading(false); }
-    })();
-    return () => { active = false; };
-    // cleanup channels on close/unmount
-  }, [open, cardId, applicantId]);
-
-  useEffect(() => {
-    if (!open) return;
-    const channels = supabase.getChannels?.() || [];
-    return () => { try { channels.forEach((c:any)=> supabase.removeChannel(c)); } catch {} };
-  }, [open, cardId, applicantId]);
+    try {
+      setLoading(true);
+      setApp((data.app as any) || {});
+      setPersonType(data.personType);
+      setCreatedAt(data.createdAt);
+      setDueAt(data.dueAt);
+      setHoraAt(data.horaAt);
+      setHoraArr(data.horaArr);
+      setPareceres((data.pareceres as any) || []);
+      setCreatedBy(data.createdBy || "");
+      setAssigneeId(data.assigneeId || "");
+      setProfiles(data.profiles || []);
+    } finally {
+      setLoading(false);
+    }
+  }, [open, data]);
 
   // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)
   useEffect(() => {
@@ -402,35 +284,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
     timer.current = setTimeout(flush, 600);
   }
 
-  async function addParecer(val?: ComposerValue) {
-    const payload = val ?? novoParecer;
-    const txt = (payload.text || "").trim();
-    const hasDecision = !!payload.decision;
-    if (!hasDecision && !txt) return;
-    const payloadText = hasDecision && !txt ? decisionPlaceholder(payload.decision ?? null) : txt;
-    const resetValue: ComposerValue = { decision: null, text: "", mentions: [] };
-    setNovoParecer(resetValue);
-    requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
-    setCmdOpenParecer(false);
-    try {
-      await supabase.rpc('add_parecer', {
-        p_card_id: cardId,
-        p_text: payloadText,
-        p_parent_id: null,
-        p_decision: payload.decision ?? null
-      });
-      if (payload.decision === 'aprovado' || payload.decision === 'negado') {
-        await syncDecisionStatus(payload.decision);
-      } else if (payload.decision === 'reanalise') {
-        await syncDecisionStatus('reanalise');
-      }
-      // Realtime vai atualizar a lista
-    } catch (err: any) {
-      setNovoParecer(payload);
-      requestAnimationFrame(() => composerRef.current?.setValue(payload));
-      alert(err?.message || 'Falha ao adicionar parecer');
-    }
-  }
+  // (remoção) addParecer local substituído por services/addParecer e lógica inline
 
   const horarios = ["08:30","10:30","13:30","15:30"];
   const statusText = useMemo(()=> saving==='saving'? 'Salvando…' : saving==='saved'? 'Salvo' : saving==='error'? 'Erro ao salvar' : '', [saving]);
@@ -626,8 +480,27 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                     onChange={(val)=> {
                       setNovoParecer(val);
                     }}
-                    onSubmit={(val)=> {
-                      addParecer(val);
+                    onSubmit={async (val)=> {
+                      const txt = (val.text || '').trim();
+                      const hasDecision = !!val.decision;
+                      if (!hasDecision && !txt) return;
+                      const payloadText = hasDecision && !txt ? decisionPlaceholder(val.decision ?? null) : txt;
+                      const resetValue: ComposerValue = { decision: null, text: '', mentions: [] };
+                      setNovoParecer(resetValue);
+                      requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
+                      setCmdOpenParecer(false);
+                      try {
+                        await addParecer({ cardId, text: payloadText, parentId: null, decision: val.decision ?? null });
+                        if (val.decision === 'aprovado' || val.decision === 'negado') {
+                          await syncDecisionStatus(val.decision);
+                        } else if (val.decision === 'reanalise') {
+                          await syncDecisionStatus('reanalise');
+                        }
+                      } catch (err: any) {
+                        setNovoParecer(val);
+                        requestAnimationFrame(() => composerRef.current?.setValue(val));
+                        alert(err?.message || 'Falha ao adicionar parecer');
+                      }
                     }}
                     onCancel={()=> {
                       setCmdOpenParecer(false);
@@ -676,12 +549,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                     const hasDecision = !!value.decision;
                     if (!hasDecision && !text) return;
                     const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
-                    await supabase.rpc('add_parecer', {
-                      p_card_id: cardId,
-                      p_text: payloadText,
-                      p_parent_id: pid,
-                      p_decision: value.decision ?? null,
-                    });
+                    await addParecer({ cardId, text: payloadText, parentId: pid, decision: value.decision ?? null });
                     if (value.decision === 'aprovado' || value.decision === 'negado') {
                       await syncDecisionStatus(value.decision);
                     } else if (value.decision === 'reanalise') {
@@ -693,19 +561,14 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                     const hasDecision = !!value.decision;
                     if (!hasDecision && !text) return;
                     const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
-                    await supabase.rpc('edit_parecer', {
-                      p_card_id: cardId,
-                      p_note_id: id,
-                      p_text: payloadText,
-                      p_decision: value.decision ?? null,
-                    });
+                    await editParecer({ cardId, noteId: id, text: payloadText, decision: value.decision ?? null });
                     if (value.decision === 'aprovado' || value.decision === 'negado') {
                       await syncDecisionStatus(value.decision);
                     } else if (value.decision === 'reanalise') {
                       await syncDecisionStatus('reanalise');
                     }
                   }}
-                  onDelete={async (id) => { await supabase.rpc('delete_parecer', { p_card_id: cardId, p_note_id: id }); }}
+                  onDelete={async (id) => { await deleteParecer({ cardId, noteId: id }); }}
                   onDecisionChange={syncDecisionStatus}
                   onOpenTask={(ctx) => setTaskOpen({ open: true, parentId: ctx.parentId ?? null, taskId: ctx.taskId ?? null, source: ctx.source ?? 'parecer' })}
                   onToggleTask={handleTaskToggle}
@@ -754,179 +617,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   );
 }
 
-type SectionProps = {
-  title: string;
-  children: React.ReactNode;
-  variant?: string;
-  className?: string;
-  titleClassName?: string;
-  cardClassName?: string;
-};
-
-function Section({ title, children, variant, className, titleClassName, cardClassName }: SectionProps) {
-  const wrapperClasses = [variant, className].filter(Boolean).join(" ");
-  const cardClasses = ["section-card rounded-lg bg-white p-4 sm:p-6", cardClassName].filter(Boolean).join(" ");
-  const headingClasses = ["section-title text-sm font-semibold", titleClassName, variant].filter(Boolean).join(" ");
-
-  return (
-    <section className={wrapperClasses || undefined}>
-      <div className={cardClasses}>
-        <div className="section-header mb-4 sm:mb-6">
-          <h3 className={headingClasses}>{title}</h3>
-        </div>
-        <div>{children}</div>
-      </div>
-    </section>
-  );
-}
-
-function Grid({ cols, children }: { cols: 1|2|3; children: React.ReactNode }) {
-  const cls = cols===1? 'grid-cols-1' : cols===2? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
-  return <div className={`grid gap-4 sm:gap-6 ${cls}`}>{children}</div>;
-}
-
-function Field({ label, value, onChange, disabled, placeholder, maxLength, inputMode }: { label: string; value: string; onChange: (v:string)=>void; disabled?: boolean; placeholder?: string; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"] }) {
-  const id = `fld-${label.replace(/\s+/g,'-').toLowerCase()}`;
-  return (
-    <div className="w-full space-y-2">
-      <Label htmlFor={id} className="field-label text-h1">{label}</Label>
-      <Input
-        id={id}
-        value={value}
-        onChange={(e)=> onChange(e.target.value)}
-        disabled={disabled}
-        placeholder={placeholder}
-        maxLength={maxLength}
-        inputMode={inputMode}
-        className={`mt-1 h-12 rounded-lg px-5 py-3 ${disabled ? 'field-input-disabled' : ''}`}
-      />
-    </div>
-  );
-}
-
-type Opt = string | { label: string; value: string; disabled?: boolean };
-function Select({ label, value, onChange, options, triggerClassName, contentClassName, triggerStyle, contentStyle }: { label: string; value: string; onChange: (v:string)=>void; options: Opt[]; triggerClassName?: string; contentClassName?: string; triggerStyle?: React.CSSProperties; contentStyle?: React.CSSProperties }) {
-  const id = `sel-${label.replace(/\s+/g,'-').toLowerCase()}`;
-  return (
-    <div className="w-full space-y-2">
-      <Label htmlFor={id} className="field-label text-h1">{label}</Label>
-      <SimpleSelect
-        value={value}
-        onChange={(v)=> onChange(v)}
-        options={options}
-        placeholder=""
-        className="mt-1"
-        triggerClassName={triggerClassName}
-        contentClassName={contentClassName}
-        triggerStyle={triggerStyle}
-        contentStyle={contentStyle}
-      />
-    </div>
-  );
-}
-
-function SelectAdv({ label, value, onChange, options }: { label: string; value: string; onChange: (v:string)=>void; options: Opt[] }) {
-  return <Select label={label} value={value} onChange={onChange} options={options} />
-}
-
-function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void | Promise<void>; initialQuery?: string }) {
-  const [q, setQ] = useState(initialQuery || "");
-  useEffect(()=> setQ(initialQuery || ""), [initialQuery]);
-  const iconFor = (key: string) => {
-    if (key === 'aprovado') return <CheckCircle className="w-4 h-4" />;
-    if (key === 'negado') return <XCircle className="w-4 h-4" />;
-    if (key === 'reanalise') return <RefreshCcw className="w-4 h-4" />;
-    if (key === 'tarefa') return <ClipboardList className="w-4 h-4" />;
-    if (key === 'anexo') return <Paperclip className="w-4 h-4" />;
-    return null;
-  };
-  const filtered = items.filter(i => i.key.includes(q) || i.label.toLowerCase().includes(q.toLowerCase()));
-  const decisions = filtered.filter(i => ['aprovado','negado','reanalise'].includes(i.key));
-  const actions = filtered.filter(i => ['tarefa','anexo'].includes(i.key));
-  return (
-    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
-        <Search className="w-4 h-4 text-zinc-500" />
-        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
-      </div>
-      {decisions.length > 0 && (
-        <div className="py-1">
-          <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Decisão da análise</div>
-          {decisions.map((i) => {
-            let variantCls = '';
-            if (i.key === 'negado') variantCls = 'cmd-menu-item--destructive';
-            else if (i.key === 'aprovado') variantCls = 'cmd-menu-item--primary';
-            else if (i.key === 'reanalise') variantCls = 'cmd-menu-item--warning';
-            return (
-              <button
-                key={i.key}
-                onClick={() => onPick(i.key)}
-                className={`cmd-menu-item ${variantCls} flex w-full items-center gap-2 px-2 py-1.5 text-left`}
-              >
-                {iconFor(i.key)}
-                <span>{i.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {actions.length > 0 && (
-        <div className="py-1 border-t border-zinc-100">
-          <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Ações</div>
-          {actions.map((i) => (
-            <button key={i.key} onClick={() => onPick(i.key)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left">
-              {iconFor(i.key)}
-              <span>{i.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {decisions.length === 0 && actions.length === 0 && (
-        <div className="px-3 py-2 text-zinc-500">Sem comandos</div>
-      )}
-    </div>
-  );
-}
-
-const DECISION_META: Record<string, { label: string; className: string }> = {
-  aprovado: { label: 'Aprovado', className: 'decision-chip--primary' },
-  negado: { label: 'Negado', className: 'decision-chip--destructive' },
-  reanalise: { label: 'Reanálise', className: 'decision-chip--warning' },
-};
-
-function decisionPlaceholder(decision: ComposerDecision | string | null | undefined) {
-  return decision ? `[decision:${decision}]` : '';
-}
-
-function DecisionTag({ decision }: { decision?: string | null }) {
-  if (!decision) return null;
-  const meta = DECISION_META[decision];
-  if (!meta) return null;
-  return <span className={clsx('decision-chip', meta.className)}>{meta.label}</span>;
-}
-
-type Note = { id: string; text: string; author_id?: string | null; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean; decision?: ComposerDecision | string | null };
-function buildTree(notes: Note[]): Note[] {
-  const byId = new Map<string, any>();
-  const normalizeText = (note: any) => {
-    if (!note) return '';
-    if (!note.decision) return note.text || '';
-    const placeholder = decisionPlaceholder(note.decision as any);
-    return note.text === placeholder ? '' : (note.text || '');
-  };
-  notes.forEach(n => byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] }));
-  const roots: any[] = [];
-  notes.forEach(n => {
-    const node = byId.get(n.id)!;
-    if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node); else roots.push(node);
-  });
-  const sortFn = (a:any,b:any)=> new Date(a.created_at||'').getTime() - new Date(b.created_at||'').getTime();
-  const sortTree = (arr:any[]) => { arr.sort(sortFn); arr.forEach(x=> sortTree(x.children)); };
-  sortTree(roots);
-  return roots as any;
-}
-
-function PareceresList({
+// Subcomponentes e utilitários extraídos para components/* e utils/*
+/*
   cardId,
   notes,
   profiles,
@@ -1363,3 +1055,4 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
 
 // Utilitário local para obter a posição do caret no textarea
 // MentionDropdownParecer removido: menções desativadas no Parecer
+*/

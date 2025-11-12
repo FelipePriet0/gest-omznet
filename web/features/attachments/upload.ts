@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
+import { STORAGE_BUCKET_CARD_ATTACHMENTS, TABLE_CARD_ATTACHMENTS } from "@/lib/constants";
 
 export const ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -61,7 +62,7 @@ export async function uploadAttachmentBatch({
 
     const { error: uploadError } = await supabase
       .storage
-      .from("card-attachments")
+      .from(STORAGE_BUCKET_CARD_ATTACHMENTS)
       .upload(path, file, { upsert: false });
 
     if (uploadError) {
@@ -71,7 +72,7 @@ export async function uploadAttachmentBatch({
     }
 
     const { error: metaError } = await supabase
-      .from("card_attachments")
+      .from(TABLE_CARD_ATTACHMENTS)
       .insert({
         card_id: cardId,
         comment_id: commentId ?? null,
@@ -85,7 +86,7 @@ export async function uploadAttachmentBatch({
 
     if (metaError) {
       // Reverte o arquivo órfão no Storage para evitar lixo se metadados falharem (ex.: RLS da tabela)
-      try { await supabase.storage.from("card-attachments").remove([path]); } catch {}
+      try { await supabase.storage.from(STORAGE_BUCKET_CARD_ATTACHMENTS).remove([path]); } catch {}
       const msg = metaError.message || "Falha ao salvar metadados do anexo";
       throw new Error(msg.includes("row-level security") ? "Sem permissão para salvar metadados do anexo (RLS)." : msg);
     }

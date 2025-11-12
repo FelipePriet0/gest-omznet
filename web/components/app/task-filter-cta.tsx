@@ -33,8 +33,7 @@ export function TaskFilterCTA({ status, setStatus, onApply }: TaskFilterCTAProps
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="secondary"
           className="group flex h-6 items-center gap-1.5 rounded-sm text-xs transition-all duration-200 hover:bg-neutral-100 hover:text-neutral-700"
         >
           <ListFilter className="size-3 shrink-0 text-muted-foreground transition-all group-hover:text-neutral-700" />

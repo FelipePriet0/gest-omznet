@@ -33,6 +33,7 @@ import { type DateRangeValue } from "@/components/ui/date-range-popover";
 import { KanbanRangeCalendar } from "@/components/app/kanban-range-calendar";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { TABLE_PROFILES } from "@/lib/constants";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 type CachedResponsavel = {
@@ -182,7 +183,7 @@ export function FilterCTA({
         }
 
         const { data, error } = await supabase
-          .from("profiles")
+          .from(TABLE_PROFILES)
           .select("id, full_name, role")
           .eq("role", areaRole)
           .order("full_name");
@@ -400,7 +401,7 @@ export function FilterCTA({
       >
         <PopoverTrigger asChild>
           <Button
-            variant="ghost"
+            variant="secondary"
             role="combobox"
             aria-expanded={open}
             className={cn(

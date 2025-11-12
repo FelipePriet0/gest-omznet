@@ -22,7 +22,7 @@ function readCssColor(variableName: string, fallback: string) {
 
 export function GenerativeArtScene({ className }: { className?: string }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const lightRef = useRef<THREE.PointLight | null>(null);
+  const lightRef = useRef<any>(null);
 
   useEffect(() => {
     const mount = mountRef.current;

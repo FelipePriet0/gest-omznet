@@ -6,6 +6,7 @@ import { addComment } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CalendarReady } from "@/components/ui/calendar-ready";
 import { Search } from "lucide-react";
+import { TABLE_PROFILES, TABLE_CARD_COMMENTS } from "@/lib/constants";
 import {
   DEFAULT_TIMEZONE,
   clampToBusinessWindow,
@@ -140,10 +141,10 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
         const { data } = await supabase.auth.getUser();
         const userId = data.user?.id;
         if (userId) {
-          const { data: meData } = await supabase.from("profiles").select("id, full_name, role").eq("id", userId).single();
+          const { data: meData } = await supabase.from(TABLE_PROFILES).select("id, full_name, role").eq("id", userId).single();
           setMe(meData as any);
         }
-        const { data: list } = await supabase.from("profiles").select("id, full_name, role").order("full_name");
+        const { data: list } = await supabase.from(TABLE_PROFILES).select("id, full_name, role").order("full_name");
         setProfiles((list as any) ?? []);
         if (taskId) {
           const { data: t } = await supabase.from('card_tasks').select('assigned_to, description, deadline').eq('id', taskId).single();
@@ -239,7 +240,7 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
               await supabase.rpc("delete_parecer", { p_card_id: cardId, p_note_id: threadRefId });
             } catch {}
           } else {
-            try { await supabase.from("card_comments").delete().eq("id", threadRefId); } catch {}
+            try { await supabase.from(TABLE_CARD_COMMENTS).delete().eq("id", threadRefId); } catch {}
           }
         }
         throw error;

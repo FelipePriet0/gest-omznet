@@ -1,15 +1,9 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
+import { TABLE_INBOX_NOTIFICATIONS } from "@/lib/constants";
 
-// Tipos de notificação oficiais da aplicação
-export type NotificationType =
-  | 'mention'
-  | 'parecer_reply'
-  | 'comment_reply'
-  | 'ass_app'
-  | 'fichas_atrasadas'
-  | string; // compatibilidade futura/legada até migração completa
+import type { InboxItem, NotificationType } from "./types";
 
 export async function notifyMention(params: {
   userId: string;
@@ -33,7 +27,7 @@ export async function notifyMention(params: {
       ...(params.noteId ? { note_id: params.noteId } : {}),
       ...(params.meta ?? {}),
     };
-    await supabase.from('inbox_notifications').insert({
+    await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
       user_id: params.userId,
       card_id: params.cardId,
       comment_id: params.commentId ?? null,
@@ -46,24 +40,8 @@ export async function notifyMention(params: {
   } catch {}
 }
 
-export type InboxItem = {
-  id: string;
-  user_id: string;
-  type: NotificationType;
-  priority?: 'low' | 'medium' | 'high' | null;
-  title?: string | null;
-  body?: string | null;
-  content?: string | null;
-  meta?: any;
-  card_id?: string | null;
-  comment_id?: string | null;
-  link_url?: string | null;
-  transient?: boolean | null;
-  expires_at?: string | null;
-  read_at?: string | null;
-  created_at?: string | null;
-  applicant_id?: string | null;
-};
+// Mantido para compatibilidade de importações
+export type { InboxItem, NotificationType };
 
 export async function listInbox(): Promise<InboxItem[]> {
   const { data, error } = await supabase.rpc('list_inbox_notifications');
@@ -75,7 +53,7 @@ export async function listInbox(): Promise<InboxItem[]> {
 }
 
 export async function markRead(id: string) {
-  const { error } = await supabase.from('inbox_notifications').update({ read_at: new Date().toISOString() }).eq('id', id);
+  const { error } = await supabase.from(TABLE_INBOX_NOTIFICATIONS).update({ read_at: new Date().toISOString() }).eq('id', id);
   if (error) throw error;
 }
 
@@ -105,7 +83,7 @@ export async function notifyParecerReply(params: BaseNotifyParams & { cardId: st
       ...(params.noteId ? { note_id: params.noteId } : {}),
       ...(params.meta ?? {}),
     };
-    await supabase.from('inbox_notifications').insert({
+    await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
       user_id: params.userId,
       type: 'parecer_reply',
       title,
@@ -129,7 +107,7 @@ export async function notifyCommentReply(params: BaseNotifyParams & { cardId: st
       is_comment_reply: true,
       ...(params.meta ?? {}),
     };
-    await supabase.from('inbox_notifications').insert({
+    await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
       user_id: params.userId,
       type: 'comment_reply',
       title,
@@ -154,7 +132,7 @@ export async function notifyAssApp(params: BaseNotifyParams & { title?: string |
       content_preview: params.contentPreview ?? null,
       ...(params.meta ?? {}),
     };
-    await supabase.from('inbox_notifications').insert({
+    await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
       user_id: params.userId,
       type: 'ass_app',
       title,

@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
+import { TABLE_CARD_COMMENTS, TABLE_PROFILES } from "@/lib/constants";
 
 export type Comment = {
   id: string;
@@ -19,7 +20,7 @@ export type Comment = {
 
 export async function listComments(cardId: string): Promise<Comment[]> {
   const { data, error } = await supabase
-    .from("card_comments")
+    .from(TABLE_CARD_COMMENTS)
     .select("id, card_id, content, author_id, author_name, author_role, created_at, updated_at, parent_id, thread_id, level, deleted_at")
     .eq("card_id", cardId)
     .is("deleted_at", null)
@@ -54,32 +55,32 @@ export async function addComment(cardId: string, text: string, parentId?: string
       if (prof) { payload.author_name = (prof as any).full_name ?? null; payload.author_role = (prof as any).role ?? null; }
     }
   } catch {}
-  const { data, error } = await supabase.from("card_comments").insert(payload).select("id").single();
+  const { data, error } = await supabase.from(TABLE_CARD_COMMENTS).insert(payload).select("id").single();
   if (error) throw new Error(error.message || "Falha ao criar comentário");
   return data?.id as string;
 }
 
 export async function editComment(commentId: string, text: string) {
-  const { error } = await supabase.from("card_comments").update({ content: text }).eq("id", commentId);
+  const { error } = await supabase.from(TABLE_CARD_COMMENTS).update({ content: text }).eq("id", commentId);
   if (error) throw new Error(error.message || "Falha ao editar comentário");
 }
 
 export async function deleteComment(commentId: string) {
   // Soft-delete por deleted_at quando existir
-  const { data: colCheck } = await supabase.from("card_comments").select("deleted_at").eq("id", commentId).limit(1);
+  const { data: colCheck } = await supabase.from(TABLE_CARD_COMMENTS).select("deleted_at").eq("id", commentId).limit(1);
   if (Array.isArray(colCheck) && colCheck.length > 0 && typeof colCheck[0]?.deleted_at !== "undefined") {
-    const { error } = await supabase.from("card_comments").update({ deleted_at: new Date().toISOString() }).eq("id", commentId);
+    const { error } = await supabase.from(TABLE_CARD_COMMENTS).update({ deleted_at: new Date().toISOString() }).eq("id", commentId);
     if (error) throw new Error(error.message || "Falha ao excluir comentário");
     return;
   }
-  const { error } = await supabase.from("card_comments").delete().eq("id", commentId);
+  const { error } = await supabase.from(TABLE_CARD_COMMENTS).delete().eq("id", commentId);
   if (error) throw new Error(error.message || "Falha ao excluir comentário");
 }
 
 export type ProfileLite = { id: string; full_name: string; role?: string | null };
 export async function listProfiles(): Promise<ProfileLite[]> {
   const { data, error } = await supabase
-    .from("profiles")
+    .from(TABLE_PROFILES)
     .select("id, full_name, role")
     .order("full_name", { ascending: true });
   if (error) return [];
