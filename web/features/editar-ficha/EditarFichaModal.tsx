@@ -99,8 +99,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   }, [open]);
 
   // Backdrop deve cobrir a viewport inteira no modal de ficha
-  const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
-  const [mentionFilterParecer, setMentionFilterParecer] = useState("");
+  // Menções no Parecer: popover desativado (continua aceitando texto com @)
   const [createdBy, setCreatedBy] = useState<string>("");
   const [assigneeId, setAssigneeId] = useState<string>("");
   const vendorName = useMemo(()=> profiles.find(p=> p.id===createdBy)?.full_name || "—", [profiles, createdBy]);
@@ -416,7 +415,6 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
     const resetValue: ComposerValue = { decision: null, text: "", mentions: [] };
     setNovoParecer(resetValue);
     requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
-    setMentionOpenParecer(false);
     setCmdOpenParecer(false);
     try {
       await supabase.rpc('add_parecer', {
@@ -637,14 +635,6 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                     }}
                     onCancel={()=> {
                       setCmdOpenParecer(false);
-                      setMentionOpenParecer(false);
-                    }}
-                    onMentionTrigger={(query)=>{
-                      setMentionFilterParecer(query.trim());
-                      setMentionOpenParecer(true);
-                    }}
-                    onMentionClose={()=> {
-                      setMentionOpenParecer(false);
                     }}
                     onCommandTrigger={(query)=>{
                       setCmdQueryParecer(query.toLowerCase());
@@ -655,18 +645,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                       setCmdQueryParecer("");
                     }}
                   />
-                  {mentionOpenParecer && (
-                    <div className="absolute z-50 left-0 bottom-full mb-2">
-                      <MentionDropdownParecer
-                        items={profiles.filter((p)=> p.full_name.toLowerCase().includes(mentionFilterParecer.toLowerCase()) && p.id !== currentUserId)}
-                        onPick={(p)=> {
-                      composerRef.current?.insertMention({ id: p.id, label: p.full_name });
-                          setMentionOpenParecer(false);
-                      setMentionFilterParecer("");
-                        }}
-                      />
-                    </div>
-                  )}
+                  {/* Menções desativadas em Parecer */}
                   {cmdOpenParecer && (
                     <div className="absolute z-50 left-0 bottom-full mb-2">
                       <CmdDropdown
@@ -1056,11 +1035,8 @@ function NoteItem({
   const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: '', mentions: [] });
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState('');
-  const [mentionOpen, setMentionOpen] = useState(false);
-  const [mentionFilter, setMentionFilter] = useState('');
   // Compositor Unificado - edição
-  const [editMentionOpen, setEditMentionOpen] = useState(false);
-  const [editMentionFilter, setEditMentionFilter] = useState('');
+  // Menções desativadas para edição/resposta de parecer
   const [editCmdOpen, setEditCmdOpen] = useState(false);
   const [editCmdQuery, setEditCmdQuery] = useState('');
   useEffect(() => {
@@ -1070,13 +1046,11 @@ function NoteItem({
   }, [node.text, node.decision, isEditing]);
   useEffect(() => {
     if (!isEditing) {
-      setEditMentionOpen(false);
       setEditCmdOpen(false);
     }
   }, [isEditing]);
   useEffect(() => {
     if (!isReplying) {
-      setMentionOpen(false);
       setCmdOpen(false);
     }
   }, [isReplying]);
@@ -1123,7 +1097,6 @@ function NoteItem({
                     replyComposerRef.current?.focus();
                   });
                 } else {
-                  setMentionOpen(false);
                   setCmdOpen(false);
                 }
                 return next;
@@ -1177,20 +1150,13 @@ function NoteItem({
                     await onDecisionChange('reanalise');
                   }
                   setIsEditing(false);
-                  setEditMentionOpen(false);
                   setEditCmdOpen(false);
                 } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); }
               }}
               onCancel={()=> {
                 setIsEditing(false);
-                setEditMentionOpen(false);
                 setEditCmdOpen(false);
               }}
-              onMentionTrigger={(query)=>{
-                setEditMentionFilter(query.trim());
-                setEditMentionOpen(true);
-              }}
-              onMentionClose={()=> setEditMentionOpen(false)}
               onCommandTrigger={(query)=>{
                 setEditCmdQuery(query.toLowerCase());
                 setEditCmdOpen(true);
@@ -1200,18 +1166,6 @@ function NoteItem({
                 setEditCmdQuery('');
               }}
             />
-            {editMentionOpen && (
-              <div className="absolute z-50 left-0 bottom-full mb-2">
-                <MentionDropdownParecer
-                  items={profiles.filter((p)=> (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()) && p.id !== currentUserId)}
-                  onPick={(p)=>{
-                    editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
-                    setEditMentionOpen(false);
-                    setEditMentionFilter("");
-                  }}
-                />
-              </div>
-            )}
             {editCmdOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <CmdDropdown
@@ -1278,20 +1232,13 @@ function NoteItem({
                   setReplyValue(resetVal);
                   replyComposerRef.current?.setValue(resetVal);
                   setIsReplying(false);
-                  setMentionOpen(false);
                   setCmdOpen(false);
                 } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); }
               }}
               onCancel={()=> {
                 setIsReplying(false);
-                setMentionOpen(false);
                 setCmdOpen(false);
               }}
-              onMentionTrigger={(query)=>{
-                setMentionFilter(query.trim());
-                setMentionOpen(true);
-              }}
-              onMentionClose={()=> setMentionOpen(false)}
               onCommandTrigger={(query)=>{
                 setCmdQuery(query.toLowerCase());
                 setCmdOpen(true);
@@ -1306,18 +1253,6 @@ function NoteItem({
                 }
               }}
             />
-            {mentionOpen && (
-              <div className="absolute z-50 left-0 bottom-full mb-2">
-                <MentionDropdownParecer
-                  items={(profiles || []).filter((p)=> (p.full_name||'').toLowerCase().includes(mentionFilter.toLowerCase()) && p.id !== currentUserId)}
-                  onPick={(p)=> {
-                    replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
-                    setMentionOpen(false);
-                    setMentionFilter("");
-                  }}
-                />
-              </div>
-            )}
             {cmdOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <CmdDropdown
@@ -1431,44 +1366,4 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
 }
 
 // Utilitário local para obter a posição do caret no textarea
-function MentionDropdownParecer({ items, onPick }: { items: ProfileLite[]; onPick: (p: ProfileLite) => void }) {
-  const [q, setQ] = useState("");
-  const filtered = items.filter((p) => p.full_name.toLowerCase().includes(q.toLowerCase()));
-  const order: Array<{key: string; label: string}> = [
-    { key: 'vendedor', label: 'Vendedor' },
-    { key: 'analista', label: 'Analista' },
-    { key: 'gestor',   label: 'Gestor' },
-  ];
-  const byRole = (role: string) => filtered.filter((p) => (p.role || '').toLowerCase() === role);
-  const hasAny = order.some(({key}) => byRole(key).length > 0);
-  return (
-    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
-        <Search className="w-4 h-4 text-zinc-500" />
-        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar pessoas…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
-      </div>
-      {!hasAny ? (
-        <div className="px-3 py-2 text-zinc-500">Sem resultados</div>
-      ) : (
-        order.map(({key,label}) => {
-          const list = byRole(key);
-          if (list.length === 0) return null;
-          return (
-            <div key={key} className="py-1">
-              <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">{label}</div>
-              {list.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => onPick(p)}
-                  className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left"
-                >
-                  <span>{p.full_name}{p.role ? ` (${p.role})` : ''}</span>
-                </button>
-              ))}
-            </div>
-          );
-        })
-      )}
-    </div>
-  );
-}
+// MentionDropdownParecer removido: menções desativadas no Parecer
