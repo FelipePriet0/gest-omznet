@@ -762,7 +762,7 @@ function CommentMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
 
 function AttachmentContent({ att, onDelete, onPreview }: { att: CardAttachmentWithMeta; onDelete?: () => Promise<void>; onPreview?: (payload: PreviewTarget) => void }) {
   const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => { (async () => setUrl(await publicUrl(att.file_path)))(); }, [att.file_path]);
+  // Não gera URL automaticamente para evitar chamadas 400; gera on-demand
   const ts = att.created_at ? new Date(att.created_at).toLocaleString() : "";
   return (
     <div className="flex items-center justify-between rounded-[8px] border border-zinc-200 bg-white px-3 py-2 text-sm">
@@ -772,39 +772,41 @@ function AttachmentContent({ att, onDelete, onPreview }: { att: CardAttachmentWi
           <div className="font-medium">{att.file_name}</div>
           <div className="text-[11px] text-zinc-500">{ts}</div>
         </div>
-        {url && (
-          <button
-            className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-900"
-            title="Visualizar"
-            onClick={() =>
-              onPreview?.({
-                url,
-                mime: att.file_type ?? undefined,
-                name: att.file_name,
-                extension: att.file_extension ?? undefined,
-              })
-            }
-          >
+        <button
+          className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-900"
+          title="Visualizar"
+          onClick={async () => {
+            try {
+              const link = await publicUrl(att.file_path);
+              if (!link) { alert('Não foi possível gerar o link do anexo.'); return; }
+              setUrl(link);
+              onPreview?.({ url: link, mime: att.file_type ?? undefined, name: att.file_name, extension: att.file_extension ?? undefined });
+            } catch { alert('Não foi possível gerar o link do anexo.'); }
+          }}
+        >
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path d="M1.5 12s3.5-6 10.5-6 10.5 6 10.5 6-3.5 6-10.5 6S1.5 12 1.5 12z" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
               <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.4" fill="none"/>
             </svg>
-          </button>
-        )}
+        </button>
       </div>
       <div className="relative flex items-center gap-2">
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-800"
-            title="Abrir anexo"
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path d="M12 4v10m0 0 4-4m-4 4-4-4M5 18h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            </svg>
-          </a>
-        )}
+        <button
+          className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-800"
+          title="Abrir anexo"
+          onClick={async () => {
+            try {
+              const link = await publicUrl(att.file_path);
+              if (!link) { alert('Não foi possível abrir o anexo.'); return; }
+              setUrl(link);
+              window.open(link, '_blank');
+            } catch { alert('Não foi possível abrir o anexo.'); }
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <path d="M12 4v10m0 0 4-4m-4 4-4-4M5 18h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </svg>
+        </button>
         <button
           className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-red-600"
           title="Excluir anexo"

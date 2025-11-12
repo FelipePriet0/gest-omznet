@@ -36,6 +36,7 @@ export async function removeAttachment(id: string) {
 
 export async function publicUrl(path: string) {
   try {
+    // Preferir URL pública para evitar 400 no endpoint de assinatura em ambientes onde sign não é permitido
     const { data } = supabase.storage.from(STORAGE_BUCKET_CARD_ATTACHMENTS).getPublicUrl(path);
     return data.publicUrl;
   } catch {

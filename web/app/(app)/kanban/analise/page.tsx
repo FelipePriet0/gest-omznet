@@ -120,9 +120,9 @@ export default function KanbanAnalisePage() {
             Nova ficha
           </Button>
         </div>
-        <div className="pt-12">
-          {/* Mini dashboard: A Avaliar / Em análise / Avaliadas / Ass APP / Atrasadas / Canceladas */}
-          <div className="grid grid-cols-6 gap-3 sm:gap-4 md:gap-6 w-full mb-6">
+        {/* Mini dashboard fixo abaixo do topo */}
+        <div className="absolute left-0 right-0 z-10" style={{ top: 48 }}>
+          <div className="grid grid-cols-6 gap-3 sm:gap-4 md:gap-6 w-full">
             <DashboardCard title="A Avaliar" value={dashboard.avaliar} icon={<Inbox className="w-4 h-4 text-white" />} />
             <DashboardCard title="Em análise" value={dashboard.emAnalise} icon={<FileSearch className="w-4 h-4 text-white" />} />
             <DashboardCard title="Avaliadas" value={dashboard.avaliadas} icon={<CheckCircle className="w-4 h-4 text-white" />} />
@@ -130,8 +130,9 @@ export default function KanbanAnalisePage() {
             <DashboardCard title="Atrasadas" value={dashboard.atrasadas} icon={<Clock className="w-4 h-4 text-white" />} />
             <DashboardCard title="Canceladas" value={dashboard.canceladas} icon={<XCircle className="w-4 h-4 text-white" />} />
           </div>
-          {/* Espaçamento igual ao usado entre filtros/CTA e colunas */}
-          <div className="mt-12">
+        </div>
+        <div className="h-[calc(100vh-220px)] overflow-y-auto overscroll-contain" style={{ paddingTop: 200 }}>
+          <div>
             <KanbanBoardAnalise
               hora={filtersSummary.hora}
               dateStart={filtersSummary.prazo?.start}

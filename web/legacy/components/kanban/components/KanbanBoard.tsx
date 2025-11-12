@@ -103,6 +103,8 @@ export function KanbanBoard({
 
   function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial' }); }
 
+  
+
   return (
     <div className="relative">
       <DndContext

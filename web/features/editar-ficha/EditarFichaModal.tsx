@@ -11,12 +11,12 @@ import { TaskCard } from "@/features/tasks/TaskCard";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import { changeStage } from "@/features/kanban/services";
 import Attach from "@/features/attachments/upload";
-import { CalendarReady } from "@/components/ui/calendar-ready";
+import { DateSingleKanbanPopover } from "@/components/ui/date-single-kanban-popover";
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { type ProfileLite } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
-import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts } from "@/lib/datetime";
+import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts, localDateTimeToUtcISO } from "@/lib/datetime";
 import { renderTextWithChips } from "@/utils/richText";
 import type { AppModel } from "./types";
 import { PLANO_OPTIONS, SVA_OPTIONS, VENC_OPTIONS } from "./constants";
@@ -231,6 +231,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
       setLoading(false);
     }
   }, [open, data]);
+  }, [open, data]);
 
   // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)
   useEffect(() => {
@@ -344,6 +345,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                   width={72}
                   height={24}
                   priority
+                  style={{ height: 'auto' }}
                 />
               </div>
               <div className="header-title min-w-0">
@@ -428,24 +430,25 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
             <Section title="Agendamento" variant="agendamento">
               <Grid cols={3}>
                 <Field label="Feito em" value={createdAt} onChange={()=>{}} disabled />
-                <CalendarReady
+                <DateSingleKanbanPopover
                   label="Instalação agendada para"
                   value={dueAt}
-                  onChange={(val)=> {
-                    setDueAt(val ?? "");
+                  onChange={(val) => {
+                    setDueAt(val || "");
                     if (!val) {
                       queue('card','due_at', null);
                       return;
                     }
-                    const utcValue = startOfDayUtcISO(val, DEFAULT_TIMEZONE);
-                    queue('card','due_at', utcValue ?? null);
+                    // Persistir meio-dia local para estabilizar a data (evita shift por fuso)
+                    const noonUtc = localDateTimeToUtcISO(val, '12:00', DEFAULT_TIMEZONE);
+                    queue('card','due_at', noonUtc ?? null);
                   }}
                 />
                 <TimeMultiSelect
                   label="Horário"
                   times={horarios}
                   value={horaArr}
-                  onApply={(vals)=> {
+                  onApply={(vals) => {
                     setHoraArr(vals);
                     setHoraAt(vals[0] || "");
                     if (vals.length === 0) queue('card','hora_at', null);

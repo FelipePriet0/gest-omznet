@@ -27,7 +27,7 @@ export function KanbanColumn({ title, cards, color, icon, count, droppableId }: 
   return (
     <div className="min-w-[340px] w-[340px] max-w-[360px] flex-shrink-0" ref={setNodeRef}>
       <div className={`rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-200 h-full`}>
-        <div className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-t-2xl">
+        <div className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-t-2xl sticky top-0 z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className={`h-3 w-3 rounded-full ${config.dot}`} />
