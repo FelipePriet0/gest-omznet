@@ -159,31 +159,46 @@ export const MobileSidebar = ({
 export const SidebarLink = ({
   link,
   className,
+  isActive,
   ...props
 }: {
   link: Links;
   className?: string;
+  isActive?: boolean;
   props?: LinkProps;
 }) => {
   const { open, animate } = useSidebar();
+  const iconNode =
+    React.isValidElement(link.icon)
+      ? React.cloneElement(link.icon as any, {
+          className: cn(
+            (link.icon as any).props?.className,
+            isActive ? "text-[var(--color-primary)]" : ""
+          ),
+        })
+      : link.icon;
   return (
     <Link
       href={link.href}
       className={cn(
         "flex items-center gap-2 group/sidebar p-3 w-full rounded-[5px]",
         "hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 transition-colors cursor-pointer",
+        isActive && "bg-neutral-200/80",
         open ? "justify-start" : "justify-center",
         className
       )}
       {...props}
     >
-      {link.icon}
+      {iconNode}
       <motion.span
         animate={{
           display: animate ? (open ? "inline-block" : "none") : "inline-block",
           opacity: animate ? (open ? 1 : 0) : 1,
         }}
-        className="text-white text-sm group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre inline-block !p-0 !m-0"
+        className={cn(
+          "text-sm group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre inline-block !p-0 !m-0",
+          isActive ? "text-[var(--color-primary)]" : "text-white"
+        )}
       >
         {link.label}
       </motion.span>

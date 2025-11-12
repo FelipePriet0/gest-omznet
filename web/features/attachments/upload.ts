@@ -64,7 +64,11 @@ export async function uploadAttachmentBatch({
       .from("card-attachments")
       .upload(path, file, { upsert: false });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      // Falha ao subir para o Storage (provável RLS/política do bucket)
+      const msg = uploadError.message || "Falha ao enviar arquivo ao Storage";
+      throw new Error(msg.includes("row-level security") ? "Sem permissão para enviar anexos (políticas do Storage)." : msg);
+    }
 
     const { error: metaError } = await supabase
       .from("card_attachments")
@@ -79,7 +83,12 @@ export async function uploadAttachmentBatch({
         file_extension: ext || null,
       });
 
-    if (metaError) throw metaError;
+    if (metaError) {
+      // Reverte o arquivo órfão no Storage para evitar lixo se metadados falharem (ex.: RLS da tabela)
+      try { await supabase.storage.from("card-attachments").remove([path]); } catch {}
+      const msg = metaError.message || "Falha ao salvar metadados do anexo";
+      throw new Error(msg.includes("row-level security") ? "Sem permissão para salvar metadados do anexo (RLS)." : msg);
+    }
 
     uploaded.push({ name: displayName || file.name, path });
   }

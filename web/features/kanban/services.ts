@@ -5,9 +5,14 @@ import { KanbanCard } from "@/features/kanban/types";
 import { startOfDayUtcISO, endOfDayUtcISO } from "@/lib/datetime";
 
 export async function changeStage(cardId: string, area: 'comercial' | 'analise', stage: string, reason?: string) {
-  // 1) Tenta via RPC centralizado
-  const rpc = await supabase.rpc('change_stage', { p_card_id: cardId, p_area: area, p_stage: stage, p_reason: reason ?? null });
-  if (!rpc.error) {
+  const USE_RPC = process.env.NEXT_PUBLIC_USE_CHANGE_STAGE_RPC === 'true';
+  // 1) Tenta via RPC centralizado (opcional para evitar 400 no console quando desabilitado)
+  const rpc = USE_RPC
+    ? await supabase.rpc('change_stage', { p_card_id: cardId, p_area: area, p_stage: stage, p_reason: reason ?? null })
+    : { data: null, error: { message: 'RPC disabled', code: 'disabled' } as any };
+  if (!USE_RPC && (rpc as any).error?.code === 'disabled') {
+    // segue para fallback direto
+  } else if (!rpc.error) {
     // Atualiza decisão quando for pipeline de análise
     if (area === 'analise') {
       try {
@@ -31,7 +36,13 @@ export async function changeStage(cardId: string, area: 'comercial' | 'analise',
   const patch: any = { stage, area };
   // Opcional: manter motivo localmente se houver coluna específica (ignorado se não existir)
   try {
-    const { data, error } = await supabase.from('kanban_cards').update(patch).eq('id', cardId).select('id').single();
+    // Evita 406 quando nenhuma linha é retornada usando single();
+    const { data, error } = await supabase
+      .from('kanban_cards')
+      .update(patch)
+      .eq('id', cardId)
+      .select('id')
+      .limit(1);
     if (error) throw error;
     // Também tenta sincronizar decisão quando área analise
     if (area === 'analise') {
@@ -44,6 +55,8 @@ export async function changeStage(cardId: string, area: 'comercial' | 'analise',
     }
     return data;
   } catch (e) {
+    // Se RPC estava desativado, propaga somente o erro real do fallback
+    if (!USE_RPC) throw e;
     // Retorna o erro original do RPC se existir, senão o fallback
     throw rpc.error || e;
   }

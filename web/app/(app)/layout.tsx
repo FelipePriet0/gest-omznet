@@ -25,6 +25,8 @@ function clamp(value: number, min: number, max: number) {
 function AppSidebar() {
   const { open } = useSidebar();
   const pathname = usePathname() || "/";
+  const search = useSearchParams();
+  const panel = (search?.get('panel') || '').toLowerCase();
 
   const links = [
     {
@@ -50,8 +52,8 @@ function AppSidebar() {
         {open ? (
           <div className="w-full flex items-center justify-between p-2 rounded-lg border border-transparent bg-transparent">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 text-white flex items-center justify-center overflow-hidden flex-shrink-0" style={{ borderRadius: '30%', backgroundColor: '#ffffff' }}>
-                <Image src="/mznet-logo.png" alt="MZNET Logo" width={28} height={28} className="object-contain" />
+              <div className="h-10 w-10 text-white flex items-center justify-center overflow-hidden flex-shrink-0 relative" style={{ borderRadius: '30%', backgroundColor: '#ffffff' }}>
+                <Image src="/mznet-logo.png" alt="MZNET Logo" fill sizes="40px" style={{ objectFit: 'contain' }} />
               </div>
               <div className="leading-tight ml-1">
                 <div className="text-base font-semibold text-white">Mznet</div>
@@ -61,8 +63,8 @@ function AppSidebar() {
           </div>
         ) : (
            <div className="w-full flex items-center justify-center">
-             <div className="h-9 w-9 text-white flex items-center justify-center overflow-hidden flex-shrink-0" style={{ borderRadius: '30%', backgroundColor: '#ffffff' }}>
-               <Image src="/mznet-logo.png" alt="MZNET Logo" width={24} height={24} className="object-contain" />
+             <div className="h-9 w-9 text-white flex items-center justify-center overflow-hidden flex-shrink-0 relative" style={{ borderRadius: '30%', backgroundColor: '#ffffff' }}>
+               <Image src="/mznet-logo.png" alt="MZNET Logo" fill sizes="36px" style={{ objectFit: 'contain' }} />
              </div>
            </div>
         )}
@@ -72,12 +74,22 @@ function AppSidebar() {
         <SidebarGroup>
           {open && <SidebarGroupLabel>Navegação</SidebarGroupLabel>}
           <SidebarGroupContent>
-            {links.map((link) => (
-              <Fragment key={link.label}>
-                <SidebarLink link={link} />
-                {link.label === "Minhas Tarefas" && <InboxSidebarEntry />}
-              </Fragment>
-            ))}
+            {links.map((link) => {
+              const isActive =
+                link.label === "Kanban"
+                  ? pathname.startsWith("/kanban")
+                  : link.label === "Minhas Tarefas"
+                  ? panel === "tarefas"
+                  : link.label === "Histórico"
+                  ? pathname.startsWith("/historico")
+                  : false;
+              return (
+                <Fragment key={link.label}>
+                  <SidebarLink link={link} isActive={isActive} />
+                  {link.label === "Minhas Tarefas" && <InboxSidebarEntry />}
+                </Fragment>
+              );
+            })}
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
