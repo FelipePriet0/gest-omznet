@@ -267,7 +267,7 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
                       </svg>
                     </button>
                   </div>
-                  <div className="flex-1 overflow-auto p-3 md:p-4">
+                  <div className="flex-1 overflow-y-auto overscroll-contain modal-scroll p-3 md:p-4">
                     {panelContent}
                   </div>
                 </aside>
