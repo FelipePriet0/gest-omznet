@@ -96,3 +96,9 @@ export async function uploadAttachmentBatch({
   return uploaded;
 }
 
+// Também exporta como default para facilitar import namespace em alguns bundlers
+export default {
+  ATTACHMENT_MAX_SIZE,
+  ATTACHMENT_ALLOWED_TYPES,
+  uploadAttachmentBatch,
+};

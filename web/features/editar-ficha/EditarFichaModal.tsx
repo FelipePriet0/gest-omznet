@@ -10,11 +10,7 @@ import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import { TaskCard } from "@/features/tasks/TaskCard";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import { changeStage } from "@/features/kanban/services";
-import {
-  ATTACHMENT_ALLOWED_TYPES,
-  ATTACHMENT_MAX_SIZE,
-  uploadAttachmentBatch,
-} from "@/features/attachments/upload";
+import Attach from "@/features/attachments/upload";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarReady } from "@/components/ui/calendar-ready";
@@ -134,14 +130,14 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
     const context = attachmentContextRef.current;
     attachmentContextRef.current = null;
 
-    const tooBig = files.find((file) => file.size > ATTACHMENT_MAX_SIZE);
+    const tooBig = files.find((file) => file.size > Attach.ATTACHMENT_MAX_SIZE);
     if (tooBig) {
-      alert(`O arquivo "${tooBig.name}" excede o limite de ${(ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`);
+      alert(`O arquivo "${tooBig.name}" excede o limite de ${(Attach.ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`);
       return;
     }
 
     const invalidType = files.find(
-      (file) => file.type && !ATTACHMENT_ALLOWED_TYPES.includes(file.type)
+      (file) => file.type && !Attach.ATTACHMENT_ALLOWED_TYPES.includes(file.type)
     );
     if (invalidType) {
       alert(`O tipo de arquivo "${invalidType.type || invalidType.name}" não é permitido para anexos.`);
@@ -149,7 +145,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
     }
 
     try {
-      const uploaded = await uploadAttachmentBatch({
+      const uploaded = await Attach.uploadAttachmentBatch({
         cardId,
         commentId: context?.commentId ?? null,
         files: files.map((file) => {
@@ -752,7 +748,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
         multiple
         className="hidden"
         onChange={handleAttachmentInputChange}
-        accept={ATTACHMENT_ALLOWED_TYPES.join(",")}
+        accept={Attach.ATTACHMENT_ALLOWED_TYPES.join(",")}
       />
     </Fragment>
   );
