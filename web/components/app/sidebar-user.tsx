@@ -4,7 +4,7 @@ import Image from "next/image";
 import { ChevronDown, ChevronUp, LogOut, User, UserCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, hardResetAuth } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { useSidebar } from "@/components/ui/sidebar";
 
@@ -88,7 +88,7 @@ export const SidebarUser = ({ name, email, avatar }: SidebarUserProps) => {
 
   async function logout() {
     try {
-      await supabase.auth.signOut();
+      await hardResetAuth();
     } finally {
       router.replace("/login");
     }
@@ -222,4 +222,3 @@ export const SidebarUser = ({ name, email, avatar }: SidebarUserProps) => {
     </div>
   );
 };
-

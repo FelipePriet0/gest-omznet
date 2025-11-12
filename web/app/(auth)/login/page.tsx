@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { supabase, clearStaleSupabaseSession } from '@/lib/supabaseClient';
+import { supabase, clearStaleSupabaseSession, clearAllSupabaseSessions, hardResetAuth } from '@/lib/supabaseClient';
+import { useEffect } from 'react';
 
 // --- HELPER COMPONENTS ---
 
@@ -19,6 +20,30 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  // Blindagem: ao abrir a tela de login, sempre encerra qualquer sessão existente
+  useEffect(() => {
+    (async () => {
+      try {
+        await hardResetAuth();
+      } catch {}
+      try {
+        // Meta no-cache client-side para prevenir conteúdo antigo ao voltar
+        const m1 = document.createElement('meta');
+        m1.httpEquiv = 'cache-control';
+        m1.content = 'no-cache, no-store, must-revalidate';
+        document.head.appendChild(m1);
+        const m2 = document.createElement('meta');
+        m2.httpEquiv = 'pragma';
+        m2.content = 'no-cache';
+        document.head.appendChild(m2);
+        const m3 = document.createElement('meta');
+        m3.httpEquiv = 'expires';
+        m3.content = '0';
+        document.head.appendChild(m3);
+      } catch {}
+    })();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -28,8 +53,8 @@ export default function LoginPage() {
     const password = String(form.get('password') || '');
 
     try {
-      // Opcional: limpar sessão antiga quebrada
-      clearStaleSupabaseSession();
+      // Limpa possíveis tokens remanescentes antes do login
+      clearAllSupabaseSessions();
 
       // Sign in via Supabase Auth
       const { error } = await supabase.auth.signInWithPassword({ email, password });
