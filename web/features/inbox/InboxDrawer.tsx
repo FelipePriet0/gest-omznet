@@ -131,27 +131,9 @@ export function InboxPanel() {
     const base = items.filter((it) => !HIDDEN_TYPES.includes(it.type as NotificationType));
     if (!filterType) return base;
     const byType = (item: InboxItem, types: NotificationType[]) => types.includes(item.type as NotificationType);
-    if (filterType === 'mentions') {
-      return base.filter((item) =>
-        byType(item, ['mention']) || /menç(ão|ões)/i.test(`${item.title || ''} ${item.body || ''}`)
-      );
-    }
-    if (filterType === 'parecer') {
-      return base.filter((item) =>
-        byType(item, ['parecer_reply']) ||
-        (String(item.type) === 'comment' && (
-          item.meta?.is_parecer_reply || /parecer/i.test(`${item.title || ''} ${item.body || ''}`)
-        ))
-      );
-    }
-    if (filterType === 'comentarios') {
-      return base.filter((item) =>
-        byType(item, ['comment_reply']) ||
-        (String(item.type) === 'comment' && (
-          item.meta?.is_comment_reply || /comentár/i.test(`${item.title || ''} ${item.body || ''}`)
-        ))
-      );
-    }
+    if (filterType === 'mentions') return base.filter((item) => byType(item, ['mention']));
+    if (filterType === 'parecer') return base.filter((item) => byType(item, ['parecer_reply']));
+    if (filterType === 'comentarios') return base.filter((item) => byType(item, ['comment_reply']));
     return base;
   }, [items, filterType]);
 
@@ -215,4 +197,4 @@ export function InboxPanel() {
     </div>
   );
 }
-// removed inline components in favor of extracted ones (DRY/SoC)
+// Components foram extraídos para arquivos dedicados em ./components

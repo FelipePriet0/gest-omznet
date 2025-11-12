@@ -86,8 +86,6 @@ export async function notifyParecerReply(params: BaseNotifyParams & { cardId: st
     await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
       user_id: params.userId,
       type: 'parecer_reply',
-      title,
-      body,
       card_id: params.cardId,
       link_url: params.linkUrl ?? null,
       meta,
@@ -110,12 +108,9 @@ export async function notifyCommentReply(params: BaseNotifyParams & { cardId: st
     await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
       user_id: params.userId,
       type: 'comment_reply',
-      title,
-      body,
       card_id: params.cardId,
       comment_id: params.commentId,
       link_url: params.linkUrl ?? null,
-      meta,
     } as any);
   } catch {}
 }
@@ -135,12 +130,9 @@ export async function notifyAssApp(params: BaseNotifyParams & { title?: string |
     await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
       user_id: params.userId,
       type: 'ass_app',
-      title,
-      body,
       card_id: params.cardId ?? null,
       comment_id: params.commentId ?? null,
       link_url: params.linkUrl ?? null,
-      meta,
     } as any);
   } catch {}
 }
