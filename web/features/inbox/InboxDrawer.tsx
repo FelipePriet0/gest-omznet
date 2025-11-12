@@ -105,46 +105,69 @@ export function InboxPanel() {
   const { items, refresh } = useInbox();
   const [filterType, setFilterType] = useState<InboxFilterOption | null>(null);
   const HIDDEN_TYPES: NotificationType[] = ['ass_app', 'fichas_atrasadas'];
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+
+  // Base visível (não lidas, não escondidas e tipos suportados); usada para contadores e filtro
+  const visibleBase = useMemo(() => {
+    return items.filter((it) => !HIDDEN_TYPES.includes(it.type as NotificationType) && !it.read_at && !hiddenIds.has(it.id));
+  }, [items, hiddenIds]);
+
+  const counts = useMemo(() => {
+    const mention = visibleBase.filter((i) => i.type === 'mention').length;
+    const parecer = visibleBase.filter((i) => i.type === 'parecer_reply').length;
+    const comentarios = visibleBase.filter((i) => i.type === 'comment_reply').length;
+    return { mention, parecer, comentarios };
+  }, [visibleBase]);
 
   const metrics = [
     {
-      key: "parecer",
+      key: "parecer" as const,
       title: "Respostas em parecer",
       icon: <MessageCircle className="w-4 h-4 text-white" />,
-      value: 0,
+      value: counts.parecer,
+      set: () => setFilterType('parecer'),
     },
     {
-      key: "comentarios",
+      key: "comentarios" as const,
       title: "Respostas em Comentário",
       icon: <MessageSquare className="w-4 h-4 text-white" />,
-      value: 0,
+      value: counts.comentarios,
+      set: () => setFilterType('comentarios'),
     },
     {
-      key: "mentions",
+      key: "mentions" as const,
       title: "Menções",
       icon: <AtSign className="w-4 h-4 text-white" />,
-      value: 0,
+      value: counts.mention,
+      set: () => setFilterType('mentions'),
     },
   ];
 
   const filteredItems = useMemo(() => {
-    const base = items.filter((it) => !HIDDEN_TYPES.includes(it.type as NotificationType));
+    const base = visibleBase;
     if (!filterType) return base;
     const byType = (item: InboxItem, types: NotificationType[]) => types.includes(item.type as NotificationType);
     if (filterType === 'mentions') return base.filter((item) => byType(item, ['mention']));
     if (filterType === 'parecer') return base.filter((item) => byType(item, ['parecer_reply']));
     if (filterType === 'comentarios') return base.filter((item) => byType(item, ['comment_reply']));
     return base;
-  }, [items, filterType]);
+  }, [visibleBase, filterType]);
 
   const handleDismiss = useCallback(
-    async (id: string) => {
-      try {
-        await markRead(id);
-      } catch {}
-      try {
-        await refresh();
-      } catch {}
+    (id: string, navigateTo?: string | null) => {
+      // Otimista: esconde imediatamente
+      setHiddenIds((prev) => new Set(prev).add(id));
+      // Marca como lida em background
+      (async () => {
+        try { await markRead(id); } catch {}
+        // Aguarda a animação de saída (≈ 220ms) antes de sincronizar para evitar "solavanco"
+        setTimeout(() => { void refresh(); }, 280);
+      })();
+      // Navega se solicitado
+      if (navigateTo) {
+        try { (window as any).next?.router?.push?.(navigateTo); } catch {}
+        try { window.open(navigateTo, "_self"); } catch {}
+      }
     },
     [refresh]
   );
@@ -182,8 +205,15 @@ export function InboxPanel() {
       </div>
       <div className="pt-12">
         <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 w-full mb-6">
-          {metrics.map((metric) => (
-            <DashboardCard key={metric.key} title={metric.title} value={metric.value} icon={metric.icon} />
+          {metrics.map((m) => (
+            <DashboardCard
+              key={m.key}
+              title={m.title}
+              value={m.value}
+              icon={m.icon}
+              active={filterType === m.key}
+              onClick={() => m.set()}
+            />
           ))}
         </div>
         {filteredItems.length === 0 ? (
