@@ -52,6 +52,15 @@ export async function listInbox(): Promise<InboxItem[]> {
   return (data as InboxItem[]) ?? [];
 }
 
+export async function listMyMentionCardIds(): Promise<string[]> {
+  const { data, error } = await supabase.rpc('list_my_mention_cards');
+  if (error) {
+    console.error('Failed to list mention cards', error);
+    return [];
+  }
+  return (data as string[]) ?? [];
+}
+
 export async function markRead(id: string) {
   const { error } = await supabase.from(TABLE_INBOX_NOTIFICATIONS).update({ read_at: new Date().toISOString() }).eq('id', id);
   if (error) throw error;

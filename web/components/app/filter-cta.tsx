@@ -16,7 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Calendar, ListFilter } from "lucide-react";
+import { ArrowLeft, Calendar, ListFilter, AtSign, X as XIcon } from "lucide-react";
 import { nanoid } from "nanoid";
 import * as React from "react";
 import { AnimateChangeInHeight } from "@/components/ui/filters";
@@ -46,6 +46,7 @@ export type AppliedFilters = {
   responsaveis: string[];
   prazo?: { start: string; end?: string };
   hora?: string;
+  myMentions?: boolean;
 };
 
 function getResponsavelIcon(name: string | undefined | null) {
@@ -274,6 +275,7 @@ export function FilterCTA({
   }, []);
 
   const searchParamsStr = React.useMemo(() => searchParams?.toString() ?? "", [searchParams]);
+  const [myMentions, setMyMentions] = React.useState<boolean>(() => (searchParams.get('minhas_mencoes') === '1'));
 
   const prazoFilter = React.useMemo(
     () => filters.find((f) => f.type === FilterType.PRAZO),
@@ -372,7 +374,10 @@ export function FilterCTA({
         ? { start: prazoStartValue, end: prazoEndValue }
         : undefined,
       hora,
+      myMentions,
     });
+
+    if (myMentions) params.set('minhas_mencoes','1'); else params.delete('minhas_mencoes');
 
     const qs = params.toString();
     const nextUrl = qs ? `${pathname}?${qs}` : pathname;
@@ -383,11 +388,31 @@ export function FilterCTA({
     if (nextUrl !== currentUrl) {
       router.replace(nextUrl);
     }
-  }, [filters, router, pathname, searchParamsStr, onFiltersChange]);
+  }, [filters, myMentions, router, pathname, searchParamsStr, onFiltersChange]);
 
   return (
     <div className="flex gap-2 flex-wrap items-center">
       <Filters filters={filters} setFilters={setFilters} />
+      {myMentions && (
+        <div
+          className="inline-flex h-9 items-center gap-2 rounded-none px-3 text-white shadow-sm text-xs"
+          style={{ backgroundColor: "var(--color-primary)", border: "1px solid var(--color-primary)" }}
+        >
+          <div className="inline-flex items-center gap-1">
+            <AtSign className="size-4" />
+            <span className="font-semibold">Minhas menções</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMyMentions(false)}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-none text-white transition"
+            style={{ backgroundColor: "var(--color-primary)", border: "1px solid transparent" }}
+            aria-label="Remover filtro Minhas menções"
+          >
+            <XIcon className="h-3 w-3" />
+          </button>
+        </div>
+      )}
       <Popover
         open={open}
         onOpenChange={(next) => {
@@ -545,6 +570,16 @@ export function FilterCTA({
                           </CommandItem>
                         ))}
                     </CommandGroup>
+                    <CommandItem
+                      value="minhas-mencoes"
+                      className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                      onSelect={() => setMyMentions((v) => !v)}
+                    >
+                      <AtSign className={cn("size-4 shrink-0", myMentions ? "text-emerald-600" : "text-muted-foreground")} />
+                      <span className="text-sm font-medium">
+                        Minhas menções
+                      </span>
+                    </CommandItem>
                     <CommandItem
                       value="toggle-calendar"
                       className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"

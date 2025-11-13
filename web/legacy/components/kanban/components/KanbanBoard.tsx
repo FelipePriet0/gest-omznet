@@ -24,6 +24,7 @@ export function KanbanBoard({
   dateEnd,
   openCardId,
   responsaveis,
+  allowedCardIds,
   onCardsChange,
   onCardModalClose,
 }: {
@@ -32,6 +33,7 @@ export function KanbanBoard({
   dateEnd?: string;
   openCardId?: string;
   responsaveis?: string[];
+  allowedCardIds?: string[];
   onCardsChange?: (cards: KanbanCard[]) => void;
   onCardModalClose?: () => void;
 }) {
@@ -61,13 +63,16 @@ export function KanbanBoard({
         dateEnd,
         responsaveis: responsavelIds,
       });
-      setCards(data);
-      onCardsChange?.(data);
+      const filtered = Array.isArray(allowedCardIds) && allowedCardIds.length > 0
+        ? data.filter(c => allowedCardIds.includes(c.id))
+        : data;
+      setCards(filtered);
+      onCardsChange?.(filtered);
     } catch (error) {
       console.error('Falha ao carregar cards do Kanban Comercial:', error);
       onCardsChange?.([]);
     }
-  }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange]);
+  }, [hora, dateStart, dateEnd, responsavelIds, allowedCardIds, onCardsChange]);
 
   useEffect(() => {
     reload();

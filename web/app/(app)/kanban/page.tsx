@@ -11,6 +11,7 @@ import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonT
 import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
 import type { PessoaTipo } from "@/features/cadastro/types";
 import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
+import { listMyMentionCardIds } from "@/features/inbox/services";
 import { KanbanCard } from "@/features/kanban/types";
 
 export default function KanbanPage() {
@@ -42,11 +43,13 @@ export default function KanbanPage() {
         ? { start: prazo, end: prazoFim || undefined }
         : undefined,
       hora: hora || undefined,
+      myMentions: sp.get('minhas_mencoes') === '1',
     }),
     [responsaveis, prazo, prazoFim, hora]
   );
   const [filtersSummary, setFiltersSummary] = useState<AppliedFilters>(initialFiltersSummary);
   const [cardsSnapshot, setCardsSnapshot] = useState<KanbanCard[]>([]);
+  const [mentionCardIds, setMentionCardIds] = useState<string[] | null>(null);
   
   // Nova ficha modals
   const [openPersonType, setOpenPersonType] = useModalState(false);
@@ -90,6 +93,20 @@ export default function KanbanPage() {
   const handleFiltersChange = useCallback((next: AppliedFilters) => {
     setFiltersSummary(next);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (filtersSummary.myMentions) {
+        const ids = await listMyMentionCardIds();
+        if (!active) return;
+        setMentionCardIds(ids);
+      } else {
+        setMentionCardIds(null);
+      }
+    })();
+    return () => { active = false; };
+  }, [filtersSummary.myMentions]);
 
   const handleCardModalClose = useCallback(() => {
     const params = new URLSearchParams(sp.toString());
@@ -135,6 +152,7 @@ export default function KanbanPage() {
               dateEnd={filtersSummary.prazo?.end}
               openCardId={openCardId}
               responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
+              allowedCardIds={mentionCardIds ?? undefined}
               onCardsChange={setCardsSnapshot}
               onCardModalClose={handleCardModalClose}
             />
