@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { listInbox } from "@/features/inbox/services";
 import type { InboxItem, NotificationType } from "@/features/inbox/types";
 
@@ -33,6 +33,12 @@ export function useInboxController(panelOpen: boolean) {
     let active = true;
     (async () => {
       try {
+        if (!isSupabaseConfigured || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+          if (!active) return;
+          setUid(null);
+          setItems([]);
+          return;
+        }
         const { data } = await supabase.auth.getUser();
         if (!active) return;
         const userId = data.user?.id ?? null;
@@ -48,16 +54,22 @@ export function useInboxController(panelOpen: boolean) {
 
   useEffect(() => {
     if (!uid) return;
-    const ch = supabase
+    if (!isSupabaseConfigured || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
+    const channel = supabase
       .channel(`inbox-${uid}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "inbox_notifications", filter: `user_id=eq.${uid}` },
         () => void refresh()
-      )
-      .subscribe();
+      );
+    const sub = channel.subscribe((status) => {
+      // Em erro, remove o canal para evitar loops/logs
+      if (status === "CHANNEL_ERROR") {
+        try { supabase.removeChannel(channel); } catch {}
+      }
+    });
     return () => {
-      supabase.removeChannel(ch);
+      try { supabase.removeChannel(channel); } catch {}
     };
   }, [uid, refresh]);
 
@@ -67,4 +79,3 @@ export function useInboxController(panelOpen: boolean) {
 
   return { items, unread, refresh } as const;
 }
-

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback, Fragmen
 import Image from "next/image";
 import clsx from "clsx";
 import { User as UserIcon, MoreHorizontal } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import { TaskCard } from "@/features/tasks/TaskCard";
@@ -143,15 +143,22 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
       if (!active) return;
       await refreshTasks();
     })();
+    if (!isSupabaseConfigured || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      return () => { active = false; };
+    }
     const channel = supabase
       .channel(`editar-ficha-tasks-${cardId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "card_tasks", filter: `card_id=eq.${cardId}` }, () => {
         refreshTasks();
-      })
-      .subscribe();
+      });
+    channel.subscribe((status) => {
+      if (status === "CHANNEL_ERROR") {
+        try { supabase.removeChannel(channel); } catch {}
+      }
+    });
     return () => {
       active = false;
-      supabase.removeChannel(channel);
+      try { supabase.removeChannel(channel); } catch {}
     };
   }, [cardId, refreshTasks]);
 
