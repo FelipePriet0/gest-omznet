@@ -592,7 +592,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
               </div>
             </div>
             {/* Coluna Direita: conversas co-relacionadas (scroll próprio) */}
-            <div className="w-[38%] min-w-[320px] flex-shrink-0 h-full min-h-0 border-l border-white/10" style={{ backgroundColor: '#FFE6CC' }}>
+            <div className="w-[38%] min-w-[320px] flex-shrink-0 h-full min-h-0 border-l border-white/10" style={{ backgroundColor: 'rgba(255,230,204,0.8)' }}>
               <div className="h-full min-h-0 overflow-y-auto p-4">
                 <Conversation
                   cardId={cardId}
