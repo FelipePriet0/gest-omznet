@@ -25,7 +25,7 @@ import { Field, Select, SelectAdv } from "./components/Fields";
 import { CmdDropdown } from "./components/CmdDropdown";
 import { DecisionTag, decisionPlaceholder } from "./utils/decision";
 import { PareceresList } from "./components/PareceresList";
-import { addParecer, editParecer, deleteParecer, setCardDecision } from "./services";
+import { addParecer, editParecer, deleteParecer, setCardDecision, fetchApplicantCard } from "./services";
 import { useEditarFichaData } from "./hooks/useEditarFichaData";
 
 
@@ -218,27 +218,52 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   }
 
   const data = useEditarFichaData({ open, applicantId, cardId });
+  // Evita sobrescrever inputs enquanto o usuário digita: inicializa apenas uma vez por abertura
+  const bootRef = useRef(false);
   const vendorName = data.vendorName;
   const analystName = data.analystName;
+  // Inicializa dados ao abrir com snapshot fresco do backend; evita resetar inputs enquanto o modal estiver aberto
   useEffect(() => {
-    if (!open) return;
-    try {
-      setLoading(true);
-      setApp((data.app as any) || {});
-      setPersonType(data.personType);
-      setCreatedAt(data.createdAt);
-      setDueAt(data.dueAt);
-      setHoraAt(data.horaAt);
-      setHoraArr(data.horaArr);
-      setPareceres((data.pareceres as any) || []);
-      setCreatedBy(data.createdBy || "");
-      setAssigneeId(data.assigneeId || "");
-      setProfiles(data.profiles || []);
-    } finally {
-      setLoading(false);
-    }
-  
-  }, [open, data]);
+    if (!open || bootRef.current) return;
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const { applicant: a, card: c } = await fetchApplicantCard(applicantId, cardId);
+        if (!active) return;
+        const a2: any = { ...(a || {}) };
+        if (typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
+        setApp(a2 || {});
+        setPersonType((a as any)?.person_type ?? null);
+        setCreatedAt(c?.created_at ? new Date(c.created_at).toLocaleString() : "");
+        const parts = utcISOToLocalParts(c?.due_at ?? undefined, DEFAULT_TIMEZONE);
+        setDueAt(parts.dateISO ?? "");
+        if (Array.isArray((c as any)?.hora_at)) {
+          const list = ((c as any).hora_at as any[]).map((h) => String(h).slice(0, 5));
+          setHoraArr(list);
+          setHoraAt(list[0] || "");
+        } else {
+          const v = c?.hora_at ? String(c.hora_at).slice(0, 5) : "";
+          setHoraAt(v);
+          setHoraArr(v ? [v] : []);
+        }
+        setPareceres(Array.isArray((c as any)?.reanalysis_notes) ? ((c as any).reanalysis_notes as any) : []);
+        setCreatedBy((c as any)?.created_by || "");
+        setAssigneeId((c as any)?.assignee_id || "");
+        // Perf: perfis podem vir do hook; mantemos se já existir
+        if (!profiles || profiles.length === 0) setProfiles(data.profiles || []);
+      } finally {
+        if (active) setLoading(false);
+        bootRef.current = true;
+      }
+    })();
+    return () => { active = false; };
+  }, [open, applicantId, cardId]);
+
+  // Ao fechar (ou trocar de ficha), permite nova inicialização na próxima abertura
+  useEffect(() => {
+    if (!open) bootRef.current = false;
+  }, [open, applicantId, cardId]);
 
   // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)
   useEffect(() => {
@@ -295,7 +320,10 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   // (remoção) addParecer local substituído por services/addParecer e lógica inline
 
   const horarios = ["08:30","10:30","13:30","15:30"];
-  const statusText = useMemo(()=> saving==='saving'? 'Salvando…' : saving==='saved'? 'Salvo' : saving==='error'? 'Erro ao salvar' : '', [saving]);
+  // Exibe somente estados úteis; não mostra mais "Salvo" para evitar animação/jitter visual
+  const statusText = useMemo(() => (
+    saving === 'saving' ? 'Salvando…' : saving === 'error' ? 'Erro ao salvar' : ''
+  ), [saving]);
 
   function openExpanded() {
     if (!applicantId) return;
