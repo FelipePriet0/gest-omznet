@@ -140,6 +140,13 @@ body {
   background: #94a3b8;
 }
 
+/* Oculta apenas a barra de rolagem horizontal de um contêiner específico (usado no Kanban) */
+.hide-h-scrollbar {
+  scrollbar-width: none; /* Firefox */
+}
+.hide-h-scrollbar::-webkit-scrollbar { height: 0px !important; }
+.hide-h-scrollbar::-webkit-scrollbar:horizontal { height: 0px !important; }
+
 /* Modal scroll container: keep scrollbar inside the modal card gutter */
 .modal-scroll {
   /* gutter apenas no lado do scrollbar para não criar sobra à esquerda */

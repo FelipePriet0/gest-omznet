@@ -40,7 +40,8 @@ export function KanbanBoard({
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
   const [cancel, setCancel] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
-  
+  const hScrollRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const [activeId, setActiveId] = useState<string|null>(null);
   const sensors = useSensors(
     // Estilo Trello: ativa drag após mover uma distância; clique curto abre
@@ -119,8 +120,8 @@ export function KanbanBoard({
         onDragCancel={() => setActiveId(null)}
         onDragEnd={(event)=> { setActiveId(null); handleDragEnd(event); }}
       >
-        <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-          <div className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
+        <div ref={hScrollRef} data-kanban-hscroll="comercial" className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hide-h-scrollbar">
+          <div ref={contentRef} data-kanban-content="comercial" className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
             {columnConfig.map((column) => (
               <KanbanColumn
                 key={column.key}
@@ -134,6 +135,7 @@ export function KanbanBoard({
             ))}
           </div>
         </div>
+        {/* Removed internal proxy; page-level proxy provides a single bar */}
         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}>
           {activeId ? (
             (() => { const c = cards.find(x=> x.id===activeId); if (!c) return null; return (
