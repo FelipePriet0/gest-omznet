@@ -367,16 +367,19 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
             </div>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain modal-scroll scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300">
-        <div className="p-6 pb-12 sm:pb-16">
-        {statusText && (
-          <div className="mb-6 mt-3 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
-        )}
+        <div className="flex-1 overflow-hidden">
+          <div className="flex h-full">
+            {/* Coluna Esquerda: campos + pareceres (scroll próprio) */}
+            <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain modal-scroll scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300">
+              <div className="p-6 pb-12 sm:pb-16">
+                {statusText && (
+                  <div className="mb-6 mt-3 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
+                )}
 
-        {loading ? (
-          <div className="text-sm text-zinc-600">Carregando…</div>
-        ) : (
-          <div className="space-y-6">
+                {loading ? (
+                  <div className="text-sm text-zinc-600">Carregando…</div>
+                ) : (
+                  <div className="space-y-6">
             {/* Informações Pessoais */}
             <Section title="Informações Pessoais" variant="info-pessoais">
               <Grid cols={2}>
@@ -586,20 +589,21 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
               </div>
             </div>
 
-            {/* Conversas co-relacionadas */}
-            <div className="mt-6">
-              <Conversation
-                cardId={cardId}
-                applicantName={app?.primary_name ?? null}
-                onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
-                onOpenAttach={(parentId?: string) => triggerAttachmentPicker({ commentId: parentId ?? null, source: 'conversa' })}
-                onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
-              />
+              </div>
+            </div>
+            {/* Coluna Direita: conversas co-relacionadas (scroll próprio) */}
+            <div className="w-[360px] max-w-[38%] flex-shrink-0 border-l border-white/10" style={{ backgroundColor: '#FFE6CC' }}>
+              <div className="h-full overflow-y-auto p-4">
+                <Conversation
+                  cardId={cardId}
+                  applicantName={app?.primary_name ?? null}
+                  onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
+                  onOpenAttach={(parentId?: string) => triggerAttachmentPicker({ commentId: parentId ?? null, source: 'conversa' })}
+                  onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
+                />
+              </div>
             </div>
           </div>
-        )}
-        </div>
-
         </div>
       </div>
       </div>
