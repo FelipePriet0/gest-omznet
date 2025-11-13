@@ -340,7 +340,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
       <div className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm" onClick={onClose} />
       {/* Conteúdo do modal: acima do Drawer/Sidebar (z-70) */}
       <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-hidden pt-8 pb-6 sm:pt-12 sm:pb-8" onClick={onClose}>
-      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] max-h-[90vh] bg-[var(--neutro)] shadow-2xl flex flex-col overflow-hidden" style={{ borderRadius: '28px' }} onClick={(e)=> e.stopPropagation()}>
+      <div className="relative w-[96vw] sm:w-[95vw] max-w-[980px] h-[90vh] bg-[var(--neutro)] shadow-2xl flex flex-col overflow-hidden" style={{ borderRadius: '28px' }} onClick={(e)=> e.stopPropagation()}>
         {/* Header completo ocupando toda a largura */}
         <div className="header-editar-ficha flex-shrink-0">
           <div className="header-content">
@@ -368,18 +368,18 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
           </div>
         </div>
         <div className="flex-1 overflow-hidden">
-          <div className="flex h-full">
+          <div className="flex h-full min-h-0">
             {/* Coluna Esquerda: campos + pareceres (scroll próprio) */}
-            <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain modal-scroll scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300">
+            <div className="flex-1 min-w-0 min-h-0 h-full overflow-y-scroll overflow-x-hidden overscroll-contain modal-scroll">
               <div className="p-6 pb-12 sm:pb-16">
                 {statusText && (
                   <div className="mb-6 mt-3 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
                 )}
 
-                {loading ? (
+                {loading && (
                   <div className="text-sm text-zinc-600">Carregando…</div>
-                ) : (
-                  <div className="space-y-6">
+                )}
+                <div className="space-y-6" style={{ display: loading ? 'none' : undefined }}>
             {/* Informações Pessoais */}
             <Section title="Informações Pessoais" variant="info-pessoais">
               <Grid cols={2}>
@@ -588,12 +588,12 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                 />
               </div>
             </div>
-
+                </div>
               </div>
             </div>
             {/* Coluna Direita: conversas co-relacionadas (scroll próprio) */}
-            <div className="w-[360px] max-w-[38%] flex-shrink-0 border-l border-white/10" style={{ backgroundColor: '#FFE6CC' }}>
-              <div className="h-full overflow-y-auto p-4">
+            <div className="w-[360px] max-w-[38%] flex-shrink-0 h-full min-h-0 border-l border-white/10" style={{ backgroundColor: '#FFE6CC' }}>
+              <div className="h-full min-h-0 overflow-y-auto p-4">
                 <Conversation
                   cardId={cardId}
                   applicantName={app?.primary_name ?? null}
