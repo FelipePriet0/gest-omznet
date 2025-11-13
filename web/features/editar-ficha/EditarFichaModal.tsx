@@ -230,7 +230,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
     } finally {
       setLoading(false);
     }
-  }, [open, data]);
+  
   }, [open, data]);
 
   // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)

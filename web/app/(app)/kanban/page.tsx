@@ -107,31 +107,28 @@ export default function KanbanPage() {
 
   return (
     <>
-      <div id="kanban-page-root" className="relative">
-        <div className="absolute top-0 left-0 z-10">
-          <FilterCTA area="comercial" onFiltersChange={handleFiltersChange} />
-        </div>
-        <div className="absolute top-0 right-0 z-10">
-          <Button
-            onClick={() => setOpenPersonType(true)}
-            className="h-9 text-sm bg-emerald-600 hover:bg-emerald-700 text-white"
-            style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
-          >
-            <Plus className="size-6 mr-2" />
-            Nova ficha
-          </Button>
-        </div>
-        {/* Mini dashboard fixo abaixo do topo */}
-        <div className="absolute left-0 right-0 z-10" style={{ top: 48 }}>
-          <div className="grid grid-cols-4 gap-3 sm:gap-4 md:gap-6 w-full">
-            <DashboardCard title="Fichas feitas" value={dashboard.feitasAguardando} icon={<FileCheck className="w-4 h-4 text-white" />} />
-            <DashboardCard title="Canceladas" value={dashboard.canceladas} icon={<XCircle className="w-4 h-4 text-white" />} />
-            <DashboardCard title="Concluídas" value={dashboard.concluidas} icon={<CheckCircle className="w-4 h-4 text-white" />} />
-            <DashboardCard title="Atrasadas" value={dashboard.atrasadas} icon={<Clock className="w-4 h-4 text-white" />} />
+      <div id="kanban-page-root" className="flex flex-1 min-h-0 flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+          <div className="sticky top-0 z-20 border-b border-white/40 bg-[var(--neutro)] px-3 pb-4 pt-3 shadow-[0_6px_16px_rgba(0,0,0,0.05)] md:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <FilterCTA area="comercial" onFiltersChange={handleFiltersChange} />
+              <Button
+                onClick={() => setOpenPersonType(true)}
+                className="h-9 shrink-0 bg-emerald-600 text-sm text-white hover:bg-emerald-700"
+                style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
+              >
+                <Plus className="mr-2 size-6" />
+                Nova ficha
+              </Button>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-4 md:gap-6">
+              <DashboardCard title="Fichas feitas" value={dashboard.feitasAguardando} icon={<FileCheck className="h-4 w-4 text-white" />} />
+              <DashboardCard title="Canceladas" value={dashboard.canceladas} icon={<XCircle className="h-4 w-4 text-white" />} />
+              <DashboardCard title="Concluídas" value={dashboard.concluidas} icon={<CheckCircle className="h-4 w-4 text-white" />} />
+              <DashboardCard title="Atrasadas" value={dashboard.atrasadas} icon={<Clock className="h-4 w-4 text-white" />} />
+            </div>
           </div>
-        </div>
-        <div className="h-[calc(100vh-220px)] overflow-y-auto overscroll-contain" style={{ paddingTop: 200 }}>
-          <div>
+          <div className="px-1 pb-6 pt-4 md:px-3">
             <KanbanBoard
               hora={filtersSummary.hora}
               dateStart={filtersSummary.prazo?.start}
@@ -139,7 +136,7 @@ export default function KanbanPage() {
               openCardId={openCardId}
               responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
               onCardsChange={setCardsSnapshot}
-            onCardModalClose={handleCardModalClose}
+              onCardModalClose={handleCardModalClose}
             />
           </div>
         </div>
