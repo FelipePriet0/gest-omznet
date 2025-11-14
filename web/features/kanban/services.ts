@@ -63,9 +63,13 @@ export async function changeStage(cardId: string, area: 'comercial' | 'analise',
   }
 }
 
+function escapeIlikePattern(value: string) {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 export async function listCards(
   area: 'comercial' | 'analise',
-  opts?: { hora?: string; dateStart?: string; dateEnd?: string; responsaveis?: string[] }
+  opts?: { hora?: string; dateStart?: string; dateEnd?: string; responsaveis?: string[]; searchTerm?: string }
 ): Promise<KanbanCard[]> {
   const baseSelect = 'id, stage, area, applicant_id, due_at, hora_at, applicants:applicants!inner(id, primary_name, cpf_cnpj, phone, whatsapp, bairro)';
 
@@ -116,6 +120,14 @@ export async function listCards(
       } else {
         q = q.in('assignee_id', responsavelIds);
       }
+    }
+  }
+
+  if (opts?.searchTerm) {
+    const trimmed = opts.searchTerm.trim();
+    if (trimmed.length > 0) {
+      const pattern = `%${escapeIlikePattern(trimmed)}%`;
+      q = q.ilike('applicants.primary_name', pattern);
     }
   }
 

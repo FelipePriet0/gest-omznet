@@ -29,6 +29,7 @@ export function KanbanBoardAnalise({
   dateEnd,
   openCardId,
   responsaveis,
+  searchTerm,
   onCardsChange,
   onCardModalClose,
 }: {
@@ -37,6 +38,7 @@ export function KanbanBoardAnalise({
   dateEnd?: string;
   openCardId?: string;
   responsaveis?: string[];
+  searchTerm?: string;
   onCardsChange?: (cards: KanbanCard[]) => void;
   onCardModalClose?: () => void;
 }) {
@@ -66,6 +68,7 @@ export function KanbanBoardAnalise({
         dateStart,
         dateEnd,
         responsaveis: responsavelIds,
+        searchTerm,
       });
       setCards(data);
       onCardsChange?.(data);
@@ -74,14 +77,14 @@ export function KanbanBoardAnalise({
       setCards([]);
       onCardsChange?.([]);
     }
-  }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange]);
+  }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange, searchTerm]);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
   useEffect(() => {
-    const channelKey = `kanban-analise-${hora || "_"}-${dateStart || "_"}-${dateEnd || "_"}-${responsavelIds.join("|") || "_"}`;
+    const channelKey = `kanban-analise-${hora || "_"}-${dateStart || "_"}-${dateEnd || "_"}-${responsavelIds.join("|") || "_"}-${searchTerm || "_"}`;
     const channel = supabase
       .channel(channelKey)
       .on(
@@ -105,7 +108,7 @@ export function KanbanBoardAnalise({
         console.error("Erro ao remover canal do Kanban Análise:", err);
       }
     };
-  }, [hora, dateStart, dateEnd, responsavelIds, reload]);
+  }, [hora, dateStart, dateEnd, responsavelIds, searchTerm, reload]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = {

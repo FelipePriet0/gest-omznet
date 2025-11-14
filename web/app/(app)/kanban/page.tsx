@@ -23,6 +23,7 @@ export default function KanbanPage() {
   const prazo = sp.get("prazo") || undefined;
   const prazoFim = sp.get("prazo_fim") || undefined;
   const responsavelParam = sp.get("responsavel") || "";
+  const busca = sp.get("busca") || undefined;
   const responsaveis = useMemo(() => {
     if (!responsavelParam) return [] as string[];
     const unique = Array.from(
@@ -44,8 +45,9 @@ export default function KanbanPage() {
         : undefined,
       hora: hora || undefined,
       myMentions: sp.get('minhas_mencoes') === '1',
+      searchTerm: busca || undefined,
     }),
-    [responsaveis, prazo, prazoFim, hora]
+    [responsaveis, prazo, prazoFim, hora, busca]
   );
   const [filtersSummary, setFiltersSummary] = useState<AppliedFilters>(initialFiltersSummary);
   const [cardsSnapshot, setCardsSnapshot] = useState<KanbanCard[]>([]);
@@ -83,7 +85,9 @@ export default function KanbanPage() {
         (prev.prazo?.start ?? "") === (initialFiltersSummary.prazo?.start ?? "") &&
         (prev.prazo?.end ?? "") === (initialFiltersSummary.prazo?.end ?? "");
       const sameHora = prev.hora === initialFiltersSummary.hora;
-      if (sameResponsaveis && samePrazo && sameHora) {
+      const sameSearch = (prev.searchTerm ?? "") === (initialFiltersSummary.searchTerm ?? "");
+      const sameMentions = prev.myMentions === initialFiltersSummary.myMentions;
+      if (sameResponsaveis && samePrazo && sameHora && sameSearch && sameMentions) {
         return prev;
       }
       return initialFiltersSummary;
@@ -191,6 +195,7 @@ export default function KanbanPage() {
               dateEnd={filtersSummary.prazo?.end}
               openCardId={openCardId}
               responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
+              searchTerm={filtersSummary.searchTerm}
               allowedCardIds={mentionCardIds ?? undefined}
               onCardsChange={setCardsSnapshot}
               onCardModalClose={handleCardModalClose}

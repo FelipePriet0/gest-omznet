@@ -23,6 +23,7 @@ export default function KanbanAnalisePage() {
   const prazoFim = sp.get('prazo_fim') || undefined;
   const openCardId = sp.get('card') || undefined;
   const responsavelParam = sp.get('responsavel') || '';
+  const busca = sp.get('busca') || undefined;
   const responsaveis = useMemo(() => {
     if (!responsavelParam) return [] as string[];
     return Array.from(
@@ -41,8 +42,9 @@ export default function KanbanAnalisePage() {
         ? { start: prazo, end: prazoFim || undefined }
         : undefined,
       hora: hora || undefined,
+      searchTerm: busca || undefined,
     }),
-    [responsaveis, prazo, prazoFim, hora]
+    [responsaveis, prazo, prazoFim, hora, busca]
   );
   const [filtersSummary, setFiltersSummary] = useState<AppliedFilters>(initialFiltersSummary);
   const [cardsSnapshot, setCardsSnapshot] = useState<KanbanCard[]>([]);
@@ -79,7 +81,8 @@ export default function KanbanAnalisePage() {
         (prev.prazo?.start ?? "") === (initialFiltersSummary.prazo?.start ?? "") &&
         (prev.prazo?.end ?? "") === (initialFiltersSummary.prazo?.end ?? "");
       const sameHora = prev.hora === initialFiltersSummary.hora;
-      if (sameResponsaveis && samePrazo && sameHora) {
+      const sameSearch = (prev.searchTerm ?? "") === (initialFiltersSummary.searchTerm ?? "");
+      if (sameResponsaveis && samePrazo && sameHora && sameSearch) {
         return prev;
       }
       return initialFiltersSummary;
@@ -172,6 +175,7 @@ export default function KanbanAnalisePage() {
             dateStart={filtersSummary.prazo?.start}
             dateEnd={filtersSummary.prazo?.end}
             responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
+            searchTerm={filtersSummary.searchTerm}
             openCardId={openCardId}
             onCardsChange={setCardsSnapshot}
             onCardModalClose={handleCardModalClose}
