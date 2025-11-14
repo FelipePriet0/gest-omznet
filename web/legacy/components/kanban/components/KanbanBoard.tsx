@@ -41,8 +41,8 @@ export function KanbanBoard({
   onCardModalClose?: () => void;
 }) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
-  const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
-  const [cancel, setCancel] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
+  const [move, setMove] = useState<{id: string; area: 'comercial' | 'analise'; stage?: string | null} | null>(null);
+  const [cancel, setCancel] = useState<{id: string; area: 'comercial' | 'analise'} | null>(null);
   const hScrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [activeId, setActiveId] = useState<string|null>(null);
@@ -72,10 +72,8 @@ export function KanbanBoard({
         ? data.filter(c => allowedCardIds.includes(c.id))
         : data;
       setCards(filtered);
-      onCardsChange?.(filtered);
     } catch (error) {
       console.error('Falha ao carregar cards do Kanban Comercial:', error);
-      onCardsChange?.([]);
     }
   }, [hora, dateStart, dateEnd, responsavelIds, allowedCardIds, onCardsChange, searchTerm]);
 
@@ -98,7 +96,6 @@ export function KanbanBoard({
           return { ...card, ...normalized };
         });
         if (changed) {
-          onCardsChange?.(next);
           return next;
         }
         return prev;
@@ -110,6 +107,10 @@ export function KanbanBoard({
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    onCardsChange?.(cards);
+  }, [cards, onCardsChange]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = { entrada:[], feitas:[], aguardando:[], canceladas:[], concluidas:[] };
@@ -139,7 +140,7 @@ export function KanbanBoard({
     try { await changeStage(cardId, 'comercial', target); await reload(); } catch (e:any) { alert(e.message ?? 'Falha ao mover'); }
   }
 
-  function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial' }); }
+function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial', stage: c.stage ?? null }); }
 
   
 

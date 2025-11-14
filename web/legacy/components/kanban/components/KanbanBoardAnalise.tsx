@@ -45,7 +45,7 @@ export function KanbanBoardAnalise({
 }) {
   const router = useRouter();
   const [cards, setCards] = useState<KanbanCard[]>([]);
-  const [move, setMove] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
+  const [move, setMove] = useState<{ id: string; area: "comercial" | "analise"; stage?: string | null } | null>(null);
   const [cancel, setCancel] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
   const hScrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -56,6 +56,7 @@ export function KanbanBoardAnalise({
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const responsavelIds = useMemo(
     () => (responsaveis ?? []).filter((id) => typeof id === "string" && id.length > 0),
@@ -72,11 +73,9 @@ export function KanbanBoardAnalise({
         searchTerm,
       });
       setCards(data);
-      onCardsChange?.(data);
     } catch (error) {
       console.error("Falha ao carregar cards do Kanban Análise:", error);
       setCards([]);
-      onCardsChange?.([]);
     }
   }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange, searchTerm]);
 
@@ -99,7 +98,6 @@ export function KanbanBoardAnalise({
           return { ...card, ...normalized };
         });
         if (changed) {
-          onCardsChange?.(next);
           return next;
         }
         return prev;
@@ -111,6 +109,26 @@ export function KanbanBoardAnalise({
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!active) return;
+        setCurrentUserId(data.user?.id ?? null);
+      } catch {
+        if (active) setCurrentUserId(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    onCardsChange?.(cards);
+  }, [cards, onCardsChange]);
 
   useEffect(() => {
     const channelKey = `kanban-analise-${hora || "_"}-${dateStart || "_"}-${dateEnd || "_"}-${responsavelIds.join("|") || "_"}-${searchTerm || "_"}`;
@@ -175,8 +193,10 @@ export function KanbanBoardAnalise({
     const cardId = active.id as string;
     const target = over.id as string;
     if (target === "canceladas") { setCancel({ id: cardId, area: "analise" }); return; }
+    const sourceStage = cards.find((c) => c.id === cardId)?.stage?.toLowerCase();
+    const assigneeId = sourceStage === "recebidos" && target === "em_analise" ? currentUserId ?? null : undefined;
     try {
-      await changeStage(cardId, "analise", target);
+      await changeStage(cardId, "analise", target, undefined, assigneeId);
       await reload();
     } catch (e: any) {
       alert(e.message ?? "Falha ao mover");
@@ -187,18 +207,26 @@ export function KanbanBoardAnalise({
     if (c.applicantId) router.push(`/ficha/${c.applicantId}`);
   }
 
+  async function handleIngressar(card: KanbanCard) {
+    try {
+      await changeStage(
+        card.id,
+        "analise",
+        "em_analise",
+        undefined,
+        currentUserId ?? null
+      );
+      await reload();
+    } catch (e: any) {
+      alert(e?.message ?? "Não foi possível ingressar");
+    }
+  }
+
   function extraForRecebidos(c: KanbanCard) {
     return (
       <div className="mt-3">
         <button
-          onClick={async () => {
-            try {
-              await changeStage(c.id, "analise", "em_analise");
-              await reload();
-            } catch (e: any) {
-              alert(e.message ?? "Não foi possível ingressar");
-            }
-          }}
+          onClick={() => handleIngressar(c)}
           className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
         >
           Ingressar
@@ -229,7 +257,7 @@ export function KanbanBoardAnalise({
               cards={(grouped[c.key as keyof typeof grouped] || []).map((card) => ({
                 ...card,
                 onOpen: () => setEdit({ cardId: card.id, applicantId: card.applicantId }),
-                onMenu: () => setMove({ id: card.id, area: 'analise' }),
+                onMenu: () => setMove({ id: card.id, area: 'analise', stage: card.stage ?? null }),
                 extraAction: c.key === "recebidos" ? extraForRecebidos(card) : undefined,
               }))}
             />
@@ -267,6 +295,8 @@ export function KanbanBoardAnalise({
         onClose={() => setMove(null)}
         cardId={move?.id || ""}
         presetArea={move?.area}
+        currentStage={move?.stage}
+        currentUserId={currentUserId}
         onMoved={reload}
       />
       <CancelModal
