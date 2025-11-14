@@ -18,6 +18,7 @@ import { type ProfileLite } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
 import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts, localDateTimeToUtcISO } from "@/lib/datetime";
 import { renderTextWithChips } from "@/utils/richText";
+import { useDebouncedCallback } from "@/utils/useDebouncedCallback";
 import type { AppModel, CardSnapshotPatch } from "./types";
 import { PLANO_OPTIONS, SVA_OPTIONS, VENC_OPTIONS } from "./constants";
 import { Section, Grid } from "./components/Layout";
@@ -98,9 +99,36 @@ export function EditarFichaModal({
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const timer = useRef<NodeJS.Timeout | null>(null);
   const pendingApp = useRef<Partial<AppModel>>({});
-  const pendingCard = useRef<any>({});
+  const pendingCard = useRef<Record<string, any>>({});
+  const dirtyAppFields = useRef<Set<keyof AppModel>>(new Set());
+  const dirtyCardFields = useRef<Set<string>>(new Set());
+  const fieldStatus = useRef<Record<string, "idle" | "pending" | "error">>({});
+  const [, forceStatusRender] = useState(0);
+
+  const applyAppSnapshot = useCallback((next: Partial<AppModel> | null | undefined) => {
+    if (!next) return;
+    setApp((prev) => {
+      const merged = { ...prev };
+      (Object.keys(next) as (keyof AppModel)[]).forEach((key) => {
+        if (dirtyAppFields.current.has(key)) return;
+        merged[key] = next[key];
+      });
+      return merged;
+    });
+  }, []);
+
+  const applyCardSnapshot = useCallback((payload: { dueAt?: string; horaAt?: string; horaArr?: string[] }) => {
+    if (payload.dueAt !== undefined && !dirtyCardFields.current.has("due_at")) {
+      setDueAt(payload.dueAt);
+    }
+    if (payload.horaArr !== undefined && !dirtyCardFields.current.has("hora_at")) {
+      setHoraArr(payload.horaArr);
+    }
+    if (payload.horaAt !== undefined && !dirtyCardFields.current.has("hora_at")) {
+      setHoraAt(payload.horaAt);
+    }
+  }, []);
 
   function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa' }) {
     attachmentContextRef.current = context ?? null;
@@ -258,19 +286,17 @@ export function EditarFichaModal({
         if (!active) return;
         const a2: any = { ...(a || {}) };
         if (typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
-        setApp(a2 || {});
+        applyAppSnapshot(a2 || {});
         setPersonType((a as any)?.person_type ?? null);
         setCreatedAt(c?.created_at ? new Date(c.created_at).toLocaleString() : "");
         const parts = utcISOToLocalParts(c?.due_at ?? undefined, DEFAULT_TIMEZONE);
-        setDueAt(parts.dateISO ?? "");
+        applyCardSnapshot({ dueAt: parts.dateISO ?? "" });
         if (Array.isArray((c as any)?.hora_at)) {
           const list = ((c as any).hora_at as any[]).map((h) => String(h).slice(0, 5));
-          setHoraArr(list);
-          setHoraAt(list[0] || "");
+          applyCardSnapshot({ horaArr: list, horaAt: list[0] || "" });
         } else {
           const v = c?.hora_at ? String(c.hora_at).slice(0, 5) : "";
-          setHoraAt(v);
-          setHoraArr(v ? [v] : []);
+          applyCardSnapshot({ horaAt: v, horaArr: v ? [v] : [] });
         }
         setPareceres(Array.isArray((c as any)?.reanalysis_notes) ? ((c as any).reanalysis_notes as any) : []);
         setCreatedBy((c as any)?.created_by || "");
@@ -283,7 +309,7 @@ export function EditarFichaModal({
       }
     })();
     return () => { active = false; };
-  }, [open, applicantId, cardId]);
+  }, [open, applicantId, cardId, applyAppSnapshot, applyCardSnapshot]);
 
   // Ao fechar (ou trocar de ficha), permite nova inicialização na próxima abertura
   useEffect(() => {
@@ -316,31 +342,81 @@ export function EditarFichaModal({
     };
   }, []);
 
-  async function flush() {
+  const flush = useCallback(async () => {
     if (!open) return;
-    const ap = pendingApp.current; const cp = pendingCard.current;
-    pendingApp.current = {}; pendingCard.current = {};
-    if (Object.keys(ap).length === 0 && Object.keys(cp).length === 0) return;
+    const appPatch = pendingApp.current;
+    const cardPatch = pendingCard.current;
+    pendingApp.current = {};
+    pendingCard.current = {};
+    if (Object.keys(appPatch).length === 0 && Object.keys(cardPatch).length === 0) return;
     setSaving('saving');
     try {
-      if (Object.keys(ap).length > 0) {
-        const patch:any = { ...ap };
-        if (typeof patch.venc !== 'undefined') { const n = parseInt(String(patch.venc),10); patch.venc = Number.isFinite(n) ? n : null; }
-        await supabase.from('applicants').update(patch).eq('id', applicantId);
+      if (Object.keys(appPatch).length > 0) {
+        const patch: any = { ...appPatch };
+        if (typeof patch.venc !== 'undefined') {
+          const n = parseInt(String(patch.venc), 10);
+          patch.venc = Number.isFinite(n) ? n : null;
+        }
+        const { error } = await supabase.from('applicants').update(patch).eq('id', applicantId);
+        if (error) throw error;
+        (Object.keys(patch) as (keyof AppModel)[]).forEach((key) => {
+          dirtyAppFields.current.delete(key);
+          markFieldStatus(String(key), "idle");
+        });
       }
-      if (Object.keys(cp).length > 0) {
-        await supabase.from('kanban_cards').update(cp).eq('id', cardId);
+      if (Object.keys(cardPatch).length > 0) {
+        const cp: Record<string, any> = { ...cardPatch };
+        const { error } = await supabase.from('kanban_cards').update(cp).eq('id', cardId);
+        if (error) throw error;
+        Object.keys(cp).forEach((key) => {
+          dirtyCardFields.current.delete(key);
+          markFieldStatus(key, "idle");
+        });
       }
-      setSaving('saved'); setTimeout(()=> setSaving('idle'), 1000);
-    } catch { setSaving('error'); }
-  }
+      setSaving('saved');
+      setTimeout(() => setSaving('idle'), 1000);
+    } catch (err) {
+      console.error(err);
+      Object.keys(appPatch).forEach((key) => markFieldStatus(key, "error"));
+      Object.keys(cardPatch).forEach((key) => markFieldStatus(key, "error"));
+      setSaving('error');
+    }
+  }, [open, applicantId, cardId]);
 
-  function queue(scope:'app'|'card', key:string, value:any) {
-    if (scope==='app') pendingApp.current = { ...pendingApp.current, [key]: value };
-    else pendingCard.current = { ...pendingCard.current, [key]: value };
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(flush, 600);
-  }
+  const scheduleFlush = useDebouncedCallback(flush, 1800);
+
+  const queue = useCallback((scope:'app'|'card', key:string, value:any) => {
+    if (scope==='app') {
+      pendingApp.current = { ...pendingApp.current, [key]: value };
+    } else {
+      pendingCard.current = { ...pendingCard.current, [key]: value };
+    }
+    scheduleFlush();
+  }, [scheduleFlush]);
+
+  const markFieldStatus = useCallback((key: string, status: "idle" | "pending" | "error") => {
+    fieldStatus.current[key] = status;
+    forceStatusRender((v) => v + 1);
+  }, []);
+
+  const getFieldStatus = useCallback((key: string) => fieldStatus.current[key] || "idle", []);
+
+  const handleFieldBlur = useCallback(() => {
+    flush();
+  }, [flush]);
+
+  const updateAppField = useCallback((key: keyof AppModel, value: any) => {
+    setApp((prev) => ({ ...prev, [key]: value }));
+    dirtyAppFields.current.add(key);
+    markFieldStatus(String(key), "pending");
+    queue('app', key, value);
+  }, [queue, markFieldStatus]);
+
+  const updateCardField = useCallback((key: 'due_at' | 'hora_at', value: any) => {
+    dirtyCardFields.current.add(key);
+    markFieldStatus(key, "pending");
+    queue('card', key, value);
+  }, [queue, markFieldStatus]);
 
   // (remoção) addParecer local substituído por services/addParecer e lógica inline
 
@@ -436,11 +512,11 @@ export function EditarFichaModal({
             {/* Informações Pessoais */}
             <Section title="Informações Pessoais" variant="info-pessoais">
               <Grid cols={2}>
-                <Field label={personType==='PJ' ? 'Razão Social' : 'Nome do Cliente'} value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queue('app','primary_name', v); emitCardUpdate({ applicantName: v }); }} />
+                  <Field label={personType==='PJ' ? 'Razão Social' : 'Nome do Cliente'} value={app.primary_name||''} onChange={(v)=>{ updateAppField('primary_name', v); emitCardUpdate({ applicantName: v }); }} status={getFieldStatus('primary_name')} onBlur={handleFieldBlur} />
                 {personType === 'PJ' ? (
-                  <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queue('app','cpf_cnpj', m); emitCardUpdate({ cpfCnpj: m }); }} inputMode="numeric" maxLength={18} />
+                  <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); updateAppField('cpf_cnpj', m); emitCardUpdate({ cpfCnpj: m }); }} inputMode="numeric" maxLength={18} status={getFieldStatus('cpf_cnpj')} onBlur={handleFieldBlur} />
                 ) : (
-                  <Field label="CPF" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCpf(v); setApp({...app, cpf_cnpj:m}); queue('app','cpf_cnpj', m); emitCardUpdate({ cpfCnpj: m }); }} inputMode="numeric" maxLength={14} />
+                  <Field label="CPF" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCpf(v); updateAppField('cpf_cnpj', m); emitCardUpdate({ cpfCnpj: m }); }} inputMode="numeric" maxLength={14} status={getFieldStatus('cpf_cnpj')} onBlur={handleFieldBlur} />
                 )}
               </Grid>
             </Section>
@@ -448,12 +524,12 @@ export function EditarFichaModal({
             {/* Contato */}
             <Section title="Informações de Contato" variant="info-contato">
               <Grid cols={2}>
-                <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queue('app','phone', m); emitCardUpdate({ phone: m }); }} />
-                <Field label="Whatsapp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queue('app','whatsapp', m); emitCardUpdate({ whatsapp: m }); }} />
+                <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); updateAppField('phone', m); emitCardUpdate({ phone: m }); }} status={getFieldStatus('phone')} onBlur={handleFieldBlur} />
+                <Field label="Whatsapp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); updateAppField('whatsapp', m); emitCardUpdate({ whatsapp: m }); }} status={getFieldStatus('whatsapp')} onBlur={handleFieldBlur} />
               </Grid>
               <div className="mt-4 sm:mt-6">
                 <Grid cols={1}>
-                  <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queue('app','email', v); }} />
+                  <Field label="E-mail" value={app.email||''} onChange={(v)=>{ updateAppField('email', v); }} status={getFieldStatus('email')} onBlur={handleFieldBlur} />
                 </Grid>
               </div>
             </Section>
@@ -462,18 +538,18 @@ export function EditarFichaModal({
             <Section title="Endereço" variant="endereco">
               <Grid cols={2}>
                 <div className="mt-1">
-                  <Field label="Logradouro" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queue('app','address_line', v); }} />
+                  <Field label="Logradouro" value={app.address_line||''} onChange={(v)=>{ updateAppField('address_line', v); }} status={getFieldStatus('address_line')} onBlur={handleFieldBlur} />
                 </div>
-                <Field label="Número" value={app.address_number||''} onChange={(v)=>{ setApp({...app, address_number:v}); queue('app','address_number', v); }} />
+                <Field label="Número" value={app.address_number||''} onChange={(v)=>{ updateAppField('address_number', v); }} status={getFieldStatus('address_number')} onBlur={handleFieldBlur} />
               </Grid>
               <div className="mt-4 sm:mt-6">
                 <Grid cols={3}>
-                  <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queue('app','address_complement', v); }} />
+                  <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ updateAppField('address_complement', v); }} status={getFieldStatus('address_complement')} onBlur={handleFieldBlur} />
                   <div className="mt-1">
-                  <Field label="Bairro" value={app.bairro||''} onChange={(v)=>{ setApp({...app, bairro:v}); queue('app','bairro', v); emitCardUpdate({ bairro: v }); }} />
+                    <Field label="Bairro" value={app.bairro||''} onChange={(v)=>{ updateAppField('bairro', v); emitCardUpdate({ bairro: v }); }} status={getFieldStatus('bairro')} onBlur={handleFieldBlur} />
                   </div>
                   <div className="mt-1">
-                    <Field label="CEP" value={app.cep||''} onChange={(v)=>{ setApp({...app, cep:v}); queue('app','cep', v); }} />
+                    <Field label="CEP" value={app.cep||''} onChange={(v)=>{ updateAppField('cep', v); }} status={getFieldStatus('cep')} onBlur={handleFieldBlur} />
                   </div>
                 </Grid>
               </div>
@@ -482,10 +558,10 @@ export function EditarFichaModal({
             {/* Preferências e serviços */}
             <Section title="Planos e Serviços" variant="planos-servicos">
               <Grid cols={2}>
-                <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ setApp({...app, plano_acesso:v}); queue('app','plano_acesso', v); }} options={PLANO_OPTIONS as any} />
-                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ setApp({...app, venc:v}); queue('app','venc', v); }} options={VENC_OPTIONS as any} />
-                <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ setApp({...app, sva_avulso:v}); queue('app','sva_avulso', v); }} options={SVA_OPTIONS as any} />
-                <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); setApp({...app, carne_impresso:val}); queue('app','carne_impresso', val); }} options={["Sim","Não"]} />
+                <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ updateAppField('plano_acesso', v); }} options={PLANO_OPTIONS as any} />
+                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ updateAppField('venc', v); }} options={VENC_OPTIONS as any} />
+                <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ updateAppField('sva_avulso', v); }} options={SVA_OPTIONS as any} />
+                <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); updateAppField('carne_impresso', val); }} options={["Sim","Não"]} />
               </Grid>
             </Section>
 
@@ -499,13 +575,13 @@ export function EditarFichaModal({
                   onChange={(val) => {
                     setDueAt(val || "");
                     if (!val) {
-                      queue('card','due_at', null);
+                      updateCardField('due_at', null);
                       emitCardUpdate({ dueAt: null });
                       return;
                     }
                     // Persistir meio-dia local para estabilizar a data (evita shift por fuso)
                     const noonUtc = localDateTimeToUtcISO(val, '12:00', DEFAULT_TIMEZONE);
-                    queue('card','due_at', noonUtc ?? null);
+                    updateCardField('due_at', noonUtc ?? null);
                     emitCardUpdate({ dueAt: noonUtc ?? null });
                   }}
                 />
@@ -516,8 +592,8 @@ export function EditarFichaModal({
                   onApply={(vals) => {
                     setHoraArr(vals);
                     setHoraAt(vals[0] || "");
-                    if (vals.length === 0) queue('card','hora_at', null);
-                    else queue('card','hora_at', vals.map(v=> `${v}:00`));
+                    if (vals.length === 0) updateCardField('hora_at', null);
+                    else updateCardField('hora_at', vals.map(v=> `${v}:00`));
                     const horaLabel = vals.length === 0 ? null : vals.map((v) => v.slice(0, 5)).join(vals.length > 1 ? ' e ' : '');
                     emitCardUpdate({ horaAt: horaLabel });
                   }}
