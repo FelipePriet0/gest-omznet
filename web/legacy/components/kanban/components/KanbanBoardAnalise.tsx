@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
+import type { CardSnapshotPatch } from "@/features/editar-ficha/types";
 
 const columns = [
   { key: "recebidos", title: "Recebidos", color: "blue", icon: "🔵" },
@@ -78,6 +79,34 @@ export function KanbanBoardAnalise({
       onCardsChange?.([]);
     }
   }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange, searchTerm]);
+
+  const handleCardSnapshotUpdate = useCallback(
+    (patch: CardSnapshotPatch) => {
+      if (!patch?.id) return;
+      setCards((prev) => {
+        let changed = false;
+        const next = prev.map((card) => {
+          if (card.id !== patch.id) return card;
+          changed = true;
+          const normalized: Partial<KanbanCard> = {};
+          if (patch.applicantName !== undefined) normalized.applicantName = patch.applicantName ?? "";
+          if (patch.cpfCnpj !== undefined) normalized.cpfCnpj = patch.cpfCnpj ?? "";
+          if (patch.phone !== undefined) normalized.phone = patch.phone ?? "";
+          if (patch.whatsapp !== undefined) normalized.whatsapp = patch.whatsapp ?? "";
+          if (patch.bairro !== undefined) normalized.bairro = patch.bairro ?? "";
+          if (patch.dueAt !== undefined) normalized.dueAt = patch.dueAt ?? undefined;
+          if (patch.horaAt !== undefined) normalized.horaAt = patch.horaAt ?? undefined;
+          return { ...card, ...normalized };
+        });
+        if (changed) {
+          onCardsChange?.(next);
+          return next;
+        }
+        return prev;
+      });
+    },
+    [onCardsChange]
+  );
 
   useEffect(() => {
     reload();
@@ -260,6 +289,7 @@ export function KanbanBoardAnalise({
         cardId={edit?.cardId || ''}
         applicantId={edit?.applicantId || ''}
         onStageChange={reload}
+        onCardUpdate={handleCardSnapshotUpdate}
       />
     </div>
   );

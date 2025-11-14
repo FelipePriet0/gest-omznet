@@ -3,6 +3,7 @@
 import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { KanbanCard } from "@/features/kanban/types";
+import type { CardSnapshotPatch } from "@/features/editar-ficha/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -77,6 +78,34 @@ export function KanbanBoard({
       onCardsChange?.([]);
     }
   }, [hora, dateStart, dateEnd, responsavelIds, allowedCardIds, onCardsChange, searchTerm]);
+
+  const handleCardSnapshotUpdate = useCallback(
+    (patch: CardSnapshotPatch) => {
+      if (!patch?.id) return;
+      setCards((prev) => {
+        let changed = false;
+        const next = prev.map((card) => {
+          if (card.id !== patch.id) return card;
+          changed = true;
+          const normalized: Partial<KanbanCard> = {};
+          if (patch.applicantName !== undefined) normalized.applicantName = patch.applicantName ?? "";
+          if (patch.cpfCnpj !== undefined) normalized.cpfCnpj = patch.cpfCnpj ?? "";
+          if (patch.phone !== undefined) normalized.phone = patch.phone ?? "";
+          if (patch.whatsapp !== undefined) normalized.whatsapp = patch.whatsapp ?? "";
+          if (patch.bairro !== undefined) normalized.bairro = patch.bairro ?? "";
+          if (patch.dueAt !== undefined) normalized.dueAt = patch.dueAt ?? undefined;
+          if (patch.horaAt !== undefined) normalized.horaAt = patch.horaAt ?? undefined;
+          return { ...card, ...normalized };
+        });
+        if (changed) {
+          onCardsChange?.(next);
+          return next;
+        }
+        return prev;
+      });
+    },
+    [onCardsChange]
+  );
 
   useEffect(() => {
     reload();
@@ -179,6 +208,7 @@ export function KanbanBoard({
         cardId={edit?.cardId || ''}
         applicantId={edit?.applicantId || ''}
         onStageChange={reload}
+        onCardUpdate={handleCardSnapshotUpdate}
       />
     </div>
   );

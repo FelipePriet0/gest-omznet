@@ -17,3 +17,14 @@ export type AppModel = {
 
 export type Opt = string | { label: string; value: string; disabled?: boolean };
 
+export type CardSnapshotPatch = {
+  id: string;
+  applicantName?: string;
+  cpfCnpj?: string;
+  phone?: string;
+  whatsapp?: string;
+  bairro?: string;
+  dueAt?: string | null;
+  horaAt?: string | null;
+};
+

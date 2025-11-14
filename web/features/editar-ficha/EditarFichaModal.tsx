@@ -18,7 +18,7 @@ import { type ProfileLite } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
 import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts, localDateTimeToUtcISO } from "@/lib/datetime";
 import { renderTextWithChips } from "@/utils/richText";
-import type { AppModel } from "./types";
+import type { AppModel, CardSnapshotPatch } from "./types";
 import { PLANO_OPTIONS, SVA_OPTIONS, VENC_OPTIONS } from "./constants";
 import { Section, Grid } from "./components/Layout";
 import { Field, Select, SelectAdv } from "./components/Fields";
@@ -29,7 +29,21 @@ import { addParecer, editParecer, deleteParecer, setCardDecision, fetchApplicant
 import { useEditarFichaData } from "./hooks/useEditarFichaData";
 
 
-export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageChange }: { open: boolean; onClose: () => void; cardId: string; applicantId: string; onStageChange?: () => void; }) {
+export function EditarFichaModal({
+  open,
+  onClose,
+  cardId,
+  applicantId,
+  onStageChange,
+  onCardUpdate,
+}: {
+  open: boolean;
+  onClose: () => void;
+  cardId: string;
+  applicantId: string;
+  onStageChange?: () => void;
+  onCardUpdate?: (patch: CardSnapshotPatch) => void;
+}) {
   const { open: sidebarOpen } = useSidebar();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"idle"|"saving"|"saved"|"error">("idle");
@@ -40,6 +54,17 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
   const [createdAt, setCreatedAt] = useState<string>("");
   const [pareceres, setPareceres] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+
+  const emitCardUpdate = useCallback(
+    (patch: Partial<Omit<CardSnapshotPatch, "id">>) => {
+      if (!onCardUpdate || !cardId) return;
+      onCardUpdate({
+        id: cardId,
+        ...patch,
+      });
+    },
+    [cardId, onCardUpdate]
+  );
 
   // Update sidebar width on changes
   useEffect(() => {
@@ -411,11 +436,11 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
             {/* Informações Pessoais */}
             <Section title="Informações Pessoais" variant="info-pessoais">
               <Grid cols={2}>
-                <Field label={personType==='PJ' ? 'Razão Social' : 'Nome do Cliente'} value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queue('app','primary_name', v); }} />
+                <Field label={personType==='PJ' ? 'Razão Social' : 'Nome do Cliente'} value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queue('app','primary_name', v); emitCardUpdate({ applicantName: v }); }} />
                 {personType === 'PJ' ? (
-                  <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queue('app','cpf_cnpj', m); }} inputMode="numeric" maxLength={18} />
+                  <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queue('app','cpf_cnpj', m); emitCardUpdate({ cpfCnpj: m }); }} inputMode="numeric" maxLength={18} />
                 ) : (
-                  <Field label="CPF" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCpf(v); setApp({...app, cpf_cnpj:m}); queue('app','cpf_cnpj', m); }} inputMode="numeric" maxLength={14} />
+                  <Field label="CPF" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCpf(v); setApp({...app, cpf_cnpj:m}); queue('app','cpf_cnpj', m); emitCardUpdate({ cpfCnpj: m }); }} inputMode="numeric" maxLength={14} />
                 )}
               </Grid>
             </Section>
@@ -423,8 +448,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
             {/* Contato */}
             <Section title="Informações de Contato" variant="info-contato">
               <Grid cols={2}>
-                <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queue('app','phone', m); }} />
-                <Field label="Whatsapp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queue('app','whatsapp', m); }} />
+                <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queue('app','phone', m); emitCardUpdate({ phone: m }); }} />
+                <Field label="Whatsapp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queue('app','whatsapp', m); emitCardUpdate({ whatsapp: m }); }} />
               </Grid>
               <div className="mt-4 sm:mt-6">
                 <Grid cols={1}>
@@ -445,7 +470,7 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                 <Grid cols={3}>
                   <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queue('app','address_complement', v); }} />
                   <div className="mt-1">
-                    <Field label="Bairro" value={app.bairro||''} onChange={(v)=>{ setApp({...app, bairro:v}); queue('app','bairro', v); }} />
+                  <Field label="Bairro" value={app.bairro||''} onChange={(v)=>{ setApp({...app, bairro:v}); queue('app','bairro', v); emitCardUpdate({ bairro: v }); }} />
                   </div>
                   <div className="mt-1">
                     <Field label="CEP" value={app.cep||''} onChange={(v)=>{ setApp({...app, cep:v}); queue('app','cep', v); }} />
@@ -475,11 +500,13 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                     setDueAt(val || "");
                     if (!val) {
                       queue('card','due_at', null);
+                      emitCardUpdate({ dueAt: null });
                       return;
                     }
                     // Persistir meio-dia local para estabilizar a data (evita shift por fuso)
                     const noonUtc = localDateTimeToUtcISO(val, '12:00', DEFAULT_TIMEZONE);
                     queue('card','due_at', noonUtc ?? null);
+                    emitCardUpdate({ dueAt: noonUtc ?? null });
                   }}
                 />
                 <TimeMultiSelect
@@ -491,6 +518,8 @@ export function EditarFichaModal({ open, onClose, cardId, applicantId, onStageCh
                     setHoraAt(vals[0] || "");
                     if (vals.length === 0) queue('card','hora_at', null);
                     else queue('card','hora_at', vals.map(v=> `${v}:00`));
+                    const horaLabel = vals.length === 0 ? null : vals.map((v) => v.slice(0, 5)).join(vals.length > 1 ? ' e ' : '');
+                    emitCardUpdate({ horaAt: horaLabel });
                   }}
                   allowedPairs={[['08:30','10:30'],['13:30','15:30']]}
                 />
