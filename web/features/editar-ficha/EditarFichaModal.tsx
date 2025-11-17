@@ -28,6 +28,7 @@ import { DecisionTag, decisionPlaceholder } from "./utils/decision";
 import { PareceresList } from "./components/PareceresList";
 import { addParecer, editParecer, deleteParecer, setCardDecision, fetchApplicantCard } from "./services";
 import { useEditarFichaData } from "./hooks/useEditarFichaData";
+import { useUserRole } from "@/hooks/useUserRole";
 
 
 export function EditarFichaModal({
@@ -96,8 +97,10 @@ export function EditarFichaModal({
   const [tasks, setTasks] = useState<CardTask[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const { role: currentUserRole } = useUserRole();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const isVendor = (currentUserRole ?? "").toLowerCase() === "vendedor";
+  const canWriteParecer = !isVendor;
 
   const pendingApp = useRef<Partial<AppModel>>({});
   const pendingCard = useRef<Record<string, any>>({});
@@ -112,7 +115,9 @@ export function EditarFichaModal({
       const merged = { ...prev };
       (Object.keys(next) as (keyof AppModel)[]).forEach((key) => {
         if (dirtyAppFields.current.has(key)) return;
-        merged[key] = next[key];
+        const value = next[key];
+        if (typeof value === "undefined") return;
+        (merged as any)[key] = value as any;
       });
       return merged;
     });
@@ -215,7 +220,6 @@ export function EditarFichaModal({
     };
   }, [cardId, refreshTasks]);
 
-  // Para usuários com role 'vendedor', focar o compositor de Parecer ao abrir (KISS: comportamento simples e útil)
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -224,15 +228,20 @@ export function EditarFichaModal({
         const uid = data.user?.id;
         if (!uid) return;
         setCurrentUserId(uid);
-        const me = profiles.find((p) => p.id === uid);
-        const role = (me?.role || null) as string | null;
-        setCurrentUserRole(role);
-        if (role === 'vendedor') {
-          requestAnimationFrame(() => composerRef.current?.focus());
-        }
       } catch {}
     })();
-  }, [open, profiles]);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || canWriteParecer) return;
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }, [open, canWriteParecer]);
+
+  useEffect(() => {
+    if (canWriteParecer) return;
+    setCmdOpenParecer(false);
+    setCmdQueryParecer("");
+  }, [canWriteParecer]);
 
   const handleTaskToggle = useCallback(async (taskId: string, done: boolean) => {
     // Otimista: atualiza lista local imediatamente para uma UX fluida
@@ -275,6 +284,7 @@ export function EditarFichaModal({
   const bootRef = useRef(false);
   const vendorName = data.vendorName;
   const analystName = data.analystName;
+  const refreshCardSnapshot = data.refresh;
   // Inicializa dados ao abrir com snapshot fresco do backend; evita resetar inputs enquanto o modal estiver aberto
   useEffect(() => {
     if (!open || bootRef.current) return;
@@ -558,10 +568,10 @@ export function EditarFichaModal({
             {/* Preferências e serviços */}
             <Section title="Planos e Serviços" variant="planos-servicos">
               <Grid cols={2}>
-                <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ updateAppField('plano_acesso', v); }} options={PLANO_OPTIONS as any} />
-                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ updateAppField('venc', v); }} options={VENC_OPTIONS as any} />
-                <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ updateAppField('sva_avulso', v); }} options={SVA_OPTIONS as any} />
-                <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); updateAppField('carne_impresso', val); }} options={["Sim","Não"]} />
+                <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ updateAppField('plano_acesso', v); }} options={PLANO_OPTIONS as any} contentStyle={{ zIndex: 9999 }} />
+                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ updateAppField('venc', v); }} options={VENC_OPTIONS as any} contentStyle={{ zIndex: 9999 }} />
+                <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ updateAppField('sva_avulso', v); }} options={SVA_OPTIONS as any} contentStyle={{ zIndex: 9999 }} />
+                <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); updateAppField('carne_impresso', val); }} options={["Sim","Não"]} contentStyle={{ zIndex: 9999 }} />
               </Grid>
             </Section>
 
@@ -622,11 +632,12 @@ export function EditarFichaModal({
                 <div className="mb-3 relative">
                   <UnifiedComposer
                     ref={composerRef}
+                    disabled={!canWriteParecer}
                     placeholder="Escreva um novo parecer… Use @ para mencionar"
                     onChange={(val)=> {
                       setNovoParecer(val);
                     }}
-                    onSubmit={async (val)=> {
+                    onSubmit={!canWriteParecer ? undefined : async (val)=> {
                       const txt = (val.text || '').trim();
                       const hasDecision = !!val.decision;
                       if (!hasDecision && !txt) return;
@@ -651,7 +662,7 @@ export function EditarFichaModal({
                     onCancel={()=> {
                       setCmdOpenParecer(false);
                     }}
-                    onCommandTrigger={(query)=>{
+                    onCommandTrigger={!canWriteParecer ? undefined : (query)=>{
                       setCmdQueryParecer(query.toLowerCase());
                       setCmdOpenParecer(true);
                     }}
@@ -661,7 +672,7 @@ export function EditarFichaModal({
                     }}
                   />
                   {/* Menções desativadas em Parecer */}
-                  {cmdOpenParecer && (
+                  {canWriteParecer && cmdOpenParecer && (
                     <div className="absolute z-50 left-0 bottom-full mb-2">
                       <CmdDropdown
                         items={[
@@ -690,6 +701,7 @@ export function EditarFichaModal({
                   tasks={tasks}
                   applicantName={app?.primary_name ?? null}
                   currentUserId={currentUserId}
+                  canWrite={canWriteParecer}
                   onReply={async (pid, value) => {
                     const text = (value.text || '').trim();
                     const hasDecision = !!value.decision;
@@ -714,7 +726,14 @@ export function EditarFichaModal({
                       await syncDecisionStatus('reanalise');
                     }
                   }}
-                  onDelete={async (id) => { await deleteParecer({ cardId, noteId: id }); }}
+                  onDelete={async (id) => {
+                    try {
+                      await deleteParecer({ cardId, noteId: id });
+                      await refreshCardSnapshot();
+                    } catch (err: any) {
+                      alert(err?.message || "Falha ao excluir parecer");
+                    }
+                  }}
                   onDecisionChange={syncDecisionStatus}
                   onOpenTask={(ctx) => setTaskOpen({ open: true, parentId: ctx.parentId ?? null, taskId: ctx.taskId ?? null, source: ctx.source ?? 'parecer' })}
                   onToggleTask={handleTaskToggle}

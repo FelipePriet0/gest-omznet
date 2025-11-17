@@ -42,10 +42,24 @@ export function SimpleSelect({
   const current = options.find((o) => getLabel(o).value === value) as SelectOption | undefined;
   const currentLabel = overrideLabel ?? (current ? getLabel(current).label : (value || placeholder || ""));
 
-  
+  // Merge z-index from contentStyle with higher priority, remove z-50 class if custom z-index is provided
+  const mergedContentStyle = React.useMemo(() => {
+    return contentStyle || {};
+  }, [contentStyle]);
+
+  const contentClassNameMerged = React.useMemo(() => {
+    // If custom z-index is provided, don't apply z-50 class (it would conflict)
+    const hasCustomZIndex = contentStyle?.zIndex !== undefined;
+    return cn(
+      hasCustomZIndex ? "" : "z-50",
+      "min-w-[12rem] overflow-hidden rounded-md bg-white text-zinc-900 mz-select-content",
+      flat ? "border-0 shadow-none" : "border shadow-md",
+      contentClassName,
+    );
+  }, [contentStyle, flat, contentClassName]);
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
@@ -67,16 +81,12 @@ export function SimpleSelect({
           </span>
         </button>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
+      <DropdownMenu.Portal container={typeof document !== 'undefined' ? document.body : undefined}>
         <DropdownMenu.Content
           align="start"
           sideOffset={6}
-          className={cn(
-            "z-50 min-w-[12rem] overflow-hidden rounded-md bg-white text-zinc-900 mz-select-content",
-            flat ? "border-0 shadow-none" : "border shadow-md",
-            contentClassName,
-          )}
-          style={contentStyle}
+          className={contentClassNameMerged}
+          style={mergedContentStyle}
         >
           <div className="max-h-[260px] overflow-auto p-1">
             {options.map((o, idx) => {
