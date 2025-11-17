@@ -49,12 +49,13 @@ export async function listComments(cardId: string): Promise<Comment[]> {
 
 /**
  * LEI 1 - HIERARQUIA: Valida se parent_id existe e é válido
+ * Permite que respostas apontem para Pai e sub-respostas apontem para resposta ou outra sub-resposta
  */
 async function validateParentId(cardId: string, parentId: string): Promise<boolean> {
   try {
     const { data, error } = await supabase
       .from(TABLE_CARD_COMMENTS)
-      .select("id, card_id, deleted_at")
+      .select("id, card_id, deleted_at, parent_id")
       .eq("id", parentId)
       .eq("card_id", cardId)
       .is("deleted_at", null)

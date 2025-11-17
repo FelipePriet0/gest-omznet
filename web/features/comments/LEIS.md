@@ -8,7 +8,7 @@ Este documento define as 3 Leis fundamentais que regem o sistema de threads (con
 
 ### Regras:
 1. ✅ Toda resposta tem um `parent_id` válido
-2. ✅ Toda sub-resposta aponta pra uma resposta ou pai
+2. ✅ **Toda resposta aponta para uma Pai e toda sub-resposta aponta para uma resposta ou outra Sub-resposta**
 3. ✅ Não pode existir "comentário órfão" seja ela: Texto, Tarefa, Anexo, Menção
 4. ✅ **Todo tipo de resposta (Anexo / Tarefa / Texto / Menção) deve conter a mesma estrutura visual de resposta:**
    - Nome do autor + Data e hora de criação + Role abaixo
@@ -33,9 +33,11 @@ Este documento define as 3 Leis fundamentais que regem o sistema de threads (con
 
 ### Exemplo:
 ```typescript
-// ✅ CORRETO
+// ✅ CORRETO - Hierarquia válida
 Thread Pai (id: "1", parent_id: null)
-  └─ Resposta (id: "2", parent_id: "1") ← parent_id válido
+  └─ Resposta (id: "2", parent_id: "1") ← Resposta aponta para Pai
+      └─ Sub-resposta (id: "3", parent_id: "2") ← Sub-resposta aponta para Resposta
+          └─ Sub-sub-resposta (id: "4", parent_id: "3") ← Sub-resposta aponta para outra Sub-resposta
 
 // ❌ ERRADO (prevenido)
 Resposta Órfã (id: "2", parent_id: "999") ← "999" não existe!

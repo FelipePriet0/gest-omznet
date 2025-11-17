@@ -417,6 +417,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
 
 /**
  * LEI 1 - HIERARQUIA: Filtra automaticamente comentários órfãos (parent_id inválido)
+ * LEI 1: Toda resposta aponta para uma Pai e toda sub-resposta aponta para uma resposta ou outra Sub-resposta
  * LEI 3 - ORDEM E UX: Ordena cronologicamente e agrupa respostas no pai
  */
 function buildTree(notes: Comment[]): any[] {
@@ -427,8 +428,9 @@ function buildTree(notes: Comment[]): any[] {
     const node = byId.get(n.id)!;
     if ((n as any).deleted_at) return;
     // LEI 1: Só adiciona como filho se parent_id existe e é válido
+    // Isso permite: Resposta → Pai, Sub-resposta → Resposta, Sub-resposta → Sub-resposta
     if (n.parent_id && byId.has(n.parent_id)) {
-      // LEI 3: Respostas grudadas no pai
+      // LEI 3: Respostas e sub-respostas grudadas no pai/resposta/sub-resposta
       byId.get(n.parent_id).children.push(node);
     } else {
       // LEI 1: Sem parent_id válido = thread pai
@@ -439,7 +441,7 @@ function buildTree(notes: Comment[]): any[] {
   const sortFn = (a: any, b: any) => new Date(a.created_at || "").getTime() - new Date(b.created_at || "").getTime();
   const sortTree = (arr: any[]) => {
     arr.sort(sortFn);
-    // LEI 3: Ordena recursivamente todos os níveis (sub-respostas grudadas na resposta)
+    // LEI 3: Ordena recursivamente todos os níveis (sub-respostas grudadas na resposta/sub-resposta)
     arr.forEach((x) => sortTree(x.children));
   };
   sortTree(roots);
@@ -775,6 +777,9 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
           )}
         </div>
       )}
+      {/* LEI 1 - HIERARQUIA: Renderização recursiva de sub-respostas
+          Permite encadeamento infinito: Pai → Resposta → Sub-resposta → Sub-sub-resposta...
+          Cada nível aumenta depth + 1 para indentação visual */}
       {node.children && node.children.length > 0 && (
         <div className="mt-2 space-y-2">
           {node.children.map((c: any) => (
