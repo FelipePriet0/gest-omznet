@@ -343,7 +343,7 @@ function NoteItem({
           <div className="relative">
             <UnifiedComposer
               ref={replyComposerRef}
-              placeholder="Responder… Use @ para mencionar e / para comandos"
+              placeholder="Responder… Use @ para mencionar e / para decisões"
               onChange={(val) => setReplyValue(val)}
               onSubmit={async (val) => {
                 const txt = (val.text || "").trim();
@@ -384,8 +384,6 @@ function NoteItem({
                     { key: "aprovado", label: "Aprovado" },
                     { key: "negado", label: "Negado" },
                     { key: "reanalise", label: "Reanálise" },
-                    { key: "tarefa", label: "Tarefa" },
-                    { key: "anexo", label: "Anexo" },
                   ].filter((i) => i.key.includes(cmdQuery))}
                   onPick={async (key) => {
                     setCmdOpen(false);
@@ -397,17 +395,6 @@ function NoteItem({
                       } catch (e: any) {
                         alert(e?.message || "Falha ao mover");
                       }
-                      return;
-                    }
-                    if (key === "tarefa") {
-                      onOpenTask({ parentId: node.id, source: "parecer" });
-                      return;
-                    }
-                    if (key === "anexo") {
-                      try {
-                        const ev = new CustomEvent("mz-open-attach", { detail: { commentId: node.id, source: "parecer" } });
-                        window.dispatchEvent(ev);
-                      } catch {}
                       return;
                     }
                   }}
