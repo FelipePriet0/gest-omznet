@@ -211,7 +211,15 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
 
       const deadlineIso = resolveDeadlineISO();
       const creatorName = (me?.full_name || "").trim() || "Um colaborador";
-      const commentText = `${creatorName} criou uma tarefa para você.`;
+      const creatorRole = me?.role || null;
+      // Buscar o nome e role do assigned_to
+      const assigneeProfile = assignedTo ? profiles.find((p) => p.id === assignedTo) : null;
+      const assigneeName = assigneeProfile?.full_name || "um colaborador";
+      const assigneeRole = assigneeProfile?.role || null;
+      // Formatar texto com roles
+      const creatorPart = creatorRole ? `${creatorName} (${creatorRole})` : creatorName;
+      const assigneePart = assigneeRole ? `${assigneeName} (${assigneeRole})` : assigneeName;
+      const commentText = `${creatorPart} criou uma tarefa para ${assigneePart}.`;
       let threadRefId: string | null = null;
       if (source === "parecer") {
         const { data: cardRow, error: rpcError } = await supabase.rpc("add_parecer", {
@@ -292,15 +300,51 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
     setSaving(true);
     try {
       const deadlineIso = resolveDeadlineISO();
-      const { error } = await supabase
+      
+      // 1. Fazer UPDATE primeiro (sem select para evitar erro 406)
+      const { error: updateError } = await supabase
         .from('card_tasks')
-        .update({ description: desc.trim(), assigned_to: assignedTo || null, deadline: deadlineIso })
+        .update({ 
+          description: desc.trim(), 
+          assigned_to: assignedTo || null, 
+          deadline: deadlineIso 
+        })
         .eq('id', taskId);
-      if (error) throw error;
+      
+      // Se o UPDATE falhar, já para aqui
+      if (updateError) {
+        throw new Error(updateError.message || 'Falha ao atualizar tarefa');
+      }
+      
+      // 2. Tentar buscar dados atualizados separadamente (opcional, para atualizar UI)
+      // Se não conseguir, não é crítico - o realtime subscription vai atualizar
+      const { data: updated } = await supabase
+        .from('card_tasks')
+        .select('id, description, assigned_to, deadline, comment_id')
+        .eq('id', taskId)
+        .maybeSingle(); // ← Não quebra se não retornar (evita erro 406)
+      
+      // 3. Chamar onCreated se conseguir os dados, senão confia no realtime
+      if (updated) {
+        try {
+          onCreated?.({
+            id: updated.id,
+            description: updated.description,
+            assigned_to: updated.assigned_to ?? null,
+            deadline: updated.deadline ?? null,
+            comment_id: updated.comment_id ?? null,
+            source,
+          });
+        } catch {}
+      }
+      
+      // 4. Fechar modal (o realtime subscription vai atualizar a UI automaticamente)
       onClose();
-    } catch (e:any) {
+    } catch (e: any) {
       alert(e?.message || 'Falha ao atualizar tarefa');
-    } finally { setSaving(false); }
+    } finally { 
+      setSaving(false); 
+    }
   }
 
   async function deleteTask() {

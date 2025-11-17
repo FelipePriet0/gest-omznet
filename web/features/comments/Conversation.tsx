@@ -784,6 +784,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
                 created_at={created_at}
                 applicantName={applicantName}
                 onEdit={onEditTask ? () => onEditTask(t.id) : undefined}
+                currentUserId={currentUserId}
                 depth={depth}
               />
             );
@@ -917,6 +918,7 @@ function TaskResponseCard({
   created_at,
   onEdit,
   applicantName,
+  currentUserId,
   depth = 0
 }: { 
   task: CardTask; 
@@ -926,6 +928,7 @@ function TaskResponseCard({
   created_at?: string | null;
   onEdit?: () => void;
   applicantName?: string | null;
+  currentUserId?: string | null;
   depth?: number;
 }) {
   const ts = created_at ? new Date(created_at).toLocaleString() : "";
@@ -952,7 +955,7 @@ function TaskResponseCard({
       </div>
       {/* Conteúdo da tarefa */}
       <div className="mt-2">
-        <TaskCard task={task} onToggle={onToggle} creatorName={creatorName} applicantName={applicantName} onEdit={onEdit} />
+        <TaskCard task={task} onToggle={onToggle} creatorName={creatorName} applicantName={applicantName} onEdit={onEdit} currentUserId={currentUserId} />
       </div>
     </div>
   );
