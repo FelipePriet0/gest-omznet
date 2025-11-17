@@ -294,6 +294,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                         onOpenAttach={onOpenAttach}
                         profiles={profiles}
                         onPreview={(payload) => setPreview(payload)}
+                        currentUserId={currentUserId}
                       />
                       {attachmentReplies.length > 0 && (
                         <div className="ml-6 space-y-2 mt-2">
@@ -619,7 +620,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       {attachments && attachments.length > 0 && (
         <div className="mt-2 space-y-2">
           {attachments.map((a) => (
-            <AttachmentRow key={a.id} att={a} onPreview={onPreview} />
+            <AttachmentRow key={a.id} att={a} onPreview={onPreview} currentUserId={currentUserId} />
           ))}
         </div>
       )}
@@ -760,7 +761,7 @@ function CommentMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
   );
 }
 
-function AttachmentContent({ att, onDelete, onPreview }: { att: CardAttachmentWithMeta; onDelete?: () => Promise<void>; onPreview?: (payload: PreviewTarget) => void }) {
+function AttachmentContent({ att, onDelete, onPreview, currentUserId }: { att: CardAttachmentWithMeta; onDelete?: () => Promise<void>; onPreview?: (payload: PreviewTarget) => void; currentUserId?: string | null }) {
   const [url, setUrl] = useState<string | null>(null);
   // Não gera URL automaticamente para evitar chamadas 400; gera on-demand
   const ts = att.created_at ? new Date(att.created_at).toLocaleString() : "";
@@ -807,29 +808,32 @@ function AttachmentContent({ att, onDelete, onPreview }: { att: CardAttachmentWi
             <path d="M12 4v10m0 0 4-4m-4 4-4-4M5 18h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
         </button>
-        <button
-          className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-red-600"
-          title="Excluir anexo"
-          onClick={async () => {
-            if (!onDelete) return;
-            if (confirm("Excluir este anexo?")) {
-              await onDelete();
-            }
-          }}
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-3h4m-4 0a1 1 0 00-1 1v1h6V5a1 1 0 00-1-1m-4 0h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </svg>
-        </button>
+        {currentUserId && att.author_id === currentUserId && (
+          <button
+            className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-red-600"
+            title="Excluir anexo"
+            onClick={async () => {
+              if (!onDelete) return;
+              if (confirm("Excluir este anexo?")) {
+                await onDelete();
+              }
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-3h4m-4 0a1 1 0 00-1 1v1h6V5a1 1 0 00-1-1m-4 0h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-function AttachmentRow({ att, onPreview }: { att: CardAttachment; onPreview?: (payload: PreviewTarget) => void }) {
+function AttachmentRow({ att, onPreview, currentUserId }: { att: CardAttachment; onPreview?: (payload: PreviewTarget) => void; currentUserId?: string | null }) {
   return (
     <AttachmentContent
       att={{ ...att, isCardRoot: false }}
+      currentUserId={currentUserId}
       onDelete={async () => {
         if (confirm("Excluir este anexo?")) {
           try {
@@ -844,7 +848,7 @@ function AttachmentRow({ att, onPreview }: { att: CardAttachment; onPreview?: (p
   );
 }
 
-function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply, onOpenTask, onOpenAttach, profiles, onPreview }: { att: CardAttachmentWithMeta; authorName: string; authorRole?: string | null; ensureThread: (att: CardAttachmentWithMeta) => Promise<string>; onReply: (parentId: string, value: ComposerValue) => Promise<void>; onOpenTask: (parentId?: string) => void; onOpenAttach: (parentId?: string) => void; profiles: ProfileLite[]; onPreview: (payload: PreviewTarget) => void; }) {
+function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply, onOpenTask, onOpenAttach, profiles, onPreview, currentUserId }: { att: CardAttachmentWithMeta; authorName: string; authorRole?: string | null; ensureThread: (att: CardAttachmentWithMeta) => Promise<string>; onReply: (parentId: string, value: ComposerValue) => Promise<void>; onOpenTask: (parentId?: string) => void; onOpenAttach: (parentId?: string) => void; profiles: ProfileLite[]; onPreview: (payload: PreviewTarget) => void; currentUserId?: string | null }) {
   const createdAt = att.created_at ? new Date(att.created_at).toLocaleString() : "";
   const [replying, setReplying] = useState(false);
   const replyRef = useRef<UnifiedComposerHandle | null>(null);
@@ -905,23 +909,26 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
               <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <CommentMenu
-            onEdit={() => alert("Anexos do card não podem ser editados diretamente.")}
-            onDelete={async () => {
-              if (confirm('Excluir este anexo?')) {
-                try {
-                  await removeAttachment(att.id);
-                } catch (e: any) {
-                  alert(e?.message || 'Falha ao excluir anexo');
+          {currentUserId && att.author_id === currentUserId && (
+            <CommentMenu
+              onEdit={() => alert("Anexos do card não podem ser editados diretamente.")}
+              onDelete={async () => {
+                if (confirm('Excluir este anexo?')) {
+                  try {
+                    await removeAttachment(att.id);
+                  } catch (e: any) {
+                    alert(e?.message || 'Falha ao excluir anexo');
+                  }
                 }
-              }
-            }}
-          />
+              }}
+            />
+          )}
         </div>
       </div>
       <div className="mt-3">
         <AttachmentContent
           att={att}
+          currentUserId={currentUserId}
           onDelete={async () => {
             if (confirm("Excluir este anexo?")) {
               try {
