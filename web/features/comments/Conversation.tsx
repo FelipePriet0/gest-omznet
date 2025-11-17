@@ -69,11 +69,24 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
     return map;
   }, [profiles]);
 
+  // Função helper para atualizar comentários após criação
+  const refreshComments = useCallback(async () => {
+    const updatedComments = await listComments(cardId);
+    setComments(updatedComments);
+  }, [cardId]);
+
+  /**
+   * LEI 2 - CONTEÚDO: Fluxo unificado de resposta
+   * Funciona para responder Texto, Tarefa, Anexo, qualquer tipo de conteúdo
+   */
   const submitComment = async (parentId: string | null, value: ComposerValue) => {
     const text = (value.text || "").trim();
     if (!text) return;
     try {
       await addComment(cardId, text, parentId ?? undefined);
+      // Forçar refresh imediato para garantir que a árvore seja atualizada
+      // O realtime subscription também atualizará, mas isso garante resposta imediata
+      await refreshComments();
     } catch (e: any) {
       alert(e?.message || "Falha ao enviar comentário");
     }
@@ -144,17 +157,33 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
     return set;
   }, [attachments]);
 
+  // Função auxiliar para buscar todos os descendentes de um comentário (recursivamente)
+  const getAllDescendantIds = useCallback((parentId: string, allComments: Comment[]): Set<string> => {
+    const descendants = new Set<string>();
+    const findDescendants = (pid: string) => {
+      const directChildren = allComments.filter((c) => c.parent_id === pid);
+      directChildren.forEach((child) => {
+        descendants.add(child.id);
+        findDescendants(child.id); // Recursivamente buscar filhos
+      });
+    };
+    findDescendants(parentId);
+    return descendants;
+  }, []);
+
   const attachmentReplyIds = useMemo(() => {
     const ids = new Set<string>();
     attachments
       .filter((att) => att.isCardRoot && att.comment_id)
       .forEach((att) => {
-        tree
-          .filter((node: any) => node.parent_id === att.comment_id)
-          .forEach((child: any) => ids.add(child.id));
+        if (att.comment_id) {
+          // Buscar TODOS os descendentes recursivamente, não apenas filhos diretos
+          const descendants = getAllDescendantIds(att.comment_id, comments);
+          descendants.forEach((id) => ids.add(id));
+        }
       });
     return ids;
-  }, [attachments, tree]);
+  }, [attachments, comments, getAllDescendantIds]);
 
   const conversationTree = useMemo(() => {
     const clone = JSON.parse(JSON.stringify(tree));
@@ -274,8 +303,20 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                  .filter((a) => a.isCardRoot)
                  .map((att) => {
                   const threadCommentId = att.comment_id ?? null;
+                  // Buscar TODOS os descendentes do anexo (não apenas filhos diretos)
                   const attachmentReplies = threadCommentId
-                    ? buildTree(comments.filter((c) => c.parent_id === threadCommentId) as any)
+                    ? (() => {
+                        const allDescendants: Comment[] = [];
+                        const findDescendants = (parentId: string) => {
+                          const directChildren = comments.filter((c) => c.parent_id === parentId);
+                          directChildren.forEach((child) => {
+                            allDescendants.push(child);
+                            findDescendants(child.id); // Recursivamente buscar filhos
+                          });
+                        };
+                        findDescendants(threadCommentId);
+                        return buildTree(allDescendants as any);
+                      })()
                     : [];
                   // Busca nome e role via FK (profiles) - primário
                   const profile = att.author_id ? profilesById.get(att.author_id) : undefined;
@@ -303,7 +344,14 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                               key={replyNode.id}
                               node={replyNode}
                               depth={1}
-                              onReply={(id, text) => addComment(cardId, text, id)}
+                              onReply={async (id, text) => {
+                                try {
+                                  await addComment(cardId, text, id);
+                                  await refreshComments();
+                                } catch (e: any) {
+                                  alert(e?.message || "Falha ao enviar comentário");
+                                }
+                              }}
                               onEdit={editComment}
                               onDelete={deleteComment}
                               onOpenAttach={onOpenAttach}
@@ -328,12 +376,21 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
              </div>
            )}
           {!loading && comments.length === 0 && <div className="text-xs text-zinc-500">Nenhuma conversa iniciada</div>}
+          {/* LEI 2 - CONTEÚDO: Renderização unificada - Texto, Tarefa, Anexo aparecem juntos */}
+          {/* LEI 3 - ORDEM E UX: Threads pai em ordem cronológica */}
           {conversationTree.map((n) => (
             <CommentItem
               key={n.id}
               node={n}
               depth={0}
-              onReply={(id, text) => addComment(cardId, text, id)}
+              onReply={async (id, text) => {
+                try {
+                  await addComment(cardId, text, id);
+                  await refreshComments();
+                } catch (e: any) {
+                  alert(e?.message || "Falha ao enviar comentário");
+                }
+              }}
               onEdit={editComment}
               onDelete={deleteComment}
               onOpenAttach={onOpenAttach}
@@ -356,6 +413,10 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
   );
 }
 
+/**
+ * LEI 1 - HIERARQUIA: Filtra automaticamente comentários órfãos (parent_id inválido)
+ * LEI 3 - ORDEM E UX: Ordena cronologicamente e agrupa respostas no pai
+ */
 function buildTree(notes: Comment[]): any[] {
   const byId = new Map<string, any>();
   notes.forEach((n) => byId.set(n.id, { ...n, children: [] as any[] }));
@@ -363,12 +424,20 @@ function buildTree(notes: Comment[]): any[] {
   notes.forEach((n) => {
     const node = byId.get(n.id)!;
     if ((n as any).deleted_at) return;
-    if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node);
-    else roots.push(node);
+    // LEI 1: Só adiciona como filho se parent_id existe e é válido
+    if (n.parent_id && byId.has(n.parent_id)) {
+      // LEI 3: Respostas grudadas no pai
+      byId.get(n.parent_id).children.push(node);
+    } else {
+      // LEI 1: Sem parent_id válido = thread pai
+      roots.push(node);
+    }
   });
+  // LEI 3: Ordenação cronológica (mais antigo primeiro)
   const sortFn = (a: any, b: any) => new Date(a.created_at || "").getTime() - new Date(b.created_at || "").getTime();
   const sortTree = (arr: any[]) => {
     arr.sort(sortFn);
+    // LEI 3: Ordena recursivamente todos os níveis (sub-respostas grudadas na resposta)
     arr.forEach((x) => sortTree(x.children));
   };
   sortTree(roots);

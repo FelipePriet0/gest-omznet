@@ -187,6 +187,28 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
     if (!trimmedDesc) return;
     setSaving(true);
     try {
+      // LEI 1 - HIERARQUIA: Validar comment_id antes de criar tarefa (prevenir órfãos)
+      if (commentId) {
+        try {
+          const { data, error } = await supabase
+            .from(TABLE_CARD_COMMENTS)
+            .select("id, card_id, deleted_at")
+            .eq("id", commentId)
+            .eq("card_id", cardId)
+            .is("deleted_at", null)
+            .single();
+          
+          if (error || !data) {
+            throw new Error("Comentário não encontrado ou foi deletado. Não é possível criar tarefa órfã.");
+          }
+        } catch (err: any) {
+          if (err.message.includes("Comentário não encontrado")) {
+            throw err;
+          }
+          // Se for outro erro, continua (pode ser que commentId seja null/undefined)
+        }
+      }
+
       const deadlineIso = resolveDeadlineISO();
       const creatorName = (me?.full_name || "").trim() || "Um colaborador";
       const commentText = `${creatorName} criou uma tarefa para você.`;

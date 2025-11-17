@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
-import { STORAGE_BUCKET_CARD_ATTACHMENTS, TABLE_CARD_ATTACHMENTS } from "@/lib/constants";
+import { STORAGE_BUCKET_CARD_ATTACHMENTS, TABLE_CARD_ATTACHMENTS, TABLE_CARD_COMMENTS } from "@/lib/constants";
 
 export const ATTACHMENT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -37,6 +37,25 @@ function slugify(value: string) {
     .toLowerCase();
 }
 
+/**
+ * LEI 1 - HIERARQUIA: Valida se comment_id existe e é válido
+ */
+async function validateCommentId(cardId: string, commentId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from(TABLE_CARD_COMMENTS)
+      .select("id, card_id, deleted_at")
+      .eq("id", commentId)
+      .eq("card_id", cardId)
+      .is("deleted_at", null)
+      .single();
+    
+    return !error && !!data;
+  } catch {
+    return false;
+  }
+}
+
 export async function uploadAttachmentBatch({
   cardId,
   commentId,
@@ -48,6 +67,14 @@ export async function uploadAttachmentBatch({
 }): Promise<Array<{ name: string; path: string }>> {
   if (!cardId) throw new Error("cardId é obrigatório para anexar arquivos.");
   if (!files || files.length === 0) return [];
+
+  // LEI 1 - HIERARQUIA: Validar comment_id antes de criar anexo (prevenir órfãos)
+  if (commentId) {
+    const isValid = await validateCommentId(cardId, commentId);
+    if (!isValid) {
+      throw new Error("Comentário não encontrado ou foi deletado. Não é possível criar anexo órfão.");
+    }
+  }
 
   const uploaded: Array<{ name: string; path: string }> = [];
 

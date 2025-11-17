@@ -18,13 +18,17 @@ export type Comment = {
   deleted_at?: string | null;
 };
 
+/**
+ * LEI 2 - CONTEÚDO: Lista todos os comentários (texto, tarefa, anexo, menção)
+ * LEI 3 - ORDEM E UX: Ordena por created_at ASC (cronológico)
+ */
 export async function listComments(cardId: string): Promise<Comment[]> {
   const { data, error } = await supabase
     .from(TABLE_CARD_COMMENTS)
     .select("id, card_id, content, author_id, author_name, author_role, created_at, updated_at, parent_id, thread_id, level, deleted_at")
     .eq("card_id", cardId)
     .is("deleted_at", null)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }); // LEI 3: Ordem cronológica
   if (error) return [];
   const arr = (data as any) ?? [];
   return arr.map((r: any) => ({
@@ -43,7 +47,34 @@ export async function listComments(cardId: string): Promise<Comment[]> {
   } as Comment));
 }
 
+/**
+ * LEI 1 - HIERARQUIA: Valida se parent_id existe e é válido
+ */
+async function validateParentId(cardId: string, parentId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from(TABLE_CARD_COMMENTS)
+      .select("id, card_id, deleted_at")
+      .eq("id", parentId)
+      .eq("card_id", cardId)
+      .is("deleted_at", null)
+      .single();
+    
+    return !error && !!data;
+  } catch {
+    return false;
+  }
+}
+
 export async function addComment(cardId: string, text: string, parentId?: string | null) {
+  // LEI 1 - HIERARQUIA: Validar parent_id antes de criar (prevenir órfãos)
+  if (parentId) {
+    const isValid = await validateParentId(cardId, parentId);
+    if (!isValid) {
+      throw new Error("Comentário pai não encontrado ou foi deletado. Não é possível criar resposta órfã.");
+    }
+  }
+  
   const payload: any = { card_id: cardId, content: text };
   if (parentId) payload.parent_id = parentId;
   try {
