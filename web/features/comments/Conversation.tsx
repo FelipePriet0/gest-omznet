@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { addComment, deleteComment, editComment, listComments, listProfiles, type Comment, type ProfileLite } from "./services";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import { TaskCard } from "@/features/tasks/TaskCard";
-import { listAttachments, removeAttachment, publicUrl, type CardAttachment } from "@/features/attachments/services";
+import { listAttachments, removeAttachment, getAttachmentUrl, type CardAttachment } from "@/features/attachments/services";
 import { TABLE_CARD_ATTACHMENTS } from "@/lib/constants";
 import { UnifiedComposer, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { renderTextWithChips } from "@/utils/richText";
@@ -277,11 +277,11 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                   const attachmentReplies = threadCommentId
                     ? buildTree(comments.filter((c) => c.parent_id === threadCommentId) as any)
                     : [];
+                  // Busca nome e role via FK (profiles) - primário
                   const profile = att.author_id ? profilesById.get(att.author_id) : undefined;
-                  const authorName = att.author_name
-                    ?? profile?.full_name
+                  const authorName = profile?.full_name 
                     ?? (att.author_id && att.author_id === currentUserId ? currentUserName : "Colaborador");
-                  const authorRole = att.author_role ?? profile?.role ?? null;
+                  const authorRole = profile?.role ?? null;
                   return (
                     <div key={att.id} className="space-y-2">
                       <AttachmentMessage
@@ -777,7 +777,7 @@ function AttachmentContent({ att, onDelete, onPreview }: { att: CardAttachmentWi
           title="Visualizar"
           onClick={async () => {
             try {
-              const link = await publicUrl(att.file_path);
+              const link = await getAttachmentUrl(att.id, 'preview');
               if (!link) { alert('Não foi possível gerar o link do anexo.'); return; }
               setUrl(link);
               onPreview?.({ url: link, mime: att.file_type ?? undefined, name: att.file_name, extension: att.file_extension ?? undefined });
@@ -796,7 +796,7 @@ function AttachmentContent({ att, onDelete, onPreview }: { att: CardAttachmentWi
           title="Abrir anexo"
           onClick={async () => {
             try {
-              const link = await publicUrl(att.file_path);
+              const link = await getAttachmentUrl(att.id, 'download');
               if (!link) { alert('Não foi possível abrir o anexo.'); return; }
               setUrl(link);
               window.open(link, '_blank');

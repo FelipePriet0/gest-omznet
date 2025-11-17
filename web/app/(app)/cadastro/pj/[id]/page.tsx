@@ -8,7 +8,7 @@ import { SimpleSelect } from "@/components/ui/select";
 import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
-import { publicUrl } from "@/features/attachments/services";
+import { getAttachmentUrl, publicUrl } from "@/features/attachments/services";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import {
   ATTACHMENT_ALLOWED_TYPES,
@@ -1485,19 +1485,26 @@ function AttachmentChip({ attachment }: { attachment: any }) {
   const [url, setUrl] = useState<string | null>(() => attachment?.public_url || attachment?.url || null);
   useEffect(() => {
     if (attachment?.public_url || attachment?.url) return;
-    const path = attachment?.file_path || attachment?.path;
-    if (!path) { setUrl(null); return; }
     let active = true;
     (async () => {
       try {
-        const resolved = await publicUrl(path);
-        if (active) setUrl(resolved);
+        // Se tem ID, usa getAttachmentUrl (seguro, com RLS)
+        if (attachment?.id) {
+          const resolved = await getAttachmentUrl(attachment.id, 'download');
+          if (active) setUrl(resolved);
+        } else {
+          // Fallback: se não tem ID, usa publicUrl (compatibilidade)
+          const path = attachment?.file_path || attachment?.path;
+          if (!path) { setUrl(null); return; }
+          const resolved = await publicUrl(path);
+          if (active) setUrl(resolved);
+        }
       } catch {
         if (active) setUrl(null);
       }
     })();
     return () => { active = false; };
-  }, [attachment?.file_path, attachment?.path, attachment?.public_url, attachment?.url]);
+  }, [attachment?.id, attachment?.file_path, attachment?.path, attachment?.public_url, attachment?.url]);
 
   const name = attachment?.file_name || attachment?.name || 'Anexo';
   const created = attachment?.created_at ? new Date(attachment.created_at).toLocaleString() : null;

@@ -41,12 +41,10 @@ export async function uploadAttachmentBatch({
   cardId,
   commentId,
   files,
-  description,
 }: {
   cardId: string;
   commentId?: string | null;
   files: Array<{ file: File; displayName?: string }>;
-  description?: string | null;
 }): Promise<Array<{ name: string; path: string }>> {
   if (!cardId) throw new Error("cardId é obrigatório para anexar arquivos.");
   if (!files || files.length === 0) return [];
@@ -77,7 +75,6 @@ export async function uploadAttachmentBatch({
         card_id: cardId,
         comment_id: commentId ?? null,
         file_name: displayName || file.name,
-        description: description ?? null,
         file_path: path,
         file_size: file.size,
         file_type: file.type || null,
