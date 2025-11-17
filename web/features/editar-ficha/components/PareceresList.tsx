@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, User as UserIcon } from "lucide-react";
 import clsx from "clsx";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { TaskCard } from "@/features/tasks/TaskCard";
@@ -127,6 +127,7 @@ function NoteItem({
   const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
   const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
   const editRef = useRef<HTMLDivElement | null>(null);
+  const replyRef = useRef<HTMLDivElement | null>(null);
   const [isReplying, setIsReplying] = useState(false);
   const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -163,17 +164,59 @@ function NoteItem({
     setEditCmdOpen(false);
   }, [canEdit]);
 
+  // Fechar campo de edição ao clicar fora
+  useEffect(() => {
+    if (!isEditing) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node | null;
+      if (editRef.current && target && !editRef.current.contains(target)) {
+        setIsEditing(false);
+        setEditCmdOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isEditing]);
+
+  // Fechar campo de resposta ao clicar fora
+  useEffect(() => {
+    if (!isReplying) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node | null;
+      if (replyRef.current && target && !replyRef.current.contains(target)) {
+        setIsReplying(false);
+        setCmdOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isReplying]);
+
   return (
-    <div className={clsx("rounded-lg border border-zinc-200 bg-white p-3", isRoot ? "" : "ml-6")}>      
+    <div 
+      className={clsx("rounded-lg border border-zinc-200 bg-white p-3", isRoot ? "" : "pl-3")}
+      style={{ 
+        marginLeft: isRoot ? 0 : depth * 16, 
+        borderLeftColor: 'var(--verde-primario)', 
+        borderLeftWidth: '8px' 
+      }}
+    >      
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-zinc-100 flex items-center justify-center">
-            <span className="text-xs">{(node.author_name || "?").slice(0, 2)}</span>
-          </div>
-          <div className="leading-tight">
-            <div className="text-sm font-medium text-zinc-900">{node.author_name || "—"}</div>
+          {!isRoot ? (
+            <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+          ) : (
+            <div className="h-8 w-8 rounded-full bg-zinc-100 flex items-center justify-center">
+              <span className="text-xs">{(node.author_name || "?").slice(0, 2)}</span>
+            </div>
+          )}
+          <div className="leading-tight min-w-0">
+            <div className="text-sm font-medium text-zinc-900 truncate">{node.author_name || "—"}</div>
             <div className="text-[11px] text-zinc-500">{new Date(node.created_at || "").toLocaleString()}</div>
+            {node.author_role && (
+              <div className="text-[11px] text-zinc-500 truncate">{node.author_role}</div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -339,7 +382,7 @@ function NoteItem({
 
       {/* Reply */}
       {canReply && isReplying && (
-        <div className="mt-2">
+        <div className="mt-2" ref={replyRef}>
           <div className="relative">
             <UnifiedComposer
               ref={replyComposerRef}
