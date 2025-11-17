@@ -54,7 +54,6 @@ export function EditarFichaModal({
   const [horaAt, setHoraAt] = useState<string>("");
   const [horaArr, setHoraArr] = useState<string[]>([]);
   const [createdAt, setCreatedAt] = useState<string>("");
-  const [pareceres, setPareceres] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
 
   const emitCardUpdate = useCallback(
@@ -176,7 +175,12 @@ export function EditarFichaModal({
       if (context?.source === "parecer" && uploaded.length > 0) {
         const names = uploaded.map((f) => f.name).join(", ");
         try {
-          await addParecer({ cardId, text: `📎 Anexo(s): ${names}`, parentId: null, decision: null });
+          const { error } = await addParecer({ cardId, text: `📎 Anexo(s): ${names}`, parentId: null, decision: null });
+          if (error) {
+            console.error("Falha ao registrar parecer para anexos", error);
+            return;
+          }
+          await refreshCardSnapshot();
         } catch (err) {
           console.error("Falha ao registrar parecer para anexos", err);
         }
@@ -308,7 +312,6 @@ export function EditarFichaModal({
           const v = c?.hora_at ? String(c.hora_at).slice(0, 5) : "";
           applyCardSnapshot({ horaAt: v, horaArr: v ? [v] : [] });
         }
-        setPareceres(Array.isArray((c as any)?.reanalysis_notes) ? ((c as any).reanalysis_notes as any) : []);
         setCreatedBy((c as any)?.created_by || "");
         setAssigneeId((c as any)?.assignee_id || "");
         // Perf: perfis podem vir do hook; mantemos se já existir
@@ -647,7 +650,14 @@ export function EditarFichaModal({
                       requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
                       setCmdOpenParecer(false);
                       try {
-                        await addParecer({ cardId, text: payloadText, parentId: null, decision: val.decision ?? null });
+                        const { error } = await addParecer({ cardId, text: payloadText, parentId: null, decision: val.decision ?? null });
+                        if (error) {
+                          setNovoParecer(val);
+                          requestAnimationFrame(() => composerRef.current?.setValue(val));
+                          alert(error.message || 'Falha ao adicionar parecer');
+                          return;
+                        }
+                        await refreshCardSnapshot();
                         if (val.decision === 'aprovado' || val.decision === 'negado') {
                           await syncDecisionStatus(val.decision);
                         } else if (val.decision === 'reanalise') {
@@ -696,7 +706,7 @@ export function EditarFichaModal({
                 </div>
                 <PareceresList
                   cardId={cardId}
-                  notes={pareceres as any}
+                  notes={data.pareceres as any}
                   profiles={profiles}
                   tasks={tasks}
                   applicantName={app?.primary_name ?? null}
@@ -707,7 +717,12 @@ export function EditarFichaModal({
                     const hasDecision = !!value.decision;
                     if (!hasDecision && !text) return;
                     const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
-                    await addParecer({ cardId, text: payloadText, parentId: pid, decision: value.decision ?? null });
+                    const { error } = await addParecer({ cardId, text: payloadText, parentId: pid, decision: value.decision ?? null });
+                    if (error) {
+                      alert(error.message || "Falha ao adicionar parecer");
+                      return;
+                    }
+                    await refreshCardSnapshot();
                     if (value.decision === 'aprovado' || value.decision === 'negado') {
                       await syncDecisionStatus(value.decision);
                     } else if (value.decision === 'reanalise') {
@@ -719,20 +734,27 @@ export function EditarFichaModal({
                     const hasDecision = !!value.decision;
                     if (!hasDecision && !text) return;
                     const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
-                    await editParecer({ cardId, noteId: id, text: payloadText, decision: value.decision ?? null });
+                    const { error } = await editParecer({ cardId, noteId: id, text: payloadText, decision: value.decision ?? null });
+                    if (error) {
+                      alert(error.message || "Falha ao editar parecer");
+                      throw error; // Re-throw para o wrapper otimista reverter
+                    }
+                    // Atualizar em background (UI já está atualizada otimisticamente)
+                    refreshCardSnapshot().catch(() => {}); // Não bloquear se falhar
                     if (value.decision === 'aprovado' || value.decision === 'negado') {
-                      await syncDecisionStatus(value.decision);
+                      syncDecisionStatus(value.decision).catch(() => {}); // Não bloquear se falhar
                     } else if (value.decision === 'reanalise') {
-                      await syncDecisionStatus('reanalise');
+                      syncDecisionStatus('reanalise').catch(() => {}); // Não bloquear se falhar
                     }
                   }}
                   onDelete={async (id) => {
-                    try {
-                      await deleteParecer({ cardId, noteId: id });
-                      await refreshCardSnapshot();
-                    } catch (err: any) {
-                      alert(err?.message || "Falha ao excluir parecer");
+                    const { error } = await deleteParecer({ cardId, noteId: id });
+                    if (error) {
+                      alert(error.message || "Falha ao excluir parecer");
+                      throw error; // Re-throw para o wrapper otimista reverter
                     }
+                    // Atualizar em background (UI já está atualizada otimisticamente)
+                    refreshCardSnapshot().catch(() => {}); // Não bloquear se falhar
                   }}
                   onDecisionChange={syncDecisionStatus}
                   onOpenTask={(ctx) => setTaskOpen({ open: true, parentId: ctx.parentId ?? null, taskId: ctx.taskId ?? null, source: ctx.source ?? 'parecer' })}

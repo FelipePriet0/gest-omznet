@@ -14,6 +14,9 @@ import { DecisionTag, decisionPlaceholder } from "../utils/decision";
 type Note = { id: string; text: string; author_id?: string | null; author_name?: string; author_role?: string | null; created_at?: string; parent_id?: string | null; level?: number; deleted?: boolean; decision?: ComposerDecision | string | null };
 
 function buildTree(notes: Note[]): Note[] {
+  // Filtrar pareceres deletados (soft delete do backend)
+  const activeNotes = notes.filter((n) => !n.deleted);
+  
   const byId = new Map<string, any>();
   const normalizeText = (note: any) => {
     if (!note) return "";
@@ -21,9 +24,9 @@ function buildTree(notes: Note[]): Note[] {
     const placeholder = decisionPlaceholder(note.decision as any);
     return note.text === placeholder ? "" : (note.text || "");
   };
-  notes.forEach((n) => byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] }));
+  activeNotes.forEach((n) => byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] }));
   const roots: any[] = [];
-  notes.forEach((n) => {
+  activeNotes.forEach((n) => {
     const node = byId.get(n.id)!;
     if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node);
     else roots.push(node);
@@ -66,10 +69,77 @@ export function PareceresList({
   currentUserId?: string | null;
   canWrite?: boolean;
 }) {
-  const tree = useMemo(() => buildTree(notes || []), [notes]);
+  // Estado otimista: pareceres deletados localmente (antes da confirmação do backend)
+  const [optimisticallyDeleted, setOptimisticallyDeleted] = useState<Set<string>>(new Set());
+  const [optimisticallyEdited, setOptimisticallyEdited] = useState<Map<string, Partial<Note>>>(new Map());
+  
+  // Filtrar pareceres deletados (backend + otimista) e aplicar edições otimistas
+  const filteredNotes = useMemo(() => {
+    return (notes || []).filter((n) => !n.deleted && !optimisticallyDeleted.has(n.id)).map((n) => {
+      const edit = optimisticallyEdited.get(n.id);
+      return edit ? { ...n, ...edit } : n;
+    });
+  }, [notes, optimisticallyDeleted, optimisticallyEdited]);
+  
+  const tree = useMemo(() => buildTree(filteredNotes), [filteredNotes]);
+  
+  // Resetar estado otimista quando os dados do hook mudarem (sincronização)
+  useEffect(() => {
+    setOptimisticallyDeleted(new Set());
+    setOptimisticallyEdited(new Map());
+  }, [notes]);
+  
+  // Wrapper otimista para onDelete
+  const handleDeleteOptimistic = async (id: string) => {
+    // 1. OTIMISTA: Remove imediatamente da UI
+    setOptimisticallyDeleted((prev) => new Set(prev).add(id));
+    
+    try {
+      // 2. Enviar requisição em background
+      await onDelete(id);
+      // 3. SUCESSO: O refreshCardSnapshot vai atualizar e limpar o estado otimista
+    } catch (err: any) {
+      // 4. REVERTER se falhar
+      setOptimisticallyDeleted((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      throw err; // Re-throw para o componente pai tratar o erro
+    }
+  };
+  
+  // Wrapper otimista para onEdit
+  const handleEditOptimistic = async (id: string, value: ComposerValue) => {
+    // 1. OTIMISTA: Atualiza imediatamente na UI
+    const text = (value.text || '').trim();
+    const hasDecision = !!value.decision;
+    const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
+    
+    setOptimisticallyEdited((prev) => {
+      const next = new Map(prev);
+      next.set(id, { text: payloadText, decision: value.decision ?? null });
+      return next;
+    });
+    
+    try {
+      // 2. Enviar requisição em background
+      await onEdit(id, value);
+      // 3. SUCESSO: O refreshCardSnapshot vai atualizar e limpar o estado otimista
+    } catch (err: any) {
+      // 4. REVERTER se falhar
+      setOptimisticallyEdited((prev) => {
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+      throw err; // Re-throw para o componente pai tratar o erro
+    }
+  };
+  
   return (
     <div className="space-y-2">
-      {(!notes || notes.length === 0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
+      {(!filteredNotes || filteredNotes.length === 0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
       {tree.map((n) => (
         <NoteItem
           key={n.id}
@@ -79,8 +149,8 @@ export function PareceresList({
           profiles={profiles}
           tasks={tasks}
           onReply={onReply}
-          onEdit={onEdit}
-          onDelete={onDelete}
+          onEdit={handleEditOptimistic}
+          onDelete={handleDeleteOptimistic}
           onDecisionChange={onDecisionChange}
           onOpenTask={onOpenTask}
           onToggleTask={onToggleTask}
