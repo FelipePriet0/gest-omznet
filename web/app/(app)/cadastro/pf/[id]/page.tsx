@@ -1825,20 +1825,20 @@ function AttachmentChip({ attachment }: { attachment: any }) {
   const name = attachment?.file_name || attachment?.name || 'Anexo';
   const created = attachment?.created_at ? new Date(attachment.created_at).toLocaleString() : null;
   return (
-    <div className="flex items-center justify-between rounded border border-zinc-200 bg-white px-3 py-2 text-sm">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">📎</span>
-        <div>
+    <div className="flex items-center justify-between gap-3 rounded border border-zinc-200 bg-white px-3 py-2 text-sm">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span className="text-lg shrink-0">📎</span>
+        <div className="min-w-0 flex-1">
           <div className="font-medium text-zinc-800 break-words">{name}</div>
           {created && <div className="text-[11px] text-zinc-500">{created}</div>}
         </div>
       </div>
       {url ? (
-        <a href={url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:text-emerald-700">
+        <a href={url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:text-emerald-700 shrink-0">
           Abrir ↗
         </a>
       ) : (
-        <span className="text-xs text-zinc-400">Sem link</span>
+        <span className="text-xs text-zinc-400 shrink-0">Sem link</span>
       )}
     </div>
   );

@@ -766,15 +766,17 @@ function AttachmentContent({ att, onDelete, onPreview, currentUserId }: { att: C
   // Não gera URL automaticamente para evitar chamadas 400; gera on-demand
   const ts = att.created_at ? new Date(att.created_at).toLocaleString() : "";
   return (
-    <div className="flex items-center justify-between rounded-[8px] border border-zinc-200 bg-white px-3 py-2 text-sm">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{iconFor(att.file_type || "")}</span>
-        <div>
-          <div className="font-medium">{att.file_name}</div>
+    <div className="flex items-center justify-between gap-3 rounded-[8px] border border-zinc-200 bg-white px-3 py-2 text-sm">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span className="text-lg shrink-0">{iconFor(att.file_type || "")}</span>
+        <div className="min-w-0 flex-1">
+          <div className="font-medium break-words">{att.file_name}</div>
           <div className="text-[11px] text-zinc-500">{ts}</div>
         </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
         <button
-          className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-900"
+          className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-900 shrink-0"
           title="Visualizar"
           onClick={async () => {
             try {
@@ -785,15 +787,13 @@ function AttachmentContent({ att, onDelete, onPreview, currentUserId }: { att: C
             } catch { alert('Não foi possível gerar o link do anexo.'); }
           }}
         >
-            <svg viewBox="0 0 24 24" width="16" height="16">
-              <path d="M1.5 12s3.5-6 10.5-6 10.5 6 10.5 6-3.5 6-10.5 6S1.5 12 1.5 12z" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.4" fill="none"/>
-            </svg>
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M1.5 12s3.5-6 10.5-6 10.5 6 10.5 6-3.5 6-10.5 6S1.5 12 1.5 12z" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.4" fill="none"/>
+          </svg>
         </button>
-      </div>
-      <div className="relative flex items-center gap-2">
         <button
-          className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-800"
+          className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-800 shrink-0"
           title="Abrir anexo"
           onClick={async () => {
             try {
@@ -810,7 +810,7 @@ function AttachmentContent({ att, onDelete, onPreview, currentUserId }: { att: C
         </button>
         {currentUserId && att.author_id === currentUserId && (
           <button
-            className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-red-600"
+            className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-red-600 shrink-0"
             title="Excluir anexo"
             onClick={async () => {
               if (!onDelete) return;
