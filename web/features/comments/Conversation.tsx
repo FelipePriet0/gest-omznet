@@ -75,6 +75,92 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
     setComments(updatedComments);
   }, [cardId]);
 
+  // Função para atualizar tudo (comentários, tarefas, anexos) - usado após operações críticas
+  const refreshAll = useCallback(async () => {
+    const [updatedComments, updatedTasks, updatedAttachments] = await Promise.all([
+      listComments(cardId),
+      listTasks(cardId),
+      listAttachments(cardId)
+    ]);
+    
+    setComments(updatedComments);
+    setTasks(updatedTasks);
+    
+    // Atualizar attachments com isCardRoot
+    updatedAttachments.forEach((att) => {
+      if (!att.comment_id && !cardAttachmentIdsRef.current.has(att.id)) {
+        cardAttachmentIdsRef.current.add(att.id);
+      }
+    });
+    setAttachments(
+      updatedAttachments.map((att) => ({
+        ...att,
+        isCardRoot: cardAttachmentIdsRef.current.has(att.id) || !att.comment_id,
+      }))
+    );
+  }, [cardId]);
+
+  // Wrappers que garantem atualização imediata da UI (não esperar realtime)
+  const editCommentWithRefresh = useCallback(async (id: string, text: string) => {
+    try {
+      await editComment(id, text);
+      // Atualização imediata - UX fluida
+      await refreshComments();
+    } catch (e: any) {
+      alert(e?.message || "Falha ao editar comentário");
+      throw e;
+    }
+  }, [refreshComments]);
+
+  const deleteCommentWithRefresh = useCallback(async (id: string) => {
+    try {
+      await deleteComment(id);
+      // Atualização imediata - UX fluida
+      await refreshComments();
+    } catch (e: any) {
+      alert(e?.message || "Falha ao excluir comentário");
+      throw e;
+    }
+  }, [refreshComments]);
+
+  // Wrapper para remover anexo com refresh imediato
+  const removeAttachmentWithRefresh = useCallback(async (id: string) => {
+    try {
+      await removeAttachment(id);
+      // Atualização imediata - UX fluida
+      const updatedAttachments = await listAttachments(cardId);
+      updatedAttachments.forEach((att) => {
+        if (!att.comment_id && !cardAttachmentIdsRef.current.has(att.id)) {
+          cardAttachmentIdsRef.current.add(att.id);
+        }
+      });
+      setAttachments(
+        updatedAttachments.map((att) => ({
+          ...att,
+          isCardRoot: cardAttachmentIdsRef.current.has(att.id) || !att.comment_id,
+        }))
+      );
+      // Também atualizar comentários caso o anexo tenha comment_id
+      await refreshComments();
+    } catch (e: any) {
+      alert(e?.message || "Falha ao excluir anexo");
+      throw e;
+    }
+  }, [cardId, refreshComments]);
+
+  // Wrapper para toggle task com refresh imediato
+  const toggleTaskWithRefresh = useCallback(async (id: string, done: boolean) => {
+    try {
+      await toggleTask(id, done);
+      // Atualização imediata - UX fluida
+      const updatedTasks = await listTasks(cardId);
+      setTasks(updatedTasks);
+    } catch (e: any) {
+      alert(e?.message || "Falha ao atualizar tarefa");
+      throw e;
+    }
+  }, [cardId]);
+
   /**
    * LEI 2 - CONTEÚDO: Fluxo unificado de resposta
    * Funciona para responder Texto, Tarefa, Anexo, qualquer tipo de conteúdo
@@ -233,6 +319,8 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
     try {
       await addComment(cardId, text, parentId);
       setInput("");
+      // Atualização imediata - UX fluida (não esperar realtime)
+      await refreshComments();
     } catch (e: any) {
       alert(e?.message || "Falha ao enviar comentário");
     }
@@ -336,6 +424,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                         profiles={profiles}
                         onPreview={(payload) => setPreview(payload)}
                         currentUserId={currentUserId}
+                        onDelete={removeAttachmentWithRefresh}
                       />
                       {attachmentReplies.length > 0 && (
                         <div className="ml-6 space-y-2 mt-2">
@@ -352,13 +441,13 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                                   alert(e?.message || "Falha ao enviar comentário");
                                 }
                               }}
-                              onEdit={editComment}
-                              onDelete={deleteComment}
+                              onEdit={editCommentWithRefresh}
+                              onDelete={deleteCommentWithRefresh}
                               onOpenAttach={onOpenAttach}
                               onOpenTask={onOpenTask}
                               tasks={tasks.filter((t) => t.comment_id === replyNode.id)}
                               attachments={attachments.filter((a) => a.comment_id === replyNode.id)}
-                              onToggleTask={toggleTask}
+                              onToggleTask={toggleTaskWithRefresh}
                               profiles={profiles}
                               currentUserName={currentUserName}
                               currentUserId={currentUserId}
@@ -367,6 +456,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                               onPreview={(payload) => setPreview(payload)}
                               applicantName={applicantName}
                               comments={comments}
+                              onDeleteAttachment={removeAttachmentWithRefresh}
                             />
                           ))}
                         </div>
@@ -392,13 +482,13 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                   alert(e?.message || "Falha ao enviar comentário");
                 }
               }}
-              onEdit={editComment}
-              onDelete={deleteComment}
+              onEdit={editCommentWithRefresh}
+              onDelete={deleteCommentWithRefresh}
               onOpenAttach={onOpenAttach}
               onOpenTask={onOpenTask}
               tasks={tasks.filter((t) => t.comment_id === n.id)}
               attachments={attachments.filter((a) => a.comment_id === n.id)}
-              onToggleTask={toggleTask}
+              onToggleTask={toggleTaskWithRefresh}
               profiles={profiles}
               currentUserName={currentUserName}
               currentUserId={currentUserId}
@@ -407,6 +497,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
               onPreview={(payload) => setPreview(payload)}
               applicantName={applicantName}
               comments={comments}
+              onDeleteAttachment={removeAttachmentWithRefresh}
             />
           ))}
         </div>
@@ -528,7 +619,7 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
 const openReplyMap = new Map<string, boolean>();
 const AUTO_TASK_COMMENT_RE = /^📋\s*Tarefa criada\s*:\s*/i;
 
-function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, currentUserId, onEditTask, onSubmitComment, onPreview, applicantName, comments }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; currentUserId?: string | null; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; applicantName?: string | null; comments: Comment[]; }) {
+function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, currentUserId, onEditTask, onSubmitComment, onPreview, applicantName, comments, onDeleteAttachment }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; currentUserId?: string | null; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; applicantName?: string | null; comments: Comment[]; onDeleteAttachment?: (id: string) => Promise<void>; }) {
   const [isEditing, setIsEditing] = useState(false);
   const [replyOpen, setReplyOpen] = useState(openReplyMap.get(node.id) ?? false);
   const editRef = useRef<HTMLDivElement | null>(null);
@@ -715,6 +806,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
                 authorRole={authorRole}
                 onPreview={onPreview}
                 currentUserId={currentUserId}
+                onDelete={onDeleteAttachment}
                 depth={depth}
               />
             );
@@ -803,6 +895,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               onPreview={onPreview}
               applicantName={applicantName}
               comments={comments}
+              onDeleteAttachment={onDeleteAttachment}
             />
           ))}
         </div>
@@ -871,6 +964,7 @@ function AttachmentResponseRow({
   authorRole,
   onPreview, 
   currentUserId,
+  onDelete,
   depth = 0
 }: { 
   att: CardAttachment; 
@@ -878,6 +972,7 @@ function AttachmentResponseRow({
   authorRole?: string | null;
   onPreview?: (payload: PreviewTarget) => void; 
   currentUserId?: string | null;
+  onDelete?: (id: string) => Promise<void>;
   depth?: number;
 }) {
   const ts = att.created_at ? new Date(att.created_at).toLocaleString() : "";
@@ -907,15 +1002,13 @@ function AttachmentResponseRow({
         <AttachmentContent
           att={{ ...att, isCardRoot: false }}
           currentUserId={currentUserId}
-          onDelete={async () => {
-            if (confirm("Excluir este anexo?")) {
-              try {
-                await removeAttachment(att.id);
-              } catch (e: any) {
-                alert(e?.message || "Falha ao excluir anexo");
-              }
+          onDelete={onDelete ? async () => {
+            try {
+              await onDelete(att.id);
+            } catch (e: any) {
+              alert(e?.message || "Falha ao excluir anexo");
             }
-          }}
+          } : undefined}
           onPreview={onPreview}
         />
       </div>
@@ -1062,7 +1155,7 @@ function AttachmentRow({ att, onPreview, currentUserId }: { att: CardAttachment;
   );
 }
 
-function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply, onOpenTask, onOpenAttach, profiles, onPreview, currentUserId }: { att: CardAttachmentWithMeta; authorName: string; authorRole?: string | null; ensureThread: (att: CardAttachmentWithMeta) => Promise<string>; onReply: (parentId: string, value: ComposerValue) => Promise<void>; onOpenTask: (parentId?: string) => void; onOpenAttach: (parentId?: string) => void; profiles: ProfileLite[]; onPreview: (payload: PreviewTarget) => void; currentUserId?: string | null }) {
+function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply, onOpenTask, onOpenAttach, profiles, onPreview, currentUserId, onDelete }: { att: CardAttachmentWithMeta; authorName: string; authorRole?: string | null; ensureThread: (att: CardAttachmentWithMeta) => Promise<string>; onReply: (parentId: string, value: ComposerValue) => Promise<void>; onOpenTask: (parentId?: string) => void; onOpenAttach: (parentId?: string) => void; profiles: ProfileLite[]; onPreview: (payload: PreviewTarget) => void; currentUserId?: string | null; onDelete?: (id: string) => Promise<void> }) {
   const createdAt = att.created_at ? new Date(att.created_at).toLocaleString() : "";
   const [replying, setReplying] = useState(false);
   const replyRef = useRef<UnifiedComposerHandle | null>(null);
@@ -1126,15 +1219,13 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
           {currentUserId && att.author_id === currentUserId && (
             <CommentMenu
               onEdit={() => alert("Anexos do card não podem ser editados diretamente.")}
-              onDelete={async () => {
-                if (confirm('Excluir este anexo?')) {
-                  try {
-                    await removeAttachment(att.id);
-                  } catch (e: any) {
-                    alert(e?.message || 'Falha ao excluir anexo');
-                  }
+              onDelete={onDelete ? async () => {
+                try {
+                  await onDelete(att.id);
+                } catch (e: any) {
+                  alert(e?.message || 'Falha ao excluir anexo');
                 }
-              }}
+              } : async () => {}}
             />
           )}
         </div>
@@ -1143,15 +1234,13 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
         <AttachmentContent
           att={att}
           currentUserId={currentUserId}
-          onDelete={async () => {
-            if (confirm("Excluir este anexo?")) {
-              try {
-                await removeAttachment(att.id);
-              } catch (e: any) {
-                alert(e?.message || "Falha ao excluir anexo");
-              }
+          onDelete={onDelete ? async () => {
+            try {
+              await onDelete(att.id);
+            } catch (e: any) {
+              alert(e?.message || "Falha ao excluir anexo");
             }
-          }}
+          } : undefined}
           onPreview={onPreview}
         />
       </div>
