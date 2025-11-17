@@ -366,6 +366,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                               onSubmitComment={submitComment}
                               onPreview={(payload) => setPreview(payload)}
                               applicantName={applicantName}
+                              comments={comments}
                             />
                           ))}
                         </div>
@@ -405,6 +406,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
               onSubmitComment={submitComment}
               onPreview={(payload) => setPreview(payload)}
               applicantName={applicantName}
+              comments={comments}
             />
           ))}
         </div>
@@ -524,7 +526,7 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
 const openReplyMap = new Map<string, boolean>();
 const AUTO_TASK_COMMENT_RE = /^📋\s*Tarefa criada\s*:\s*/i;
 
-function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, currentUserId, onEditTask, onSubmitComment, onPreview, applicantName }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; currentUserId?: string | null; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; applicantName?: string | null; }) {
+function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, currentUserId, onEditTask, onSubmitComment, onPreview, applicantName, comments }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; currentUserId?: string | null; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; applicantName?: string | null; comments: Comment[]; }) {
   const [isEditing, setIsEditing] = useState(false);
   const [replyOpen, setReplyOpen] = useState(openReplyMap.get(node.id) ?? false);
   const editRef = useRef<HTMLDivElement | null>(null);
@@ -660,6 +662,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
           </div>
         </div>
       )}
+      {/* LEI 1 - HIERARQUIA: Tarefas como respostas com estrutura visual unificada */}
       {tasks && tasks.length > 0 && (
         <div className="mt-2 space-y-2">
           {tasks.map((t) => {
@@ -667,8 +670,13 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
             const creatorName =
               creatorProfile?.full_name ??
               (t.created_by && t.created_by === currentUserId ? currentUserName : "Colaborador");
+            const creatorRole = creatorProfile?.role ?? null;
+            // Buscar o comentário vinculado para pegar created_at (se existir)
+            const taskComment = comments.find((c) => c.id === t.comment_id);
+            const created_at = taskComment?.created_at || t.created_at;
+            
             return (
-              <TaskCard
+              <TaskResponseCard
                 key={t.id}
                 task={t}
                 onToggle={async (id, done) => {
@@ -679,18 +687,36 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
                   }
                 }}
                 creatorName={creatorName}
+                creatorRole={creatorRole}
+                created_at={created_at}
                 applicantName={applicantName}
                 onEdit={onEditTask ? () => onEditTask(t.id) : undefined}
+                depth={depth}
               />
             );
           })}
         </div>
       )}
+      {/* LEI 1 - HIERARQUIA: Anexos como respostas com estrutura visual unificada */}
       {attachments && attachments.length > 0 && (
         <div className="mt-2 space-y-2">
-          {attachments.map((a) => (
-            <AttachmentRow key={a.id} att={a} onPreview={onPreview} currentUserId={currentUserId} />
-          ))}
+          {attachments.map((a) => {
+            const attachmentProfile = a.author_id ? profiles.find((p) => p.id === a.author_id) : null;
+            const authorName = attachmentProfile?.full_name ?? (a.author_id && a.author_id === currentUserId ? currentUserName : "Colaborador");
+            const authorRole = attachmentProfile?.role ?? a.author_role ?? null;
+            
+            return (
+              <AttachmentResponseRow
+                key={a.id}
+                att={a}
+                authorName={authorName}
+                authorRole={authorRole}
+                onPreview={onPreview}
+                currentUserId={currentUserId}
+                depth={depth}
+              />
+            );
+          })}
         </div>
       )}
       {replyOpen && (
@@ -770,10 +796,124 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               onEditTask={onEditTask}
               onSubmitComment={onSubmitComment}
               onPreview={onPreview}
+              applicantName={applicantName}
+              comments={comments}
             />
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * LEI 1 - HIERARQUIA: Estrutura visual unificada para respostas
+ * Tarefas e Anexos como respostas devem ter a mesma estrutura visual que comentários de texto
+ * (Nome do autor + Data/hora + Role abaixo + Borda verde)
+ */
+function TaskResponseCard({ 
+  task, 
+  onToggle, 
+  creatorName, 
+  creatorRole,
+  created_at,
+  onEdit,
+  applicantName,
+  depth = 0
+}: { 
+  task: CardTask; 
+  onToggle: (id: string, done: boolean) => void | Promise<void>; 
+  creatorName?: string | null;
+  creatorRole?: string | null;
+  created_at?: string | null;
+  onEdit?: () => void;
+  applicantName?: string | null;
+  depth?: number;
+}) {
+  const ts = created_at ? new Date(created_at).toLocaleString() : "";
+  
+  return (
+    <div 
+      className="comment-card rounded-lg pl-3" 
+      style={{ 
+        borderLeftColor: 'var(--verde-primario)', 
+        borderLeftWidth: '8px' 
+      }}
+    >
+      {/* LEI 1 - HIERARQUIA: Header unificado - mesma estrutura de CommentItem */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex items-center gap-2">
+          <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+          <div className="min-w-0">
+            <div className="truncate font-medium comment-author text-zinc-900">
+              {creatorName || "Colaborador"} <span className="comment-timestamp">{ts}</span>
+            </div>
+            {creatorRole && <div className="text-[11px] text-zinc-900 truncate">{creatorRole}</div>}
+          </div>
+        </div>
+      </div>
+      {/* Conteúdo da tarefa */}
+      <div className="mt-2">
+        <TaskCard task={task} onToggle={onToggle} creatorName={creatorName} applicantName={applicantName} onEdit={onEdit} />
+      </div>
+    </div>
+  );
+}
+
+function AttachmentResponseRow({ 
+  att, 
+  authorName,
+  authorRole,
+  onPreview, 
+  currentUserId,
+  depth = 0
+}: { 
+  att: CardAttachment; 
+  authorName?: string | null;
+  authorRole?: string | null;
+  onPreview?: (payload: PreviewTarget) => void; 
+  currentUserId?: string | null;
+  depth?: number;
+}) {
+  const ts = att.created_at ? new Date(att.created_at).toLocaleString() : "";
+  
+  return (
+    <div 
+      className="comment-card rounded-lg pl-3" 
+      style={{ 
+        borderLeftColor: 'var(--verde-primario)', 
+        borderLeftWidth: '8px' 
+      }}
+    >
+      {/* LEI 1 - HIERARQUIA: Header unificado - mesma estrutura de CommentItem */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex items-center gap-2">
+          <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+          <div className="min-w-0">
+            <div className="truncate font-medium comment-author text-zinc-900">
+              {authorName || "Colaborador"} <span className="comment-timestamp">{ts}</span>
+            </div>
+            {authorRole && <div className="text-[11px] text-zinc-900 truncate">{authorRole}</div>}
+          </div>
+        </div>
+      </div>
+      {/* Conteúdo do anexo */}
+      <div className="mt-2">
+        <AttachmentContent
+          att={{ ...att, isCardRoot: false }}
+          currentUserId={currentUserId}
+          onDelete={async () => {
+            if (confirm("Excluir este anexo?")) {
+              try {
+                await removeAttachment(att.id);
+              } catch (e: any) {
+                alert(e?.message || "Falha ao excluir anexo");
+              }
+            }
+          }}
+          onPreview={onPreview}
+        />
+      </div>
     </div>
   );
 }

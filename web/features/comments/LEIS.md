@@ -10,6 +10,10 @@ Este documento define as 3 Leis fundamentais que regem o sistema de threads (con
 1. ✅ Toda resposta tem um `parent_id` válido
 2. ✅ Toda sub-resposta aponta pra uma resposta ou pai
 3. ✅ Não pode existir "comentário órfão" seja ela: Texto, Tarefa, Anexo, Menção
+4. ✅ **Todo tipo de resposta (Anexo / Tarefa / Texto / Menção) deve conter a mesma estrutura visual de resposta:**
+   - Nome do autor + Data e hora de criação + Role abaixo
+   - Borda verde à esquerda (8px)
+   - Mesma estrutura visual, independente do tipo de conteúdo
 
 ### Implementação:
 
@@ -21,6 +25,11 @@ Este documento define as 3 Leis fundamentais que regem o sistema de threads (con
 #### Filtragem Automática:
 - ✅ `buildTree()` filtra automaticamente comentários órfãos
 - ✅ Anexos e tarefas são filtrados por `comment_id` válido
+
+#### Estrutura Visual Unificada:
+- ✅ `TaskResponseCard` - Wrapper para tarefas como respostas com estrutura visual unificada
+- ✅ `AttachmentResponseRow` - Wrapper para anexos como respostas com estrutura visual unificada
+- ✅ Ambos têm: Header (Nome + Data/hora + Role) + Borda verde + Conteúdo específico
 
 ### Exemplo:
 ```typescript
@@ -142,6 +151,8 @@ Sub-resposta: depth={2}    // Mais indentado
 - [x] Filtragem automática em `buildTree()`
 - [x] Anexos filtrados por `comment_id`
 - [x] Tarefas filtradas por `comment_id`
+- [x] Estrutura visual unificada para respostas (TaskResponseCard)
+- [x] Estrutura visual unificada para respostas (AttachmentResponseRow)
 
 ### Lei 2 - Conteúdo:
 - [x] Fluxo unificado de criação
