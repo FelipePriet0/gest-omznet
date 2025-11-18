@@ -88,8 +88,11 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
     
     // Atualizar attachments com isCardRoot
     updatedAttachments.forEach((att) => {
-      if (!att.comment_id && !cardAttachmentIdsRef.current.has(att.id)) {
-        cardAttachmentIdsRef.current.add(att.id);
+      if (!att.comment_id) {
+        if (!cardAttachmentIdsRef.current.has(att.id)) cardAttachmentIdsRef.current.add(att.id);
+      } else {
+        // Se ganhou comment_id, não é mais do card raiz
+        if (cardAttachmentIdsRef.current.has(att.id)) cardAttachmentIdsRef.current.delete(att.id);
       }
     });
     setAttachments(
@@ -129,11 +132,13 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
       await removeAttachment(id);
       // Atualização imediata - UX fluida
       const updatedAttachments = await listAttachments(cardId);
-      updatedAttachments.forEach((att) => {
-        if (!att.comment_id && !cardAttachmentIdsRef.current.has(att.id)) {
-          cardAttachmentIdsRef.current.add(att.id);
-        }
-      });
+    updatedAttachments.forEach((att) => {
+      if (!att.comment_id) {
+        if (!cardAttachmentIdsRef.current.has(att.id)) cardAttachmentIdsRef.current.add(att.id);
+      } else {
+        if (cardAttachmentIdsRef.current.has(att.id)) cardAttachmentIdsRef.current.delete(att.id);
+      }
+    });
       setAttachments(
         updatedAttachments.map((att) => ({
           ...att,
@@ -187,7 +192,11 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
       setTasks(await listTasks(cardId));
       const loadedAttachments = await listAttachments(cardId);
       loadedAttachments.forEach((att) => {
-        if (!att.comment_id) cardAttachmentIdsRef.current.add(att.id);
+        if (!att.comment_id) {
+          cardAttachmentIdsRef.current.add(att.id);
+        } else {
+          cardAttachmentIdsRef.current.delete(att.id);
+        }
       });
       setAttachments(
         loadedAttachments.map((att) => ({
@@ -217,8 +226,10 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
       if (!active) return;
       const loaded = await listAttachments(cardId);
       loaded.forEach((att) => {
-        if (!att.comment_id && !cardAttachmentIdsRef.current.has(att.id)) {
-          cardAttachmentIdsRef.current.add(att.id);
+        if (!att.comment_id) {
+          if (!cardAttachmentIdsRef.current.has(att.id)) cardAttachmentIdsRef.current.add(att.id);
+        } else {
+          if (cardAttachmentIdsRef.current.has(att.id)) cardAttachmentIdsRef.current.delete(att.id);
         }
       });
       setAttachments(
@@ -298,14 +309,15 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
     }
     const newCommentId = data.id as string;
     await supabase.from(TABLE_CARD_ATTACHMENTS).update({ comment_id: newCommentId }).eq("id", attachment.id);
-    cardAttachmentIdsRef.current.add(attachment.id);
+    // Deixa de ser anexo raiz do card; passa a pertencer à thread
+    if (cardAttachmentIdsRef.current.has(attachment.id)) cardAttachmentIdsRef.current.delete(attachment.id);
     setAttachments((prev) =>
       prev.map((a) =>
         a.id === attachment.id
           ? {
               ...a,
               comment_id: newCommentId,
-              isCardRoot: true,
+              isCardRoot: false,
             }
           : a
       )

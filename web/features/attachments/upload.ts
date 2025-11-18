@@ -101,6 +101,8 @@ export async function uploadAttachmentBatch({
       .insert({
         card_id: cardId,
         comment_id: commentId ?? null,
+        // preenche somente author_id (colunas author_name/author_role podem não existir no schema)
+        author_id: (await (async () => { try { const { data: auth } = await supabase.auth.getUser(); return auth.user?.id ?? null; } catch { return null; } })()),
         file_name: displayName || file.name,
         file_path: path,
         file_size: file.size,

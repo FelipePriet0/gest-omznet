@@ -11,6 +11,7 @@ import { TaskCard } from "@/features/tasks/TaskCard";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import { changeStage } from "@/features/kanban/services";
 import Attach from "@/features/attachments/upload";
+import { TABLE_CARD_ATTACHMENTS } from "@/lib/constants";
 import { DateSingleKanbanPopover } from "@/components/ui/date-single-kanban-popover";
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
@@ -171,6 +172,29 @@ export function EditarFichaModal({
           return { file, displayName: baseName || file.name };
         }),
       });
+
+      // Conversa: se não houver commentId (nova thread via anexo), cria comentário e vincula anexos
+      if (context?.source === 'conversa' && !context?.commentId && uploaded.length > 0) {
+        try {
+          const payload: any = { card_id: cardId, content: '' };
+          try {
+            const { data: auth } = await supabase.auth.getUser();
+            const uid = auth.user?.id;
+            if (uid) {
+              payload.author_id = uid;
+              const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single();
+              if (prof) { payload.author_name = (prof as any).full_name ?? null; payload.author_role = (prof as any).role ?? null; }
+            }
+          } catch {}
+          const { data: c, error: cErr } = await supabase.from('card_comments').insert(payload).select('id').single();
+          if (cErr || !c?.id) throw cErr || new Error('Falha ao criar comentário para anexos');
+          const newCommentId = c.id as string;
+          await Promise.all(uploaded.map((u) => supabase.from(TABLE_CARD_ATTACHMENTS).update({ comment_id: newCommentId }).eq('file_path', u.path)));
+        } catch (e: any) {
+          console.error('Falha ao vincular anexos à nova conversa', e);
+          alert(e?.message || 'Anexos enviados, mas não foi possível criar a conversa.');
+        }
+      }
 
       if (context?.source === "parecer" && uploaded.length > 0) {
         const names = uploaded.map((f) => f.name).join(", ");
