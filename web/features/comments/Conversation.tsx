@@ -846,7 +846,8 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
             <CommentMenu 
               onEdit={()=> setIsEditing(true)} 
               onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }}
-              canDelete={(nodeTasks.length === 0) && (nodeAttachments.length === 0)}
+              // Reexibe Excluir para replies com tarefas; mantém oculto apenas quando há anexos sem tarefas
+              canDelete={nodeTasks.length > 0 || nodeAttachments.length === 0}
             />
           ) : null}
         </div>
@@ -863,6 +864,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               ref={editComposerRef}
               defaultValue={{ decision: null, text: text }}
               placeholder="Edite o comentário… (@mencionar, /tarefa, /anexo)"
+              richText
               onChange={(val)=> setText(val.text || "")}
               onSubmit={async (val)=>{
                 const newText = (val.text||'').trim();
@@ -1020,6 +1022,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               ref={replyComposerRef}
               defaultValue={{ decision: null, text: reply }}
               placeholder="Responder... (/tarefa, /anexo, @mencionar)"
+              richText
               onChange={(val)=> setReply(val.text || "")}
               onSubmit={async (val)=>{
                 await onSubmitComment(node.id, val);

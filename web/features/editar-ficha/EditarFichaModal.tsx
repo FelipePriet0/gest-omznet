@@ -665,6 +665,7 @@ export function EditarFichaModal({
                     ref={composerRef}
                     disabled={!canWriteParecer}
                     placeholder="Escreva um novo parecer… Use @ para mencionar"
+                    richText
                     onChange={(val)=> {
                       setNovoParecer(val);
                     }}
@@ -1043,6 +1044,7 @@ function NoteItem({
               ref={editComposerRef}
               defaultValue={editValue}
               placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
+              richText
               onChange={(val)=> setEditValue(val)}
               onSubmit={async (val)=>{
                 const trimmed = (val.text || '').trim();
@@ -1122,6 +1124,7 @@ function NoteItem({
               ref={replyComposerRef}
               defaultValue={replyValue}
               placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+              richText
               onChange={(val)=> setReplyValue(val)}
               onSubmit={async (val)=>{
                 const trimmed = (val.text || '').trim();

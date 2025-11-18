@@ -364,6 +364,7 @@ function NoteItem({
               defaultValue={editValue}
               disabled={!canEdit}
               placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
+              richText
               onChange={(val) => setEditValue(val)}
               onSubmit={
                 !canEdit
@@ -457,6 +458,7 @@ function NoteItem({
             <UnifiedComposer
               ref={replyComposerRef}
               placeholder="Responder… Use @ para mencionar e / para decisões"
+              richText
               onChange={(val) => setReplyValue(val)}
               onSubmit={async (val) => {
                 const txt = (val.text || "").trim();

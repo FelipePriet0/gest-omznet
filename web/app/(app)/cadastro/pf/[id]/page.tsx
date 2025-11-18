@@ -1055,6 +1055,7 @@ export default function CadastroPFPage() {
                 ref={parecerComposerRef}
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
                 disabled={currentUserRole === 'vendedor'}
+                richText
                 onChange={(val)=> setNovoParecer(val)}
                 onSubmit={currentUserRole === 'vendedor' ? undefined : handleSubmitParecer}
                 onCancel={()=> {

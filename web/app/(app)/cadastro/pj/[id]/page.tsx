@@ -835,6 +835,7 @@ export default function CadastroPJPage() {
               <UnifiedComposer
                 ref={parecerComposerRef}
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
+                richText
                 onChange={(val)=> setNovoParecer(val)}
                 onSubmit={handleSubmitParecer}
                 onCancel={()=> {
