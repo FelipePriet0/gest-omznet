@@ -146,30 +146,91 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
 
   // Wrapper para remover anexo com refresh imediato
   const removeAttachmentWithRefresh = useCallback(async (id: string) => {
+    // Confirmação única centralizada
     try {
-      await removeAttachment(id);
-      // Atualização imediata - UX fluida
-      const updatedAttachments = await listAttachments(cardId);
-    updatedAttachments.forEach((att) => {
-      if (!att.comment_id) {
-        if (!cardAttachmentIdsRef.current.has(att.id)) cardAttachmentIdsRef.current.add(att.id);
-      } else {
-        if (cardAttachmentIdsRef.current.has(att.id)) cardAttachmentIdsRef.current.delete(att.id);
+      if (typeof window !== 'undefined') {
+        const ok = window.confirm('Excluir este anexo?');
+        if (!ok) return;
       }
-    });
-      setAttachments(
-        updatedAttachments.map((att) => ({
-          ...att,
-          isCardRoot: cardAttachmentIdsRef.current.has(att.id) || !att.comment_id,
-        }))
-      );
-      // Também atualizar comentários caso o anexo tenha comment_id
-      await refreshComments();
+    } catch {}
+    const prevAttachments = attachments;
+    const prevComments = comments;
+    try {
+      // Verifica se este anexo representa uma thread própria (card root)
+      const attMeta = (attachments || []).find((a) => a.id === id) as CardAttachmentWithMeta | undefined;
+      const cid = attMeta?.comment_id || null;
+      const rootCommentId = attMeta && attMeta.isCardRoot && cid ? cid : null;
+
+      // Calcular descendentes para remoção otimista
+      let idsToRemove = new Set<string>();
+      if (rootCommentId) {
+        const descendants = getAllDescendantIds(rootCommentId, comments);
+        idsToRemove = descendants;
+        idsToRemove.add(rootCommentId);
+      }
+      // Caso não seja thread própria, podemos excluir o comentário se ficar vazio (sem texto/tarefa/anexos)
+      let inlineEmptyCommentId: string | null = null;
+      if (!rootCommentId && cid) {
+        const hasOtherAttachments = (attachments || []).some((a) => a.id !== id && a.comment_id === cid);
+        const hasTasks = (tasks || []).some((t) => t.comment_id === cid);
+        const node = (comments || []).find((c) => c.id === cid);
+        const hasText = !!node && ((node.text || '').trim().length > 0);
+        if (!hasOtherAttachments && !hasTasks && !hasText) {
+          inlineEmptyCommentId = cid;
+          const descendants = getAllDescendantIds(cid, comments);
+          idsToRemove = descendants;
+          idsToRemove.add(cid);
+        }
+      }
+
+      // Otimista: remover imediatamente da UI
+      setAttachments((curr) => curr.filter((a) => a.id !== id));
+      if (cardAttachmentIdsRef.current.has(id)) cardAttachmentIdsRef.current.delete(id);
+      if (idsToRemove.size > 0) {
+        setComments((curr) => curr.filter((c) => !idsToRemove.has(c.id)));
+      }
+
+      // Backend: remove metadado do anexo
+      await removeAttachment(id);
+      // Backend: apagar comentários (filhos e raiz) conforme necessário
+      if (rootCommentId || inlineEmptyCommentId) {
+        try {
+          for (const childId of Array.from(idsToRemove)) {
+            if (childId === (rootCommentId || inlineEmptyCommentId)) continue;
+            try { await deleteComment(childId); } catch {}
+          }
+          try { await deleteComment(rootCommentId || inlineEmptyCommentId!); } catch {}
+        } catch {}
+      }
+
+      // Sincronização leve em background (não bloquear UX)
+      (async () => {
+        try {
+          const updatedAttachments = await listAttachments(cardId);
+          updatedAttachments.forEach((att) => {
+            if (!att.comment_id) {
+              if (!cardAttachmentIdsRef.current.has(att.id)) cardAttachmentIdsRef.current.add(att.id);
+            } else {
+              if (cardAttachmentIdsRef.current.has(att.id)) cardAttachmentIdsRef.current.delete(att.id);
+            }
+          });
+          setAttachments(
+            updatedAttachments.map((att) => ({
+              ...att,
+              isCardRoot: cardAttachmentIdsRef.current.has(att.id) || !att.comment_id,
+            }))
+          );
+          await refreshComments();
+        } catch {}
+      })();
     } catch (e: any) {
+      // Reverte em caso de falha
+      setAttachments(prevAttachments);
+      setComments(prevComments);
       alert(e?.message || "Falha ao excluir anexo");
       throw e;
     }
-  }, [cardId, refreshComments]);
+  }, [cardId, refreshComments, attachments, comments]);
 
   // Wrapper para toggle task com refresh imediato
   const toggleTaskWithRefresh = useCallback(async (id: string, done: boolean) => {
@@ -740,6 +801,11 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
       ? `${authorDisplayName} criou uma tarefa para "${assigneeName}".`
       : node.text || "";
   function openReply() {
+    const canReply = depth < 2;
+    if (!canReply) {
+      try { alert('Limite de 3 níveis atingido para respostas.'); } catch {}
+      return;
+    }
     openReplyMap.set(node.id, true);
     setReplyOpen(true);
     requestAnimationFrame(() => replyComposerRef.current?.focus());
@@ -768,11 +834,13 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {depth < 2 && (
           <button aria-label="Responder" onClick={openReply} className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100">
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
+          )}
           {currentUserId && node.author_id === currentUserId ? (
             <CommentMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }} />
           ) : null}
@@ -915,12 +983,13 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
             // Se este nó não tem texto, mostrar anexos inline (sem header duplicado)
             if (trimmedText.length === 0) {
               return (
-                <AttachmentRow
-                  key={a.id}
-                  att={a}
-                  onPreview={onPreview}
-                  currentUserId={currentUserId}
-                />
+            <AttachmentRow
+              key={a.id}
+              att={a}
+              onPreview={onPreview}
+              currentUserId={currentUserId}
+              onDelete={onDeleteAttachment}
+            />
               );
             }
             // Caso tenha texto, anexo como resposta com header (estrutura unificada)
@@ -1288,9 +1357,7 @@ function AttachmentContent({ att, onDelete, onPreview, currentUserId }: { att: C
             title="Excluir anexo"
             onClick={async () => {
               if (!onDelete) return;
-              if (confirm("Excluir este anexo?")) {
-                await onDelete();
-              }
+              await onDelete();
             }}
           >
             <svg viewBox="0 0 24 24" width="16" height="16">
@@ -1303,20 +1370,12 @@ function AttachmentContent({ att, onDelete, onPreview, currentUserId }: { att: C
   );
 }
 
-function AttachmentRow({ att, onPreview, currentUserId }: { att: CardAttachment; onPreview?: (payload: PreviewTarget) => void; currentUserId?: string | null }) {
+function AttachmentRow({ att, onPreview, currentUserId, onDelete }: { att: CardAttachment; onPreview?: (payload: PreviewTarget) => void; currentUserId?: string | null; onDelete?: (id: string) => Promise<void> }) {
   return (
     <AttachmentContent
       att={{ ...att, isCardRoot: false }}
       currentUserId={currentUserId}
-      onDelete={async () => {
-        if (confirm("Excluir este anexo?")) {
-          try {
-            await removeAttachment(att.id);
-          } catch (e: any) {
-            alert(e?.message || "Falha ao excluir anexo");
-          }
-        }
-      }}
+      onDelete={onDelete ? async () => { await onDelete(att.id); } : undefined}
       onPreview={onPreview}
     />
   );
