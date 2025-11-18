@@ -447,6 +447,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
               <UnifiedComposer
                 ref={inputRef}
                 placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
+                richText
                 onChange={(val)=> setInput(val.text || "")}
                 onSubmit={async (val: ComposerValue)=>{
                   try {

@@ -30,6 +30,7 @@ type UnifiedComposerProps = {
   disabled?: boolean;
   autoFocus?: boolean;
   className?: string;
+  richText?: boolean; // habilita toolbar e formatação inline
   onChange?: (value: ComposerValue) => void;
   onSubmit?: (value: ComposerValue) => void;
   onCancel?: () => void;
@@ -168,6 +169,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       disabled,
       autoFocus,
       className,
+      richText,
       onChange,
       onSubmit,
       onCancel,
@@ -184,6 +186,15 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       normalizeValue(defaultValue ?? DEFAULT_VALUE)
     );
     const mentionLockRef = useRef(false);
+    const [openHeading, setOpenHeading] = useState(false);
+    const [fmtBold, setFmtBold] = useState(false);
+    const [fmtItalic, setFmtItalic] = useState(false);
+    const [fmtUL, setFmtUL] = useState(false);
+    const [fmtOL, setFmtOL] = useState(false);
+    const [fmtBlock, setFmtBlock] = useState<string>("P");
+    const [openMore, setOpenMore] = useState(false);
+    const headingRef = useRef<HTMLDivElement | null>(null);
+    const moreRef = useRef<HTMLDivElement | null>(null);
 
     useImperativeHandle(
       ref,
@@ -291,6 +302,59 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       onChange?.(valueState);
     }, [valueState, onChange]);
 
+    // Observa seleção para refletir estado ativo dos botões
+    useEffect(() => {
+      if (!richText) return;
+      function updateStates() {
+        try {
+          // Detecta bold/italic apenas se houver marcação inline (<b>/<strong>, <i>/<em>),
+          // ignorando o peso de fonte herdado por headings (H1..H4)
+          const sel = window.getSelection();
+          let hasInlineBold = false;
+          let hasInlineItalic = false;
+          if (sel && sel.anchorNode) {
+            let el: HTMLElement | null = (sel.anchorNode as any).nodeType === Node.ELEMENT_NODE
+              ? (sel.anchorNode as HTMLElement)
+              : ((sel.anchorNode as Node).parentElement as HTMLElement | null);
+            while (el) {
+              const tag = (el.tagName || '').toUpperCase();
+              if (tag === 'B' || tag === 'STRONG') { hasInlineBold = true; break; }
+              el = el.parentElement as HTMLElement | null;
+            }
+            el = ((sel.anchorNode as Node).parentElement as HTMLElement | null);
+            while (el) {
+              const tag = (el.tagName || '').toUpperCase();
+              if (tag === 'I' || tag === 'EM') { hasInlineItalic = true; break; }
+              el = el.parentElement as HTMLElement | null;
+            }
+          }
+          const ul = document.queryCommandState('insertUnorderedList');
+          const ol = document.queryCommandState('insertOrderedList');
+          let block = document.queryCommandValue('formatBlock') as string;
+          if (!block || block === 'undefined') block = 'P';
+          setFmtBold(!!hasInlineBold);
+          setFmtItalic(!!hasInlineItalic);
+          setFmtUL(!!ul);
+          setFmtOL(!!ol);
+          setFmtBlock((block || 'P').toUpperCase());
+        } catch (e) {}
+      }
+      document.addEventListener('selectionchange', updateStates);
+      return () => document.removeEventListener('selectionchange', updateStates);
+    }, [richText]);
+
+    // Fecha popovers ao clicar fora
+    useEffect(() => {
+      if (!richText) return;
+      function onDocMouseDown(e: MouseEvent) {
+        const t = e.target as Node | null;
+        if (openHeading && headingRef.current && t && !headingRef.current.contains(t)) setOpenHeading(false);
+        if (openMore && moreRef.current && t && !moreRef.current.contains(t)) setOpenMore(false);
+      }
+      document.addEventListener('mousedown', onDocMouseDown);
+      return () => document.removeEventListener('mousedown', onDocMouseDown);
+    }, [richText, openHeading, openMore]);
+
     function renderHTML(val: ComposerValue): string {
       const parts: string[] = [];
       if (val.decision) {
@@ -307,7 +371,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
 
       const textHTML = renderTextWithMentions(val.text, val.mentions);
       if (textHTML.length > 0) {
-        parts.push(`<span class="composer-text">${textHTML}</span>`);
+        parts.push(richText ? textHTML : `<span class="composer-text">${textHTML}</span>`);
       }
       return parts.join(" ");
     }
@@ -580,29 +644,168 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
 
     return (
       <div className={clsx("composer-root", className)}>
-        <div
-          ref={rootRef}
-          className={clsx("composer-input", { "composer-input-disabled": disabled })}
-          role="textbox"
-          aria-multiline="true"
-          contentEditable={!disabled}
-          data-placeholder={placeholder}
-          suppressContentEditableWarning
-          onInput={handleInput}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          onClick={handleClick}
-          onDrop={handleDrop}
-        />
-        {showPlaceholder && (
-          <div className="composer-placeholder" aria-hidden="true">
-            {placeholder}
-          </div>
-        )}
+        <div className="relative">
+          {richText && (
+            <div className="composer-toolbar absolute left-2 top-2 z-10 flex items-center">
+              <div className="relative" ref={headingRef}>
+                <button
+                  type="button"
+                  className="rt-btn rt-btn-dropdown"
+                  onClick={() => setOpenHeading(v=>!v)}
+                  aria-label="Estilos de texto"
+                >
+                  <span>Aa</span>
+                  <svg 
+                    width="12" 
+                    height="12" 
+                    viewBox="0 0 12 12" 
+                    fill="none"
+                    className="rt-chevron"
+                  >
+                    <path 
+                      d="M3 4.5L6 7.5L9 4.5" 
+                      stroke="currentColor" 
+                      strokeWidth="1.5" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                {openHeading && (
+                  <div className="absolute z-50 mt-2 w-44 rounded border border-zinc-200 bg-white shadow-lg">
+                    {[
+                      {label:'Texto normal', tag:'P'},
+                      {label:'Título 1', tag:'H1'},
+                      {label:'Título 2', tag:'H2'},
+                      {label:'Título 3', tag:'H3'},
+                      {label:'Título 4', tag:'H4'},
+                    ].map(item => (
+                      <button
+                        key={item.tag}
+                        onClick={() => {
+                          try {
+                            const tag = `<${item.tag}>`;
+                            rootRef.current?.focus();
+                            document.execCommand('formatBlock', false, tag);
+                          } catch (e) {}
+                          setFmtBlock(item.tag);
+                          setOpenHeading(false);
+                          rootRef.current?.focus();
+                        }}
+                        className={clsx('w-full text-left px-3 py-2 hover:bg-zinc-50 transition-colors', fmtBlock===item.tag ? 'bg-zinc-50 font-medium' : '')}
+                      >{item.label}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <span className="rt-sep mx-2" aria-hidden />
+              {/* Grupo: B I */}
+              <button
+                type="button"
+                onClick={() => { try { document.execCommand('bold'); } catch (e) {}; rootRef.current?.focus(); }}
+                className={clsx('rt-btn', fmtBold ? 'is-active' : '')}
+                aria-pressed={fmtBold}
+                aria-label="Negrito"
+              >
+                B
+              </button>
+              <button
+                type="button"
+                onClick={() => { try { document.execCommand('italic'); } catch (e) {}; rootRef.current?.focus(); }}
+                className={clsx('rt-btn rt-btn--italic', fmtItalic ? 'is-active' : '')}
+                aria-pressed={fmtItalic}
+                aria-label="Itálico"
+              >
+                <span style={{ fontStyle: 'italic', fontWeight: 700 }}>I</span>
+              </button>
+              <span className="rt-sep mx-2" aria-hidden />
+              {/* Grupo: Mais */}
+              <div className="relative" ref={moreRef}>
+                <button
+                  type="button"
+                  className="rt-btn rt-btn-dropdown rt-btn-list"
+                  aria-label="Mais opções"
+                  onClick={() => setOpenMore(v=>!v)}
+                >
+                  <svg 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 16 16" 
+                    fill="none"
+                    className="rt-list-icon"
+                  >
+                    <path 
+                      d="M3 4.5H8M3 8H12M3 11.5H9" 
+                      stroke="currentColor" 
+                      strokeWidth="1.5" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <svg 
+                    width="12" 
+                    height="12" 
+                    viewBox="0 0 12 12" 
+                    fill="none"
+                    className="rt-chevron"
+                  >
+                    <path 
+                      d="M3 4.5L6 7.5L9 4.5" 
+                      stroke="currentColor" 
+                      strokeWidth="1.5" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                {openMore && (
+                  <div className="absolute z-50 mt-2 w-52 rounded border border-zinc-200 bg-white shadow-lg">
+                    <div className="px-3 py-2 text-[12px] text-zinc-500">Formatação</div>
+                    <button
+                      className={clsx('flex w-full items-center gap-2 px-3 py-2 hover:bg-zinc-50 transition-colors', fmtUL ? 'bg-zinc-50 font-medium' : '')}
+                      onClick={() => { try { document.execCommand('insertUnorderedList'); } catch (e) {}; setOpenMore(false); rootRef.current?.focus(); }}
+                    >
+                      <span>Lista com marcadores</span>
+                    </button>
+                    <button
+                      className={clsx('flex w-full items-center gap-2 px-3 py-2 hover:bg-zinc-50 transition-colors', fmtOL ? 'bg-zinc-50 font-medium' : '')}
+                      onClick={() => { try { document.execCommand('insertOrderedList'); } catch (e) {}; setOpenMore(false); rootRef.current?.focus(); }}
+                    >
+                      <span>Lista numerada</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <div
+            ref={rootRef}
+            className={clsx("composer-input", { "composer-input-disabled": disabled })}
+            style={richText ? { paddingTop: 50 } : undefined}
+            role="textbox"
+            aria-multiline="true"
+            contentEditable={!disabled}
+            data-placeholder={placeholder}
+            suppressContentEditableWarning
+            onInput={handleInput}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            onClick={handleClick}
+            onDrop={handleDrop}
+          />
+          {showPlaceholder && (
+            <div
+              className="composer-placeholder"
+              aria-hidden="true"
+              style={{ position: 'absolute', left: 16, top: richText ? 50 : 14, pointerEvents: 'none' }}
+            >
+              {placeholder}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 );
 
 UnifiedComposer.displayName = "UnifiedComposer";
-

@@ -1029,6 +1029,122 @@ body {
 .composer-root {
   position: relative;
 }
+
+/* Toolbar (Trello-like) */
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 4px 0;
+}
+
+.composer-toolbar > *:not(.rt-sep) {
+  margin: 0 1px;
+}
+
+.composer-toolbar .rt-btn {
+  font-size: 14px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 3px;
+  color: #172b4d; /* Trello/Atlassian base text */
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  transition: background-color 0.15s ease;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.composer-toolbar .rt-btn:hover {
+  background: rgba(9, 30, 66, 0.08); /* subtle hover */
+}
+
+.composer-toolbar .rt-btn.is-active {
+  color: #0C66E4;              /* Atlassian blue */
+  background: #E9F2FF;         /* active bg */
+}
+
+.composer-toolbar .rt-btn.rt-btn--italic { 
+  font-style: italic; 
+}
+
+/* Espaçamento entre botões B e I */
+.composer-toolbar .rt-btn + .rt-btn:not(.rt-btn-dropdown) {
+  margin-left: 0;
+}
+
+/* Botões com dropdown (chevron) */
+.composer-toolbar .rt-btn-dropdown {
+  gap: 4px;
+  padding: 4px 6px;
+}
+
+/* Botão de lista com chevron */
+.composer-toolbar .rt-btn-list {
+  gap: 4px;
+}
+
+.composer-toolbar .rt-btn-list .rt-list-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.composer-toolbar .rt-btn-dropdown .rt-chevron {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.composer-toolbar .rt-btn-dropdown:hover .rt-chevron {
+  opacity: 1;
+}
+
+/* Italic icon with horizontal bars (pezinhos) - Refinado */
+.composer-toolbar .rt-italic-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.composer-toolbar .rt-italic-icon .rt-italic-char {
+  position: relative;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  color: inherit;
+  z-index: 1;
+}
+
+.composer-toolbar .rt-italic-icon .bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.composer-toolbar .rt-italic-icon .bar.top { 
+  top: 3px; 
+}
+
+.composer-toolbar .rt-italic-icon .bar.bottom { 
+  bottom: 3px; 
+}
+
+
 .composer-input {
   min-height: 128px;
   padding: 14px 16px;
@@ -1043,6 +1159,14 @@ body {
   word-break: break-word;
   overflow-y: auto;
 }
+/* Rich text headings inside composer */
+.composer-input h1 { font-size: 20px; line-height: 1.4; font-weight: 700; margin: 4px 0; }
+.composer-input h2 { font-size: 18px; line-height: 1.4; font-weight: 700; margin: 4px 0; }
+.composer-input h3 { font-size: 16px; line-height: 1.4; font-weight: 700; margin: 4px 0; }
+.composer-input h4 { font-size: 15px; line-height: 1.4; font-weight: 600; margin: 4px 0; }
+.composer-input p  { font-size: 14px; line-height: 1.5; margin: 4px 0; }
+.composer-input ul { list-style: disc; padding-left: 1.25rem; margin: 6px 0; }
+.composer-input ol { list-style: decimal; padding-left: 1.25rem; margin: 6px 0; }
 .composer-input:focus {
   border-color: var(--verde-primario, #34a853);
   box-shadow: 0 0 0 3px rgba(1, 137, 66, 0.12);
@@ -1834,4 +1958,60 @@ textarea[placeholder="Analisar"]::placeholder {
 
 .rdp-button[disabled] {
   opacity: 0.5;
+}
+
+
+/* Vertical separator for toolbar groups */
+.composer-toolbar .rt-sep {
+  width: 1px;
+  height: 16px;
+  background: rgba(9, 30, 66, 0.13);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Dropdown menus - estilo Trello */
+.composer-toolbar .absolute.z-50 {
+  background: #ffffff;
+  border: 1px solid rgba(9, 30, 66, 0.13);
+  border-radius: 3px;
+  box-shadow: 0 4px 8px rgba(9, 30, 66, 0.15);
+  padding: 4px 0;
+  margin-top: 4px;
+  z-index: 50;
+}
+
+.composer-toolbar .absolute.z-50 button {
+  width: 100%;
+  text-align: left;
+  padding: 6px 12px;
+  font-size: 14px;
+  color: #172b4d;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  font-weight: 400;
+}
+
+.composer-toolbar .absolute.z-50 button:hover {
+  background: rgba(9, 30, 66, 0.08);
+}
+
+.composer-toolbar .absolute.z-50 button.bg-zinc-50,
+.composer-toolbar .absolute.z-50 button.font-medium {
+  background: #E9F2FF;
+  color: #0C66E4;
+  font-weight: 500;
+}
+
+/* Header do dropdown de mais opções */
+.composer-toolbar .absolute.z-50 .px-3.py-2.text-\[12px\] {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #6B778C;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.5;
 }
