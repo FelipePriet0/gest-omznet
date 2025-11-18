@@ -34,6 +34,7 @@ export type TaskDrawerProps = {
   commentId?: string | null;
   taskId?: string | null;
   source?: "parecer" | "conversa";
+  inPlace?: boolean;
   onCreated?: (task: {
     id: string;
     description: string;
@@ -44,7 +45,7 @@ export type TaskDrawerProps = {
   }) => void;
 };
 
-export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = "conversa", onCreated }: TaskDrawerProps) {
+export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = "conversa", inPlace = false, onCreated }: TaskDrawerProps) {
   const { open: sidebarOpen } = useSidebar();
   const [me, setMe] = useState<ProfileLite | null>(null);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -247,8 +248,15 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
         }
       } else {
         try {
-          // Conversa: criar nó de comentário vazio para que a tarefa apareça inline como conteúdo
-          threadRefId = await addComment(cardId, "", commentId ?? undefined);
+          if (inPlace && commentId) {
+            // Transformar este comentário em tarefa: limpar anexos e texto, e usar o mesmo comment_id
+            try { await supabase.from('card_attachments').delete().eq('comment_id', commentId); } catch {}
+            try { await supabase.from(TABLE_CARD_COMMENTS).update({ content: '' }).eq('id', commentId); } catch {}
+            threadRefId = commentId;
+          } else {
+            // Conversa: criar nó de comentário vazio para que a tarefa apareça inline como conteúdo
+            threadRefId = await addComment(cardId, "", commentId ?? undefined);
+          }
         } catch (err: any) {
           throw new Error(err?.message || "Falha ao registrar comentário da tarefa");
         }

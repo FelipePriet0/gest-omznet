@@ -15,8 +15,8 @@ import { ModalPreview, type PreviewTarget } from "@/components/ui/modal-preview"
 
 type CardAttachmentWithMeta = CardAttachment & { isCardRoot?: boolean };
 
-type TaskTrigger = { openTask: (parentCommentId?: string) => void };
-type AttachTrigger = { openAttach: (parentCommentId?: string) => void };
+type TaskTrigger = { openTask: (parentCommentId?: string, options?: { inPlace?: boolean }) => void };
+type AttachTrigger = { openAttach: (parentCommentId?: string, options?: { inPlace?: boolean }) => void };
 
 function ComposerHeader({ name }: { name: string }) {
   return (
@@ -761,7 +761,17 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               placeholder="Edite o comentário… (@mencionar, /tarefa, /anexo)"
               onChange={(val)=> setText(val.text || "")}
               onSubmit={async (val)=>{
-                try { await onEdit(node.id, (val.text||'').trim()); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
+                const newText = (val.text||'').trim();
+                try {
+                  await onEdit(node.id, newText);
+                  // Se havia anexos e agora virou texto/menção, remove anexos deste comentário
+                  if (newText.length > 0 && nodeAttachments && nodeAttachments.length > 0) {
+                    try { await supabase.from(TABLE_CARD_ATTACHMENTS).delete().eq('comment_id', node.id); } catch {}
+                  }
+                  setIsEditing(false);
+                } catch(e:any){
+                  alert(e?.message||'Falha ao editar');
+                }
               }}
               onCancel={()=> { setIsEditing(false); setEditMentionOpen(false); setEditCmdOpen(false); }}
               onMentionTrigger={(query, rect)=> {
@@ -804,8 +814,8 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
                 <CmdDropdown
                   items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(editCmdQuery))}
                   onPick={(key)=> {
-                    if (key==='tarefa') onOpenTask(node.id);
-                    if (key==='anexo') onOpenAttach(node.id);
+                    if (key==='tarefa') onOpenTask(node.id, { inPlace: true });
+                    if (key==='anexo') onOpenAttach(node.id, { inPlace: true });
                     setEditCmdOpen(false); setEditCmdQuery('');
                   }}
                   initialQuery={editCmdQuery}

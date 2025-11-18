@@ -134,7 +134,7 @@ export function EditarFichaModal({
     }
   }, []);
 
-  function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa' }) {
+  function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa'; inPlace?: boolean }) {
     attachmentContextRef.current = context ?? null;
     if (attachmentInputRef.current) {
       attachmentInputRef.current.value = "";
@@ -162,9 +162,9 @@ export function EditarFichaModal({
     }
 
     try {
-      // Se for Conversa, sempre criar um comentário (pai ou resposta) antes do upload
+      // Se for Conversa, criar comentário apenas quando não for edição in-place
       let commentIdForUpload: string | null = context?.commentId ?? null;
-      if (context?.source === 'conversa') {
+      if (context?.source === 'conversa' && !(context?.inPlace && context?.commentId)) {
         const payload: any = { card_id: cardId, content: '' };
         if (context?.commentId) payload.parent_id = context.commentId;
         try {
@@ -179,6 +179,9 @@ export function EditarFichaModal({
         const { data: c, error: cErr } = await supabase.from('card_comments').insert(payload).select('id').single();
         if (cErr || !c?.id) throw cErr || new Error('Falha ao criar comentário para anexos');
         commentIdForUpload = c.id as string;
+      } else if (context?.source === 'conversa' && context?.inPlace && context?.commentId) {
+        // Edição in-place: substituir anexos existentes deste comentário
+        try { await supabase.from('card_attachments').delete().eq('comment_id', context.commentId); } catch {}
       }
 
       const uploaded = await Attach.uploadAttachmentBatch({
@@ -351,12 +354,13 @@ export function EditarFichaModal({
   // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)
   useEffect(() => {
     function onOpenTask(event?: Event) {
-      const detail = (event as CustomEvent<{ parentId?: string | null; taskId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;
+      const detail = (event as CustomEvent<{ parentId?: string | null; taskId?: string | null; source?: 'parecer' | 'conversa'; inPlace?: boolean }> | undefined)?.detail;
       setTaskOpen({
         open: true,
         parentId: detail?.parentId ?? null,
         taskId: detail?.taskId ?? null,
         source: detail?.source ?? 'parecer',
+        inPlace: detail?.inPlace ?? false,
       });
     }
     function onOpenAttach(event?: Event) {
@@ -790,8 +794,8 @@ export function EditarFichaModal({
                 <Conversation
                   cardId={cardId}
                   applicantName={app?.primary_name ?? null}
-                  onOpenTask={(parentId?: string) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa' })}
-                  onOpenAttach={(parentId?: string) => triggerAttachmentPicker({ commentId: parentId ?? null, source: 'conversa' })}
+                  onOpenTask={(parentId?: string, options?: { inPlace?: boolean }) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa', inPlace: options?.inPlace ?? false })}
+                  onOpenAttach={(parentId?: string, options?: { inPlace?: boolean }) => triggerAttachmentPicker({ commentId: parentId ?? null, source: 'conversa', inPlace: options?.inPlace ?? false })}
                   onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
                 />
               </div>
@@ -808,6 +812,7 @@ export function EditarFichaModal({
         commentId={taskOpen.parentId ?? null}
         taskId={taskOpen.taskId ?? null}
         source={taskOpen.source ?? 'conversa'}
+        inPlace={taskOpen.inPlace ?? false}
         onCreated={async ()=> {
           await refreshTasks();
         }}
