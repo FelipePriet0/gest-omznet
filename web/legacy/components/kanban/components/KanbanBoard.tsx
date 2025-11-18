@@ -6,6 +6,7 @@ import { KanbanCard } from "@/features/kanban/types";
 import type { CardSnapshotPatch } from "@/features/editar-ficha/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
+import { listInbox } from "@/features/inbox/services";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
@@ -62,17 +63,26 @@ export function KanbanBoard({
 
   const reload = useCallback(async () => {
     try {
-      const data = await listCards('comercial', {
-        hora,
-        dateStart,
-        dateEnd,
-        responsaveis: responsavelIds,
-        searchTerm,
-      });
+      const [data, inbox] = await Promise.all([
+        listCards('comercial', {
+          hora,
+          dateStart,
+          dateEnd,
+          responsaveis: responsavelIds,
+          searchTerm,
+        }),
+        listInbox().catch(() => []),
+      ]);
+      const mentionCardIds = new Set(
+        (inbox || [])
+          .filter((n: any) => ['mention','comment_reply','parecer_reply'].includes(String(n?.type || '')))
+          .map((n: any) => String(n.card_id || ''))
+          .filter((id: string) => !!id)
+      );
       const filtered = Array.isArray(allowedCardIds) && allowedCardIds.length > 0
         ? data.filter(c => allowedCardIds.includes(c.id))
         : data;
-      setCards(filtered);
+      setCards(filtered.map(c => ({ ...c, isMentioned: mentionCardIds.has(c.id) })));
     } catch (error) {
       console.error('Falha ao carregar cards do Kanban Comercial:', error);
     }

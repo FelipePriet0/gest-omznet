@@ -5,7 +5,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { KanbanCard as Card } from "@/features/kanban/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MoreVertical, Phone, MapPin, Calendar, Clock } from "lucide-react";
+import { MoreVertical, Phone, MapPin, Calendar, Clock, Flame, AtSign } from "lucide-react";
 
 export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () => void; onMenu: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
@@ -19,11 +19,24 @@ export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () =>
   const [menuOpen, setMenuOpen] = useState(false);
   const pressAt = useRef(0);
 
+  const isOverdue = (() => {
+    if (!card?.dueAt) return false;
+    try { return new Date(card.dueAt).getTime() < Date.now(); } catch { return false; }
+  })();
+
+  const cardClass = (card.isMentioned && isOverdue)
+    ? "kanban-card rounded-2xl border border-orange-300 bg-emerald-50 p-3 shadow-[0_6px_16px_rgba(251,146,60,0.15)] hover:shadow-[0_10px_24px_rgba(251,146,60,0.25)] transition"
+    : card.isMentioned
+    ? "kanban-card rounded-2xl border border-emerald-300 bg-emerald-50 p-3 shadow-[0_6px_16px_rgba(16,185,129,0.15)] hover:shadow-[0_10px_24px_rgba(16,185,129,0.25)] transition"
+    : isOverdue
+    ? "kanban-card rounded-2xl border border-orange-300 bg-orange-50 p-3 shadow-[0_6px_16px_rgba(251,146,60,0.15)] hover:shadow-[0_10px_24px_rgba(251,146,60,0.25)] transition"
+    : "kanban-card rounded-2xl border border-emerald-100/40 bg-white p-3 shadow-[0_6px_16px_rgba(30,41,59,0.06)] hover:shadow-[0_10px_24px_rgba(30,41,59,0.10)] transition";
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="kanban-card rounded-2xl border border-emerald-100/40 bg-white p-3 shadow-[0_6px_16px_rgba(30,41,59,0.06)] hover:shadow-[0_10px_24px_rgba(30,41,59,0.10)] transition"
+      className={cardClass}
       onPointerDown={() => { pressAt.current = performance.now(); }}
       onClick={(e) => {
         // Se está arrastando, ou clicou em controle interativo, não abre
@@ -42,6 +55,16 @@ export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () =>
           <div className="text-[11px] text-zinc-500">CPF: {card.cpfCnpj}</div>
         </div>
         <div className="flex items-center gap-1">
+          {card.isMentioned && (
+            <span className="text-emerald-600" title="Você foi mencionado" aria-label="Mencionado" data-ignore-card-click>
+              <AtSign className="w-4 h-4" />
+            </span>
+          )}
+          {isOverdue && (
+            <span className="text-orange-500" title="Atrasado" aria-label="Atrasado" data-ignore-card-click>
+              <Flame className="w-4 h-4" />
+            </span>
+          )}
           <Popover open={menuOpen} onOpenChange={setMenuOpen}>
             <PopoverTrigger asChild>
               <button className="ml-1 rounded p-1 text-emerald-600 hover:bg-emerald-50" aria-label="Ações do card" data-ignore-card-click onClick={(e)=> e.stopPropagation()}>

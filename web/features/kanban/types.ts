@@ -27,4 +27,5 @@ export interface KanbanCard {
   onOpen?: () => void;
   onMenu?: () => void;
   extraAction?: React.ReactNode;
+  isMentioned?: boolean;
 }
