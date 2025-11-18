@@ -523,10 +523,12 @@ function buildTree(notes: Comment[]): any[] {
     if (n.parent_id && byId.has(n.parent_id)) {
       // LEI 3: Respostas e sub-respostas grudadas no pai/resposta/sub-resposta
       byId.get(n.parent_id).children.push(node);
-    } else {
-      // LEI 1: Sem parent_id válido = thread pai
+    } else if (!n.parent_id) {
+      // LEI 1: Sem parent_id = thread pai (só adiciona como raiz se realmente não tem pai)
       roots.push(node);
     }
+    // Se tem parent_id mas o pai não existe (órfão), não adiciona em lugar nenhum
+    // Isso garante que respostas e sub-respostas NUNCA apareçam fora da hierarquia
   });
   // LEI 3: Ordenação cronológica (mais antigo primeiro)
   const sortFn = (a: any, b: any) => new Date(a.created_at || "").getTime() - new Date(b.created_at || "").getTime();
