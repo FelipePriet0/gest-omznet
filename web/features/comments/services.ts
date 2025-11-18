@@ -98,6 +98,22 @@ export async function editComment(commentId: string, text: string) {
 }
 
 export async function deleteComment(commentId: string) {
+  // 1) Se existir tarefa(s) vinculada(s) a este comentário criada(s) por mim, excluir também
+  try {
+    const { data } = await supabase.auth.getUser();
+    const uid = data?.user?.id ?? null;
+    if (uid) {
+      // Exclui apenas tarefas onde eu sou o criador e que apontam para este comentário
+      // Assim atendemos o requisito: criador da tarefa apagando a tarefa definitivamente
+      await supabase
+        .from('card_tasks')
+        .delete()
+        .eq('comment_id', commentId)
+        .eq('created_by', uid);
+    }
+  } catch {}
+
+  // 2) Excluir comentário (soft ou hard)
   // Soft-delete por deleted_at quando existir
   const { data: colCheck } = await supabase.from(TABLE_CARD_COMMENTS).select("deleted_at").eq("id", commentId).limit(1);
   if (Array.isArray(colCheck) && colCheck.length > 0 && typeof colCheck[0]?.deleted_at !== "undefined") {
