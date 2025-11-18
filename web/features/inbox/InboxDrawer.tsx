@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { InboxFilterCTA, inboxFilterLabelsMap } from "@/features/inbox/components/InboxFilterCTA";
 import { InboxNotificationsStack } from "@/features/inbox/components/InboxNotificationsStack";
 import { useInboxController } from "@/features/inbox/hooks/useInboxController";
+import { ToastContainer } from "./components/ToastContainer";
 
 type RefreshHandler = () => Promise<void> | void;
 
@@ -23,7 +24,12 @@ const InboxContext = createContext<InboxContextValue | null>(null);
 
 export function InboxProvider({ children, panelOpen }: { children: ReactNode; panelOpen: boolean }) {
   const value = useInboxController(panelOpen);
-  return <InboxContext.Provider value={value}>{children}</InboxContext.Provider>;
+  return (
+    <InboxContext.Provider value={value}>
+      {children}
+      <ToastContainer />
+    </InboxContext.Provider>
+  );
 }
 
 export function useInbox() {
