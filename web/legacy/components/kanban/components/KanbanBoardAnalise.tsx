@@ -184,7 +184,23 @@ export function KanbanBoardAnalise({
       return;
     }
     const c = cards.find((x) => x.id === openCardId);
-    if (c) setEdit({ cardId: c.id, applicantId: c.applicantId });
+    if (c) {
+      setEdit({ cardId: c.id, applicantId: c.applicantId });
+      return;
+    }
+    // Fallback: card não está no snapshot atual (filtros ativos, etc). Buscar direto no backend
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('kanban_cards')
+          .select('id, applicant_id')
+          .eq('id', openCardId)
+          .single();
+        if (data?.id && data?.applicant_id) {
+          setEdit({ cardId: String(data.id), applicantId: String(data.applicant_id) });
+        }
+      } catch {}
+    })();
   }, [openCardId, cards]);
 
   async function handleDragEnd(event: any) {

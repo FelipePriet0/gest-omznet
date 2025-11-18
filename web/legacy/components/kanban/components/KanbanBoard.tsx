@@ -10,6 +10,7 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@
 import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
 import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
+import { supabase } from "@/lib/supabaseClient";
 
 const columnConfig = [
   { key: "entrada", title: "Entrada", color: "blue", icon: "🔵" },
@@ -127,7 +128,23 @@ export function KanbanBoard({
       return;
     }
     const c = cards.find((x) => x.id === openCardId);
-    if (c) setEdit({ cardId: c.id, applicantId: c.applicantId });
+    if (c) {
+      setEdit({ cardId: c.id, applicantId: c.applicantId });
+      return;
+    }
+    // Fallback: card pode não estar no snapshot devido a filtros. Buscar direto no backend
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('kanban_cards')
+          .select('id, applicant_id')
+          .eq('id', openCardId)
+          .single();
+        if (data?.id && data?.applicant_id) {
+          setEdit({ cardId: String(data.id), applicantId: String(data.applicant_id) });
+        }
+      } catch {}
+    })();
   }, [openCardId, cards]);
 
   async function handleDragEnd(event: any) {

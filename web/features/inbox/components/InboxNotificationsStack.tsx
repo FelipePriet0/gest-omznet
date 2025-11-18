@@ -41,9 +41,10 @@ export function InboxNotificationsStack({ items, onDismiss }: { items: InboxItem
             onClick={() => {
               if (draggingId) return;
               if (Math.abs(lastDragOffset.current[item.id] ?? 0) > 8) return;
-              // URL de destino: usa link_url quando presente; fallback para /kanban/analise?card=<id>
-              const fallback = item.card_id ? `/kanban/analise?card=${item.card_id}` : null;
-              const url = item.link_url || fallback;
+              // Abrir sempre o modal EditarFicha do card quando houver card_id
+              const url = item.card_id
+                ? `/kanban/analise?card=${item.card_id}`
+                : (item.link_url || null);
               if (!url) return;
               try {
                 router.push(url);
