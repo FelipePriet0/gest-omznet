@@ -40,6 +40,8 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
   const [mentionFilter, setMentionFilter] = useState("");
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
+  const [attReplyMentionAnchor, setAttReplyMentionAnchor] = useState<{ top: number; left: number; height?: number }>({ top: 0, left: 0, height: 0 });
+  const [attReplyCmdAnchor, setAttReplyCmdAnchor] = useState<{ top: number; left: number; height?: number }>({ top: 0, left: 0, height: 0 });
   const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number;height?:number}>({ top: 0, left: 0, height: 0 });
   const [mentionAnchor, setMentionAnchor] = useState<{top:number;left:number;height?:number}>({ top: 0, left: 0, height: 0 });
   const composerContainerRef = useRef<HTMLDivElement|null>(null);
@@ -680,12 +682,15 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const [mentionFilter2, setMentionFilter2] = useState("");
   const [cmdOpen2, setCmdOpen2] = useState(false);
   const [cmdQuery2, setCmdQuery2] = useState("");
+  const [replyCmdAnchor, setReplyCmdAnchor] = useState<{ top: number; left: number; height?: number }>({ top: 0, left: 0, height: 0 });
+  const [replyMentionAnchor, setReplyMentionAnchor] = useState<{ top: number; left: number; height?: number }>({ top: 0, left: 0, height: 0 });
   // Compositor Unificado - edição
   const [editMentionOpen, setEditMentionOpen] = useState(false);
   const [editMentionFilter, setEditMentionFilter] = useState("");
   const [editCmdOpen, setEditCmdOpen] = useState(false);
   const [editCmdQuery, setEditCmdQuery] = useState("");
-  const [editCmdAnchor, setEditCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  const [editCmdAnchor, setEditCmdAnchor] = useState<{ top: number; left: number; height?: number }>({ top: 0, left: 0, height: 0 });
+  const [editMentionAnchor, setEditMentionAnchor] = useState<{ top: number; left: number; height?: number }>({ top: 0, left: 0, height: 0 });
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : "";
   const rawText = node.text ?? "";
   const trimmedText = rawText.trim();
@@ -759,13 +764,31 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
                 try { await onEdit(node.id, (val.text||'').trim()); setIsEditing(false); } catch(e:any){ alert(e?.message||'Falha ao editar'); }
               }}
               onCancel={()=> { setIsEditing(false); setEditMentionOpen(false); setEditCmdOpen(false); }}
-              onMentionTrigger={(query)=> { setEditMentionFilter((query||'').trim()); setEditMentionOpen(true); }}
+              onMentionTrigger={(query, rect)=> {
+                setEditMentionFilter((query||'').trim());
+                if (rect && editRef.current) {
+                  const host = editRef.current.getBoundingClientRect();
+                  const top = (rect.top ?? 0) - host.top; // acima da linha
+                  const left = (rect.left ?? host.left) - host.left;
+                  setEditMentionAnchor({ top, left, height: rect.height });
+                }
+                setEditMentionOpen(true);
+              }}
               onMentionClose={()=> setEditMentionOpen(false)}
-              onCommandTrigger={(query)=> { setEditCmdQuery((query||'').toLowerCase()); setEditCmdOpen(true); }}
+              onCommandTrigger={(query, rect)=> {
+                setEditCmdQuery((query||'').toLowerCase());
+                if (rect && editRef.current) {
+                  const host = editRef.current.getBoundingClientRect();
+                  const top = (rect.top ?? 0) - host.top; // acima da linha
+                  const left = (rect.left ?? host.left) - host.left;
+                  setEditCmdAnchor({ top, left, height: rect.height });
+                }
+                setEditCmdOpen(true);
+              }}
               onCommandClose={()=> setEditCmdOpen(false)}
             />
             {editMentionOpen && (
-              <div className="absolute z-50 left-0 bottom-full mb-2">
+              <div className="absolute z-50" style={{ left: Math.max(0, (editMentionAnchor?.left||0)), top: Math.max(0, (editMentionAnchor?.top||0)), transform: 'translateY(-100%)' }}>
                 <MentionDropdown
                   items={(profiles || []).filter((p)=> p.id !== currentUserId && (p.full_name||'').toLowerCase().includes(editMentionFilter.toLowerCase()))}
                   onPick={(p)=>{
@@ -777,7 +800,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               </div>
             )}
             {editCmdOpen && (
-              <div className="absolute z-50 left-0 bottom-full mb-2">
+              <div className="absolute z-50" style={{ left: Math.max(0, (editCmdAnchor?.left||0)), top: Math.max(0, (editCmdAnchor?.top||0)), transform: 'translateY(-100%)' }}>
                 <CmdDropdown
                   items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(editCmdQuery))}
                   onPick={(key)=> {
@@ -889,13 +912,25 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
                 setReplyOpen(false);
               }}
               onCancel={()=> { openReplyMap.set(node.id, false); setReplyOpen(false); setMentionOpen2(false); setCmdOpen2(false); }}
-              onMentionTrigger={(query)=> {
+              onMentionTrigger={(query, rect)=> {
                 setMentionFilter2((query||'').trim());
+                if (rect && replyRef.current) {
+                  const host = replyRef.current.getBoundingClientRect();
+                  const top = (rect.top ?? 0) - host.top; // acima do caret
+                  const left = (rect.left ?? host.left) - host.left;
+                  setReplyMentionAnchor({ top, left, height: rect.height });
+                }
                 setMentionOpen2(true);
               }}
               onMentionClose={()=> setMentionOpen2(false)}
-              onCommandTrigger={(query)=> {
+              onCommandTrigger={(query, rect)=> {
                 setCmdQuery2((query||'').toLowerCase());
+                if (rect && replyRef.current) {
+                  const host = replyRef.current.getBoundingClientRect();
+                  const top = (rect.top ?? 0) - host.top; // acima do caret
+                  const left = (rect.left ?? host.left) - host.left;
+                  setReplyCmdAnchor({ top, left, height: rect.height });
+                }
                 setCmdOpen2(true);
               }}
               onCommandClose={()=>{
@@ -907,7 +942,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               }}
             />
             {mentionOpen2 && (
-              <div className="absolute z-50 left-0 bottom-full mb-2">
+              <div className="absolute z-50" style={{ left: Math.max(0, (replyMentionAnchor?.left||0)), top: Math.max(0, (replyMentionAnchor?.top||0)), transform: 'translateY(-100%)' }}>
               <MentionDropdown
                 items={profiles.filter((p) => p.id !== currentUserId && p.full_name.toLowerCase().includes(mentionFilter2.toLowerCase()))}
                 onPick={(p) => {
@@ -920,7 +955,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
             )}
           </div>
           {cmdOpen2 && (
-            <div className="absolute z-50 left-0 bottom-full mb-2">
+            <div className="absolute z-50" style={{ left: Math.max(0, (replyCmdAnchor?.left||0)), top: Math.max(0, (replyCmdAnchor?.top||0)), transform: 'translateY(-100%)' }}>
               <CmdDropdown
                 items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery2))}
                 onPick={(key)=> { if (key==='tarefa') onOpenTask(node.id); if (key==='anexo') onOpenAttach(node.id); setCmdOpen2(false); setCmdQuery2(''); }}
@@ -1350,17 +1385,29 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
             }}
             onMentionTrigger={(query, rect) => {
               setMentionFilter((query || "").trim());
+              if (rect && replyContainerRef.current) {
+                const host = replyContainerRef.current.getBoundingClientRect();
+                const top = (rect.top ?? 0) - host.top; // acima do caret
+                const left = (rect.left ?? host.left) - host.left;
+                setAttReplyMentionAnchor({ top, left, height: rect.height });
+              }
               setMentionOpen(true);
             }}
             onMentionClose={() => setMentionOpen(false)}
             onCommandTrigger={(query, rect) => {
               setCmdQuery((query || "").toLowerCase());
+              if (rect && replyContainerRef.current) {
+                const host = replyContainerRef.current.getBoundingClientRect();
+                const top = (rect.top ?? 0) - host.top; // acima do caret
+                const left = (rect.left ?? host.left) - host.left;
+                setAttReplyCmdAnchor({ top, left, height: rect.height });
+              }
               setCmdOpen(true);
             }}
             onCommandClose={() => setCmdOpen(false)}
           />
           {mentionOpen && (
-            <div className="absolute left-0 bottom-full mb-2">
+            <div className="absolute" style={{ left: Math.max(0, (attReplyMentionAnchor?.left||0)), top: Math.max(0, (attReplyMentionAnchor?.top||0)), transform: 'translateY(-100%)' }}>
               <MentionDropdown
                 items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(mentionFilter.toLowerCase()))}
                 onPick={(p) => {
@@ -1372,7 +1419,7 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
           </div>
         )}
           {cmdOpen && (
-            <div className="absolute left-0 bottom-full mb-2">
+            <div className="absolute" style={{ left: Math.max(0, (attReplyCmdAnchor?.left||0)), top: Math.max(0, (attReplyCmdAnchor?.top||0)), transform: 'translateY(-100%)' }}>
               <CmdDropdown
                 items={[{ key:'tarefa', label:'Tarefa' }, { key:'anexo', label:'Anexo' }].filter((i)=> i.key.includes(cmdQuery))}
                 onPick={(key)=> {
