@@ -139,8 +139,8 @@ function renderTextWithMentions(text: string, mentions?: ComposerMention[]): str
       html += escapeHTML(before).replace(/\n/g, "<br/>");
     }
     const labelAttr = escapeHTML(label);
-    const idAttr = mention.id ? ` data-id="${escapeHTML(mention.id)}"` : "";
-    html += `<span class=\"mention-chip\" contenteditable=\"false\" data-role=\"mention-chip\" data-label=\"${labelAttr}\"${idAttr}>@${labelAttr}</span>`;
+    // Renderiza menção como texto puro (sem wrapper/estilização)
+    html += `@${labelAttr}`;
     cursor = index + token.length;
   });
   const rest = safeText.slice(cursor);
