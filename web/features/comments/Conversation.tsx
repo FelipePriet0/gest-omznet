@@ -107,17 +107,31 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
     );
   }, [cardId]);
 
-  // Wrappers que garantem atualização imediata da UI (não esperar realtime)
+  // Wrappers que garantem atualização imediata da UI (otimista)
   const editCommentWithRefresh = useCallback(async (id: string, text: string) => {
+    const newText = (text || '').trim();
+    const prevComments = comments;
+    const prevAttachments = attachments;
+    const prevTasks = tasks;
+    // Otimista: aplica mudança local
+    setComments((curr) => curr.map((c) => (c.id === id ? { ...c, text: newText } : c)));
+    if (newText.length > 0) {
+      // Se virou texto/menção, ocultar anexos/tarefas deste comentário imediatamente
+      setAttachments((curr) => curr.filter((a) => a.comment_id !== id));
+      setTasks((curr) => curr.filter((t) => t.comment_id !== id));
+    }
     try {
-      await editComment(id, text);
-      // Atualização imediata - UX fluida
-      await refreshComments();
+      await editComment(id, newText);
+      // Evitar roundtrip imediato; realtime atualizará, mas mantém estado consistente
     } catch (e: any) {
+      // Reverte em caso de erro
+      setComments(prevComments);
+      setAttachments(prevAttachments);
+      setTasks(prevTasks);
       alert(e?.message || "Falha ao editar comentário");
       throw e;
     }
-  }, [refreshComments]);
+  }, [comments, attachments, tasks]);
 
   const deleteCommentWithRefresh = useCallback(async (id: string) => {
     try {
@@ -245,6 +259,23 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
     }
     return () => { active = false; supabase.removeChannel(channel); supabase.removeChannel(chTasks); supabase.removeChannel(chAtt); };
   }, [cardId]);
+
+  // Otimismo global: transforma comentário em task/attachment instantaneamente
+  useEffect(() => {
+    function onOptimisticTransform(ev: any) {
+      const detail = ev?.detail || {};
+      const cid: string | null = detail.commentId || null;
+      const to: 'attachment' | 'task' | 'text' = detail.to || 'text';
+      if (!cid) return;
+      // Limpa texto e conteúdo antigo localmente
+      setComments((curr) => curr.map((c) => (c.id === cid ? { ...c, text: to === 'text' ? (detail.text || '') : '' } : c)));
+      setAttachments((curr) => curr.filter((a) => a.comment_id !== cid));
+      setTasks((curr) => curr.filter((t) => t.comment_id !== cid));
+      // Opcional: poderíamos adicionar placeholders aqui
+    }
+    window.addEventListener('mz-optimistic-transform', onOptimisticTransform as any);
+    return () => window.removeEventListener('mz-optimistic-transform', onOptimisticTransform as any);
+  }, []);
 
   const tree = useMemo(() => buildTree(comments || []), [comments]);
 

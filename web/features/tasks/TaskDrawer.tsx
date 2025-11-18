@@ -254,6 +254,8 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
             try { await supabase.from('card_tasks').delete().eq('comment_id', commentId); } catch {}
             try { await supabase.from(TABLE_CARD_COMMENTS).update({ content: '' }).eq('id', commentId); } catch {}
             threadRefId = commentId;
+            // Otimista: avisar Conversa
+            try { window.dispatchEvent(new CustomEvent('mz-optimistic-transform', { detail: { commentId, to: 'task' } })); } catch {}
           } else {
             // Conversa: criar nó de comentário vazio para que a tarefa apareça inline como conteúdo
             threadRefId = await addComment(cardId, "", commentId ?? undefined);

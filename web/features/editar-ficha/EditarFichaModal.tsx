@@ -185,6 +185,8 @@ export function EditarFichaModal({
         try { await supabase.from('card_tasks').delete().eq('comment_id', context.commentId); } catch {}
         // Limpar o texto atual para renderizar anexos inline (sem header duplicado)
         try { await supabase.from('card_comments').update({ content: '' }).eq('id', context.commentId); } catch {}
+        // Otimista: avisar Conversa para atualizar imediatamente
+        try { window.dispatchEvent(new CustomEvent('mz-optimistic-transform', { detail: { commentId: context.commentId, to: 'attachment' } })); } catch {}
       }
 
       const uploaded = await Attach.uploadAttachmentBatch({
