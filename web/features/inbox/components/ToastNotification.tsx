@@ -61,14 +61,17 @@ interface ToastNotificationProps {
   item: InboxItem;
   onDismiss: () => void;
   onClick: () => void;
+  onRevealNext?: () => void; // Novo: callback para revelar próximo toast
+  isFrontToast?: boolean; // Novo: indica se é o toast da frente
 }
 
-export function ToastNotification({ item, onDismiss, onClick }: ToastNotificationProps) {
+export function ToastNotification({ item, onDismiss, onClick, onRevealNext, isFrontToast = false }: ToastNotificationProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const startPosRef = useRef({ x: 0, y: 0 });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const hasRevealedNextRef = useRef(false); // Evitar múltiplas revelações
 
   const when = item.created_at ? new Date(item.created_at).toLocaleString() : "";
   const icon = getNotificationSymbol(item);
@@ -93,24 +96,44 @@ export function ToastNotification({ item, onDismiss, onClick }: ToastNotificatio
     setIsDragging(true);
     startPosRef.current = { x: e.clientX, y: e.clientY };
     setDragOffset({ x: 0, y: 0 });
+    hasRevealedNextRef.current = false; // Reset ao começar novo arraste
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     const deltaX = e.clientX - startPosRef.current.x;
     const deltaY = e.clientY - startPosRef.current.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
     // Se arrastou mais de 100px, fecha o toast
-    if (Math.abs(deltaX) > 100 || Math.abs(deltaY) > 100) {
+    if (distance > 100) {
       onDismiss();
       return;
     }
 
+    // Se é o toast da frente e arrastou para a esquerda (revelar próximo)
+    if (isFrontToast && onRevealNext && !hasRevealedNextRef.current) {
+      // Se arrastou mais de 50px para a esquerda, revelar próximo
+      if (deltaX < -50 && Math.abs(deltaY) < 30) {
+        hasRevealedNextRef.current = true;
+        onRevealNext();
+        // Resetar posição após revelar
+        setTimeout(() => {
+          setDragOffset({ x: 0, y: 0 });
+          setIsDragging(false);
+        }, 100);
+        return;
+      }
+    }
+
     setDragOffset({ x: deltaX, y: deltaY });
-  }, [onDismiss]);
+  }, [onDismiss, onRevealNext, isFrontToast]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
-    setDragOffset({ x: 0, y: 0 });
+    // Se não revelou próximo e não fechou, voltar à posição original
+    if (!hasRevealedNextRef.current) {
+      setDragOffset({ x: 0, y: 0 });
+    }
   }, []);
 
   useEffect(() => {
@@ -171,7 +194,9 @@ export function ToastNotification({ item, onDismiss, onClick }: ToastNotificatio
       </div>
 
       <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-500 flex-shrink-0">
-        <span>Arraste para fechar</span>
+        <span>
+          {isFrontToast && onRevealNext ? "Arraste para ver próximo" : "Arraste para fechar"}
+        </span>
         <span className="font-medium text-[var(--color-primary)]">Clique para abrir</span>
       </div>
     </Card>

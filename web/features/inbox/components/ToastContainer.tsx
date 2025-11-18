@@ -17,6 +17,21 @@ const MIN_SPACE_ABOVE_BARRA = 22; // Espaço mínimo desejado acima da barra
 const DESIRED_BOTTOM = BARRA_HEIGHT + MIN_SPACE_ABOVE_BARRA; // 36px
 const MIN_MARGIN_TOP = 20; // Margem mínima do topo da tela
 
+// Nova regra de empilhamento visual:
+// 1 notificação = 0 empilhadas (só 1 visível)
+// 2 notificações = 1 empilhada (2 visíveis)
+// 3 notificações = 2 empilhadas (3 visíveis)
+// 4 notificações = 3 empilhadas (4 visíveis)
+// 5+ notificações = 4 empilhadas (máximo 4 visíveis)
+function getMaxStackedVisible(count: number): number {
+  if (count === 0) return 0;
+  if (count === 1) return 1; // Sem empilhamento
+  if (count === 2) return 2; // 1 empilhada
+  if (count === 3) return 3; // 2 empilhadas
+  if (count === 4) return 4; // 3 empilhadas
+  return 4; // 5+ = 4 empilhadas (máximo)
+}
+
 export function ToastContainer() {
   const { items } = useInbox();
   const { toasts, dismissToast } = useToastNotifications(items);
@@ -25,11 +40,39 @@ export function ToastContainer() {
   const search = useSearchParams();
   const [showCompleted, setShowCompleted] = useState(toasts.length > 0);
   const [bottomOffset, setBottomOffset] = useState(DESIRED_BOTTOM);
+  const [activeIndex, setActiveIndex] = useState(0); // Índice do toast mais à frente (0 = mais recente)
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
   const cardCount = toasts.length;
+  const maxStacked = getMaxStackedVisible(cardCount);
+  
+  // Ref para rastrear o ID do toast mais recente
+  const previousMostRecentIdRef = useRef<string | null>(null);
+  
+  // Resetar activeIndex quando um novo toast chega (mais recente)
+  useEffect(() => {
+    // Se um novo toast chegou (mais recente), resetar para mostrar ele na frente
+    if (cardCount > 0) {
+      // Ordenar para encontrar o mais recente por data
+      const sorted = [...toasts].sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA; // Ordem decrescente: mais recente primeiro
+      });
+      const mostRecentId = sorted[0]?.id;
+      
+      if (mostRecentId && mostRecentId !== previousMostRecentIdRef.current) {
+        // Novo toast chegou, resetar para mostrar o mais recente
+        setActiveIndex(0);
+        previousMostRecentIdRef.current = mostRecentId;
+      }
+    } else {
+      // Se não há toasts, resetar a referência
+      previousMostRecentIdRef.current = null;
+    }
+  }, [cardCount, toasts]);
 
   // Calcular posicionamento dinâmico para garantir que o card apareça inteiro
   useEffect(() => {
@@ -115,7 +158,29 @@ export function ToastContainer() {
     dismissToast(item.id);
   };
 
+  // Handler para quando o toast da frente é arrastado e deve revelar o próximo
+  const handleRevealNext = () => {
+    // Só revelar próximo se houver mais toasts
+    if (activeIndex < cardCount - 1) {
+      setActiveIndex(prev => prev + 1);
+    }
+  };
+
   if (!toasts.length && !showCompleted) return null;
+
+  // IMPORTANTE: Ordenar por data (mais antigo primeiro) e depois inverter
+  // para garantir que o mais recente fique no índice 0 (na frente)
+  const sortedToasts = [...toasts].sort((a, b) => {
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return dateA - dateB; // Ordem crescente: mais antigo primeiro
+  });
+  
+  // Agora inverter: reversedToasts[0] = Card 7 (16:10) - mais recente - NA FRENTE
+  // reversedToasts[1] = Card 6 (15:10)
+  // ...
+  // reversedToasts[6] = Card 1 (11:10) - mais antigo - ATRÁS
+  const reversedToasts = sortedToasts.reverse();
 
   return (
     <div
@@ -130,15 +195,20 @@ export function ToastContainer() {
       {/* LEI 1: Tamanho Fixo - Container com largura fixa de 380px */}
       <div className="relative w-[380px]">
         {/* LEI 2: Ordenação por recência - toast mais recente sempre na frente */}
-        {toasts.toReversed().map((toast, idx) => {
-          const isActive = idx === cardCount - 1;
-          const isVisible = cardCount - idx <= 3;
-          // Usar o primeiro card (último no array reverso) para medir altura
-          const isFirstCard = idx === 0;
+        {reversedToasts.map((toast, idx) => {
+          // Calcular se este toast deve estar visível no empilhamento
+          // Mostramos apenas os toasts a partir do activeIndex até activeIndex + maxStacked - 1
+          const isInVisibleRange = idx >= activeIndex && idx < activeIndex + maxStacked;
+          const isFirstCard = idx === activeIndex; // Primeiro toast visível (mais à frente)
           
-          // LEI 2 - Função Escada: Calcular o índice na pilha
-          // stackIndex 0 = toast mais recente (frente), aumenta para toasts de trás
-          const stackIndex = cardCount - (idx + 1);
+          // Se não está no range visível, não renderizar
+          if (!isInVisibleRange) {
+            return null;
+          }
+
+          // LEI 2 - Função Escada: Calcular o índice na pilha visual
+          // stackIndex 0 = toast mais recente visível (frente), aumenta para toasts de trás
+          const stackIndex = idx - activeIndex;
           
           // LEI 2: Gap fixo de 6px entre bordas superiores (a borda superior do toast de trás fica 6px acima)
           const verticalOffset = stackIndex * GAP_TOP;
@@ -146,33 +216,31 @@ export function ToastContainer() {
           // LEI 2: Offset horizontal - cards de trás ficam deslocados para esquerda
           const horizontalOffset = stackIndex * HORIZONTAL_OFFSET;
           
+          // Se é o toast da frente (stackIndex === 0), pode ser arrastado para revelar próximo
+          const isFrontToast = stackIndex === 0;
+          
           return (
             <div
               key={toast.id}
               ref={isFirstCard ? cardRef : undefined}
               className={cn(
-                "absolute left-0 top-0 w-full scale-[var(--scale)] transition-[opacity,transform] duration-200 pointer-events-auto",
-                !isVisible
-                  ? [
-                      "opacity-0 sm:group-hover:translate-y-[var(--y)] sm:group-hover:translate-x-[var(--x)] sm:group-hover:opacity-100",
-                      "sm:group-has-[*[data-dragging=true]]:translate-y-[var(--y)] sm:group-has-[*[data-dragging=true]]:translate-x-[var(--x)] sm:group-has-[*[data-dragging=true]]:opacity-100",
-                    ]
-                  : "translate-y-[var(--y)] translate-x-[var(--x)] opacity-100" // LEI 2: Todos os toasts visíveis têm 100% de opacidade
+                "absolute left-0 top-0 w-full scale-[var(--scale)] transition-[opacity,transform] duration-200 pointer-events-auto"
               )}
               style={
                 {
                   "--y": `-${verticalOffset}px`,
                   "--x": `-${horizontalOffset}px`,
                   "--scale": 1 - stackIndex * SCALE_FACTOR, // LEI 2: Escala decrescente (1.0 na frente, menor atrás)
-                  zIndex: cardCount - idx, // LEI 2: Toast mais recente (idx=0) tem z-index maior, fica por cima
+                  zIndex: maxStacked - stackIndex, // LEI 2: Toast mais recente (stackIndex=0) tem z-index maior, fica por cima
                 } as React.CSSProperties
               }
-              aria-hidden={!isActive}
             >
               <ToastNotification
                 item={toast}
                 onDismiss={() => dismissToast(toast.id)}
                 onClick={() => handleClick(toast)}
+                onRevealNext={isFrontToast && activeIndex < cardCount - 1 ? handleRevealNext : undefined}
+                isFrontToast={isFrontToast}
               />
             </div>
           );
