@@ -764,9 +764,10 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
                 const newText = (val.text||'').trim();
                 try {
                   await onEdit(node.id, newText);
-                  // Se havia anexos e agora virou texto/menção, remove anexos deste comentário
-                  if (newText.length > 0 && nodeAttachments && nodeAttachments.length > 0) {
+                  // Se virou texto/menção, remover anexos e tarefas existentes deste comentário
+                  if (newText.length > 0) {
                     try { await supabase.from(TABLE_CARD_ATTACHMENTS).delete().eq('comment_id', node.id); } catch {}
+                    try { await supabase.from('card_tasks').delete().eq('comment_id', node.id); } catch {}
                   }
                   setIsEditing(false);
                 } catch(e:any){

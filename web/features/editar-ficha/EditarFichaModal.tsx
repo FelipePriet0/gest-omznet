@@ -180,8 +180,11 @@ export function EditarFichaModal({
         if (cErr || !c?.id) throw cErr || new Error('Falha ao criar comentário para anexos');
         commentIdForUpload = c.id as string;
       } else if (context?.source === 'conversa' && context?.inPlace && context?.commentId) {
-        // Edição in-place: substituir anexos existentes deste comentário
+        // Edição in-place: substituir anexos existentes deste comentário e remover tarefas existentes
         try { await supabase.from('card_attachments').delete().eq('comment_id', context.commentId); } catch {}
+        try { await supabase.from('card_tasks').delete().eq('comment_id', context.commentId); } catch {}
+        // Limpar o texto atual para renderizar anexos inline (sem header duplicado)
+        try { await supabase.from('card_comments').update({ content: '' }).eq('id', context.commentId); } catch {}
       }
 
       const uploaded = await Attach.uploadAttachmentBatch({

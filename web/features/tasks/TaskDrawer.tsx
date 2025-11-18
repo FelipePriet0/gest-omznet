@@ -249,8 +249,9 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
       } else {
         try {
           if (inPlace && commentId) {
-            // Transformar este comentário em tarefa: limpar anexos e texto, e usar o mesmo comment_id
+            // Transformar este comentário em tarefa: limpar anexos, tarefas antigas e texto, e usar o mesmo comment_id
             try { await supabase.from('card_attachments').delete().eq('comment_id', commentId); } catch {}
+            try { await supabase.from('card_tasks').delete().eq('comment_id', commentId); } catch {}
             try { await supabase.from(TABLE_CARD_COMMENTS).update({ content: '' }).eq('id', commentId); } catch {}
             threadRefId = commentId;
           } else {
