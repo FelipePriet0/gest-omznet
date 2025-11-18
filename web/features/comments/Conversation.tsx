@@ -40,7 +40,9 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
   const [mentionFilter, setMentionFilter] = useState("");
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
-  const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number}>({ top: 0, left: 0 });
+  const [cmdAnchor, setCmdAnchor] = useState<{top:number;left:number;height?:number}>({ top: 0, left: 0, height: 0 });
+  const [mentionAnchor, setMentionAnchor] = useState<{top:number;left:number;height?:number}>({ top: 0, left: 0, height: 0 });
+  const composerContainerRef = useRef<HTMLDivElement|null>(null);
   const inputRef = useRef<UnifiedComposerHandle|null>(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<CardTask[]>([]);
@@ -347,7 +349,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
         </div>
         <div className="section-content space-y-3">
           {/* Campo para nova conversa (Thread Pai) no topo */}
-          <div className="border-b border-zinc-100 pb-4 mb-4 relative">
+          <div className="border-b border-zinc-100 pb-4 mb-4 relative" ref={composerContainerRef}>
               <UnifiedComposer
                 ref={inputRef}
                 placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
@@ -363,13 +365,31 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                   }
                 }}
                 onCancel={()=> { setInput(""); setCmdOpen(false); setMentionOpen(false); }}
-                onMentionTrigger={(query)=> { setMentionFilter((query||'').trim()); setMentionOpen(true); }}
+                onMentionTrigger={(query, rect)=> {
+                  setMentionFilter((query||'').trim());
+                  if (rect && composerContainerRef.current) {
+                    const host = composerContainerRef.current.getBoundingClientRect();
+                    const top = (rect.bottom ?? (rect.top + (rect.height||0))) - host.top;
+                    const left = (rect.left ?? host.left) - host.left;
+                    setMentionAnchor({ top, left, height: rect.height });
+                  }
+                  setMentionOpen(true);
+                }}
                 onMentionClose={()=> setMentionOpen(false)}
-                onCommandTrigger={(query)=> { setCmdQuery((query||'').toLowerCase()); setCmdOpen(true); }}
+                onCommandTrigger={(query, rect)=> {
+                  setCmdQuery((query||'').toLowerCase());
+                  if (rect && composerContainerRef.current) {
+                    const host = composerContainerRef.current.getBoundingClientRect();
+                    const top = (rect.bottom ?? (rect.top + (rect.height||0))) - host.top;
+                    const left = (rect.left ?? host.left) - host.left;
+                    setCmdAnchor({ top, left, height: rect.height });
+                  }
+                  setCmdOpen(true);
+                }}
                 onCommandClose={()=> setCmdOpen(false)}
               />
             {cmdOpen && (
-              <div className="absolute z-50 left-0 bottom-full mb-2">
+              <div className="absolute z-50" style={{ left: Math.max(0, (cmdAnchor?.left||0)), top: Math.max(0, (cmdAnchor?.top||0)) }}>
                 <CmdDropdown
                   items={[{key:'tarefa',label:'Tarefa'},{key:'anexo',label:'Anexo'}].filter(i=> i.key.includes(cmdQuery))}
                   onPick={(key)=> {
@@ -382,7 +402,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
               </div>
             )}
             {mentionOpen && (
-              <div className="absolute z-50 left-0 bottom-full mb-2">
+              <div className="absolute z-50" style={{ left: Math.max(0, (mentionAnchor?.left||0)), top: Math.max(0, (mentionAnchor?.top||0)) }}>
                 <MentionDropdown
                 items={profiles.filter((p) => p.id !== currentUserId && p.full_name.toLowerCase().includes(mentionFilter.toLowerCase()))}
                 onPick={(p) => {
