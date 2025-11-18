@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useState, useMemo, useEffect, type ReactNode } from "react";
 import { Inbox as InboxIcon, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { markRead } from "@/features/inbox/services";
@@ -11,6 +11,7 @@ import { InboxFilterCTA, inboxFilterLabelsMap } from "@/features/inbox/component
 import { InboxNotificationsStack } from "@/features/inbox/components/InboxNotificationsStack";
 import { useInboxController } from "@/features/inbox/hooks/useInboxController";
 import { ToastContainer } from "./components/ToastContainer";
+import { supabase } from "@/lib/supabaseClient";
 
 type RefreshHandler = () => Promise<void> | void;
 
@@ -24,10 +25,36 @@ const InboxContext = createContext<InboxContextValue | null>(null);
 
 export function InboxProvider({ children, panelOpen }: { children: ReactNode; panelOpen: boolean }) {
   const value = useInboxController(panelOpen);
+  const [loginAt, setLoginAt] = useState<Date | null>(null);
+
+  // Detectar quando usuário loga
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user && !loginAt) {
+          setLoginAt(new Date());
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setLoginAt(null);
+      }
+    });
+    
+    // Verificar se já está logado no mount
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user && !loginAt) {
+        setLoginAt(new Date());
+      }
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [loginAt]);
+
   return (
     <InboxContext.Provider value={value}>
       {children}
-      <ToastContainer />
+      <ToastContainer loginAt={loginAt} />
     </InboxContext.Provider>
   );
 }

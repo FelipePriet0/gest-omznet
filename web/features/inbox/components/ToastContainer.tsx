@@ -32,9 +32,9 @@ function getMaxStackedVisible(count: number): number {
   return 4; // 5+ = 4 empilhadas (máximo)
 }
 
-export function ToastContainer() {
+export function ToastContainer({ loginAt }: { loginAt: Date | null }) {
   const { items } = useInbox();
-  const { toasts, dismissToast } = useToastNotifications(items);
+  const { toasts, dismissToast } = useToastNotifications(items, loginAt);
   const router = useRouter();
   const pathname = usePathname() || "/";
   const search = useSearchParams();
