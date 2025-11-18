@@ -842,7 +842,11 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
           </button>
           )}
           {currentUserId && node.author_id === currentUserId ? (
-            <CommentMenu onEdit={()=> setIsEditing(true)} onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }} />
+            <CommentMenu 
+              onEdit={()=> setIsEditing(true)} 
+              onDelete={async ()=> { if (confirm('Excluir este comentário?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir'); } } }}
+              canDelete={(nodeTasks.length === 0) && (nodeAttachments.length === 0)}
+            />
           ) : null}
         </div>
       </div>
@@ -1252,7 +1256,7 @@ function AttachmentResponseRow({
   );
 }
 
-function CommentMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void | Promise<void> }) {
+function CommentMenu({ onEdit, onDelete, canDelete = true }: { onEdit: () => void; onDelete: () => void | Promise<void>; canDelete?: boolean }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -1287,16 +1291,20 @@ function CommentMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
               </svg>
               Editar
             </button>
-            <div className="h-px bg-zinc-100 mx-2" />
-            <button 
-              className="comment-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" 
-              onClick={async ()=> { setOpen(false); await onDelete(); }}
-            >
-              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              Excluir
-            </button>
+            {canDelete && (
+              <>
+                <div className="h-px bg-zinc-100 mx-2" />
+                <button 
+                  className="comment-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" 
+                  onClick={async ()=> { setOpen(false); await onDelete(); }}
+                >
+                  <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Excluir
+                </button>
+              </>
+            )}
           </div>
         </>
       )}
@@ -1452,6 +1460,7 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
                   alert(e?.message || 'Falha ao excluir anexo');
                 }
               } : async () => {}}
+              canDelete={false}
             />
           )}
         </div>
