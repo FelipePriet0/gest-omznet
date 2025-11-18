@@ -428,11 +428,11 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                       />
                       {attachmentReplies.length > 0 && (
                         <div className="ml-6 space-y-2 mt-2">
-                          {attachmentReplies.map((replyNode) => (
-                            <CommentItem
-                              key={replyNode.id}
-                              node={replyNode}
-                              depth={1}
+          {attachmentReplies.map((replyNode) => (
+            <CommentItem
+              key={replyNode.id}
+              node={replyNode}
+              depth={1}
                               onReply={async (id, text) => {
                                 try {
                                   await addComment(cardId, text, id);
@@ -443,22 +443,22 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                               }}
                               onEdit={editCommentWithRefresh}
                               onDelete={deleteCommentWithRefresh}
-                              onOpenAttach={onOpenAttach}
-                              onOpenTask={onOpenTask}
-                              tasks={tasks.filter((t) => t.comment_id === replyNode.id)}
-                              attachments={attachments.filter((a) => a.comment_id === replyNode.id)}
-                              onToggleTask={toggleTaskWithRefresh}
-                              profiles={profiles}
-                              currentUserName={currentUserName}
-                              currentUserId={currentUserId}
-                              onEditTask={onEditTask}
-                              onSubmitComment={submitComment}
-                              onPreview={(payload) => setPreview(payload)}
-                              applicantName={applicantName}
-                              comments={comments}
-                              onDeleteAttachment={removeAttachmentWithRefresh}
-                            />
-                          ))}
+              onOpenAttach={onOpenAttach}
+              onOpenTask={onOpenTask}
+              tasks={tasks}
+              attachments={attachments}
+              onToggleTask={toggleTaskWithRefresh}
+              profiles={profiles}
+              currentUserName={currentUserName}
+              currentUserId={currentUserId}
+              onEditTask={onEditTask}
+              onSubmitComment={submitComment}
+              onPreview={(payload) => setPreview(payload)}
+              applicantName={applicantName}
+              comments={comments}
+              onDeleteAttachment={removeAttachmentWithRefresh}
+            />
+          ))}
                         </div>
                       )}
                     </div>
@@ -486,8 +486,8 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
               onDelete={deleteCommentWithRefresh}
               onOpenAttach={onOpenAttach}
               onOpenTask={onOpenTask}
-              tasks={tasks.filter((t) => t.comment_id === n.id)}
-              attachments={attachments.filter((a) => a.comment_id === n.id)}
+              tasks={tasks}
+              attachments={attachments}
               onToggleTask={toggleTaskWithRefresh}
               profiles={profiles}
               currentUserName={currentUserName}
@@ -657,10 +657,13 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   const ts = node.created_at ? new Date(node.created_at).toLocaleString() : "";
   const rawText = node.text ?? "";
   const trimmedText = rawText.trim();
-  const hasTasks = tasks.length > 0;
+  // Filtrar dados para este nó específico
+  const nodeTasks = useMemo(() => (tasks || []).filter((t) => t.comment_id === node.id), [tasks, node.id]);
+  const nodeAttachments = useMemo(() => (attachments || []).filter((a) => a.comment_id === node.id), [attachments, node.id]);
+  const hasTasks = nodeTasks.length > 0;
   const authorDisplayName = (node.author_name || "").trim() || "Um colaborador";
   const isAutoTaskComment = hasTasks && AUTO_TASK_COMMENT_RE.test(trimmedText);
-  const assigneeId = (tasks.find((t) => t.assigned_to)?.assigned_to as string | undefined) || null;
+  const assigneeId = (nodeTasks.find((t) => t.assigned_to)?.assigned_to as string | undefined) || null;
   const assigneeName = assigneeId ? (profiles.find((p) => p.id === assigneeId)?.full_name || "um colaborador") : "um colaborador";
   const displayText =
     trimmedText.length === 0
@@ -758,9 +761,9 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
         </div>
       )}
       {/* LEI 1 - HIERARQUIA: Tarefas como respostas com estrutura visual unificada */}
-      {tasks && tasks.length > 0 && (
+      {nodeTasks && nodeTasks.length > 0 && (
         <div className="mt-2 space-y-2">
-          {tasks.map((t) => {
+          {nodeTasks.map((t) => {
             const creatorProfile = t.created_by ? profiles.find((p) => p.id === t.created_by) : null;
             const creatorName =
               creatorProfile?.full_name ??
@@ -794,9 +797,9 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
         </div>
       )}
       {/* LEI 1 - HIERARQUIA: Anexos como respostas com estrutura visual unificada */}
-      {attachments && attachments.length > 0 && (
+      {nodeAttachments && nodeAttachments.length > 0 && (
         <div className="mt-2 space-y-2">
-          {attachments.map((a) => {
+          {nodeAttachments.map((a) => {
             const attachmentProfile = a.author_id ? profiles.find((p) => p.id === a.author_id) : null;
             const authorName = attachmentProfile?.full_name ?? (a.author_id && a.author_id === currentUserId ? currentUserName : "Colaborador");
             const authorRole = attachmentProfile?.role ?? a.author_role ?? null;
@@ -887,8 +890,8 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               onDelete={onDelete}
               onOpenAttach={onOpenAttach}
               onOpenTask={onOpenTask}
-              tasks={tasks.filter((t)=> t.comment_id === c.id)}
-              attachments={attachments.filter((a)=> a.comment_id === c.id)}
+              tasks={tasks}
+              attachments={attachments}
               onToggleTask={onToggleTask}
               profiles={profiles}
               currentUserName={currentUserName}
