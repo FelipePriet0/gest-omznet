@@ -41,12 +41,14 @@ export function InboxNotificationsStack({ items, onDismiss }: { items: InboxItem
             onClick={() => {
               if (draggingId) return;
               if (Math.abs(lastDragOffset.current[item.id] ?? 0) > 8) return;
-              if (item.link_url) {
-                try {
-                  router.push(item.link_url);
-                } catch {
-                  window.open(item.link_url, "_blank");
-                }
+              // URL de destino: usa link_url quando presente; fallback para /kanban/analise?card=<id>
+              const fallback = item.card_id ? `/kanban/analise?card=${item.card_id}` : null;
+              const url = item.link_url || fallback;
+              if (!url) return;
+              try {
+                router.push(url);
+              } catch {
+                try { window.open(url, "_blank"); } catch {}
               }
             }}
           >
@@ -57,4 +59,3 @@ export function InboxNotificationsStack({ items, onDismiss }: { items: InboxItem
     </div>
   );
 }
-
