@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
+import type { CardSnapshotPatch } from "@/features/editar-ficha/types";
 
 const columns = [
   { key: "recebidos", title: "Recebidos", color: "blue", icon: "🔵" },
@@ -29,6 +30,7 @@ export function KanbanBoardAnalise({
   dateEnd,
   openCardId,
   responsaveis,
+  searchTerm,
   onCardsChange,
   onCardModalClose,
 }: {
@@ -37,14 +39,16 @@ export function KanbanBoardAnalise({
   dateEnd?: string;
   openCardId?: string;
   responsaveis?: string[];
+  searchTerm?: string;
   onCardsChange?: (cards: KanbanCard[]) => void;
   onCardModalClose?: () => void;
 }) {
   const router = useRouter();
   const [cards, setCards] = useState<KanbanCard[]>([]);
-  const [move, setMove] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
+  const [move, setMove] = useState<{ id: string; area: "comercial" | "analise"; stage?: string | null } | null>(null);
   const [cancel, setCancel] = useState<{ id: string; area: "comercial" | "analise" } | null>(null);
-  
+  const hScrollRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
   const lastClosedCardIdRef = useRef<string | null>(null);
@@ -52,6 +56,7 @@ export function KanbanBoardAnalise({
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const responsavelIds = useMemo(
     () => (responsaveis ?? []).filter((id) => typeof id === "string" && id.length > 0),
@@ -65,22 +70,68 @@ export function KanbanBoardAnalise({
         dateStart,
         dateEnd,
         responsaveis: responsavelIds,
+        searchTerm,
       });
       setCards(data);
-      onCardsChange?.(data);
     } catch (error) {
       console.error("Falha ao carregar cards do Kanban Análise:", error);
       setCards([]);
-      onCardsChange?.([]);
     }
-  }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange]);
+  }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange, searchTerm]);
+
+  const handleCardSnapshotUpdate = useCallback(
+    (patch: CardSnapshotPatch) => {
+      if (!patch?.id) return;
+      setCards((prev) => {
+        let changed = false;
+        const next = prev.map((card) => {
+          if (card.id !== patch.id) return card;
+          changed = true;
+          const normalized: Partial<KanbanCard> = {};
+          if (patch.applicantName !== undefined) normalized.applicantName = patch.applicantName ?? "";
+          if (patch.cpfCnpj !== undefined) normalized.cpfCnpj = patch.cpfCnpj ?? "";
+          if (patch.phone !== undefined) normalized.phone = patch.phone ?? "";
+          if (patch.whatsapp !== undefined) normalized.whatsapp = patch.whatsapp ?? "";
+          if (patch.bairro !== undefined) normalized.bairro = patch.bairro ?? "";
+          if (patch.dueAt !== undefined) normalized.dueAt = patch.dueAt ?? undefined;
+          if (patch.horaAt !== undefined) normalized.horaAt = patch.horaAt ?? undefined;
+          return { ...card, ...normalized };
+        });
+        if (changed) {
+          return next;
+        }
+        return prev;
+      });
+    },
+    [onCardsChange]
+  );
 
   useEffect(() => {
     reload();
   }, [reload]);
 
   useEffect(() => {
-    const channelKey = `kanban-analise-${hora || "_"}-${dateStart || "_"}-${dateEnd || "_"}-${responsavelIds.join("|") || "_"}`;
+    let active = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!active) return;
+        setCurrentUserId(data.user?.id ?? null);
+      } catch {
+        if (active) setCurrentUserId(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    onCardsChange?.(cards);
+  }, [cards, onCardsChange]);
+
+  useEffect(() => {
+    const channelKey = `kanban-analise-${hora || "_"}-${dateStart || "_"}-${dateEnd || "_"}-${responsavelIds.join("|") || "_"}-${searchTerm || "_"}`;
     const channel = supabase
       .channel(channelKey)
       .on(
@@ -104,7 +155,7 @@ export function KanbanBoardAnalise({
         console.error("Erro ao remover canal do Kanban Análise:", err);
       }
     };
-  }, [hora, dateStart, dateEnd, responsavelIds, reload]);
+  }, [hora, dateStart, dateEnd, responsavelIds, searchTerm, reload]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = {
@@ -142,8 +193,10 @@ export function KanbanBoardAnalise({
     const cardId = active.id as string;
     const target = over.id as string;
     if (target === "canceladas") { setCancel({ id: cardId, area: "analise" }); return; }
+    const sourceStage = cards.find((c) => c.id === cardId)?.stage?.toLowerCase();
+    const assigneeId = sourceStage === "recebidos" && target === "em_analise" ? currentUserId ?? null : undefined;
     try {
-      await changeStage(cardId, "analise", target);
+      await changeStage(cardId, "analise", target, undefined, assigneeId);
       await reload();
     } catch (e: any) {
       alert(e.message ?? "Falha ao mover");
@@ -154,18 +207,26 @@ export function KanbanBoardAnalise({
     if (c.applicantId) router.push(`/ficha/${c.applicantId}`);
   }
 
+  async function handleIngressar(card: KanbanCard) {
+    try {
+      await changeStage(
+        card.id,
+        "analise",
+        "em_analise",
+        undefined,
+        currentUserId ?? null
+      );
+      await reload();
+    } catch (e: any) {
+      alert(e?.message ?? "Não foi possível ingressar");
+    }
+  }
+
   function extraForRecebidos(c: KanbanCard) {
     return (
       <div className="mt-3">
         <button
-          onClick={async () => {
-            try {
-              await changeStage(c.id, "analise", "em_analise");
-              await reload();
-            } catch (e: any) {
-              alert(e.message ?? "Não foi possível ingressar");
-            }
-          }}
+          onClick={() => handleIngressar(c)}
           className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
         >
           Ingressar
@@ -183,8 +244,8 @@ export function KanbanBoardAnalise({
         onDragCancel={() => setActiveId(null)}
         onDragEnd={(event)=> { setActiveId(null); handleDragEnd(event); }}
       >
-        <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-          <div className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
+        <div ref={hScrollRef} data-kanban-hscroll="analise" className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hide-h-scrollbar">
+          <div ref={contentRef} data-kanban-content="analise" className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
           {columns.map((c) => (
             <KanbanColumn
               key={c.key}
@@ -196,13 +257,14 @@ export function KanbanBoardAnalise({
               cards={(grouped[c.key as keyof typeof grouped] || []).map((card) => ({
                 ...card,
                 onOpen: () => setEdit({ cardId: card.id, applicantId: card.applicantId }),
-                onMenu: () => setMove({ id: card.id, area: 'analise' }),
+                onMenu: () => setMove({ id: card.id, area: 'analise', stage: card.stage ?? null }),
                 extraAction: c.key === "recebidos" ? extraForRecebidos(card) : undefined,
               }))}
             />
           ))}
           </div>
         </div>
+        {/* Removed internal proxy; page-level proxy provides a single bar */}
         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}>
           {activeId ? (
             (() => { const c = cards.find(x=> x.id===activeId); if (!c) return null; return (
@@ -233,6 +295,8 @@ export function KanbanBoardAnalise({
         onClose={() => setMove(null)}
         cardId={move?.id || ""}
         presetArea={move?.area}
+        currentStage={move?.stage}
+        currentUserId={currentUserId}
         onMoved={reload}
       />
       <CancelModal
@@ -255,6 +319,7 @@ export function KanbanBoardAnalise({
         cardId={edit?.cardId || ''}
         applicantId={edit?.applicantId || ''}
         onStageChange={reload}
+        onCardUpdate={handleCardSnapshotUpdate}
       />
     </div>
   );

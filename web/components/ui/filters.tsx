@@ -20,10 +20,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Calendar, Check, Circle, UserCircle, X, Clock, MapPin } from "lucide-react";
+import { Calendar, Check, Circle, UserCircle, X, Clock, MapPin, Search } from "lucide-react";
 import { Dispatch, SetStateAction, useRef, useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AnimatePresence, motion } from "motion/react";
 
 interface AnimateChangeInHeightProps {
@@ -67,6 +68,7 @@ export const AnimateChangeInHeight: React.FC<AnimateChangeInHeightProps> = ({
 
 // Adaptado para MZNET
 export enum FilterType {
+  BUSCAR = "Buscar",
   AREA = "Área",
   RESPONSAVEL = "Responsável", 
   PRAZO = "Prazo",
@@ -127,6 +129,8 @@ const FilterIcon = ({
   switch (type) {
     case FilterType.AREA:
       return <MapPin className="size-4 text-muted-foreground" />;
+    case FilterType.BUSCAR:
+      return <Search className="size-4 text-muted-foreground" />;
     case FilterType.RESPONSAVEL:
       return <UserCircle className="size-4 text-muted-foreground" />;
     case FilterType.PRAZO:
@@ -153,6 +157,10 @@ const FilterIcon = ({
 
 export const filterViewOptions: FilterOption[][] = [
   [
+    {
+      name: FilterType.BUSCAR,
+      icon: <FilterIcon type={FilterType.BUSCAR} />,
+    },
     {
       name: FilterType.AREA,
       icon: <FilterIcon type={FilterType.AREA} />,
@@ -193,6 +201,7 @@ export const horarioFilterOptions: FilterOption[] = Object.values(Horario).map(
 );
 
 export const filterViewToFilterOptions: Record<FilterType, FilterOption[]> = {
+  [FilterType.BUSCAR]: [],
   [FilterType.AREA]: areaFilterOptions,
   [FilterType.RESPONSAVEL]: responsavelFilterOptions,
   [FilterType.PRAZO]: prazoFilterOptions,
@@ -213,6 +222,9 @@ const FilterValueCombobox = ({
   const [open, setOpen] = useState(false);
   const [commandInput, setCommandInput] = useState("");
   const commandInputRef = useRef<HTMLInputElement>(null);
+  const isSearchFilter = filterType === FilterType.BUSCAR;
+  const [searchDraft, setSearchDraft] = useState(() => filterValues[0] ?? "");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const allOptions = filterViewToFilterOptions[filterType] ?? [];
 
@@ -227,6 +239,21 @@ const FilterValueCombobox = ({
     value,
     option: resolveOption(value),
   }));
+
+  useEffect(() => {
+    if (isSearchFilter) {
+      setSearchDraft(filterValues[0] ?? "");
+    }
+  }, [filterValues, isSearchFilter]);
+
+  useEffect(() => {
+    if (!isSearchFilter) return;
+    if (!open) return;
+    const id = requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [isSearchFilter, open]);
 
   const formatDateValue = (value: string) => {
     try {
@@ -263,6 +290,85 @@ const FilterValueCombobox = ({
       <span className="text-xs font-medium whitespace-nowrap">
         {formatPrazoRangeLabel(start, end)}
       </span>
+    );
+  }
+
+  if (isSearchFilter) {
+    const currentValue = filterValues[0] ?? "";
+    return (
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) {
+            setTimeout(() => {
+              setSearchDraft(filterValues[0] ?? "");
+            }, 200);
+          }
+        }}
+      >
+        <PopoverTrigger className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full text-current hover:bg-emerald-200/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition max-w-[180px]">
+          <span className="truncate" title={currentValue || "Adicionar termo"}>
+            {currentValue ? `“${currentValue}”` : "Adicionar termo"}
+          </span>
+        </PopoverTrigger>
+        <PopoverContent className="w-[260px] p-0 bg-white border-0 shadow-lg rounded-lg">
+          <AnimateChangeInHeight>
+            <div className="p-3 flex flex-col gap-3">
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Buscar por nome do card
+                </span>
+                <Input
+                  placeholder="Ex.: Maria Silva"
+                  value={searchDraft}
+                  onChange={(event) => setSearchDraft(event.currentTarget.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      const trimmed = searchDraft.trim();
+                      setFilterValues(trimmed ? [trimmed] : []);
+                      setOpen(false);
+                    }
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setOpen(false);
+                    }
+                  }}
+                  ref={searchInputRef}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                {currentValue && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearchDraft("");
+                      setFilterValues([]);
+                      setOpen(false);
+                    }}
+                  >
+                    Limpar
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    const trimmed = searchDraft.trim();
+                    setFilterValues(trimmed ? [trimmed] : []);
+                    setOpen(false);
+                  }}
+                >
+                  Aplicar
+                </Button>
+              </div>
+            </div>
+          </AnimateChangeInHeight>
+        </PopoverContent>
+      </Popover>
     );
   }
 

@@ -102,7 +102,7 @@ export default function PerfilPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#e4e4e4]">
+    <div className="min-h-screen bg-[var(--neutro)]">
       {/* Content Section */}
       <div className="max-w-3xl mx-auto pt-8 pb-12 px-8 md:px-12 lg:px-16">
           {/* Profile Header Card */}

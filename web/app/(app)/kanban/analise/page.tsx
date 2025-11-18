@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { KanbanBoardAnalise } from "@/legacy/components/kanban/components/KanbanBoardAnalise";
 import { FilterCTA, AppliedFilters } from "@/components/app/filter-cta";
@@ -23,6 +23,7 @@ export default function KanbanAnalisePage() {
   const prazoFim = sp.get('prazo_fim') || undefined;
   const openCardId = sp.get('card') || undefined;
   const responsavelParam = sp.get('responsavel') || '';
+  const busca = sp.get('busca') || undefined;
   const responsaveis = useMemo(() => {
     if (!responsavelParam) return [] as string[];
     return Array.from(
@@ -41,8 +42,9 @@ export default function KanbanAnalisePage() {
         ? { start: prazo, end: prazoFim || undefined }
         : undefined,
       hora: hora || undefined,
+      searchTerm: busca || undefined,
     }),
-    [responsaveis, prazo, prazoFim, hora]
+    [responsaveis, prazo, prazoFim, hora, busca]
   );
   const [filtersSummary, setFiltersSummary] = useState<AppliedFilters>(initialFiltersSummary);
   const [cardsSnapshot, setCardsSnapshot] = useState<KanbanCard[]>([]);
@@ -79,7 +81,8 @@ export default function KanbanAnalisePage() {
         (prev.prazo?.start ?? "") === (initialFiltersSummary.prazo?.start ?? "") &&
         (prev.prazo?.end ?? "") === (initialFiltersSummary.prazo?.end ?? "");
       const sameHora = prev.hora === initialFiltersSummary.hora;
-      if (sameResponsaveis && samePrazo && sameHora) {
+      const sameSearch = (prev.searchTerm ?? "") === (initialFiltersSummary.searchTerm ?? "");
+      if (sameResponsaveis && samePrazo && sameHora && sameSearch) {
         return prev;
       }
       return initialFiltersSummary;
@@ -99,6 +102,44 @@ export default function KanbanAnalisePage() {
   }, [router, pathname, sp]);
 
   const dashboard = useMemo(() => computeAnaliseDashboard(cardsSnapshot), [cardsSnapshot]);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const bottomInnerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const main = document.querySelector('[data-kanban-hscroll="analise"]') as HTMLDivElement | null;
+    const content = document.querySelector('[data-kanban-content="analise"]') as HTMLDivElement | null;
+    const proxy = bottomRef.current;
+    const proxyInner = bottomInnerRef.current;
+    if (!main || !content || !proxy || !proxyInner) return;
+
+    const ro = new ResizeObserver(() => {
+      try { proxyInner.style.width = `${content.scrollWidth}px`; } catch {}
+    });
+    ro.observe(content);
+
+    let syncing: 'main' | 'proxy' | null = null;
+    const onMain = () => {
+      if (syncing === 'proxy') return;
+      syncing = 'main';
+      proxy.scrollLeft = main.scrollLeft;
+      syncing = null;
+    };
+    const onProxy = () => {
+      if (syncing === 'main') return;
+      syncing = 'proxy';
+      main.scrollLeft = proxy.scrollLeft;
+      syncing = null;
+    };
+    main.addEventListener('scroll', onMain, { passive: true });
+    proxy.addEventListener('scroll', onProxy, { passive: true });
+    try { proxyInner.style.width = `${content.scrollWidth}px`; } catch {}
+    proxy.scrollLeft = main.scrollLeft;
+    return () => {
+      try { ro.disconnect(); } catch {}
+      main.removeEventListener('scroll', onMain);
+      proxy.removeEventListener('scroll', onProxy);
+    };
+  }, [cardsSnapshot]);
 
   if (loading) {
     return <div className="text-sm text-zinc-600">Carregando…</div>;
@@ -106,23 +147,20 @@ export default function KanbanAnalisePage() {
 
   return (
     <>
-      <div className="relative">
-        <div className="absolute top-0 left-0 z-10">
-          <FilterCTA area="analise" onFiltersChange={handleFiltersChange} />
-        </div>
-        <div className="absolute top-0 right-0 z-10">
-          <Button
-            onClick={() => setOpenPersonType(true)}
-            className="h-9 text-sm bg-emerald-600 hover:bg-emerald-700 text-white"
-            style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
-          >
-            <Plus className="size-6 mr-2" />
-            Nova ficha
-          </Button>
-        </div>
-        {/* Mini dashboard fixo abaixo do topo */}
-        <div className="absolute left-0 right-0 z-10" style={{ top: 48 }}>
-          <div className="grid grid-cols-6 gap-3 sm:gap-4 md:gap-6 w-full">
+      <div className="flex flex-1 min-h-0 flex-col">
+        <div className="border-b border-white/40 bg-[var(--neutro)] px-3 pb-4 pt-3 md:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <FilterCTA area="analise" onFiltersChange={handleFiltersChange} />
+            <Button
+              onClick={() => setOpenPersonType(true)}
+              className="h-9 text-sm bg-emerald-600 hover:bg-emerald-700 text-white"
+              style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
+            >
+              <Plus className="size-6 mr-2" />
+              Nova ficha
+            </Button>
+          </div>
+          <div className="mt-4 grid grid-cols-6 gap-3 sm:gap-4 md:gap-6 w-full">
             <DashboardCard title="A Avaliar" value={dashboard.avaliar} icon={<Inbox className="w-4 h-4 text-white" />} />
             <DashboardCard title="Em análise" value={dashboard.emAnalise} icon={<FileSearch className="w-4 h-4 text-white" />} />
             <DashboardCard title="Avaliadas" value={dashboard.avaliadas} icon={<CheckCircle className="w-4 h-4 text-white" />} />
@@ -131,17 +169,22 @@ export default function KanbanAnalisePage() {
             <DashboardCard title="Canceladas" value={dashboard.canceladas} icon={<XCircle className="w-4 h-4 text-white" />} />
           </div>
         </div>
-        <div className="h-[calc(100vh-220px)] overflow-y-auto overscroll-contain" style={{ paddingTop: 200 }}>
-          <div>
-            <KanbanBoardAnalise
-              hora={filtersSummary.hora}
-              dateStart={filtersSummary.prazo?.start}
-              dateEnd={filtersSummary.prazo?.end}
-              responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
-              openCardId={openCardId}
-              onCardsChange={setCardsSnapshot}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-1 pb-6 pt-4 md:px-3 relative">
+          <KanbanBoardAnalise
+            hora={filtersSummary.hora}
+            dateStart={filtersSummary.prazo?.start}
+            dateEnd={filtersSummary.prazo?.end}
+            responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
+            searchTerm={filtersSummary.searchTerm}
+            openCardId={openCardId}
+            onCardsChange={setCardsSnapshot}
             onCardModalClose={handleCardModalClose}
-            />
+          />
+        </div>
+        {/* Barra horizontal fixa sobreposta ao rodapé do viewport (sempre visível) */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-[var(--neutro)]/90" style={{ height: 14 }}>
+          <div ref={bottomRef} className="h-full overflow-x-auto overflow-y-hidden">
+            <div ref={bottomInnerRef} style={{ height: 1 }} />
           </div>
         </div>
       </div>

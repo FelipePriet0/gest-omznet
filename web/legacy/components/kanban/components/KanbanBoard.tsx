@@ -3,6 +3,7 @@
 import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import { KanbanCard } from "@/features/kanban/types";
+import type { CardSnapshotPatch } from "@/features/editar-ficha/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -24,6 +25,8 @@ export function KanbanBoard({
   dateEnd,
   openCardId,
   responsaveis,
+  searchTerm,
+  allowedCardIds,
   onCardsChange,
   onCardModalClose,
 }: {
@@ -32,13 +35,16 @@ export function KanbanBoard({
   dateEnd?: string;
   openCardId?: string;
   responsaveis?: string[];
+  searchTerm?: string;
+  allowedCardIds?: string[];
   onCardsChange?: (cards: KanbanCard[]) => void;
   onCardModalClose?: () => void;
 }) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
-  const [move, setMove] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
-  const [cancel, setCancel] = useState<{id: string, area: 'comercial' | 'analise'}|null>(null);
-  
+  const [move, setMove] = useState<{id: string; area: 'comercial' | 'analise'; stage?: string | null} | null>(null);
+  const [cancel, setCancel] = useState<{id: string; area: 'comercial' | 'analise'} | null>(null);
+  const hScrollRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const [activeId, setActiveId] = useState<string|null>(null);
   const sensors = useSensors(
     // Estilo Trello: ativa drag após mover uma distância; clique curto abre
@@ -60,18 +66,51 @@ export function KanbanBoard({
         dateStart,
         dateEnd,
         responsaveis: responsavelIds,
+        searchTerm,
       });
-      setCards(data);
-      onCardsChange?.(data);
+      const filtered = Array.isArray(allowedCardIds) && allowedCardIds.length > 0
+        ? data.filter(c => allowedCardIds.includes(c.id))
+        : data;
+      setCards(filtered);
     } catch (error) {
       console.error('Falha ao carregar cards do Kanban Comercial:', error);
-      onCardsChange?.([]);
     }
-  }, [hora, dateStart, dateEnd, responsavelIds, onCardsChange]);
+  }, [hora, dateStart, dateEnd, responsavelIds, allowedCardIds, onCardsChange, searchTerm]);
+
+  const handleCardSnapshotUpdate = useCallback(
+    (patch: CardSnapshotPatch) => {
+      if (!patch?.id) return;
+      setCards((prev) => {
+        let changed = false;
+        const next = prev.map((card) => {
+          if (card.id !== patch.id) return card;
+          changed = true;
+          const normalized: Partial<KanbanCard> = {};
+          if (patch.applicantName !== undefined) normalized.applicantName = patch.applicantName ?? "";
+          if (patch.cpfCnpj !== undefined) normalized.cpfCnpj = patch.cpfCnpj ?? "";
+          if (patch.phone !== undefined) normalized.phone = patch.phone ?? "";
+          if (patch.whatsapp !== undefined) normalized.whatsapp = patch.whatsapp ?? "";
+          if (patch.bairro !== undefined) normalized.bairro = patch.bairro ?? "";
+          if (patch.dueAt !== undefined) normalized.dueAt = patch.dueAt ?? undefined;
+          if (patch.horaAt !== undefined) normalized.horaAt = patch.horaAt ?? undefined;
+          return { ...card, ...normalized };
+        });
+        if (changed) {
+          return next;
+        }
+        return prev;
+      });
+    },
+    [onCardsChange]
+  );
 
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    onCardsChange?.(cards);
+  }, [cards, onCardsChange]);
 
   const grouped = useMemo(() => {
     const g: Record<string, KanbanCard[]> = { entrada:[], feitas:[], aguardando:[], canceladas:[], concluidas:[] };
@@ -101,7 +140,7 @@ export function KanbanBoard({
     try { await changeStage(cardId, 'comercial', target); await reload(); } catch (e:any) { alert(e.message ?? 'Falha ao mover'); }
   }
 
-  function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial' }); }
+function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial', stage: c.stage ?? null }); }
 
   
 
@@ -114,8 +153,8 @@ export function KanbanBoard({
         onDragCancel={() => setActiveId(null)}
         onDragEnd={(event)=> { setActiveId(null); handleDragEnd(event); }}
       >
-        <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-          <div className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
+        <div ref={hScrollRef} data-kanban-hscroll="comercial" className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hide-h-scrollbar">
+          <div ref={contentRef} data-kanban-content="comercial" className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
             {columnConfig.map((column) => (
               <KanbanColumn
                 key={column.key}
@@ -129,6 +168,7 @@ export function KanbanBoard({
             ))}
           </div>
         </div>
+        {/* Removed internal proxy; page-level proxy provides a single bar */}
         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease-out' }}>
           {activeId ? (
             (() => { const c = cards.find(x=> x.id===activeId); if (!c) return null; return (
@@ -169,6 +209,7 @@ export function KanbanBoard({
         cardId={edit?.cardId || ''}
         applicantId={edit?.applicantId || ''}
         onStageChange={reload}
+        onCardUpdate={handleCardSnapshotUpdate}
       />
     </div>
   );

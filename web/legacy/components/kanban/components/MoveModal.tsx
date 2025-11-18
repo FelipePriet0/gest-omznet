@@ -25,7 +25,23 @@ const ANALISE = [
   { value: 'canceladas', label: 'Canceladas' },
 ];
 
-export function MoveModal({ open, onClose, cardId, presetArea, onMoved }: { open: boolean; onClose: () => void; cardId: string; presetArea?: 'comercial' | 'analise'; onMoved?: () => void }) {
+export function MoveModal({
+  open,
+  onClose,
+  cardId,
+  presetArea,
+  onMoved,
+  currentStage,
+  currentUserId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  cardId: string;
+  presetArea?: 'comercial' | 'analise';
+  onMoved?: () => void;
+  currentStage?: string | null;
+  currentUserId?: string | null;
+}) {
   const [area, setArea] = useState<'comercial' | 'analise'>(presetArea ?? 'comercial');
   const [stage, setStage] = useState<string>('');
   const [reason, setReason] = useState('');
@@ -48,8 +64,20 @@ export function MoveModal({ open, onClose, cardId, presetArea, onMoved }: { open
       return;
     }
     setLoading(true);
+    const shouldAssign =
+      area === 'analise' &&
+      stage === 'em_analise' &&
+      (currentStage ?? '').toLowerCase() === 'recebidos' &&
+      !!currentUserId;
+
     try {
-      await changeStage(cardId, area, stage, needsReason ? reason : undefined);
+      await changeStage(
+        cardId,
+        area,
+        stage,
+        needsReason ? reason : undefined,
+        shouldAssign ? currentUserId ?? null : undefined
+      );
       onMoved?.();
       onClose();
     } catch (e: any) {

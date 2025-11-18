@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Command,
   CommandEmpty,
@@ -16,7 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Calendar, ListFilter } from "lucide-react";
+import { ArrowLeft, Calendar, ListFilter, AtSign, X as XIcon } from "lucide-react";
 import { nanoid } from "nanoid";
 import * as React from "react";
 import { AnimateChangeInHeight } from "@/components/ui/filters";
@@ -46,6 +47,8 @@ export type AppliedFilters = {
   responsaveis: string[];
   prazo?: { start: string; end?: string };
   hora?: string;
+  myMentions?: boolean;
+  searchTerm?: string;
 };
 
 function getResponsavelIcon(name: string | undefined | null) {
@@ -97,6 +100,14 @@ export function FilterCTA({
   const [popoverRect, setPopoverRect] = React.useState<DOMRect | null>(null);
   const calendarContainerRef = React.useRef<HTMLDivElement | null>(null);
   const popoverContentRef = React.useRef<HTMLDivElement | null>(null);
+  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
+  const searchFilter = React.useMemo(
+    () => filters.find((f) => f.type === FilterType.BUSCAR),
+    [filters]
+  );
+  const [searchDraft, setSearchDraft] = React.useState(
+    () => searchFilter?.value?.[0] ?? ""
+  );
   const updatePopoverRect = React.useCallback(() => {
     if (popoverContentRef.current) {
       setPopoverRect(popoverContentRef.current.getBoundingClientRect());
@@ -227,6 +238,7 @@ export function FilterCTA({
     const prazoInicio = searchParams.get("prazo");
     const prazoFim = searchParams.get("prazo_fim");
     const responsavel = searchParams.get("responsavel");
+    const busca = searchParams.get("busca");
 
     if (hora) {
       initial.push({
@@ -269,11 +281,34 @@ export function FilterCTA({
       }
     }
 
+    if (busca) {
+      const trimmed = busca.trim();
+      if (trimmed.length > 0) {
+        initial.push({
+          id: "buscar",
+          type: FilterType.BUSCAR,
+          operator: FilterOperator.INCLUDE,
+          value: [trimmed],
+        });
+      }
+    }
+
     setFilters(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const searchParamsStr = React.useMemo(() => searchParams?.toString() ?? "", [searchParams]);
+  const [myMentions, setMyMentions] = React.useState<boolean>(() => (searchParams.get('minhas_mencoes') === '1'));
+  React.useEffect(() => {
+    if (selectedView === FilterType.BUSCAR) {
+      setSearchDraft(searchFilter?.value?.[0] ?? "");
+      const id = requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+      });
+      return () => cancelAnimationFrame(id);
+    }
+    return;
+  }, [selectedView, searchFilter]);
 
   const prazoFilter = React.useMemo(
     () => filters.find((f) => f.type === FilterType.PRAZO),
@@ -327,6 +362,49 @@ export function FilterCTA({
     [setFilters]
   );
 
+  const handleApplySearch = React.useCallback(() => {
+    const trimmed = searchDraft.trim();
+    setFilters((prev) => {
+      const index = prev.findIndex((f) => f.type === FilterType.BUSCAR);
+      if (!trimmed) {
+        if (index === -1) return prev;
+        const clone = [...prev];
+        clone.splice(index, 1);
+        return clone;
+      }
+      if (index === -1) {
+        return [
+          ...prev,
+          {
+            id: "buscar",
+            type: FilterType.BUSCAR,
+            operator: FilterOperator.INCLUDE,
+            value: [trimmed],
+          },
+        ];
+      }
+      const clone = [...prev];
+      clone[index] = {
+        ...clone[index],
+        operator: FilterOperator.INCLUDE,
+        value: [trimmed],
+      };
+      return clone;
+    });
+    setSearchDraft(trimmed);
+    setSelectedView(null);
+    setCommandInput("");
+    setOpen(false);
+  }, [searchDraft, setFilters, setSelectedView, setCommandInput, setOpen]);
+
+  const handleClearSearch = React.useCallback(() => {
+    setSearchDraft("");
+    setFilters((prev) => prev.filter((f) => f.type !== FilterType.BUSCAR));
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+  }, [setFilters]);
+
   // Aplica efeitos dos filtros na URL (igual ao FilterBar antigo)
   React.useEffect(() => {
     const params = new URLSearchParams(searchParamsStr);
@@ -360,6 +438,8 @@ export function FilterCTA({
       new Set(responsavelFilter?.value?.filter(Boolean) ?? [])
     );
 
+    const searchTerm = searchFilter?.value?.[0]?.trim();
+
     if (responsavelIds.length > 0) {
       params.set("responsavel", responsavelIds.join(","));
     } else {
@@ -372,7 +452,16 @@ export function FilterCTA({
         ? { start: prazoStartValue, end: prazoEndValue }
         : undefined,
       hora,
+      myMentions,
+      searchTerm: searchTerm && searchTerm.length > 0 ? searchTerm : undefined,
     });
+
+    if (myMentions) params.set('minhas_mencoes','1'); else params.delete('minhas_mencoes');
+    if (searchTerm && searchTerm.length > 0) {
+      params.set("busca", searchTerm);
+    } else {
+      params.delete("busca");
+    }
 
     const qs = params.toString();
     const nextUrl = qs ? `${pathname}?${qs}` : pathname;
@@ -383,11 +472,31 @@ export function FilterCTA({
     if (nextUrl !== currentUrl) {
       router.replace(nextUrl);
     }
-  }, [filters, router, pathname, searchParamsStr, onFiltersChange]);
+  }, [filters, myMentions, router, pathname, searchParamsStr, onFiltersChange]);
 
   return (
     <div className="flex gap-2 flex-wrap items-center">
       <Filters filters={filters} setFilters={setFilters} />
+      {myMentions && (
+        <div
+          className="inline-flex h-9 items-center gap-2 rounded-none px-3 text-white shadow-sm text-xs"
+          style={{ backgroundColor: "var(--color-primary)", border: "1px solid var(--color-primary)" }}
+        >
+          <div className="inline-flex items-center gap-1">
+            <AtSign className="size-4" />
+            <span className="font-semibold">Minhas menções</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMyMentions(false)}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-none text-white transition"
+            style={{ backgroundColor: "var(--color-primary)", border: "1px solid transparent" }}
+            aria-label="Remover filtro Minhas menções"
+          >
+            <XIcon className="h-3 w-3" />
+          </button>
+        </div>
+      )}
       <Popover
         open={open}
         onOpenChange={(next) => {
@@ -425,140 +534,210 @@ export function FilterCTA({
           onFocusOutside={handleCalendarInteractOutside}
         >
           <AnimateChangeInHeight>
-            <Command className="rounded-lg">
-              <CommandInput
-                placeholder="Filtros..."
-                className="h-9 !border-0 !border-b-0 command-input"
-                value={commandInput}
-                onInputCapture={(e) => {
-                  setCommandInput(e.currentTarget.value);
-                }}
-                ref={commandInputRef}
-              />
-              <CommandList className="p-1">
-                {selectedView && (
-                  <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
-                )}
-                {selectedView ? (
-                  <>
-                    <CommandItem
-                      className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
-                      value="voltar"
-                      onSelect={() => {
+            {selectedView === FilterType.BUSCAR ? (
+              <div className="p-3 flex flex-col gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="group flex gap-3 items-center justify-start px-2 py-2 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                  onClick={() => {
+                    setSelectedView(null);
+                    setCommandInput("");
+                    commandInputRef.current?.focus();
+                  }}
+                >
+                  <ArrowLeft className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="text-sm font-medium">Voltar</span>
+                </Button>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Buscar por nome do card
+                  </label>
+                  <Input
+                    placeholder="Ex.: Maria Silva"
+                    value={searchDraft}
+                    onChange={(event) => setSearchDraft(event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleApplySearch();
+                      }
+                      if (event.key === "Escape") {
+                        event.preventDefault();
                         setSelectedView(null);
-                        setCommandInput("");
-                        commandInputRef.current?.focus();
-                      }}
+                      }
+                    }}
+                    ref={searchInputRef}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  {(searchDraft.trim().length > 0 || searchFilter?.value?.[0]) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearSearch}
                     >
-                      <ArrowLeft className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="text-sm font-medium">Voltar</span>
-                    </CommandItem>
-                    <CommandGroup className="p-0">
-                      {(filterViewToFilterOptions[selectedView] ?? []).map(
-                        (filter: FilterOption) => {
-                          const storedValue = filter.value ?? filter.name;
-                          return (
+                      Limpar
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" onClick={handleApplySearch}>
+                    Aplicar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Command className="rounded-lg">
+                <CommandInput
+                  placeholder="Filtros..."
+                  className="h-9 !border-0 !border-b-0 command-input"
+                  value={commandInput}
+                  onInputCapture={(e) => {
+                    setCommandInput(e.currentTarget.value);
+                  }}
+                  ref={commandInputRef}
+                />
+                <CommandList className="p-1">
+                  {selectedView && (
+                    <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
+                  )}
+                  {selectedView ? (
+                    <>
+                      <CommandItem
+                        className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                        value="voltar"
+                        onSelect={() => {
+                          setSelectedView(null);
+                          setCommandInput("");
+                          commandInputRef.current?.focus();
+                        }}
+                      >
+                        <ArrowLeft className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="text-sm font-medium">Voltar</span>
+                      </CommandItem>
+                      <CommandGroup className="p-0">
+                        {(filterViewToFilterOptions[selectedView] ?? []).map(
+                          (filter: FilterOption) => {
+                            const storedValue = filter.value ?? filter.name;
+                            return (
+                              <CommandItem
+                                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                                key={storedValue}
+                                value={filter.name}
+                                onSelect={() => {
+                                  if (selectedView === FilterType.AREA) {
+                                    const toAnalise = filter.name
+                                      .toLowerCase()
+                                      .includes("análise") || filter.name
+                                      .toLowerCase()
+                                      .includes("analise");
+                                    router.push(toAnalise ? "/kanban/analise" : "/kanban");
+                                  } else {
+                                    setFilters((prev) => {
+                                      const index = prev.findIndex(
+                                        (f) => f.type === selectedView
+                                      );
+                                      if (index >= 0) {
+                                        const next = [...prev];
+                                        const existing = next[index];
+                                        const nextValues = Array.from(
+                                          new Set([...(existing.value ?? []), storedValue])
+                                        );
+                                        next[index] = {
+                                          ...existing,
+                                          value: nextValues,
+                                        };
+                                        return next;
+                                      }
+                                      return [
+                                        ...prev,
+                                        {
+                                          id: nanoid(),
+                                          type: selectedView,
+                                          operator: FilterOperator.IS,
+                                          value: [storedValue],
+                                        },
+                                      ];
+                                    });
+                                  }
+                                  setTimeout(() => {
+                                    setSelectedView(null);
+                                    setCommandInput("");
+                                  }, 200);
+                                  setOpen(false);
+                                }}
+                              >
+                                {filter.icon}
+                                <span className="text-sm font-medium">
+                                  {filter.name}
+                                </span>
+                                {filter.label && (
+                                  <span className="text-muted-foreground text-xs ml-auto">
+                                    {filter.label}
+                                  </span>
+                                )}
+                              </CommandItem>
+                            );
+                          }
+                        )}
+                      </CommandGroup>
+                    </>
+                  ) : (
+                    <>
+                      <CommandGroup className="p-0">
+                        {filterViewOptions
+                          .flat()
+                          .filter((filter: FilterOption) => filter.name !== FilterType.PRAZO)
+                          .map((filter: FilterOption) => (
                             <CommandItem
                               className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
-                              key={storedValue}
+                              key={filter.name}
                               value={filter.name}
-                              onSelect={() => {
-                                if (selectedView === FilterType.AREA) {
-                                  const toAnalise = filter.name
-                                    .toLowerCase()
-                                    .includes("análise") || filter.name
-                                    .toLowerCase()
-                                    .includes("analise");
-                                  router.push(toAnalise ? "/kanban/analise" : "/kanban");
+                              onSelect={(currentValue) => {
+                                setSelectedView(currentValue as FilterType);
+                                setCommandInput("");
+                                if (currentValue !== FilterType.BUSCAR) {
+                                  commandInputRef.current?.focus();
                                 } else {
-                                  setFilters((prev) => {
-                                    const index = prev.findIndex(
-                                      (f) => f.type === selectedView
-                                    );
-                                    if (index >= 0) {
-                                      const next = [...prev];
-                                      const existing = next[index];
-                                      const nextValues = Array.from(
-                                        new Set([...(existing.value ?? []), storedValue])
-                                      );
-                                      next[index] = {
-                                        ...existing,
-                                        value: nextValues,
-                                      };
-                                      return next;
-                                    }
-                                    return [
-                                      ...prev,
-                                      {
-                                        id: nanoid(),
-                                        type: selectedView,
-                                        operator: FilterOperator.IS,
-                                        value: [storedValue],
-                                      },
-                                    ];
+                                  requestAnimationFrame(() => {
+                                    searchInputRef.current?.focus();
                                   });
                                 }
-                                setTimeout(() => {
-                                  setSelectedView(null);
-                                  setCommandInput("");
-                                }, 200);
-                                setOpen(false);
+                                setCalendarOpen(false);
                               }}
                             >
                               {filter.icon}
                               <span className="text-sm font-medium">
                                 {filter.name}
                               </span>
-                              {filter.label && (
-                                <span className="text-muted-foreground text-xs ml-auto">
-                                  {filter.label}
-                                </span>
-                              )}
                             </CommandItem>
-                          );
-                        }
-                      )}
-                    </CommandGroup>
-                  </>
-                ) : (
-                  <>
-                    <CommandGroup className="p-0">
-                      {filterViewOptions
-                        .flat()
-                        .filter((filter: FilterOption) => filter.name !== FilterType.PRAZO)
-                        .map((filter: FilterOption) => (
-                          <CommandItem
-                            className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
-                            key={filter.name}
-                            value={filter.name}
-                            onSelect={(currentValue) => {
-                              setSelectedView(currentValue as FilterType);
-                              setCommandInput("");
-                              commandInputRef.current?.focus();
-                              setCalendarOpen(false);
-                            }}
-                          >
-                            {filter.icon}
-                            <span className="text-sm font-medium">
-                              {filter.name}
-                            </span>
-                          </CommandItem>
-                        ))}
-                    </CommandGroup>
-                    <CommandItem
-                      value="toggle-calendar"
-                      className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
-                      onSelect={() => setCalendarOpen((prev) => !prev)}
-                    >
-                      <Calendar className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="text-sm font-medium">
-                        {calendarOpen ? "Fechar calendário" : "Selecionar período"}
-                      </span>
-                    </CommandItem>
-                  </>
-                )}
-              </CommandList>
-            </Command>
+                          ))}
+                      </CommandGroup>
+                      <CommandItem
+                        value="minhas-mencoes"
+                        className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                        onSelect={() => setMyMentions((v) => !v)}
+                      >
+                        <AtSign className={cn("size-4 shrink-0", myMentions ? "text-emerald-600" : "text-muted-foreground")} />
+                        <span className="text-sm font-medium">
+                          Minhas menções
+                        </span>
+                      </CommandItem>
+                      <CommandItem
+                        value="toggle-calendar"
+                        className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                        onSelect={() => setCalendarOpen((prev) => !prev)}
+                      >
+                        <Calendar className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="text-sm font-medium">
+                          {calendarOpen ? "Fechar calendário" : "Selecionar período"}
+                        </span>
+                      </CommandItem>
+                    </>
+                  )}
+                </CommandList>
+              </Command>
+            )}
           </AnimateChangeInHeight>
         </PopoverContent>
       </Popover>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { KanbanBoard } from "@/legacy/components/kanban/components/KanbanBoard";
 import { FilterCTA, AppliedFilters } from "@/components/app/filter-cta";
@@ -11,6 +11,7 @@ import { PersonTypeModal } from "@/legacy/components/cadastro/components/PersonT
 import { BasicInfoModal } from "@/legacy/components/cadastro/components/BasicInfoModal";
 import type { PessoaTipo } from "@/features/cadastro/types";
 import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
+import { listMyMentionCardIds } from "@/features/inbox/services";
 import { KanbanCard } from "@/features/kanban/types";
 
 export default function KanbanPage() {
@@ -22,6 +23,7 @@ export default function KanbanPage() {
   const prazo = sp.get("prazo") || undefined;
   const prazoFim = sp.get("prazo_fim") || undefined;
   const responsavelParam = sp.get("responsavel") || "";
+  const busca = sp.get("busca") || undefined;
   const responsaveis = useMemo(() => {
     if (!responsavelParam) return [] as string[];
     const unique = Array.from(
@@ -42,11 +44,14 @@ export default function KanbanPage() {
         ? { start: prazo, end: prazoFim || undefined }
         : undefined,
       hora: hora || undefined,
+      myMentions: sp.get('minhas_mencoes') === '1',
+      searchTerm: busca || undefined,
     }),
-    [responsaveis, prazo, prazoFim, hora]
+    [responsaveis, prazo, prazoFim, hora, busca]
   );
   const [filtersSummary, setFiltersSummary] = useState<AppliedFilters>(initialFiltersSummary);
   const [cardsSnapshot, setCardsSnapshot] = useState<KanbanCard[]>([]);
+  const [mentionCardIds, setMentionCardIds] = useState<string[] | null>(null);
   
   // Nova ficha modals
   const [openPersonType, setOpenPersonType] = useModalState(false);
@@ -80,7 +85,9 @@ export default function KanbanPage() {
         (prev.prazo?.start ?? "") === (initialFiltersSummary.prazo?.start ?? "") &&
         (prev.prazo?.end ?? "") === (initialFiltersSummary.prazo?.end ?? "");
       const sameHora = prev.hora === initialFiltersSummary.hora;
-      if (sameResponsaveis && samePrazo && sameHora) {
+      const sameSearch = (prev.searchTerm ?? "") === (initialFiltersSummary.searchTerm ?? "");
+      const sameMentions = prev.myMentions === initialFiltersSummary.myMentions;
+      if (sameResponsaveis && samePrazo && sameHora && sameSearch && sameMentions) {
         return prev;
       }
       return initialFiltersSummary;
@@ -90,6 +97,20 @@ export default function KanbanPage() {
   const handleFiltersChange = useCallback((next: AppliedFilters) => {
     setFiltersSummary(next);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (filtersSummary.myMentions) {
+        const ids = await listMyMentionCardIds();
+        if (!active) return;
+        setMentionCardIds(ids);
+      } else {
+        setMentionCardIds(null);
+      }
+    })();
+    return () => { active = false; };
+  }, [filtersSummary.myMentions]);
 
   const handleCardModalClose = useCallback(() => {
     const params = new URLSearchParams(sp.toString());
@@ -101,6 +122,45 @@ export default function KanbanPage() {
 
   const dashboard = useMemo(() => computeCommercialDashboard(cardsSnapshot), [cardsSnapshot]);
 
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const bottomInnerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const main = document.querySelector('[data-kanban-hscroll="comercial"]') as HTMLDivElement | null;
+    const content = document.querySelector('[data-kanban-content="comercial"]') as HTMLDivElement | null;
+    const proxy = bottomRef.current;
+    const proxyInner = bottomInnerRef.current;
+    if (!main || !content || !proxy || !proxyInner) return;
+
+    const ro = new ResizeObserver(() => {
+      try { proxyInner.style.width = `${content.scrollWidth}px`; } catch {}
+    });
+    ro.observe(content);
+
+    let syncing: 'main' | 'proxy' | null = null;
+    const onMain = () => {
+      if (syncing === 'proxy') return;
+      syncing = 'main';
+      proxy.scrollLeft = main.scrollLeft;
+      syncing = null;
+    };
+    const onProxy = () => {
+      if (syncing === 'main') return;
+      syncing = 'proxy';
+      main.scrollLeft = proxy.scrollLeft;
+      syncing = null;
+    };
+    main.addEventListener('scroll', onMain, { passive: true });
+    proxy.addEventListener('scroll', onProxy, { passive: true });
+    try { proxyInner.style.width = `${content.scrollWidth}px`; } catch {}
+    proxy.scrollLeft = main.scrollLeft;
+    return () => {
+      try { ro.disconnect(); } catch {}
+      main.removeEventListener('scroll', onMain);
+      proxy.removeEventListener('scroll', onProxy);
+    };
+  }, [cardsSnapshot]);
+
   if (loading) {
     return <div className="text-sm text-zinc-600">Carregando…</div>;
   }
@@ -108,8 +168,8 @@ export default function KanbanPage() {
   return (
     <>
       <div id="kanban-page-root" className="flex flex-1 min-h-0 flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-          <div className="sticky top-0 z-20 border-b border-white/40 bg-[var(--neutro)] px-3 pb-4 pt-3 shadow-[0_6px_16px_rgba(0,0,0,0.05)] md:px-6">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+          <div className="border-b border-white/40 bg-[var(--neutro)] px-3 pb-4 pt-3 md:px-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <FilterCTA area="comercial" onFiltersChange={handleFiltersChange} />
               <Button
@@ -128,16 +188,24 @@ export default function KanbanPage() {
               <DashboardCard title="Atrasadas" value={dashboard.atrasadas} icon={<Clock className="h-4 w-4 text-white" />} />
             </div>
           </div>
-          <div className="px-1 pb-6 pt-4 md:px-3">
+          <div className="px-1 pb-6 pt-4 md:px-3 relative">
             <KanbanBoard
               hora={filtersSummary.hora}
               dateStart={filtersSummary.prazo?.start}
               dateEnd={filtersSummary.prazo?.end}
               openCardId={openCardId}
               responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
+              searchTerm={filtersSummary.searchTerm}
+              allowedCardIds={mentionCardIds ?? undefined}
               onCardsChange={setCardsSnapshot}
               onCardModalClose={handleCardModalClose}
             />
+          </div>
+        </div>
+        {/* Barra horizontal fixa sobreposta ao rodapé do viewport (sempre visível) */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-[var(--neutro)]/90" style={{ height: 14 }}>
+          <div ref={bottomRef} className="h-full overflow-x-auto overflow-y-hidden">
+            <div ref={bottomInnerRef} style={{ height: 1 }} />
           </div>
         </div>
 
