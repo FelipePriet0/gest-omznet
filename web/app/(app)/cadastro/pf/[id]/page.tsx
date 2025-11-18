@@ -9,7 +9,7 @@ import { Textarea as UITTextarea } from "@/components/ui/textarea";
 import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
-import { publicUrl } from "@/features/attachments/services";
+import { getAttachmentUrl, publicUrl } from "@/features/attachments/services";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import {
   ATTACHMENT_ALLOWED_TYPES,
@@ -18,6 +18,7 @@ import {
 } from "@/features/attachments/upload";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { renderTextWithChips } from "@/utils/richText";
+//
 
 const DECISION_META: Record<string, { label: string; className: string }> = {
   aprovado: { label: "Aprovado", className: "decision-chip--primary" },
@@ -161,9 +162,9 @@ const TIPO_MORADIA_UI = ['Própria','Alugada','Cedida','Outros'] as const;
 function uiToTipoMoradia(v: string): string|null { const m: any = { 'Própria':'propria','Alugada':'alugada','Cedida':'cedida','Outros':'outros' }; return m[v] ?? null; }
 function tipoMoradiaToUI(v: string|null): string { const m: any = { propria:'Própria', alugada:'Alugada', cedida:'Cedida', outros:'Outros' }; return v ? (m[v] ?? '') : ''; }
 
-const NAS_OUTRAS_UI = ['Parentes','Locador(a)','Só conhecidos','Não conhece'] as const;
-function uiToNasOutras(v: string): string|null { const m:any={ 'Parentes':'parentes','Locador(a)':'locador','Só conhecidos':'so_conhecidos','Não conhece':'nao_conhece' }; return m[v] ?? null; }
-function nasOutrasToUI(v: string|null): string { const m:any={ parentes:'Parentes',locador:'Locador(a)','so_conhecidos':'Só conhecidos','nao_conhece':'Não conhece' }; return v ? (m[v] ?? '') : ''; }
+const NAS_OUTRAS_UI = ['XXXXX','Parentes','Locador(a)','Só conhecidos','Não conhece'] as const;
+function uiToNasOutras(v: string): string|null { const m:any={ 'XXXXX':'xxxxx','Parentes':'parentes','Locador(a)':'locador','Só conhecidos':'so_conhecidos','Não conhece':'nao_conhece' }; return m[v] ?? null; }
+function nasOutrasToUI(v: string|null): string { const m:any={ 'xxxxx':'XXXXX',parentes:'Parentes',locador:'Locador(a)','so_conhecidos':'Só conhecidos','nao_conhece':'Não conhece' }; return v ? (m[v] ?? '') : ''; }
 
 const TIPO_COMPROV_UI = ['Energia','Agua','Internet','Outro'] as const;
 function uiToTipoComprov(v:string): string|null { const m:any={ Energia:'energia',Agua:'agua',Internet:'internet',Outro:'outro' }; return m[v] ?? null; }
@@ -220,6 +221,7 @@ export default function CadastroPFPage() {
   // Parecer states
   const [pareceres, setPareceres] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
@@ -259,15 +261,37 @@ export default function CadastroPFPage() {
     }
 
     try {
+      // Se for Conversa, cria um comentário (pai ou resposta) antes do upload
+      let commentIdForUpload: string | null = context?.commentId ?? null;
+      if (context?.source === 'conversa') {
+        const payload: any = { card_id: cardIdEff, content: '' };
+        if (context?.commentId) payload.parent_id = context.commentId;
+        try {
+          const { data: auth } = await supabase.auth.getUser();
+          const uid = auth.user?.id;
+          if (uid) {
+            payload.author_id = uid;
+            const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single();
+            if (prof) { payload.author_name = (prof as any).full_name ?? null; payload.author_role = (prof as any).role ?? null; }
+          }
+        } catch {}
+        const { data: c, error: cErr } = await supabase.from('card_comments').insert(payload).select('id').single();
+        if (cErr || !c?.id) throw cErr || new Error('Falha ao criar comentário para anexos');
+        commentIdForUpload = c.id as string;
+      }
+
       const uploaded = await uploadAttachmentBatch({
         cardId: cardIdEff,
-        commentId: context?.commentId ?? null,
+        commentId: commentIdForUpload,
         files: files.map((file) => {
           const dot = file.name.lastIndexOf(".");
           const baseName = dot > 0 ? file.name.slice(0, dot) : file.name;
           return { file, displayName: baseName || file.name };
         }),
       });
+
+      // Conversa: criar thread automática quando anexar sem commentId
+      // (sem pós-ligação — já subiu com commentId da nova thread)
 
       if (context?.source === "parecer" && uploaded.length > 0) {
         const names = uploaded.map((f) => f.name).join(", ");
@@ -295,6 +319,23 @@ export default function CadastroPFPage() {
   }
 
   useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!active) return;
+        const uid = data.user?.id;
+        if (!uid) {
+          setCurrentUserRole(null);
+          return;
+        }
+        const profile = (await listProfiles()).find((p) => p.id === uid);
+        setCurrentUserRole(profile?.role ?? null);
+      } catch {
+        if (active) setCurrentUserRole(null);
+      }
+    })();
+
     function handleOpenAttach(event?: Event) {
       const detail = (event as CustomEvent<{ commentId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;
       triggerAttachmentPicker({
@@ -303,7 +344,10 @@ export default function CadastroPFPage() {
       });
     }
     window.addEventListener("mz-open-attach", handleOpenAttach);
-    return () => window.removeEventListener("mz-open-attach", handleOpenAttach);
+    return () => {
+      active = false;
+      window.removeEventListener("mz-open-attach", handleOpenAttach);
+    };
   }, []);
 
   async function refreshReanalysisNotes(cardId: string) {
@@ -422,7 +466,7 @@ export default function CadastroPFPage() {
           pfix.conjuge_idade = String(pfix.conjuge_idade);
         }
         // Booleans → UI Sim/Não
-        ['tem_contrato','enviou_contrato','enviou_comprovante','tem_internet_fixa'].forEach((k:any) => {
+        ['tem_contrato','enviou_contrato','enviou_comprovante','tem_internet_fixa','unica_no_lote'].forEach((k:any) => {
           if (k in pfix && (pfix as any)[k] !== null && typeof (pfix as any)[k] !== 'string') {
             (pfix as any)[k] = boolToUI((pfix as any)[k]);
           }
@@ -745,7 +789,7 @@ export default function CadastroPFPage() {
             <SimpleSelect
               value={pf.nas_outras || ""}
               onChange={(v)=>{ setPf({...pf, nas_outras:v}); queueSave("pf","nas_outras", v); }}
-              options={["Parentes","Locador(a)","Só conhecidos","Não conhece"]}
+              options={["XXXXX","Parentes","Locador(a)","Só conhecidos","Não conhece"]}
               className="mt-0"
               triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
               contentClassName="rounded-lg shadow-lg border-0"
@@ -1010,8 +1054,10 @@ export default function CadastroPFPage() {
               <UnifiedComposer
                 ref={parecerComposerRef}
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
+                disabled={currentUserRole === 'vendedor'}
+                richText
                 onChange={(val)=> setNovoParecer(val)}
-                onSubmit={handleSubmitParecer}
+                onSubmit={currentUserRole === 'vendedor' ? undefined : handleSubmitParecer}
                 onCancel={()=> {
                   setCmdOpenParecer(false);
                   setMentionOpenParecer(false);
@@ -1042,7 +1088,7 @@ export default function CadastroPFPage() {
                   />
                 </div>
               )}
-              {cmdOpenParecer && (
+              {cmdOpenParecer && currentUserRole !== 'vendedor' && (
                 <div className="absolute z-50 left-0 bottom-full mb-2">
                   <CmdDropdown
                     items={[
@@ -1068,7 +1114,7 @@ export default function CadastroPFPage() {
               cardId={cardIdEff}
               notes={pareceres as any}
               profiles={profiles}
-              onReply={async (pid, value) => {
+              onReply={currentUserRole === 'vendedor' ? undefined : async (pid, value) => {
                 const text = (value.text || '').trim();
                 const hasDecision = !!value.decision;
                 if (!hasDecision && !text) return;
@@ -1081,7 +1127,7 @@ export default function CadastroPFPage() {
                 });
                 await refreshReanalysisNotes(cardIdEff);
               }}
-              onEdit={async (id, value) => {
+              onEdit={currentUserRole === 'vendedor' ? undefined : async (id, value) => {
                 const text = (value.text || '').trim();
                 const hasDecision = !!value.decision;
                 if (!hasDecision && !text) return;
@@ -1094,7 +1140,7 @@ export default function CadastroPFPage() {
                 });
                 await refreshReanalysisNotes(cardIdEff);
               }}
-              onDelete={async (id) => {
+              onDelete={currentUserRole === 'vendedor' ? undefined : async (id) => {
                 await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id });
                 try {
                   const { data: card } = await supabase
@@ -1105,7 +1151,7 @@ export default function CadastroPFPage() {
                   if (card && Array.isArray((card as any).reanalysis_notes)) setPareceres((card as any).reanalysis_notes);
                 } catch {}
               }}
-              onDecisionChange={syncDecisionStatus}
+              onDecisionChange={currentUserRole === 'vendedor' ? undefined : syncDecisionStatus}
               onPinnedChange={(active, h)=> { try { (window as any).mzPinnedSpacePF = active ? h : 0; } catch {}; setPinnedSpace(active ? h : 0); }}
             />
           </div>
@@ -1354,7 +1400,27 @@ function buildTree(notes: Note[]): Note[] {
   return roots as any;
 }
 
-function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onDecisionChange, onPinnedChange }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, value: ComposerValue)=>Promise<any>; onEdit: (id:string, value: ComposerValue)=>Promise<any>; onDelete: (id:string)=>Promise<any>; onDecisionChange: (decision: ComposerDecision | null)=>Promise<void>; onPinnedChange?: (active:boolean, height:number)=>void }) {
+function PareceresList({
+  cardId,
+  notes,
+  profiles,
+  onReply,
+  onEdit,
+  onDelete,
+  onDecisionChange,
+  onPinnedChange,
+  disableInteractions,
+}: {
+  cardId: string;
+  notes: Note[];
+  profiles: ProfileLite[];
+  onReply?: (parentId:string, value: ComposerValue)=>Promise<any>;
+  onEdit?: (id:string, value: ComposerValue)=>Promise<any>;
+  onDelete?: (id:string)=>Promise<any>;
+  onDecisionChange?: (decision: ComposerDecision | null)=>Promise<void>;
+  onPinnedChange?: (active:boolean, height:number)=>void;
+  disableInteractions?: boolean;
+}) {
   const tree = useMemo(()=> buildTree(notes||[]), [notes]);
   const { open } = useSidebar();
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -1438,8 +1504,8 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [isEditingId, isReplyingId]);
 
-  async function handleDecisionShortcut(cardIdLocal: string, decisionChange: (decision: ComposerDecision | null) => Promise<void>, key: 'aprovado' | 'negado' | 'reanalise') {
-    if (!cardIdLocal) return;
+  async function handleDecisionShortcut(cardIdLocal: string, decisionChange: ((decision: ComposerDecision | null) => Promise<void>) | undefined, key: 'aprovado' | 'negado' | 'reanalise') {
+    if (!cardIdLocal || !decisionChange) return;
     if (key === 'aprovado') {
       await decisionChange('aprovado');
     } else if (key === 'negado') {
@@ -1453,6 +1519,10 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
     const isRoot = depth === 0;
     const isEditing = isEditingId === note.id;
     const isReplying = isReplyingId === note.id;
+    const canReply = !disableInteractions && !!onReply;
+    const canEdit = !disableInteractions && !!onEdit;
+    const canDelete = !disableInteractions && !!onDelete;
+    const canDecide = !disableInteractions && !!onDecisionChange;
     const containerClass = isRoot
       ? "rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]"
       : "rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800";
@@ -1484,36 +1554,40 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
             >
               <Pin className="w-4 h-4" strokeWidth={1.75} />
             </button>
-            <button
-              aria-label="Responder"
-              onClick={() => {
-                if (isReplying) {
-                  setIsReplyingId(null);
-                  setReplyValue({ decision: null, text: '' });
-                  setMentionOpenReply(false);
-                  setCmdOpen(false);
-                } else {
-                  setIsReplyingId(note.id);
-                  setReplyValue({ decision: null, text: '' });
-                  requestAnimationFrame(() => replyComposerRef.current?.focus());
-                }
-              }}
-              className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-            <ParecerMenu
-              onEdit={() => {
-                setIsEditingId(note.id);
-                const nextVal: ComposerValue = { decision: (note.decision as ComposerDecision) ?? null, text: note.text || '', mentions: [] };
-                setEditValue(nextVal);
-                requestAnimationFrame(() => {
-                  editComposerRef.current?.setValue(nextVal);
-                  editComposerRef.current?.focus();
-                });
-              }}
-              onDelete={() => onDelete(note.id)}
-            />
+            {canReply && (
+              <button
+                aria-label="Responder"
+                onClick={() => {
+                  if (isReplying) {
+                    setIsReplyingId(null);
+                    setReplyValue({ decision: null, text: '' });
+                    setMentionOpenReply(false);
+                    setCmdOpen(false);
+                  } else {
+                    setIsReplyingId(note.id);
+                    setReplyValue({ decision: null, text: '' });
+                    requestAnimationFrame(() => replyComposerRef.current?.focus());
+                  }
+                }}
+                className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            )}
+            {(canEdit || canDelete) && (
+              <ParecerMenu
+                onEdit={canEdit ? () => {
+                  setIsEditingId(note.id);
+                  const nextVal: ComposerValue = { decision: (note.decision as ComposerDecision) ?? null, text: note.text || '', mentions: [] };
+                  setEditValue(nextVal);
+                  requestAnimationFrame(() => {
+                    editComposerRef.current?.setValue(nextVal);
+                    editComposerRef.current?.focus();
+                  });
+                } : undefined}
+                onDelete={canDelete ? () => onDelete!(note.id) : undefined}
+              />
+            )}
           </div>
         </div>
 
@@ -1541,7 +1615,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
           </div>
         )}
 
-        {isEditing && (
+        {isEditing && canEdit && (
           <div className="mt-3" ref={editBoxRef}>
             <div className="relative">
               <UnifiedComposer
@@ -1549,14 +1623,17 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                 defaultValue={editValue}
                 onChange={(val) => setEditValue(val)}
                 onSubmit={async (val) => {
+                  if (!onEdit) return;
                   const trimmed = (val.text || '').trim();
                   if (!trimmed) return;
                   await onEdit(note.id, val);
                   setIsEditingId(null);
-                  if (val.decision === 'aprovado' || val.decision === 'negado') {
-                    await onDecisionChange(val.decision);
-                  } else if (val.decision === 'reanalise') {
-                    await onDecisionChange('reanalise');
+                  if (onDecisionChange) {
+                    if (val.decision === 'aprovado' || val.decision === 'negado') {
+                      await onDecisionChange(val.decision);
+                    } else if (val.decision === 'reanalise') {
+                      await onDecisionChange('reanalise');
+                    }
                   }
                 }}
                 onCancel={() => setIsEditingId(null)}
@@ -1610,7 +1687,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
           </div>
         )}
 
-        {isReplying && (
+        {isReplying && canReply && (
           <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
             <div className="flex-1 relative">
               <UnifiedComposer
@@ -1619,13 +1696,16 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                 placeholder="Responder... (/aprovado, /negado, /reanalise)"
                 onChange={(val) => setReplyValue(val)}
                 onSubmit={async (val) => {
+                  if (!onReply) return;
                   const trimmed = (val.text || '').trim();
                   if (!trimmed) return;
                   await onReply(note.id, val);
-                  if (val.decision === 'aprovado' || val.decision === 'negado') {
-                    await onDecisionChange(val.decision);
-                  } else if (val.decision === 'reanalise') {
-                    await onDecisionChange('reanalise');
+                  if (onDecisionChange) {
+                    if (val.decision === 'aprovado' || val.decision === 'negado') {
+                      await onDecisionChange(val.decision);
+                    } else if (val.decision === 'reanalise') {
+                      await onDecisionChange('reanalise');
+                    }
                   }
                   const resetVal: ComposerValue = { decision: null, text: '', mentions: [] };
                   setReplyValue(resetVal);
@@ -1745,43 +1825,50 @@ function AttachmentChip({ attachment }: { attachment: any }) {
   const [url, setUrl] = useState<string | null>(() => attachment?.public_url || attachment?.url || null);
   useEffect(() => {
     if (attachment?.public_url || attachment?.url) return;
-    const path = attachment?.file_path || attachment?.path;
-    if (!path) { setUrl(null); return; }
     let active = true;
     (async () => {
       try {
-        const resolved = await publicUrl(path);
-        if (active) setUrl(resolved);
+        // Se tem ID, usa getAttachmentUrl (seguro, com RLS)
+        if (attachment?.id) {
+          const resolved = await getAttachmentUrl(attachment.id, 'download');
+          if (active) setUrl(resolved);
+        } else {
+          // Fallback: se não tem ID, usa publicUrl (compatibilidade)
+          const path = attachment?.file_path || attachment?.path;
+          if (!path) { setUrl(null); return; }
+          const resolved = await publicUrl(path);
+          if (active) setUrl(resolved);
+        }
       } catch {
         if (active) setUrl(null);
       }
     })();
     return () => { active = false; };
-  }, [attachment?.file_path, attachment?.path, attachment?.public_url, attachment?.url]);
+  }, [attachment?.id, attachment?.file_path, attachment?.path, attachment?.public_url, attachment?.url]);
 
   const name = attachment?.file_name || attachment?.name || 'Anexo';
   const created = attachment?.created_at ? new Date(attachment.created_at).toLocaleString() : null;
   return (
-    <div className="flex items-center justify-between rounded border border-zinc-200 bg-white px-3 py-2 text-sm">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">📎</span>
-        <div>
+    <div className="flex items-center justify-between gap-3 rounded border border-zinc-200 bg-white px-3 py-2 text-sm">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span className="text-lg shrink-0">📎</span>
+        <div className="min-w-0 flex-1">
           <div className="font-medium text-zinc-800 break-words">{name}</div>
           {created && <div className="text-[11px] text-zinc-500">{created}</div>}
         </div>
       </div>
       {url ? (
-        <a href={url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:text-emerald-700">
+        <a href={url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:text-emerald-700 shrink-0">
           Abrir ↗
         </a>
       ) : (
-        <span className="text-xs text-zinc-400">Sem link</span>
+        <span className="text-xs text-zinc-400 shrink-0">Sem link</span>
       )}
     </div>
   );
 }
 
-function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void | Promise<void> }) {
+function ParecerMenu({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () => void | Promise<void> }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">

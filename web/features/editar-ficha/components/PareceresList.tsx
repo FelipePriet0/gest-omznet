@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, User as UserIcon } from "lucide-react";
 import clsx from "clsx";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { TaskCard } from "@/features/tasks/TaskCard";
@@ -14,6 +14,9 @@ import { DecisionTag, decisionPlaceholder } from "../utils/decision";
 type Note = { id: string; text: string; author_id?: string | null; author_name?: string; author_role?: string | null; created_at?: string; parent_id?: string | null; level?: number; deleted?: boolean; decision?: ComposerDecision | string | null };
 
 function buildTree(notes: Note[]): Note[] {
+  // Filtrar pareceres deletados (soft delete do backend)
+  const activeNotes = notes.filter((n) => !n.deleted);
+  
   const byId = new Map<string, any>();
   const normalizeText = (note: any) => {
     if (!note) return "";
@@ -21,9 +24,9 @@ function buildTree(notes: Note[]): Note[] {
     const placeholder = decisionPlaceholder(note.decision as any);
     return note.text === placeholder ? "" : (note.text || "");
   };
-  notes.forEach((n) => byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] }));
+  activeNotes.forEach((n) => byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] }));
   const roots: any[] = [];
-  notes.forEach((n) => {
+  activeNotes.forEach((n) => {
     const node = byId.get(n.id)!;
     if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node);
     else roots.push(node);
@@ -50,6 +53,7 @@ export function PareceresList({
   onOpenTask,
   onToggleTask,
   currentUserId,
+  canWrite = true,
 }: {
   cardId: string;
   notes: Note[];
@@ -63,11 +67,79 @@ export function PareceresList({
   onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
   onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
   currentUserId?: string | null;
+  canWrite?: boolean;
 }) {
-  const tree = useMemo(() => buildTree(notes || []), [notes]);
+  // Estado otimista: pareceres deletados localmente (antes da confirmação do backend)
+  const [optimisticallyDeleted, setOptimisticallyDeleted] = useState<Set<string>>(new Set());
+  const [optimisticallyEdited, setOptimisticallyEdited] = useState<Map<string, Partial<Note>>>(new Map());
+  
+  // Filtrar pareceres deletados (backend + otimista) e aplicar edições otimistas
+  const filteredNotes = useMemo(() => {
+    return (notes || []).filter((n) => !n.deleted && !optimisticallyDeleted.has(n.id)).map((n) => {
+      const edit = optimisticallyEdited.get(n.id);
+      return edit ? { ...n, ...edit } : n;
+    });
+  }, [notes, optimisticallyDeleted, optimisticallyEdited]);
+  
+  const tree = useMemo(() => buildTree(filteredNotes), [filteredNotes]);
+  
+  // Resetar estado otimista quando os dados do hook mudarem (sincronização)
+  useEffect(() => {
+    setOptimisticallyDeleted(new Set());
+    setOptimisticallyEdited(new Map());
+  }, [notes]);
+  
+  // Wrapper otimista para onDelete
+  const handleDeleteOptimistic = async (id: string) => {
+    // 1. OTIMISTA: Remove imediatamente da UI
+    setOptimisticallyDeleted((prev) => new Set(prev).add(id));
+    
+    try {
+      // 2. Enviar requisição em background
+      await onDelete(id);
+      // 3. SUCESSO: O refreshCardSnapshot vai atualizar e limpar o estado otimista
+    } catch (err: any) {
+      // 4. REVERTER se falhar
+      setOptimisticallyDeleted((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      throw err; // Re-throw para o componente pai tratar o erro
+    }
+  };
+  
+  // Wrapper otimista para onEdit
+  const handleEditOptimistic = async (id: string, value: ComposerValue) => {
+    // 1. OTIMISTA: Atualiza imediatamente na UI
+    const text = (value.text || '').trim();
+    const hasDecision = !!value.decision;
+    const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
+    
+    setOptimisticallyEdited((prev) => {
+      const next = new Map(prev);
+      next.set(id, { text: payloadText, decision: value.decision ?? null });
+      return next;
+    });
+    
+    try {
+      // 2. Enviar requisição em background
+      await onEdit(id, value);
+      // 3. SUCESSO: O refreshCardSnapshot vai atualizar e limpar o estado otimista
+    } catch (err: any) {
+      // 4. REVERTER se falhar
+      setOptimisticallyEdited((prev) => {
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+      throw err; // Re-throw para o componente pai tratar o erro
+    }
+  };
+  
   return (
     <div className="space-y-2">
-      {(!notes || notes.length === 0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
+      {(!filteredNotes || filteredNotes.length === 0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
       {tree.map((n) => (
         <NoteItem
           key={n.id}
@@ -77,13 +149,14 @@ export function PareceresList({
           profiles={profiles}
           tasks={tasks}
           onReply={onReply}
-          onEdit={onEdit}
-          onDelete={onDelete}
+          onEdit={handleEditOptimistic}
+          onDelete={handleDeleteOptimistic}
           onDecisionChange={onDecisionChange}
           onOpenTask={onOpenTask}
           onToggleTask={onToggleTask}
           applicantName={applicantName}
           currentUserId={currentUserId}
+          canWrite={canWrite}
         />
       ))}
     </div>
@@ -104,6 +177,7 @@ function NoteItem({
   onToggleTask,
   applicantName,
   currentUserId,
+  canWrite,
 }: {
   cardId: string;
   node: any;
@@ -118,10 +192,12 @@ function NoteItem({
   onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
   applicantName?: string | null;
   currentUserId?: string | null;
+  canWrite?: boolean;
 }) {
   const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
   const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
   const editRef = useRef<HTMLDivElement | null>(null);
+  const replyRef = useRef<HTMLDivElement | null>(null);
   const [isReplying, setIsReplying] = useState(false);
   const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -130,6 +206,9 @@ function NoteItem({
   const [editValue, setEditValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [editCmdOpen, setEditCmdOpen] = useState(false);
   const [editCmdQuery, setEditCmdQuery] = useState("");
+  const canReply = !!canWrite;
+  const canEdit = !!canWrite && currentUserId && node.author_id && currentUserId === node.author_id;
+  const canDelete = !!currentUserId && node.author_id && currentUserId === node.author_id;
 
   useEffect(() => {
     const onOpenAttach = (e: any) => {
@@ -143,23 +222,80 @@ function NoteItem({
   const nodeTasks = tasks.filter((t) => (t as any).comment_id === node.id);
   const isRoot = depth === 0;
 
+  useEffect(() => {
+    if (canReply) return;
+    setIsReplying(false);
+    setCmdOpen(false);
+  }, [canReply]);
+
+  useEffect(() => {
+    if (canEdit) return;
+    setIsEditing(false);
+    setEditCmdOpen(false);
+  }, [canEdit]);
+
+  // Fechar campo de edição ao clicar fora
+  useEffect(() => {
+    if (!isEditing) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node | null;
+      if (editRef.current && target && !editRef.current.contains(target)) {
+        setIsEditing(false);
+        setEditCmdOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isEditing]);
+
+  // Fechar campo de resposta ao clicar fora
+  useEffect(() => {
+    if (!isReplying) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node | null;
+      if (replyRef.current && target && !replyRef.current.contains(target)) {
+        setIsReplying(false);
+        setCmdOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isReplying]);
+
   return (
-    <div className={clsx("rounded-lg border border-zinc-200 bg-white p-3", isRoot ? "" : "ml-6")}>      
+    <div 
+      className={clsx("rounded-lg border border-zinc-200 bg-white p-3", isRoot ? "" : "pl-3")}
+      style={{ 
+        marginLeft: isRoot ? 0 : depth * 16, 
+        borderLeftColor: 'var(--verde-primario)', 
+        borderLeftWidth: '8px' 
+      }}
+    >      
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-zinc-100 flex items-center justify-center">
-            <span className="text-xs">{(node.author_name || "?").slice(0, 2)}</span>
-          </div>
-          <div className="leading-tight">
-            <div className="text-sm font-medium text-zinc-900">{node.author_name || "—"}</div>
+          {!isRoot ? (
+            <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
+          ) : (
+            <div className="h-8 w-8 rounded-full bg-zinc-100 flex items-center justify-center">
+              <span className="text-xs">{(node.author_name || "?").slice(0, 2)}</span>
+            </div>
+          )}
+          <div className="leading-tight min-w-0">
+            <div className="text-sm font-medium text-zinc-900 truncate">{node.author_name || "—"}</div>
             <div className="text-[11px] text-zinc-500">{new Date(node.created_at || "").toLocaleString()}</div>
+            {node.author_role && (
+              <div className="text-[11px] text-zinc-500 truncate">{node.author_role}</div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">
           <button
             aria-label="Responder"
+            disabled={!canReply}
+            aria-disabled={!canReply}
             onClick={() => {
+              if (!canReply) return;
               setIsReplying((next) => {
                 const initial: ComposerValue = { decision: null, text: "", mentions: [] };
                 if (!next) {
@@ -172,32 +308,43 @@ function NoteItem({
                 return !next;
               });
             }}
-            className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
+            className={clsx(
+              "text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100",
+              !canReply && "cursor-not-allowed opacity-50 hover:text-zinc-500 hover:bg-transparent"
+            )}
           >
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          {currentUserId && node.author_id && node.author_id === currentUserId ? (
+          {(canEdit || canDelete) && currentUserId && node.author_id && node.author_id === currentUserId ? (
             <ParecerMenu
-              onEdit={() => {
-                const initial: ComposerValue = { decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || "", mentions: [] };
-                setEditValue(initial);
-                setIsEditing(true);
-                requestAnimationFrame(() => {
-                  editComposerRef.current?.setValue(initial);
-                  editComposerRef.current?.focus();
-                });
-              }}
-              onDelete={async () => {
-                if (confirm("Excluir este parecer?")) {
-                  try {
-                    await onDelete(node.id);
-                  } catch (e: any) {
-                    alert(e?.message || "Falha ao excluir parecer");
-                  }
-                }
-              }}
+              onEdit={
+                canEdit
+                  ? () => {
+                      const initial: ComposerValue = { decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || "", mentions: [] };
+                      setEditValue(initial);
+                      setIsEditing(true);
+                      requestAnimationFrame(() => {
+                        editComposerRef.current?.setValue(initial);
+                        editComposerRef.current?.focus();
+                      });
+                    }
+                  : undefined
+              }
+              onDelete={
+                canDelete
+                  ? async () => {
+                      if (confirm("Excluir este parecer?")) {
+                        try {
+                          await onDelete(node.id);
+                        } catch (e: any) {
+                          alert(e?.message || "Falha ao excluir parecer");
+                        }
+                      }
+                    }
+                  : undefined
+              }
             />
           ) : null}
         </div>
@@ -215,38 +362,48 @@ function NoteItem({
             <UnifiedComposer
               ref={editComposerRef}
               defaultValue={editValue}
+              disabled={!canEdit}
               placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
+              richText
               onChange={(val) => setEditValue(val)}
-              onSubmit={async (val) => {
-                const trimmed = (val.text || "").trim();
-                if (!trimmed) return;
-                try {
-                  await onEdit(node.id, val);
-                  if (val.decision === "aprovado" || val.decision === "negado") {
-                    await onDecisionChange(val.decision);
-                  } else if (val.decision === "reanalise") {
-                    await onDecisionChange("reanalise");
-                  }
-                  setIsEditing(false);
-                  setEditCmdOpen(false);
-                } catch (e: any) {
-                  alert(e?.message || "Falha ao editar parecer");
-                }
-              }}
+              onSubmit={
+                !canEdit
+                  ? undefined
+                  : async (val) => {
+                      const trimmed = (val.text || "").trim();
+                      if (!trimmed) return;
+                      try {
+                        await onEdit(node.id, val);
+                        if (val.decision === "aprovado" || val.decision === "negado") {
+                          await onDecisionChange(val.decision);
+                        } else if (val.decision === "reanalise") {
+                          await onDecisionChange("reanalise");
+                        }
+                        setIsEditing(false);
+                        setEditCmdOpen(false);
+                      } catch (e: any) {
+                        alert(e?.message || "Falha ao editar parecer");
+                      }
+                    }
+              }
               onCancel={() => {
                 setIsEditing(false);
                 setEditCmdOpen(false);
               }}
-              onCommandTrigger={(query) => {
-                setEditCmdQuery(query.toLowerCase());
-                setEditCmdOpen(true);
-              }}
+              onCommandTrigger={
+                !canEdit
+                  ? undefined
+                  : (query) => {
+                      setEditCmdQuery(query.toLowerCase());
+                      setEditCmdOpen(true);
+                    }
+              }
               onCommandClose={() => {
                 setEditCmdOpen(false);
                 setEditCmdQuery("");
               }}
             />
-            {editCmdOpen && (
+            {canEdit && editCmdOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <CmdDropdown
                   items={[
@@ -295,84 +452,74 @@ function NoteItem({
       )}
 
       {/* Reply */}
-      <div className="mt-2">
-        <div className="relative">
-          <UnifiedComposer
-            ref={replyComposerRef}
-            placeholder="Responder… Use @ para mencionar e / para comandos"
-            onChange={(val) => setReplyValue(val)}
-            onSubmit={async (val) => {
-              const txt = (val.text || "").trim();
-              const hasDecision = !!val.decision;
-              if (!hasDecision && !txt) return;
-              const payloadText = hasDecision && !txt ? decisionPlaceholder(val.decision ?? null) : txt;
-              try {
-                await onReply(node.id, { ...val, text: payloadText });
-                if (val.decision === "aprovado" || val.decision === "negado") {
-                  await onDecisionChange(val.decision);
-                } else if (val.decision === "reanalise") {
-                  await onDecisionChange("reanalise");
-                }
-                setIsReplying(false);
-                setReplyValue({ decision: null, text: "", mentions: [] });
-                setCmdOpen(false);
-              } catch (e: any) {
-                alert(e?.message || "Falha ao responder");
-              }
-            }}
-            onCancel={() => {
-              setIsReplying(false);
-              setCmdOpen(false);
-            }}
-            onCommandTrigger={(query) => {
-              setCmdQuery(query.toLowerCase());
-              setCmdOpen(true);
-            }}
-            onCommandClose={() => {
-              setCmdOpen(false);
-              setCmdQuery("");
-            }}
-          />
-          {cmdOpen && (
-            <div className="absolute z-50 left-0 bottom-full mb-2">
-              <CmdDropdown
-                items={[
-                  { key: "aprovado", label: "Aprovado" },
-                  { key: "negado", label: "Negado" },
-                  { key: "reanalise", label: "Reanálise" },
-                  { key: "tarefa", label: "Tarefa" },
-                  { key: "anexo", label: "Anexo" },
-                ].filter((i) => i.key.includes(cmdQuery))}
-                onPick={async (key) => {
+      {canReply && isReplying && (
+        <div className="mt-2" ref={replyRef}>
+          <div className="relative">
+            <UnifiedComposer
+              ref={replyComposerRef}
+              placeholder="Responder… Use @ para mencionar e / para decisões"
+              richText
+              onChange={(val) => setReplyValue(val)}
+              onSubmit={async (val) => {
+                const txt = (val.text || "").trim();
+                const hasDecision = !!val.decision;
+                if (!hasDecision && !txt) return;
+                const payloadText = hasDecision && !txt ? decisionPlaceholder(val.decision ?? null) : txt;
+                try {
+                  await onReply(node.id, { ...val, text: payloadText });
+                  if (val.decision === "aprovado" || val.decision === "negado") {
+                    await onDecisionChange(val.decision);
+                  } else if (val.decision === "reanalise") {
+                    await onDecisionChange("reanalise");
+                  }
+                  setIsReplying(false);
+                  setReplyValue({ decision: null, text: "", mentions: [] });
                   setCmdOpen(false);
-                  setCmdQuery("");
-                  if (key === "aprovado" || key === "negado" || key === "reanalise") {
-                    replyComposerRef.current?.setDecision(key as any);
-                    try {
-                      await onDecisionChange(key as any);
-                    } catch (e: any) {
-                      alert(e?.message || "Falha ao mover");
+                } catch (e: any) {
+                  alert(e?.message || "Falha ao responder");
+                }
+              }}
+              onCancel={() => {
+                setIsReplying(false);
+                setCmdOpen(false);
+              }}
+              onCommandTrigger={(query) => {
+                setCmdQuery(query.toLowerCase());
+                setCmdOpen(true);
+              }}
+              onCommandClose={() => {
+                setCmdOpen(false);
+                setCmdQuery("");
+              }}
+            />
+            {cmdOpen && (
+              <div className="absolute z-50 left-0 bottom-full mb-2">
+                <CmdDropdown
+                  items={[
+                    { key: "aprovado", label: "Aprovado" },
+                    { key: "negado", label: "Negado" },
+                    { key: "reanalise", label: "Reanálise" },
+                  ].filter((i) => i.key.includes(cmdQuery))}
+                  onPick={async (key) => {
+                    setCmdOpen(false);
+                    setCmdQuery("");
+                    if (key === "aprovado" || key === "negado" || key === "reanalise") {
+                      replyComposerRef.current?.setDecision(key as any);
+                      try {
+                        await onDecisionChange(key as any);
+                      } catch (e: any) {
+                        alert(e?.message || "Falha ao mover");
+                      }
+                      return;
                     }
-                    return;
-                  }
-                  if (key === "tarefa") {
-                    onOpenTask({ parentId: node.id, source: "parecer" });
-                    return;
-                  }
-                  if (key === "anexo") {
-                    try {
-                      const ev = new CustomEvent("mz-open-attach", { detail: { commentId: node.id, source: "parecer" } });
-                      window.dispatchEvent(ev);
-                    } catch {}
-                    return;
-                  }
-                }}
-                initialQuery={cmdQuery}
-              />
-            </div>
-          )}
+                  }}
+                  initialQuery={cmdQuery}
+                />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Children */}
       {node.children && node.children.length > 0 && (
@@ -393,6 +540,7 @@ function NoteItem({
               onToggleTask={onToggleTask}
               applicantName={applicantName}
               currentUserId={currentUserId}
+              canWrite={canWrite}
             />
           ))}
         </div>
@@ -401,7 +549,8 @@ function NoteItem({
   );
 }
 
-function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void | Promise<void> }) {
+function ParecerMenu({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () => void | Promise<void> }) {
+  if (!onEdit && !onDelete) return null;
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -421,19 +570,23 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
         <>
           <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
           <div className="parecer-menu-dropdown absolute right-0 top-10 z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
-            <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" onClick={() => { setOpen(false); onEdit(); }}>
-              <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Editar
-            </button>
-            <div className="h-px bg-zinc-100 mx-2" />
-            <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" onClick={async () => { setOpen(false); await onDelete(); }}>
-              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              Excluir
-            </button>
+            {onEdit && (
+              <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" onClick={() => { setOpen(false); onEdit(); }}>
+                <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Editar
+              </button>
+            )}
+            {onEdit && onDelete ? <div className="h-px bg-zinc-100 mx-2" /> : null}
+            {onDelete && (
+              <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" onClick={async () => { setOpen(false); await onDelete(); }}>
+                <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Excluir
+              </button>
+            )}
           </div>
         </>
       )}

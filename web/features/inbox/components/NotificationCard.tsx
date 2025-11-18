@@ -26,7 +26,7 @@ export function NotificationCard({ item, active, dragging }: { item: InboxItem; 
           <span className="text-xl leading-none">{icon}</span>
           <div className="flex flex-col">
             <span className="text-sm font-medium text-zinc-900">
-              {notificationData.authorName || "Sistema"}
+              {notificationData.authorName || "—"}
             </span>
             <span className="text-xs text-zinc-600">
               {notificationData.subtitle}
@@ -68,8 +68,10 @@ function normalizeName(value: unknown) {
 
 function getNotificationData(item: InboxItem) {
   const meta = item.meta || {};
-  const authorName = normalizeName(meta.author_name) || normalizeName(meta.full_name) || "Sistema";
-  const candidateNames = [meta.primary_name, meta.applicant_name, meta.card_title, meta.card_name, meta.applicant, meta.primaryName, meta.applicantPrimaryName];
+  // Usar item.author_name primeiro (vem diretamente da RPC), depois meta como fallback
+  const authorName = normalizeName(item.author_name) || normalizeName(meta.author_name) || normalizeName(meta.full_name);
+  // Usar item.primary_name primeiro (vem diretamente da RPC), depois meta como fallback
+  const candidateNames = [item.primary_name, meta.primary_name, meta.applicant_name, meta.card_title, meta.card_name, meta.applicant, meta.primaryName, meta.applicantPrimaryName];
   const primaryName = candidateNames.map(normalizeName).find(Boolean) || "";
   const subtitleTarget = primaryName || "—";
   const sample = meta.sample || meta.content_preview || "";

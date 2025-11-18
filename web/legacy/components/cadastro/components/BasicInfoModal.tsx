@@ -146,7 +146,7 @@ export function BasicInfoModal({
       <div className="relative w-[92vw] max-w-[760px] overflow-hidden rounded-2xl bg-neutral-50 shadow-xl" onClick={(e)=> e.stopPropagation()}>
         <div className="rounded-t-2xl bg-emerald-700 px-6 py-4 text-white">
           <div className="flex items-center gap-3">
-            <Image src="/brand/mznet.png" alt="MZNET" width={72} height={24} priority />
+            <Image src="/brand/mznet.png" alt="MZNET" width={72} height={24} priority style={{ height: 'auto' }} />
             <div className="flex flex-col">
               <h2 className="text-base font-semibold sm:text-lg">{headerTitle}</h2>
               <p className="text-xs text-emerald-50/90 sm:text-sm">{headerSubtitle}</p>

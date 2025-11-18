@@ -18,13 +18,17 @@ export type Comment = {
   deleted_at?: string | null;
 };
 
+/**
+ * LEI 2 - CONTEÚDO: Lista todos os comentários (texto, tarefa, anexo, menção)
+ * LEI 3 - ORDEM E UX: Ordena por created_at ASC (cronológico)
+ */
 export async function listComments(cardId: string): Promise<Comment[]> {
   const { data, error } = await supabase
     .from(TABLE_CARD_COMMENTS)
     .select("id, card_id, content, author_id, author_name, author_role, created_at, updated_at, parent_id, thread_id, level, deleted_at")
     .eq("card_id", cardId)
     .is("deleted_at", null)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }); // LEI 3: Ordem cronológica
   if (error) return [];
   const arr = (data as any) ?? [];
   return arr.map((r: any) => ({
@@ -43,7 +47,35 @@ export async function listComments(cardId: string): Promise<Comment[]> {
   } as Comment));
 }
 
+/**
+ * LEI 1 - HIERARQUIA: Valida se parent_id existe e é válido
+ * Permite que respostas apontem para Pai e sub-respostas apontem para resposta ou outra sub-resposta
+ */
+async function validateParentId(cardId: string, parentId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from(TABLE_CARD_COMMENTS)
+      .select("id, card_id, deleted_at, parent_id")
+      .eq("id", parentId)
+      .eq("card_id", cardId)
+      .is("deleted_at", null)
+      .single();
+    
+    return !error && !!data;
+  } catch {
+    return false;
+  }
+}
+
 export async function addComment(cardId: string, text: string, parentId?: string | null) {
+  // LEI 1 - HIERARQUIA: Validar parent_id antes de criar (prevenir órfãos)
+  if (parentId) {
+    const isValid = await validateParentId(cardId, parentId);
+    if (!isValid) {
+      throw new Error("Comentário pai não encontrado ou foi deletado. Não é possível criar resposta órfã.");
+    }
+  }
+  
   const payload: any = { card_id: cardId, content: text };
   if (parentId) payload.parent_id = parentId;
   try {
@@ -66,6 +98,22 @@ export async function editComment(commentId: string, text: string) {
 }
 
 export async function deleteComment(commentId: string) {
+  // 1) Se existir tarefa(s) vinculada(s) a este comentário criada(s) por mim, excluir também
+  try {
+    const { data } = await supabase.auth.getUser();
+    const uid = data?.user?.id ?? null;
+    if (uid) {
+      // Exclui apenas tarefas onde eu sou o criador e que apontam para este comentário
+      // Assim atendemos o requisito: criador da tarefa apagando a tarefa definitivamente
+      await supabase
+        .from('card_tasks')
+        .delete()
+        .eq('comment_id', commentId)
+        .eq('created_by', uid);
+    }
+  } catch {}
+
+  // 2) Excluir comentário (soft ou hard)
   // Soft-delete por deleted_at quando existir
   const { data: colCheck } = await supabase.from(TABLE_CARD_COMMENTS).select("deleted_at").eq("id", commentId).limit(1);
   if (Array.isArray(colCheck) && colCheck.length > 0 && typeof colCheck[0]?.deleted_at !== "undefined") {

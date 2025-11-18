@@ -1,0 +1,281 @@
+[1mdiff --git a/web/app/(app)/cadastro/pf/[id]/page.tsx b/web/app/(app)/cadastro/pf/[id]/page.tsx[m
+[1mindex b48ba7f..f7d2d78 100644[m
+[1m--- a/web/app/(app)/cadastro/pf/[id]/page.tsx[m
+[1m+++ b/web/app/(app)/cadastro/pf/[id]/page.tsx[m
+[36m@@ -220,6 +220,7 @@[m [mexport default function CadastroPFPage() {[m
+   // Parecer states[m
+   const [pareceres, setPareceres] = useState<any[]>([]);[m
+   const [profiles, setProfiles] = useState<ProfileLite[]>([]);[m
+[32m+[m[32m  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);[m
+   const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });[m
+   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);[m
+   const [mentionFilterParecer, setMentionFilterParecer] = useState("");[m
+[36m@@ -295,6 +296,23 @@[m [mexport default function CadastroPFPage() {[m
+   }[m
+ [m
+   useEffect(() => {[m
+[32m+[m[32m    let active = true;[m
+[32m+[m[32m    (async () => {[m
+[32m+[m[32m      try {[m
+[32m+[m[32m        const { data } = await supabase.auth.getUser();[m
+[32m+[m[32m        if (!active) return;[m
+[32m+[m[32m        const uid = data.user?.id;[m
+[32m+[m[32m        if (!uid) {[m
+[32m+[m[32m          setCurrentUserRole(null);[m
+[32m+[m[32m          return;[m
+[32m+[m[32m        }[m
+[32m+[m[32m        const profile = (await listProfiles()).find((p) => p.id === uid);[m
+[32m+[m[32m        setCurrentUserRole(profile?.role ?? null);[m
+[32m+[m[32m      } catch {[m
+[32m+[m[32m        if (active) setCurrentUserRole(null);[m
+[32m+[m[32m      }[m
+[32m+[m[32m    })();[m
+[32m+[m
+     function handleOpenAttach(event?: Event) {[m
+       const detail = (event as CustomEvent<{ commentId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;[m
+       triggerAttachmentPicker({[m
+[36m@@ -303,7 +321,10 @@[m [mexport default function CadastroPFPage() {[m
+       });[m
+     }[m
+     window.addEventListener("mz-open-attach", handleOpenAttach);[m
+[31m-    return () => window.removeEventListener("mz-open-attach", handleOpenAttach);[m
+[32m+[m[32m    return () => {[m
+[32m+[m[32m      active = false;[m
+[32m+[m[32m      window.removeEventListener("mz-open-attach", handleOpenAttach);[m
+[32m+[m[32m    };[m
+   }, []);[m
+ [m
+   async function refreshReanalysisNotes(cardId: string) {[m
+[36m@@ -1010,8 +1031,9 @@[m [mexport default function CadastroPFPage() {[m
+               <UnifiedComposer[m
+                 ref={parecerComposerRef}[m
+                 placeholder="Escreva um novo parecer… Use @ para mencionar"[m
+[32m+[m[32m                disabled={currentUserRole === 'vendedor'}[m
+                 onChange={(val)=> setNovoParecer(val)}[m
+[31m-                onSubmit={handleSubmitParecer}[m
+[32m+[m[32m                onSubmit={currentUserRole === 'vendedor' ? undefined : handleSubmitParecer}[m
+                 onCancel={()=> {[m
+                   setCmdOpenParecer(false);[m
+                   setMentionOpenParecer(false);[m
+[36m@@ -1042,7 +1064,7 @@[m [mexport default function CadastroPFPage() {[m
+                   />[m
+                 </div>[m
+               )}[m
+[31m-              {cmdOpenParecer && ([m
+[32m+[m[32m              {cmdOpenParecer && currentUserRole !== 'vendedor' && ([m
+                 <div className="absolute z-50 left-0 bottom-full mb-2">[m
+                   <CmdDropdown[m
+                     items={[[m
+[36m@@ -1068,7 +1090,7 @@[m [mexport default function CadastroPFPage() {[m
+               cardId={cardIdEff}[m
+               notes={pareceres as any}[m
+               profiles={profiles}[m
+[31m-              onReply={async (pid, value) => {[m
+[32m+[m[32m              onReply={currentUserRole === 'vendedor' ? undefined : async (pid, value) => {[m
+                 const text = (value.text || '').trim();[m
+                 const hasDecision = !!value.decision;[m
+                 if (!hasDecision && !text) return;[m
+[36m@@ -1081,7 +1103,7 @@[m [mexport default function CadastroPFPage() {[m
+                 });[m
+                 await refreshReanalysisNotes(cardIdEff);[m
+               }}[m
+[31m-              onEdit={async (id, value) => {[m
+[32m+[m[32m              onEdit={currentUserRole === 'vendedor' ? undefined : async (id, value) => {[m
+                 const text = (value.text || '').trim();[m
+                 const hasDecision = !!value.decision;[m
+                 if (!hasDecision && !text) return;[m
+[36m@@ -1094,7 +1116,7 @@[m [mexport default function CadastroPFPage() {[m
+                 });[m
+                 await refreshReanalysisNotes(cardIdEff);[m
+               }}[m
+[31m-              onDelete={async (id) => {[m
+[32m+[m[32m              onDelete={currentUserRole === 'vendedor' ? undefined : async (id) => {[m
+                 await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id });[m
+                 try {[m
+                   const { data: card } = await supabase[m
+[36m@@ -1105,7 +1127,7 @@[m [mexport default function CadastroPFPage() {[m
+                   if (card && Array.isArray((card as any).reanalysis_notes)) setPareceres((card as any).reanalysis_notes);[m
+                 } catch {}[m
+               }}[m
+[31m-              onDecisionChange={syncDecisionStatus}[m
+[32m+[m[32m              onDecisionChange={currentUserRole === 'vendedor' ? undefined : syncDecisionStatus}[m
+               onPinnedChange={(active, h)=> { try { (window as any).mzPinnedSpacePF = active ? h : 0; } catch {}; setPinnedSpace(active ? h : 0); }}[m
+             />[m
+           </div>[m
+[36m@@ -1354,7 +1376,27 @@[m [mfunction buildTree(notes: Note[]): Note[] {[m
+   return roots as any;[m
+ }[m
+ [m
+[31m-function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onDecisionChange, onPinnedChange }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, value: ComposerValue)=>Promise<any>; onEdit: (id:string, value: ComposerValue)=>Promise<any>; onDelete: (id:string)=>Promise<any>; onDecisionChange: (decision: ComposerDecision | null)=>Promise<void>; onPinnedChange?: (active:boolean, height:number)=>void }) {[m
+[32m+[m[32mfunction PareceresList({[m
+[32m+[m[32m  cardId,[m
+[32m+[m[32m  notes,[m
+[32m+[m[32m  profiles,[m
+[32m+[m[32m  onReply,[m
+[32m+[m[32m  onEdit,[m
+[32m+[m[32m  onDelete,[m
+[32m+[m[32m  onDecisionChange,[m
+[32m+[m[32m  onPinnedChange,[m
+[32m+[m[32m  disableInteractions,[m
+[32m+[m[32m}: {[m
+[32m+[m[32m  cardId: string;[m
+[32m+[m[32m  notes: Note[];[m
+[32m+[m[32m  profiles: ProfileLite[];[m
+[32m+[m[32m  onReply?: (parentId:string, value: ComposerValue)=>Promise<any>;[m
+[32m+[m[32m  onEdit?: (id:string, value: ComposerValue)=>Promise<any>;[m
+[32m+[m[32m  onDelete?: (id:string)=>Promise<any>;[m
+[32m+[m[32m  onDecisionChange?: (decision: ComposerDecision | null)=>Promise<void>;[m
+[32m+[m[32m  onPinnedChange?: (active:boolean, height:number)=>void;[m
+[32m+[m[32m  disableInteractions?: boolean;[m
+[32m+[m[32m}) {[m
+   const tree = useMemo(()=> buildTree(notes||[]), [notes]);[m
+   const { open } = useSidebar();[m
+   const [cmdOpen, setCmdOpen] = useState(false);[m
+[36m@@ -1438,8 +1480,8 @@[m [mfunction PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD[m
+     return () => document.removeEventListener('mousedown', onDocClick);[m
+   }, [isEditingId, isReplyingId]);[m
+ [m
+[31m-  async function handleDecisionShortcut(cardIdLocal: string, decisionChange: (decision: ComposerDecision | null) => Promise<void>, key: 'aprovado' | 'negado' | 'reanalise') {[m
+[31m-    if (!cardIdLocal) return;[m
+[32m+[m[32m  async function handleDecisionShortcut(cardIdLocal: string, decisionChange: ((decision: ComposerDecision | null) => Promise<void>) | undefined, key: 'aprovado' | 'negado' | 'reanalise') {[m
+[32m+[m[32m    if (!cardIdLocal || !decisionChange) return;[m
+     if (key === 'aprovado') {[m
+       await decisionChange('aprovado');[m
+     } else if (key === 'negado') {[m
+[36m@@ -1453,6 +1495,10 @@[m [mfunction PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD[m
+     const isRoot = depth === 0;[m
+     const isEditing = isEditingId === note.id;[m
+     const isReplying = isReplyingId === note.id;[m
+[32m+[m[32m    const canReply = !disableInteractions && !!onReply;[m
+[32m+[m[32m    const canEdit = !disableInteractions && !!onEdit;[m
+[32m+[m[32m    const canDelete = !disableInteractions && !!onDelete;[m
+[32m+[m[32m    const canDecide = !disableInteractions && !!onDecisionChange;[m
+     const containerClass = isRoot[m
+       ? "rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]"[m
+       : "rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800";[m
+[36m@@ -1484,36 +1530,40 @@[m [mfunction PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD[m
+             >[m
+               <Pin className="w-4 h-4" strokeWidth={1.75} />[m
+             </button>[m
+[31m-            <button[m
+[31m-              aria-label="Responder"[m
+[31m-              onClick={() => {[m
+[31m-                if (isReplying) {[m
+[31m-                  setIsReplyingId(null);[m
+[31m-                  setReplyValue({ decision: null, text: '' });[m
+[31m-                  setMentionOpenReply(false);[m
+[31m-                  setCmdOpen(false);[m
+[31m-                } else {[m
+[31m-                  setIsReplyingId(note.id);[m
+[31m-                  setReplyValue({ decision: null, text: '' });[m
+[31m-                  requestAnimationFrame(() => replyComposerRef.current?.focus());[m
+[31m-                }[m
+[31m-              }}[m
+[31m-              className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"[m
+[31m-            >[m
+[31m-              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>[m
+[31m-            </button>[m
+[31m-            <ParecerMenu[m
+[31m-              onEdit={() => {[m
+[31m-                setIsEditingId(note.id);[m
+[31m-                const nextVal: ComposerValue = { decision: (note.decision as ComposerDecision) ?? null, text: note.text || '', mentions: [] };[m
+[31m-                setEditValue(nextVal);[m
+[31m-                requestAnimationFrame(() => {[m
+[31m-                  editComposerRef.current?.setValue(nextVal);[m
+[31m-                  editComposerRef.current?.focus();[m
+[31m-                });[m
+[31m-              }}[m
+[31m-              onDelete={() => onDelete(note.id)}[m
+[31m-            />[m
+[32m+[m[32m            {canReply && ([m
+[32m+[m[32m              <button[m
+[32m+[m[32m                aria-label="Responder"[m
+[32m+[m[32m                onClick={() => {[m
+[32m+[m[32m                  if (isReplying) {[m
+[32m+[m[32m                    setIsReplyingId(null);[m
+[32m+[m[32m                    setReplyValue({ decision: null, text: '' });[m
+[32m+[m[32m                    setMentionOpenReply(false);[m
+[32m+[m[32m                    setCmdOpen(false);[m
+[32m+[m[32m                  } else {[m
+[32m+[m[32m                    setIsReplyingId(note.id);[m
+[32m+[m[32m                    setReplyValue({ decision: null, text: '' });[m
+[32m+[m[32m                    requestAnimationFrame(() => replyComposerRef.current?.focus());[m
+[32m+[m[32m                  }[m
+[32m+[m[32m                }}[m
+[32m+[m[32m                className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"[m
+[32m+[m[32m              >[m
+[32m+[m[32m                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>[m
+[32m+[m[32m              </button>[m
+[32m+[m[32m            )}[m
+[32m+[m[32m            {(canEdit || canDelete) && ([m
+[32m+[m[32m              <ParecerMenu[m
+[32m+[m[32m                onEdit={canEdit ? () => {[m
+[32m+[m[32m                  setIsEditingId(note.id);[m
+[32m+[m[32m                  const nextVal: ComposerValue = { decision: (note.decision as ComposerDecision) ?? null, text: note.text || '', mentions: [] };[m
+[32m+[m[32m                  setEditValue(nextVal);[m
+[32m+[m[32m                  requestAnimationFrame(() => {[m
+[32m+[m[32m                    editComposerRef.current?.setValue(nextVal);[m
+[32m+[m[32m                    editComposerRef.current?.focus();[m
+[32m+[m[32m                  });[m
+[32m+[m[32m                } : undefined}[m
+[32m+[m[32m                onDelete={canDelete ? () => onDelete!(note.id) : undefined}[m
+[32m+[m[32m              />[m
+[32m+[m[32m            )}[m
+           </div>[m
+         </div>[m
+ [m
+[36m@@ -1541,7 +1591,7 @@[m [mfunction PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD[m
+           </div>[m
+         )}[m
+ [m
+[31m-        {isEditing && ([m
+[32m+[m[32m        {isEditing && canEdit && ([m
+           <div className="mt-3" ref={editBoxRef}>[m
+             <div className="relative">[m
+               <UnifiedComposer[m
+[36m@@ -1549,14 +1599,17 @@[m [mfunction PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD[m
+                 defaultValue={editValue}[m
+                 onChange={(val) => setEditValue(val)}[m
+                 onSubmit={async (val) => {[m
+[32m+[m[32m                  if (!onEdit) return;[m
+                   const trimmed = (val.text || '').trim();[m
+                   if (!trimmed) return;[m
+                   await onEdit(note.id, val);[m
+                   setIsEditingId(null);[m
+[31m-                  if (val.decision === 'aprovado' || val.decision === 'negado') {[m
+[31m-                    await onDecisionChange(val.decision);[m
+[31m-                  } else if (val.decision === 'reanalise') {[m
+[31m-                    await onDecisionChange('reanalise');[m
+[32m+[m[32m                  if (onDecisionChange) {[m
+[32m+[m[32m                    if (val.decision === 'aprovado' || val.decision === 'negado') {[m
+[32m+[m[32m                      await onDecisionChange(val.decision);[m
+[32m+[m[32m                    } else if (val.decision === 'reanalise') {[m
+[32m+[m[32m                      await onDecisionChange('reanalise');[m
+[32m+[m[32m                    }[m
+                   }[m
+                 }}[m
+                 onCancel={() => setIsEditingId(null)}[m
+[36m@@ -1610,7 +1663,7 @@[m [mfunction PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD[m
+           </div>[m
+         )}[m
+ [m
+[31m-        {isReplying && ([m
+[32m+[m[32m        {isReplying && canReply && ([m
+           <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>[m
+             <div className="flex-1 relative">[m
+               <UnifiedComposer[m
+[36m@@ -1619,13 +1672,16 @@[m [mfunction PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD[m
+                 placeholder="Responder... (/aprovado, /negado, /reanalise)"[m
+                 onChange={(val) => setReplyValue(val)}[m
+                 onSubmit={async (val) => {[m
+[32m+[m[32m                  if (!onReply) return;[m
+                   const trimmed = (val.text || '').trim();[m
+                   if (!trimmed) return;[m
+                   await onReply(note.id, val);[m
+[31m-                  if (val.decision === 'aprovado' || val.decision === 'negado') {[m
+[31m-                    await onDecisionChange(val.decision);[m
+[31m-                  } else if (val.decision === 'reanalise') {[m
+[31m-                    await onDecisionChange('reanalise');[m
+[32m+[m[32m                  if (onDecisionChange) {[m
+[32m+[m[32m                    if (val.decision === 'aprovado' || val.decision === 'negado') {[m
+[32m+[m[32m                 

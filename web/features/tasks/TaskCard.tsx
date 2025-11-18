@@ -10,11 +10,16 @@ type TaskCardProps = {
   creatorName?: string | null;
   applicantName?: string | null;
   onEdit?: () => void;
+  currentUserId?: string | null;
 };
 
-export function TaskCard({ task, onToggle, applicantName, onEdit }: TaskCardProps) {
+export function TaskCard({ task, onToggle, applicantName, onEdit, currentUserId }: TaskCardProps) {
   const isDone = task.status === "completed";
   const dueTxt = task.deadline ? new Date(task.deadline).toLocaleString() : null;
+  // Verificar se o usuário atual é o criador da tarefa
+  const isCreator = currentUserId && task.created_by === currentUserId;
+  // Verificar se o usuário atual é o assigned_to (pode marcar checkbox)
+  const isAssignee = currentUserId && task.assigned_to === currentUserId;
 
   return (
     <div
@@ -29,12 +34,17 @@ export function TaskCard({ task, onToggle, applicantName, onEdit }: TaskCardProp
         <input
           type="checkbox"
           checked={isDone}
+          disabled={!isAssignee}
           onChange={(e) => {
             e.stopPropagation();
-            onToggle(task.id, e.target.checked);
+            if (isAssignee) {
+              onToggle(task.id, e.target.checked);
+            }
           }}
           className={clsx(
-            "mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border focus:ring-2",
+            "mt-1 h-4 w-4 shrink-0 rounded border focus:ring-2",
+            !isAssignee && "cursor-not-allowed opacity-50",
+            isAssignee && "cursor-pointer",
             isDone 
               ? "border-white/80 text-white focus:ring-white/50" 
               : "border-blue-400 text-blue-600 focus:ring-blue-500"
@@ -58,7 +68,7 @@ export function TaskCard({ task, onToggle, applicantName, onEdit }: TaskCardProp
               </span>{" "}
               {task.description}
             </div>
-            {onEdit && (
+            {onEdit && isCreator && (
               <button
                 type="button"
                 onClick={(e) => {

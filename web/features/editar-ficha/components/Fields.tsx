@@ -49,7 +49,18 @@ export function Field({
   );
 }
 
-export function Select({ label, value, onChange, options, triggerClassName, contentClassName, triggerStyle, contentStyle }: { label: string; value: string; onChange: (v: string) => void; options: Opt[]; triggerClassName?: string; contentClassName?: string; triggerStyle?: React.CSSProperties; contentStyle?: React.CSSProperties }) {
+type SelectProps = {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Opt[];
+  triggerClassName?: string;
+  contentClassName?: string;
+  triggerStyle?: React.CSSProperties;
+  contentStyle?: React.CSSProperties;
+};
+
+export function Select({ label, value, onChange, options, triggerClassName, contentClassName, triggerStyle, contentStyle }: SelectProps) {
   const id = `sel-${label.replace(/\s+/g, "-").toLowerCase()}`;
   return (
     <div className="w-full space-y-2">
@@ -61,8 +72,8 @@ export function Select({ label, value, onChange, options, triggerClassName, cont
   );
 }
 
-export function SelectAdv({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: Opt[] }) {
-  return <Select label={label} value={value} onChange={onChange} options={options} />;
+export function SelectAdv(props: SelectProps) {
+  return <Select {...props} />;
 }
 
 function FieldStatusIndicator({ status }: { status: "idle" | "pending" | "error" }) {

@@ -9,17 +9,20 @@ export async function setCardDecision(cardId: string, decision: "aprovado" | "ne
 
 export async function addParecer(params: { cardId: string; text: string; parentId?: string | null; decision?: string | null }) {
   const { cardId, text, parentId = null, decision = null } = params;
-  return supabase.rpc("add_parecer", { p_card_id: cardId, p_text: text, p_parent_id: parentId, p_decision: decision });
+  const { data, error } = await supabase.rpc("add_parecer", { p_card_id: cardId, p_text: text, p_parent_id: parentId, p_decision: decision });
+  return { data, error };
 }
 
 export async function editParecer(params: { cardId: string; noteId: string; text: string; decision?: string | null }) {
   const { cardId, noteId, text, decision = null } = params;
-  return supabase.rpc("edit_parecer", { p_card_id: cardId, p_note_id: noteId, p_text: text, p_decision: decision });
+  const { data, error } = await supabase.rpc("edit_parecer", { p_card_id: cardId, p_note_id: noteId, p_text: text, p_decision: decision });
+  return { data, error };
 }
 
 export async function deleteParecer(params: { cardId: string; noteId: string }) {
   const { cardId, noteId } = params;
-  return supabase.rpc("delete_parecer", { p_card_id: cardId, p_note_id: noteId });
+  const { data, error } = await supabase.rpc("delete_parecer", { p_card_id: cardId, p_note_id: noteId });
+  return { data, error };
 }
 
 export async function fetchApplicantCard(applicantId: string, cardId: string) {

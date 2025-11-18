@@ -8,7 +8,7 @@ import { SimpleSelect } from "@/components/ui/select";
 import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
-import { publicUrl } from "@/features/attachments/services";
+import { getAttachmentUrl, publicUrl } from "@/features/attachments/services";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import {
   ATTACHMENT_ALLOWED_TYPES,
@@ -17,6 +17,7 @@ import {
 } from "@/features/attachments/upload";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { renderTextWithChips } from "@/utils/richText";
+//
 
 function digitsOnly(value: string) {
   return (value || "").replace(/\D+/g, "");
@@ -254,15 +255,37 @@ export default function CadastroPJPage() {
     }
 
     try {
+      // Se for Conversa, cria um comentário (pai ou resposta) antes do upload
+      let commentIdForUpload: string | null = context?.commentId ?? null;
+      if (context?.source === 'conversa') {
+        const payload: any = { card_id: cardIdEff, content: '' };
+        if (context?.commentId) payload.parent_id = context.commentId;
+        try {
+          const { data: auth } = await supabase.auth.getUser();
+          const uid = auth.user?.id;
+          if (uid) {
+            payload.author_id = uid;
+            const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single();
+            if (prof) { payload.author_name = (prof as any).full_name ?? null; payload.author_role = (prof as any).role ?? null; }
+          }
+        } catch {}
+        const { data: c, error: cErr } = await supabase.from('card_comments').insert(payload).select('id').single();
+        if (cErr || !c?.id) throw cErr || new Error('Falha ao criar comentário para anexos');
+        commentIdForUpload = c.id as string;
+      }
+
       const uploaded = await uploadAttachmentBatch({
         cardId: cardIdEff,
-        commentId: context?.commentId ?? null,
+        commentId: commentIdForUpload,
         files: files.map((file) => {
           const dot = file.name.lastIndexOf(".");
           const baseName = dot > 0 ? file.name.slice(0, dot) : file.name;
           return { file, displayName: baseName || file.name };
         }),
       });
+
+      // Conversa: criar thread automática quando anexar sem commentId
+      // (sem pós-ligação — já subiu com commentId da nova thread)
 
       if (context?.source === "parecer" && uploaded.length > 0) {
         const names = uploaded.map((f) => f.name).join(", ");
@@ -812,6 +835,7 @@ export default function CadastroPJPage() {
               <UnifiedComposer
                 ref={parecerComposerRef}
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
+                richText
                 onChange={(val)=> setNovoParecer(val)}
                 onSubmit={handleSubmitParecer}
                 onCancel={()=> {
@@ -1485,37 +1509,44 @@ function AttachmentChip({ attachment }: { attachment: any }) {
   const [url, setUrl] = useState<string | null>(() => attachment?.public_url || attachment?.url || null);
   useEffect(() => {
     if (attachment?.public_url || attachment?.url) return;
-    const path = attachment?.file_path || attachment?.path;
-    if (!path) { setUrl(null); return; }
     let active = true;
     (async () => {
       try {
-        const resolved = await publicUrl(path);
-        if (active) setUrl(resolved);
+        // Se tem ID, usa getAttachmentUrl (seguro, com RLS)
+        if (attachment?.id) {
+          const resolved = await getAttachmentUrl(attachment.id, 'download');
+          if (active) setUrl(resolved);
+        } else {
+          // Fallback: se não tem ID, usa publicUrl (compatibilidade)
+          const path = attachment?.file_path || attachment?.path;
+          if (!path) { setUrl(null); return; }
+          const resolved = await publicUrl(path);
+          if (active) setUrl(resolved);
+        }
       } catch {
         if (active) setUrl(null);
       }
     })();
     return () => { active = false; };
-  }, [attachment?.file_path, attachment?.path, attachment?.public_url, attachment?.url]);
+  }, [attachment?.id, attachment?.file_path, attachment?.path, attachment?.public_url, attachment?.url]);
 
   const name = attachment?.file_name || attachment?.name || 'Anexo';
   const created = attachment?.created_at ? new Date(attachment.created_at).toLocaleString() : null;
   return (
-    <div className="flex items-center justify-between rounded border border-zinc-200 bg-white px-3 py-2 text-sm">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">📎</span>
-        <div>
+    <div className="flex items-center justify-between gap-3 rounded border border-zinc-200 bg-white px-3 py-2 text-sm">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span className="text-lg shrink-0">📎</span>
+        <div className="min-w-0 flex-1">
           <div className="font-medium text-zinc-800 break-words">{name}</div>
           {created && <div className="text-[11px] text-zinc-500">{created}</div>}
         </div>
       </div>
       {url ? (
-        <a href={url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:text-emerald-700">
+        <a href={url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:text-emerald-700 shrink-0">
           Abrir ↗
         </a>
       ) : (
-        <span className="text-xs text-zinc-400">Sem link</span>
+        <span className="text-xs text-zinc-400 shrink-0">Sem link</span>
       )}
     </div>
   );

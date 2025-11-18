@@ -1,16 +1,17 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, useMemo, type ReactNode } from "react";
-import { Inbox as InboxIcon, AtSign, MessageCircle, MessageSquare, X } from "lucide-react";
+import { createContext, useCallback, useContext, useState, useMemo, useEffect, type ReactNode } from "react";
+import { Inbox as InboxIcon, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { markRead } from "@/features/inbox/services";
 import type { InboxItem, NotificationType, InboxFilterOption } from "@/features/inbox/types";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { DashboardCard } from "@/features/inbox/components/DashboardCard";
 import { InboxFilterCTA, inboxFilterLabelsMap } from "@/features/inbox/components/InboxFilterCTA";
 import { InboxNotificationsStack } from "@/features/inbox/components/InboxNotificationsStack";
 import { useInboxController } from "@/features/inbox/hooks/useInboxController";
+import { ToastContainer } from "./components/ToastContainer";
+import { supabase } from "@/lib/supabaseClient";
 
 type RefreshHandler = () => Promise<void> | void;
 
@@ -24,7 +25,38 @@ const InboxContext = createContext<InboxContextValue | null>(null);
 
 export function InboxProvider({ children, panelOpen }: { children: ReactNode; panelOpen: boolean }) {
   const value = useInboxController(panelOpen);
-  return <InboxContext.Provider value={value}>{children}</InboxContext.Provider>;
+  const [loginAt, setLoginAt] = useState<Date | null>(null);
+
+  // Detectar quando usuário loga
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user && !loginAt) {
+          setLoginAt(new Date());
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setLoginAt(null);
+      }
+    });
+    
+    // Verificar se já está logado no mount
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user && !loginAt) {
+        setLoginAt(new Date());
+      }
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [loginAt]);
+
+  return (
+    <InboxContext.Provider value={value}>
+      {children}
+      <ToastContainer loginAt={loginAt} />
+    </InboxContext.Provider>
+  );
 }
 
 export function useInbox() {
@@ -107,41 +139,10 @@ export function InboxPanel() {
   const HIDDEN_TYPES: NotificationType[] = ['ass_app', 'fichas_atrasadas'];
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
 
-  // Base visível (não lidas, não escondidas e tipos suportados); usada para contadores e filtro
+  // Base visível (não lidas, não escondidas e tipos suportados); usada para filtro
   const visibleBase = useMemo(() => {
     return items.filter((it) => !HIDDEN_TYPES.includes(it.type as NotificationType) && !it.read_at && !hiddenIds.has(it.id));
   }, [items, hiddenIds]);
-
-  const counts = useMemo(() => {
-    const mention = visibleBase.filter((i) => i.type === 'mention').length;
-    const parecer = visibleBase.filter((i) => i.type === 'parecer_reply').length;
-    const comentarios = visibleBase.filter((i) => i.type === 'comment_reply').length;
-    return { mention, parecer, comentarios };
-  }, [visibleBase]);
-
-  const metrics = [
-    {
-      key: "parecer" as const,
-      title: "Respostas em parecer",
-      icon: <MessageCircle className="w-4 h-4 text-white" />,
-      value: counts.parecer,
-      set: () => setFilterType('parecer'),
-    },
-    {
-      key: "comentarios" as const,
-      title: "Respostas em Comentário",
-      icon: <MessageSquare className="w-4 h-4 text-white" />,
-      value: counts.comentarios,
-      set: () => setFilterType('comentarios'),
-    },
-    {
-      key: "mentions" as const,
-      title: "Menções",
-      icon: <AtSign className="w-4 h-4 text-white" />,
-      value: counts.mention,
-      set: () => setFilterType('mentions'),
-    },
-  ];
 
   const filteredItems = useMemo(() => {
     const base = visibleBase;
@@ -204,18 +205,6 @@ export function InboxPanel() {
         </div>
       </div>
       <div className="pt-12">
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 w-full mb-6">
-          {metrics.map((m) => (
-            <DashboardCard
-              key={m.key}
-              title={m.title}
-              value={m.value}
-              icon={m.icon}
-              active={filterType === m.key}
-              onClick={() => m.set()}
-            />
-          ))}
-        </div>
         {filteredItems.length === 0 ? (
           <div className="rounded border border-zinc-200 bg-white px-3 py-4 text-sm text-zinc-600">
             Sem notificações

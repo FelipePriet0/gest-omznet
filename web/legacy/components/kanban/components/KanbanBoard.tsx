@@ -6,10 +6,12 @@ import { KanbanCard } from "@/features/kanban/types";
 import type { CardSnapshotPatch } from "@/features/editar-ficha/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listCards, changeStage } from "@/features/kanban/services";
+import { listInbox } from "@/features/inbox/services";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
 import { CancelModal } from "@/legacy/components/kanban/components/CancelModal";
+import { supabase } from "@/lib/supabaseClient";
 
 const columnConfig = [
   { key: "entrada", title: "Entrada", color: "blue", icon: "🔵" },
@@ -61,17 +63,26 @@ export function KanbanBoard({
 
   const reload = useCallback(async () => {
     try {
-      const data = await listCards('comercial', {
-        hora,
-        dateStart,
-        dateEnd,
-        responsaveis: responsavelIds,
-        searchTerm,
-      });
+      const [data, inbox] = await Promise.all([
+        listCards('comercial', {
+          hora,
+          dateStart,
+          dateEnd,
+          responsaveis: responsavelIds,
+          searchTerm,
+        }),
+        listInbox().catch(() => []),
+      ]);
+      const mentionCardIds = new Set(
+        (inbox || [])
+          .filter((n: any) => ['mention','comment_reply','parecer_reply'].includes(String(n?.type || '')))
+          .map((n: any) => String(n.card_id || ''))
+          .filter((id: string) => !!id)
+      );
       const filtered = Array.isArray(allowedCardIds) && allowedCardIds.length > 0
         ? data.filter(c => allowedCardIds.includes(c.id))
         : data;
-      setCards(filtered);
+      setCards(filtered.map(c => ({ ...c, isMentioned: mentionCardIds.has(c.id) })));
     } catch (error) {
       console.error('Falha ao carregar cards do Kanban Comercial:', error);
     }
@@ -127,7 +138,23 @@ export function KanbanBoard({
       return;
     }
     const c = cards.find((x) => x.id === openCardId);
-    if (c) setEdit({ cardId: c.id, applicantId: c.applicantId });
+    if (c) {
+      setEdit({ cardId: c.id, applicantId: c.applicantId });
+      return;
+    }
+    // Fallback: card pode não estar no snapshot devido a filtros. Buscar direto no backend
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('kanban_cards')
+          .select('id, applicant_id')
+          .eq('id', openCardId)
+          .single();
+        if (data?.id && data?.applicant_id) {
+          setEdit({ cardId: String(data.id), applicantId: String(data.applicant_id) });
+        }
+      } catch {}
+    })();
   }, [openCardId, cards]);
 
   async function handleDragEnd(event: any) {

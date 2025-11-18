@@ -34,6 +34,7 @@ export type TaskDrawerProps = {
   commentId?: string | null;
   taskId?: string | null;
   source?: "parecer" | "conversa";
+  inPlace?: boolean;
   onCreated?: (task: {
     id: string;
     description: string;
@@ -44,7 +45,7 @@ export type TaskDrawerProps = {
   }) => void;
 };
 
-export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = "conversa", onCreated }: TaskDrawerProps) {
+export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = "conversa", inPlace = false, onCreated }: TaskDrawerProps) {
   const { open: sidebarOpen } = useSidebar();
   const [me, setMe] = useState<ProfileLite | null>(null);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -187,9 +188,39 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
     if (!trimmedDesc) return;
     setSaving(true);
     try {
+      // LEI 1 - HIERARQUIA: Validar comment_id antes de criar tarefa (prevenir órfãos)
+      if (commentId) {
+        try {
+          const { data, error } = await supabase
+            .from(TABLE_CARD_COMMENTS)
+            .select("id, card_id, deleted_at")
+            .eq("id", commentId)
+            .eq("card_id", cardId)
+            .is("deleted_at", null)
+            .single();
+          
+          if (error || !data) {
+            throw new Error("Comentário não encontrado ou foi deletado. Não é possível criar tarefa órfã.");
+          }
+        } catch (err: any) {
+          if (err.message.includes("Comentário não encontrado")) {
+            throw err;
+          }
+          // Se for outro erro, continua (pode ser que commentId seja null/undefined)
+        }
+      }
+
       const deadlineIso = resolveDeadlineISO();
       const creatorName = (me?.full_name || "").trim() || "Um colaborador";
-      const commentText = `${creatorName} criou uma tarefa para você.`;
+      const creatorRole = me?.role || null;
+      // Buscar o nome e role do assigned_to
+      const assigneeProfile = assignedTo ? profiles.find((p) => p.id === assignedTo) : null;
+      const assigneeName = assigneeProfile?.full_name || "um colaborador";
+      const assigneeRole = assigneeProfile?.role || null;
+      // Formatar texto com roles
+      const creatorPart = creatorRole ? `${creatorName} (${creatorRole})` : creatorName;
+      const assigneePart = assigneeRole ? `${assigneeName} (${assigneeRole})` : assigneeName;
+      const commentText = `${creatorPart} criou uma tarefa para ${assigneePart}.`;
       let threadRefId: string | null = null;
       if (source === "parecer") {
         const { data: cardRow, error: rpcError } = await supabase.rpc("add_parecer", {
@@ -217,7 +248,18 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
         }
       } else {
         try {
-          threadRefId = await addComment(cardId, commentText, commentId ?? undefined);
+          if (inPlace && commentId) {
+            // Transformar este comentário em tarefa: limpar anexos, tarefas antigas e texto, e usar o mesmo comment_id
+            try { await supabase.from('card_attachments').delete().eq('comment_id', commentId); } catch {}
+            try { await supabase.from('card_tasks').delete().eq('comment_id', commentId); } catch {}
+            try { await supabase.from(TABLE_CARD_COMMENTS).update({ content: '' }).eq('id', commentId); } catch {}
+            threadRefId = commentId;
+            // Otimista: avisar Conversa
+            try { window.dispatchEvent(new CustomEvent('mz-optimistic-transform', { detail: { commentId, to: 'task' } })); } catch {}
+          } else {
+            // Conversa: criar nó de comentário vazio para que a tarefa apareça inline como conteúdo
+            threadRefId = await addComment(cardId, "", commentId ?? undefined);
+          }
         } catch (err: any) {
           throw new Error(err?.message || "Falha ao registrar comentário da tarefa");
         }
@@ -270,15 +312,51 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
     setSaving(true);
     try {
       const deadlineIso = resolveDeadlineISO();
-      const { error } = await supabase
+      
+      // 1. Fazer UPDATE primeiro (sem select para evitar erro 406)
+      const { error: updateError } = await supabase
         .from('card_tasks')
-        .update({ description: desc.trim(), assigned_to: assignedTo || null, deadline: deadlineIso })
+        .update({ 
+          description: desc.trim(), 
+          assigned_to: assignedTo || null, 
+          deadline: deadlineIso 
+        })
         .eq('id', taskId);
-      if (error) throw error;
+      
+      // Se o UPDATE falhar, já para aqui
+      if (updateError) {
+        throw new Error(updateError.message || 'Falha ao atualizar tarefa');
+      }
+      
+      // 2. Tentar buscar dados atualizados separadamente (opcional, para atualizar UI)
+      // Se não conseguir, não é crítico - o realtime subscription vai atualizar
+      const { data: updated } = await supabase
+        .from('card_tasks')
+        .select('id, description, assigned_to, deadline, comment_id')
+        .eq('id', taskId)
+        .maybeSingle(); // ← Não quebra se não retornar (evita erro 406)
+      
+      // 3. Chamar onCreated se conseguir os dados, senão confia no realtime
+      if (updated) {
+        try {
+          onCreated?.({
+            id: updated.id,
+            description: updated.description,
+            assigned_to: updated.assigned_to ?? null,
+            deadline: updated.deadline ?? null,
+            comment_id: updated.comment_id ?? null,
+            source,
+          });
+        } catch {}
+      }
+      
+      // 4. Fechar modal (o realtime subscription vai atualizar a UI automaticamente)
       onClose();
-    } catch (e:any) {
+    } catch (e: any) {
       alert(e?.message || 'Falha ao atualizar tarefa');
-    } finally { setSaving(false); }
+    } finally { 
+      setSaving(false); 
+    }
   }
 
   async function deleteTask() {

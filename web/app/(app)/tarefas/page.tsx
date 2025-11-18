@@ -46,10 +46,58 @@ export default function MinhasTarefasPage() {
   const [items, setItems] = useState<TaskRow[]>([]);
   const [status, setStatus] = useState<'all'|'pending'|'completed'>('all');
   const [counts, setCounts] = useState<{pending:number; completed:number}>({ pending: 0, completed: 0 });
+  const [userId, setUserId] = useState<string | null>(null);
   
   // Removidos modais/estado de "Nova ficha" no Drawer
 
   useEffect(() => { load(); loadCounts(); }, []);
+
+  // Subscription em tempo real: remove/atualiza tarefas quando criador edita/exclui
+  useEffect(() => {
+    let active = true;
+    let channel: any = null;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const uid = data?.user?.id ?? null;
+        setUserId(uid);
+        if (!uid) return;
+        channel = supabase
+          .channel(`my-tasks-${uid}`)
+          // Não aplicamos filtro no servidor para garantir que DELETE/UPDATE chegue
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "card_tasks" },
+            (payload: any) => {
+              if (!active) return;
+              const row = (payload?.new as any) ?? (payload?.old as any) ?? null;
+              if (!row) return;
+              if (row.assigned_to !== uid) return; // Apenas eventos das minhas tarefas
+              if (payload.eventType === 'DELETE') {
+                // Remoção imediata do item da lista local (sem esperar RPC)
+                setItems((prev) => prev.filter((i) => i.id !== (payload?.old?.id as string)));
+                // Atualiza contadores em background
+                loadCounts();
+              } else if (payload.eventType === 'INSERT') {
+                // Nova tarefa atribuída a mim → recarrega
+                load();
+                loadCounts();
+              } else if (payload.eventType === 'UPDATE') {
+                // Atualizações (ex.: mudou status/descrição/prazo) → recarrega mantendo filtro atual
+                load();
+              }
+            }
+          )
+          .subscribe((status) => {
+            if (status === "CHANNEL_ERROR") {
+              try { supabase.removeChannel(channel); } catch {}
+            }
+          });
+      } catch {}
+    })();
+    return () => { active = false; if (channel) { try { supabase.removeChannel(channel); } catch {} } };
+    // Dependemos de 'status' apenas para que load() reflita o filtro atual ao receber eventos
+  }, [status]);
 
   async function loadCounts() {
     try {
@@ -263,4 +311,3 @@ function DashboardCard({ title, value, icon }: { title: string; value?: number |
     </div>
   );
 }
-
