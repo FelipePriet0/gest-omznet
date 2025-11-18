@@ -247,7 +247,8 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
         }
       } else {
         try {
-          threadRefId = await addComment(cardId, commentText, commentId ?? undefined);
+          // Conversa: criar nó de comentário vazio para que a tarefa apareça inline como conteúdo
+          threadRefId = await addComment(cardId, "", commentId ?? undefined);
         } catch (err: any) {
           throw new Error(err?.message || "Falha ao registrar comentário da tarefa");
         }

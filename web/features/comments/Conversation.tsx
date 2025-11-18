@@ -772,7 +772,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
           </div>
         </div>
       )}
-      {/* LEI 1 - HIERARQUIA: Tarefas como respostas com estrutura visual unificada */}
+      {/* LEI 1 - HIERARQUIA: Tarefas como conteúdo inline quando não há texto; caso contrário, como resposta com header */}
       {nodeTasks && nodeTasks.length > 0 && (
         <div className="mt-2 space-y-2">
           {nodeTasks.map((t) => {
@@ -784,17 +784,29 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
             // Buscar o comentário vinculado para pegar created_at (se existir)
             const taskComment = comments.find((c) => c.id === t.comment_id);
             const created_at = taskComment?.created_at || t.created_at;
-            
+
+            if (trimmedText.length === 0) {
+              return (
+                <TaskRow
+                  key={t.id}
+                  task={t}
+                  onToggle={async (id, done) => {
+                    try { await onToggleTask(id, done); } catch (e: any) { alert(e?.message || 'Falha ao atualizar tarefa'); }
+                  }}
+                  creatorName={creatorName}
+                  applicantName={applicantName}
+                  onEdit={onEditTask ? () => onEditTask(t.id) : undefined}
+                  currentUserId={currentUserId}
+                />
+              );
+            }
+
             return (
               <TaskResponseCard
                 key={t.id}
                 task={t}
                 onToggle={async (id, done) => {
-                  try {
-                    await onToggleTask(id, done);
-                  } catch (e: any) {
-                    alert(e?.message || "Falha ao atualizar tarefa");
-                  }
+                  try { await onToggleTask(id, done); } catch (e: any) { alert(e?.message || 'Falha ao atualizar tarefa'); }
                 }}
                 creatorName={creatorName}
                 creatorRole={creatorRole}
@@ -986,6 +998,33 @@ function TaskResponseCard({
         <TaskCard task={task} onToggle={onToggle} creatorName={creatorName} applicantName={applicantName} onEdit={onEdit} currentUserId={currentUserId} />
       </div>
     </div>
+  );
+}
+
+function TaskRow({
+  task,
+  onToggle,
+  creatorName,
+  applicantName,
+  onEdit,
+  currentUserId,
+}: {
+  task: CardTask;
+  onToggle: (id: string, done: boolean) => void | Promise<void>;
+  creatorName?: string | null;
+  applicantName?: string | null;
+  onEdit?: () => void;
+  currentUserId?: string | null;
+}) {
+  return (
+    <TaskCard
+      task={task}
+      onToggle={onToggle}
+      creatorName={creatorName}
+      applicantName={applicantName}
+      onEdit={onEdit}
+      currentUserId={currentUserId}
+    />
   );
 }
 
