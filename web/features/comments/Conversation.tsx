@@ -808,14 +808,25 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
           })}
         </div>
       )}
-      {/* LEI 1 - HIERARQUIA: Anexos como respostas com estrutura visual unificada */}
+      {/* LEI 1 - HIERARQUIA: Se comentário não tem texto, renderiza anexos inline (sem duplicar header) */}
       {nodeAttachments && nodeAttachments.length > 0 && (
         <div className="mt-2 space-y-2">
           {nodeAttachments.map((a) => {
             const attachmentProfile = a.author_id ? profiles.find((p) => p.id === a.author_id) : null;
             const authorName = attachmentProfile?.full_name ?? (a.author_id && a.author_id === currentUserId ? currentUserName : "Colaborador");
-            const authorRole = attachmentProfile?.role ?? a.author_role ?? null;
-            
+            const authorRole = attachmentProfile?.role ?? (a as any).author_role ?? null;
+            // Se este nó não tem texto, mostrar anexos inline (sem header duplicado)
+            if (trimmedText.length === 0) {
+              return (
+                <AttachmentRow
+                  key={a.id}
+                  att={a}
+                  onPreview={onPreview}
+                  currentUserId={currentUserId}
+                />
+              );
+            }
+            // Caso tenha texto, anexo como resposta com header (estrutura unificada)
             return (
               <AttachmentResponseRow
                 key={a.id}
