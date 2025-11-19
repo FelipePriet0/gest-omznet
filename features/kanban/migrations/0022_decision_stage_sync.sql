@@ -171,27 +171,17 @@ begin
   -- Reply notification to the parent author (if any and not self)
   if p_parent_id is not null and v_parent_author is not null and v_parent_author <> v_author.author_id then
     insert into public.inbox_notifications(
-      user_id,
-      type,
-      priority,
-      title,
-      body,
-      card_id,
-      applicant_id,
-      transient,
-      link_url,
-      meta
+      user_id, type, priority,
+      card_id, applicant_id, link_url, meta, content
     ) values (
       v_parent_author,
       'parecer_reply',
       'low',
-      '↩️ Nova resposta no parecer',
-      left(coalesce(p_text,''), 600),
       p_card_id,
       v_applicant,
-      false,
       '/kanban/analise?card=' || p_card_id::text,
-      jsonb_build_object('note_id', v_note_id, 'author_name', v_author.author_name)
+      jsonb_build_object('note_id', v_note_id, 'author_name', v_author.author_name),
+      left(coalesce(p_text,''), 600)
     );
   end if;
 
@@ -201,9 +191,10 @@ begin
   loop
     v_term := trim(both '@' from v_term);
     if v_term <> '' then
-      insert into public.inbox_notifications(user_id, type, priority, title, body, meta, card_id, applicant_id)
-      select p.id, 'comment', 'low', 'Você foi mencionado', 'Parecer: ' || left(p_text, 120),
-             jsonb_build_object('note_id', v_note_id, 'author_name', v_author.author_name), p_card_id, v_applicant
+      insert into public.inbox_notifications(user_id, type, priority, meta, card_id, applicant_id, content)
+      select p.id, 'comment', 'low',
+             jsonb_build_object('note_id', v_note_id, 'author_name', v_author.author_name),
+             p_card_id, v_applicant, left(coalesce(p_text, ''), 600)
       from public.profiles p
       where lower(unaccent(coalesce(p.full_name,''))) like '%' || lower(unaccent(v_term)) || '%'
         and p.id <> v_author.author_id
