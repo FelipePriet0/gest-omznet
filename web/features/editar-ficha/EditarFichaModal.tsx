@@ -92,10 +92,10 @@ export function EditarFichaModal({
   const composerRef = useRef<UnifiedComposerHandle | null>(null);
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
   // UI: tarefas/anexos em conversas
-  const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
+  const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa', inPlace?: boolean}>({open:false});
   const [tasks, setTasks] = useState<CardTask[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
-  const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
+  const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa'; inPlace?: boolean } | null>(null);
   const { role: currentUserRole } = useUserRole();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const isVendor = (currentUserRole ?? "").toLowerCase() === "vendedor";
@@ -1224,7 +1224,7 @@ function NoteItem({
 }
 
 function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void | Promise<void> }) {
-  const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
@@ -1233,23 +1233,23 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [open]);
+  }, [menuOpen]);
   return (
     <div className="relative" ref={menuRef}>
       <button 
         aria-label="Mais ações" 
         className="parecer-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duration-200" 
-        onClick={()=> setOpen(v=>!v)}
+        onClick={()=> setMenuOpen(v=>!v)}
       >
         <MoreHorizontal className="w-4 h-4 text-zinc-600" strokeWidth={2} />
       </button>
-      {open && (
+      {menuOpen && (
         <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[9998]" onClick={() => setMenuOpen(false)} />
           <div className="parecer-menu-dropdown absolute right-0 top-10 z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
             <button 
               className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" 
-              onClick={()=> { setOpen(false); onEdit(); }}
+              onClick={()=> { setMenuOpen(false); onEdit(); }}
             >
               <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />

@@ -748,7 +748,7 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
 const openReplyMap = new Map<string, boolean>();
 const AUTO_TASK_COMMENT_RE = /^📋\s*Tarefa criada\s*:\s*/i;
 
-function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, currentUserId, onEditTask, onSubmitComment, onPreview, applicantName, comments, onDeleteAttachment }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string) => void; onOpenTask: (parentId?: string) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; currentUserId?: string | null; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; applicantName?: string | null; comments: Comment[]; onDeleteAttachment?: (id: string) => Promise<void>; }) {
+function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, currentUserId, onEditTask, onSubmitComment, onPreview, applicantName, comments, onDeleteAttachment }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string, options?: { inPlace?: boolean }) => void; onOpenTask: (parentId?: string, options?: { inPlace?: boolean }) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; currentUserId?: string | null; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; applicantName?: string | null; comments: Comment[]; onDeleteAttachment?: (id: string) => Promise<void>; }) {
   const [isEditing, setIsEditing] = useState(false);
   const [replyOpen, setReplyOpen] = useState(openReplyMap.get(node.id) ?? false);
   const editRef = useRef<HTMLDivElement | null>(null);
@@ -1261,34 +1261,34 @@ function AttachmentResponseRow({
 }
 
 function CommentMenu({ onEdit, onDelete, canDelete = true }: { onEdit: () => void; onDelete: () => void | Promise<void>; canDelete?: boolean }) {
-  const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
       const t = e.target as Node | null;
-      if (open && menuRef.current && t && !menuRef.current.contains(t)) setOpen(false);
+      if (menuOpen && menuRef.current && t && !menuRef.current.contains(t)) setMenuOpen(false);
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [open]);
+  }, [menuOpen]);
   return (
     <div className="relative" ref={menuRef}>
       <button 
         aria-label="Mais ações" 
         className="comment-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duration-200" 
-        onClick={()=> setOpen(v=>!v)}
+        onClick={()=> setMenuOpen(v=>!v)}
       >
         <svg viewBox="0 0 24 24" className="w-4 h-4 text-zinc-600" strokeWidth={3}>
           <path d="M6 12h.01M12 12h.01M18 12h.01" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
-      {open && (
+      {menuOpen && (
         <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[9998]" onClick={() => setMenuOpen(false)} />
           <div className="comment-menu-dropdown absolute right-0 top-10 z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
             <button 
               className="comment-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" 
-              onClick={()=> { setOpen(false); onEdit(); }}
+              onClick={()=> { setMenuOpen(false); onEdit(); }}
             >
               <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1300,7 +1300,7 @@ function CommentMenu({ onEdit, onDelete, canDelete = true }: { onEdit: () => voi
                 <div className="h-px bg-zinc-100 mx-2" />
                 <button 
                   className="comment-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" 
-                  onClick={async ()=> { setOpen(false); await onDelete(); }}
+                  onClick={async ()=> { setMenuOpen(false); await onDelete(); }}
                 >
                   <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1393,7 +1393,7 @@ function AttachmentRow({ att, onPreview, currentUserId, onDelete }: { att: CardA
   );
 }
 
-function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply, onOpenTask, onOpenAttach, profiles, onPreview, currentUserId, onDelete }: { att: CardAttachmentWithMeta; authorName: string; authorRole?: string | null; ensureThread: (att: CardAttachmentWithMeta) => Promise<string>; onReply: (parentId: string, value: ComposerValue) => Promise<void>; onOpenTask: (parentId?: string) => void; onOpenAttach: (parentId?: string) => void; profiles: ProfileLite[]; onPreview: (payload: PreviewTarget) => void; currentUserId?: string | null; onDelete?: (id: string) => Promise<void> }) {
+function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply, onOpenTask, onOpenAttach, profiles, onPreview, currentUserId, onDelete }: { att: CardAttachmentWithMeta; authorName: string; authorRole?: string | null; ensureThread: (att: CardAttachmentWithMeta) => Promise<string>; onReply: (parentId: string, value: ComposerValue) => Promise<void>; onOpenTask: (parentId?: string, options?: { inPlace?: boolean }) => void; onOpenAttach: (parentId?: string, options?: { inPlace?: boolean }) => void; profiles: ProfileLite[]; onPreview: (payload: PreviewTarget) => void; currentUserId?: string | null; onDelete?: (id: string) => Promise<void> }) {
   const createdAt = att.created_at ? new Date(att.created_at).toLocaleString() : "";
   const [replying, setReplying] = useState(false);
   const replyRef = useRef<UnifiedComposerHandle | null>(null);
@@ -1404,6 +1404,8 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [replyMentionAnchor, setReplyMentionAnchor] = useState<{ top: number; left: number; height?: number }>({ top: 0, left: 0, height: 0 });
+  const [replyCmdAnchor, setReplyCmdAnchor] = useState<{ top: number; left: number; height?: number }>({ top: 0, left: 0, height: 0 });
 
   const handleSubmit = async (value: ComposerValue) => {
     const text = (value.text || "").trim();
@@ -1503,7 +1505,7 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
                 const host = replyContainerRef.current.getBoundingClientRect();
                 const top = (rect.top ?? 0) - host.top; // acima do caret
                 const left = (rect.left ?? host.left) - host.left;
-                setAttReplyMentionAnchor({ top, left, height: rect.height });
+                setReplyMentionAnchor({ top, left, height: rect.height });
               }
               setMentionOpen(true);
             }}
@@ -1514,14 +1516,14 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
                 const host = replyContainerRef.current.getBoundingClientRect();
                 const top = (rect.top ?? 0) - host.top; // acima do caret
                 const left = (rect.left ?? host.left) - host.left;
-                setAttReplyCmdAnchor({ top, left, height: rect.height });
+                setReplyCmdAnchor({ top, left, height: rect.height });
               }
               setCmdOpen(true);
             }}
             onCommandClose={() => setCmdOpen(false)}
           />
           {mentionOpen && (
-            <div className="absolute" style={{ left: Math.max(0, (attReplyMentionAnchor?.left||0)), top: Math.max(0, (attReplyMentionAnchor?.top||0)), transform: 'translateY(-100%)' }}>
+            <div className="absolute" style={{ left: Math.max(0, (replyMentionAnchor?.left||0)), top: Math.max(0, (replyMentionAnchor?.top||0)), transform: 'translateY(-100%)' }}>
               <MentionDropdown
                 items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(mentionFilter.toLowerCase()))}
                 onPick={(p) => {
@@ -1533,7 +1535,7 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
           </div>
         )}
           {cmdOpen && (
-            <div className="absolute" style={{ left: Math.max(0, (attReplyCmdAnchor?.left||0)), top: Math.max(0, (attReplyCmdAnchor?.top||0)), transform: 'translateY(-100%)' }}>
+            <div className="absolute" style={{ left: Math.max(0, (replyCmdAnchor?.left||0)), top: Math.max(0, (replyCmdAnchor?.top||0)), transform: 'translateY(-100%)' }}>
               <CmdDropdown
                 items={[{ key:'tarefa', label:'Tarefa' }, { key:'anexo', label:'Anexo' }].filter((i)=> i.key.includes(cmdQuery))}
                 onPick={(key)=> {

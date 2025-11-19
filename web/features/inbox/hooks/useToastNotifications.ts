@@ -19,8 +19,9 @@ export function useToastNotifications(items: InboxItem[], loginAt: Date | null) 
       const notDismissed = !dismissedToastsRef.current.has(item.id);
       
       // NOVA REGRA: Só mostrar toast se foi criada APÓS o login
-      const createdAfterLogin = loginAt 
-        ? new Date(item.created_at) > loginAt
+      const createdAt = item.created_at ? new Date(item.created_at) : null;
+      const createdAfterLogin = loginAt
+        ? (!!createdAt && createdAt > loginAt)
         : true; // Se não há timestamp de login, mostrar (fallback)
       
       return isNew && isUnread && notDismissed && createdAfterLogin;
