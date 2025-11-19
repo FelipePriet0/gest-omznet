@@ -700,6 +700,17 @@ export function EditarFichaModal({
                       const hasDecision = !!val.decision;
                       if (!hasDecision && !txt) return;
                       const payloadText = hasDecision && !txt ? decisionPlaceholder(val.decision ?? null) : txt;
+                      // OTIMISTA: cria thread nível 1 localmente até o backend confirmar
+                      const tempNote: any = {
+                        id: `tmp-${Date.now()}`,
+                        text: hasDecision && !txt ? '' : txt,
+                        decision: val.decision ?? null,
+                        author_name: '',
+                        author_role: '',
+                        created_at: new Date().toISOString(),
+                        parent_id: null,
+                      };
+                      setPareceresView((prev) => ([...(prev || []), tempNote]));
                       const resetValue: ComposerValue = { decision: null, text: '', mentions: [] };
                       setNovoParecer(resetValue);
                       requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
@@ -709,6 +720,8 @@ export function EditarFichaModal({
                       try {
                         const { error } = await addParecer({ cardId, text: payloadText, parentId: null, decision: val.decision ?? null });
                         if (error) {
+                          // Reverter otimista
+                          setPareceresView((prev) => (prev || []).filter((n: any) => n.id !== tempNote.id));
                           setNovoParecer(val);
                           requestAnimationFrame(() => composerRef.current?.setValue(val));
                           alert(error.message || 'Falha ao adicionar parecer');
@@ -721,6 +734,8 @@ export function EditarFichaModal({
                           await syncDecisionStatus('reanalise');
                         }
                       } catch (err: any) {
+                        // Reverter otimista
+                        setPareceresView((prev) => (prev || []).filter((n: any) => n.id !== tempNote.id));
                         setNovoParecer(val);
                         requestAnimationFrame(() => composerRef.current?.setValue(val));
                         alert(err?.message || 'Falha ao adicionar parecer');
