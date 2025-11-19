@@ -1100,9 +1100,6 @@ export default function CadastroPFPage() {
                       setCmdOpenParecer(false); setCmdQueryParecer('');
                       if (key==='aprovado' || key==='negado' || key==='reanalise') {
                         parecerComposerRef.current?.setDecision(key as ComposerDecision);
-                        try {
-                          await syncDecisionStatus(key as ComposerDecision);
-                        } catch(e:any){ alert(e?.message||'Falha ao mover'); }
                       }
                     }}
                     initialQuery={cmdQueryParecer}
@@ -1672,11 +1669,6 @@ function PareceresList({
                       setEditCmdQuery('');
                       if (key === 'aprovado' || key === 'negado' || key === 'reanalise') {
                         editComposerRef.current?.setDecision(key as ComposerDecision);
-                        try {
-                          await handleDecisionShortcut(cardId, onDecisionChange, key as any);
-                        } catch (e: any) {
-                          alert(e?.message || 'Falha ao mover');
-                        }
                       }
                     }}
                     initialQuery={editCmdQuery}
@@ -1754,11 +1746,6 @@ function PareceresList({
                       setCmdQuery('');
                       if (key === 'aprovado' || key === 'negado' || key === 'reanalise') {
                         replyComposerRef.current?.setDecision(key as ComposerDecision);
-                        try {
-                          await handleDecisionShortcut(cardId, onDecisionChange, key as any);
-                        } catch (e: any) {
-                          alert(e?.message || 'Falha ao mover');
-                        }
                       }
                     }}
                     initialQuery={cmdQuery}

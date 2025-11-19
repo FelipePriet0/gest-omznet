@@ -425,11 +425,6 @@ function NoteItem({
                     setEditCmdQuery("");
                     if (key === "aprovado" || key === "negado" || key === "reanalise") {
                       editComposerRef.current?.setDecision(key as any);
-                      try {
-                        await onDecisionChange(key as any);
-                      } catch (e: any) {
-                        alert(e?.message || "Falha ao mover");
-                      }
                     }
                   }}
                   initialQuery={editCmdQuery}
@@ -516,11 +511,6 @@ function NoteItem({
                     setCmdQuery("");
                     if (key === "aprovado" || key === "negado" || key === "reanalise") {
                       replyComposerRef.current?.setDecision(key as any);
-                      try {
-                        await onDecisionChange(key as any);
-                      } catch (e: any) {
-                        alert(e?.message || "Falha ao mover");
-                      }
                       return;
                     }
                   }}

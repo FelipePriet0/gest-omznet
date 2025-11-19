@@ -745,9 +745,6 @@ export function EditarFichaModal({
                           setCmdOpenParecer(false); setCmdQueryParecer('');
                           if (key==='aprovado' || key==='negado' || key==='reanalise') {
                             composerRef.current?.setDecision(key as any);
-                            try {
-                              await syncDecisionStatus(key as any);
-                            } catch(e:any){ alert(e?.message||'Falha ao mover'); }
                           }
                         }}
                         initialQuery={cmdQueryParecer}
