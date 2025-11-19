@@ -90,6 +90,10 @@ export function EditarFichaModal({
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
   const composerRef = useRef<UnifiedComposerHandle | null>(null);
+  // Parecer typing lock: evita que snapshots/realtime sobrescrevam a lista enquanto digita
+  const typingParecerRef = useRef(false);
+  const typingParecerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pareceresView, setPareceresView] = useState<any[]>([]);
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
   // UI: tarefas/anexos em conversas
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa', inPlace?: boolean}>({open:false});
@@ -316,6 +320,12 @@ export function EditarFichaModal({
   const vendorName = data.vendorName;
   const analystName = data.analystName;
   const refreshCardSnapshot = data.refresh;
+  // Sincroniza lista de pareceres com proteção de digitação do usuário
+  useEffect(() => {
+    if (!typingParecerRef.current) {
+      setPareceresView((data.pareceres as any[]) || []);
+    }
+  }, [data.pareceres]);
   // Inicializa dados ao abrir com snapshot fresco do backend; evita resetar inputs enquanto o modal estiver aberto
   useEffect(() => {
     if (!open || bootRef.current) return;
@@ -667,6 +677,10 @@ export function EditarFichaModal({
                     placeholder="Escreva um novo parecer… Use @ para mencionar"
                     richText
                     onChange={(val)=> {
+                      // Marca como "digitando" por um curto período para evitar sobrescrita de realtime
+                      typingParecerRef.current = true;
+                      if (typingParecerTimer.current) clearTimeout(typingParecerTimer.current);
+                      typingParecerTimer.current = setTimeout(() => { typingParecerRef.current = false; }, 1200);
                       setNovoParecer(val);
                     }}
                     onSubmit={!canWriteParecer ? undefined : async (val)=> {
@@ -678,6 +692,8 @@ export function EditarFichaModal({
                       setNovoParecer(resetValue);
                       requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
                       setCmdOpenParecer(false);
+                      // Ao enviar, libera o lock de digitação
+                      typingParecerRef.current = false;
                       try {
                         const { error } = await addParecer({ cardId, text: payloadText, parentId: null, decision: val.decision ?? null });
                         if (error) {
@@ -735,7 +751,7 @@ export function EditarFichaModal({
                 </div>
                 <PareceresList
                   cardId={cardId}
-                  notes={data.pareceres as any}
+                  notes={pareceresView as any}
                   profiles={profiles}
                   tasks={tasks}
                   applicantName={app?.primary_name ?? null}
