@@ -54,6 +54,7 @@ export function PareceresList({
   onToggleTask,
   currentUserId,
   canWrite = true,
+  onTypingChange,
 }: {
   cardId: string;
   notes: Note[];
@@ -68,6 +69,7 @@ export function PareceresList({
   onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
   currentUserId?: string | null;
   canWrite?: boolean;
+  onTypingChange?: (typing: boolean) => void;
 }) {
   // Estado otimista: pareceres deletados localmente (antes da confirmação do backend)
   const [optimisticallyDeleted, setOptimisticallyDeleted] = useState<Set<string>>(new Set());
@@ -157,6 +159,7 @@ export function PareceresList({
           applicantName={applicantName}
           currentUserId={currentUserId}
           canWrite={canWrite}
+          onTypingChange={onTypingChange}
         />
       ))}
     </div>
@@ -178,6 +181,7 @@ function NoteItem({
   applicantName,
   currentUserId,
   canWrite,
+  onTypingChange,
 }: {
   cardId: string;
   node: any;
@@ -193,6 +197,7 @@ function NoteItem({
   applicantName?: string | null;
   currentUserId?: string | null;
   canWrite?: boolean;
+  onTypingChange?: (typing: boolean) => void;
 }) {
   const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
   const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
@@ -242,6 +247,7 @@ function NoteItem({
       if (editRef.current && target && !editRef.current.contains(target)) {
         setIsEditing(false);
         setEditCmdOpen(false);
+        onTypingChange?.(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -256,6 +262,7 @@ function NoteItem({
       if (replyRef.current && target && !replyRef.current.contains(target)) {
         setIsReplying(false);
         setCmdOpen(false);
+        onTypingChange?.(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -365,7 +372,7 @@ function NoteItem({
               disabled={!canEdit}
               placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
               richText
-              onChange={(val) => setEditValue(val)}
+              onChange={(val) => { setEditValue(val); onTypingChange?.(true); }}
               onSubmit={
                 !canEdit
                   ? undefined
@@ -381,6 +388,7 @@ function NoteItem({
                         }
                         setIsEditing(false);
                         setEditCmdOpen(false);
+                        onTypingChange?.(false);
                       } catch (e: any) {
                         alert(e?.message || "Falha ao editar parecer");
                       }
@@ -389,6 +397,7 @@ function NoteItem({
               onCancel={() => {
                 setIsEditing(false);
                 setEditCmdOpen(false);
+                onTypingChange?.(false);
               }}
               onCommandTrigger={
                 !canEdit
@@ -459,7 +468,7 @@ function NoteItem({
               ref={replyComposerRef}
               placeholder="Responder… Use @ para mencionar e / para decisões"
               richText
-              onChange={(val) => setReplyValue(val)}
+              onChange={(val) => { setReplyValue(val); onTypingChange?.(true); }}
               onSubmit={async (val) => {
                 const txt = (val.text || "").trim();
                 const hasDecision = !!val.decision;
@@ -475,6 +484,7 @@ function NoteItem({
                   setIsReplying(false);
                   setReplyValue({ decision: null, text: "", mentions: [] });
                   setCmdOpen(false);
+                  onTypingChange?.(false);
                 } catch (e: any) {
                   alert(e?.message || "Falha ao responder");
                 }
@@ -482,6 +492,7 @@ function NoteItem({
               onCancel={() => {
                 setIsReplying(false);
                 setCmdOpen(false);
+                onTypingChange?.(false);
               }}
               onCommandTrigger={(query) => {
                 setCmdQuery(query.toLowerCase());

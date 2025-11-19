@@ -94,6 +94,21 @@ export function EditarFichaModal({
   const typingParecerRef = useRef(false);
   const typingParecerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pareceresView, setPareceresView] = useState<any[]>([]);
+  const setParecerTyping = useCallback((typing: boolean) => {
+    if (typing) {
+      typingParecerRef.current = true;
+      if (typingParecerTimer.current) clearTimeout(typingParecerTimer.current);
+      typingParecerTimer.current = setTimeout(() => {
+        typingParecerRef.current = false;
+      }, 1200);
+    } else {
+      typingParecerRef.current = false;
+      if (typingParecerTimer.current) {
+        clearTimeout(typingParecerTimer.current);
+        typingParecerTimer.current = null;
+      }
+    }
+  }, []);
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
   // UI: tarefas/anexos em conversas
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa', inPlace?: boolean}>({open:false});
@@ -677,10 +692,7 @@ export function EditarFichaModal({
                     placeholder="Escreva um novo parecer… Use @ para mencionar"
                     richText
                     onChange={(val)=> {
-                      // Marca como "digitando" por um curto período para evitar sobrescrita de realtime
-                      typingParecerRef.current = true;
-                      if (typingParecerTimer.current) clearTimeout(typingParecerTimer.current);
-                      typingParecerTimer.current = setTimeout(() => { typingParecerRef.current = false; }, 1200);
+                      setParecerTyping(true);
                       setNovoParecer(val);
                     }}
                     onSubmit={!canWriteParecer ? undefined : async (val)=> {
@@ -693,7 +705,7 @@ export function EditarFichaModal({
                       requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
                       setCmdOpenParecer(false);
                       // Ao enviar, libera o lock de digitação
-                      typingParecerRef.current = false;
+                      setParecerTyping(false);
                       try {
                         const { error } = await addParecer({ cardId, text: payloadText, parentId: null, decision: val.decision ?? null });
                         if (error) {
@@ -754,6 +766,7 @@ export function EditarFichaModal({
                   notes={pareceresView as any}
                   profiles={profiles}
                   tasks={tasks}
+                  onTypingChange={setParecerTyping}
                   applicantName={app?.primary_name ?? null}
                   currentUserId={currentUserId}
                   canWrite={canWriteParecer}
