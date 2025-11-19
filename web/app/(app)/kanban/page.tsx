@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { KanbanBoard } from "@/legacy/components/kanban/components/KanbanBoard";
 import { FilterCTA, AppliedFilters } from "@/components/app/filter-cta";
@@ -15,6 +15,14 @@ import { listMyMentionCardIds } from "@/features/inbox/services";
 import { KanbanCard } from "@/features/kanban/types";
 
 export default function KanbanPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-zinc-600">Carregando…</div>}>
+      <KanbanPageInner />
+    </Suspense>
+  );
+}
+
+function KanbanPageInner() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const sp = useSearchParams();

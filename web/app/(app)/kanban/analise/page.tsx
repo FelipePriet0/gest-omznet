@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { KanbanBoardAnalise } from "@/legacy/components/kanban/components/KanbanBoardAnalise";
 import { FilterCTA, AppliedFilters } from "@/components/app/filter-cta";
@@ -14,6 +14,14 @@ import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
 import { KanbanCard } from "@/features/kanban/types";
 
 export default function KanbanAnalisePage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-zinc-600">Carregando…</div>}>
+      <KanbanAnalisePageInner />
+    </Suspense>
+  );
+}
+
+function KanbanAnalisePageInner() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const sp = useSearchParams();
