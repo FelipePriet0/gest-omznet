@@ -90,25 +90,8 @@ export function EditarFichaModal({
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
   const composerRef = useRef<UnifiedComposerHandle | null>(null);
-  // Parecer typing lock: evita que snapshots/realtime sobrescrevam a lista enquanto digita
-  const typingParecerRef = useRef(false);
-  const typingParecerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pareceresView, setPareceresView] = useState<any[]>([]);
-  const setParecerTyping = useCallback((typing: boolean) => {
-    if (typing) {
-      typingParecerRef.current = true;
-      if (typingParecerTimer.current) clearTimeout(typingParecerTimer.current);
-      typingParecerTimer.current = setTimeout(() => {
-        typingParecerRef.current = false;
-      }, 1200);
-    } else {
-      typingParecerRef.current = false;
-      if (typingParecerTimer.current) {
-        clearTimeout(typingParecerTimer.current);
-        typingParecerTimer.current = null;
-      }
-    }
-  }, []);
+  // KISS: notas otimistas simples (somente criação), limpas ao sincronizar com backend
+  const [optimisticNotes, setOptimisticNotes] = useState<any[]>([]);
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
   // UI: tarefas/anexos em conversas
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa', inPlace?: boolean}>({open:false});
@@ -335,11 +318,9 @@ export function EditarFichaModal({
   const vendorName = data.vendorName;
   const analystName = data.analystName;
   const refreshCardSnapshot = data.refresh;
-  // Sincroniza lista de pareceres com proteção de digitação do usuário
+  // Limpa notas otimistas quando snapshot do backend mudar (evita duplicatas temporárias)
   useEffect(() => {
-    if (!typingParecerRef.current) {
-      setPareceresView((data.pareceres as any[]) || []);
-    }
+    if (optimisticNotes.length > 0) setOptimisticNotes([]);
   }, [data.pareceres]);
   // Inicializa dados ao abrir com snapshot fresco do backend; evita resetar inputs enquanto o modal estiver aberto
   useEffect(() => {
@@ -691,37 +672,35 @@ export function EditarFichaModal({
                     disabled={!canWriteParecer}
                     placeholder="Escreva um novo parecer… Use @ para mencionar"
                     richText
-                    onChange={(val)=> {
-                      setParecerTyping(true);
-                      setNovoParecer(val);
-                    }}
+                    onChange={(val)=> { setNovoParecer(val); }}
                     onSubmit={!canWriteParecer ? undefined : async (val)=> {
                       const txt = (val.text || '').trim();
                       const hasDecision = !!val.decision;
                       if (!hasDecision && !txt) return;
                       const payloadText = hasDecision && !txt ? decisionPlaceholder(val.decision ?? null) : txt;
                       // OTIMISTA: cria thread nível 1 localmente até o backend confirmar
+                      const me = profiles.find((p) => p.id === currentUserId);
                       const tempNote: any = {
                         id: `tmp-${Date.now()}`,
                         text: hasDecision && !txt ? '' : txt,
                         decision: val.decision ?? null,
-                        author_name: '',
-                        author_role: '',
+                        author_id: currentUserId ?? null,
+                        author_name: me?.full_name || '',
+                        author_role: me?.role || '',
                         created_at: new Date().toISOString(),
                         parent_id: null,
                       };
-                      setPareceresView((prev) => ([...(prev || []), tempNote]));
+                      setOptimisticNotes((prev) => ([...(prev || []), tempNote]));
                       const resetValue: ComposerValue = { decision: null, text: '', mentions: [] };
                       setNovoParecer(resetValue);
                       requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
                       setCmdOpenParecer(false);
-                      // Ao enviar, libera o lock de digitação
-                      setParecerTyping(false);
+                      // KISS: sem locks; exibimos otimista e aguardamos refresh
                       try {
                         const { error } = await addParecer({ cardId, text: payloadText, parentId: null, decision: val.decision ?? null });
                         if (error) {
                           // Reverter otimista
-                          setPareceresView((prev) => (prev || []).filter((n: any) => n.id !== tempNote.id));
+                          setOptimisticNotes((prev) => (prev || []).filter((n: any) => n.id !== tempNote.id));
                           setNovoParecer(val);
                           requestAnimationFrame(() => composerRef.current?.setValue(val));
                           alert(error.message || 'Falha ao adicionar parecer');
@@ -735,7 +714,7 @@ export function EditarFichaModal({
                         }
                       } catch (err: any) {
                         // Reverter otimista
-                        setPareceresView((prev) => (prev || []).filter((n: any) => n.id !== tempNote.id));
+                        setOptimisticNotes((prev) => (prev || []).filter((n: any) => n.id !== tempNote.id));
                         setNovoParecer(val);
                         requestAnimationFrame(() => composerRef.current?.setValue(val));
                         alert(err?.message || 'Falha ao adicionar parecer');
@@ -778,10 +757,9 @@ export function EditarFichaModal({
                 </div>
                 <PareceresList
                   cardId={cardId}
-                  notes={pareceresView as any}
+                  notes={[...((data.pareceres as any[]) || []), ...optimisticNotes] as any}
                   profiles={profiles}
                   tasks={tasks}
-                  onTypingChange={setParecerTyping}
                   applicantName={app?.primary_name ?? null}
                   currentUserId={currentUserId}
                   canWrite={canWriteParecer}

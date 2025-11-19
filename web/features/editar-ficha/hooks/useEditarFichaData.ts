@@ -21,6 +21,8 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
 
+  const storageKey = `mz.pareceres.${cardId}`;
+
   const refresh = useCallback(async () => {
     const { applicant: a, card: c } = await fetchApplicantCard(applicantId, cardId);
     const a2: any = { ...(a || {}) };
@@ -40,13 +42,27 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
       setHoraAt(v);
       setHoraArr(v ? [v] : []);
     }
-    setPareceres(Array.isArray(c?.reanalysis_notes) ? (c!.reanalysis_notes as any) : []);
+    // Só atualiza pareceres quando backend enviar um array válido.
+    // Evita limpar a UI por respostas nulas/transitórias do backend.
+    if (Array.isArray((c as any)?.reanalysis_notes)) {
+      const arr = (c as any).reanalysis_notes as any[];
+      setPareceres(arr);
+      try { localStorage.setItem(`mz.pareceres.${cardId}`, JSON.stringify(arr)); } catch {}
+    }
     setCreatedBy((c as any)?.created_by || "");
     setAssigneeId((c as any)?.assignee_id || "");
   }, [applicantId, cardId]);
 
   useEffect(() => {
     if (!open) return;
+    // Hidratar rapidamente com cache local (robustez em refresh)
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (Array.isArray(cached) && cached.length > 0) setPareceres(cached);
+      }
+    } catch {}
     let active = true;
     (async () => {
       if (!active) return;
@@ -98,7 +114,10 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
           setHoraAt(list[0] || "");
           setHoraArr(list);
         }
-        if (Array.isArray(row.reanalysis_notes)) setPareceres(row.reanalysis_notes);
+        if (Array.isArray(row.reanalysis_notes)) {
+          setPareceres(row.reanalysis_notes);
+          try { localStorage.setItem(storageKey, JSON.stringify(row.reanalysis_notes)); } catch {}
+        }
         if (typeof row.created_by !== "undefined") setCreatedBy(row.created_by || "");
         if (typeof row.assignee_id !== "undefined") setAssigneeId(row.assignee_id || "");
       })
@@ -117,4 +136,3 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
 
   return { app, personType, createdAt, dueAt, horaAt, horaArr, pareceres, createdBy, assigneeId, profiles, vendorName, analystName, refresh } as const;
 }
-
