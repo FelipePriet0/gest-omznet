@@ -187,8 +187,9 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
     );
     const mentionLockRef = useRef(false);
     // Stabilize onChange to avoid effect loop when parent recreates the callback
-    const onChangeRef = useRef<typeof onChange>();
-    onChangeRef.current = onChange;
+    type OnChangeHandler = (value: ComposerValue) => void;
+    const onChangeRef = useRef<OnChangeHandler | null>(null);
+    onChangeRef.current = onChange ?? null;
     const [openHeading, setOpenHeading] = useState(false);
     const [fmtBold, setFmtBold] = useState(false);
     const [fmtItalic, setFmtItalic] = useState(false);
