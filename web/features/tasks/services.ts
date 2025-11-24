@@ -26,7 +26,7 @@ export async function listTasks(cardId: string): Promise<CardTask[]> {
     .eq("card_id", cardId)
     .order("created_at", { ascending: true });
   if (error) return [];
-  return (data as any) ?? [];
+  return (data as CardTask[]) ?? [];
 }
 
 export async function toggleTask(id: string, done: boolean) {

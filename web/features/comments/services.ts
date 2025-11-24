@@ -30,21 +30,24 @@ export async function listComments(cardId: string): Promise<Comment[]> {
     .is("deleted_at", null)
     .order("created_at", { ascending: true }); // LEI 3: Ordem cronológica
   if (error) return [];
-  const arr = (data as any) ?? [];
-  return arr.map((r: any) => ({
+  const arr = (data as unknown[]) ?? [];
+  return arr.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
     id: r.id,
-    card_id: r.card_id,
-    text: r.content,
-    author_id: r.author_id,
-    author_name: r.author_name,
-    author_role: r.author_role,
-    created_at: r.created_at,
-    updated_at: r.updated_at,
-    parent_id: r.parent_id,
-    thread_id: r.thread_id,
-    level: r.level,
-    deleted_at: r.deleted_at,
-  } as Comment));
+    card_id: row.card_id as string,
+    text: row.content as string,
+    author_id: (row.author_id as string) ?? null,
+    author_name: (row.author_name as string) ?? null,
+    author_role: (row.author_role as string) ?? null,
+    created_at: (row.created_at as string) ?? null,
+    updated_at: (row.updated_at as string) ?? null,
+    parent_id: (row.parent_id as string) ?? null,
+    thread_id: (row.thread_id as string) ?? null,
+    level: (row.level as number) ?? null,
+    deleted_at: (row.deleted_at as string) ?? null,
+  } as Comment;
+  });
 }
 
 /**
@@ -76,7 +79,14 @@ export async function addComment(cardId: string, text: string, parentId?: string
     }
   }
   
-  const payload: any = { card_id: cardId, content: text };
+  const payload: {
+    card_id: string;
+    content: string;
+    parent_id?: string | null;
+    author_id?: string;
+    author_name?: string | null;
+    author_role?: string | null;
+  } = { card_id: cardId, content: text };
   if (parentId) payload.parent_id = parentId;
   try {
     const { data: auth } = await supabase.auth.getUser();
@@ -84,7 +94,7 @@ export async function addComment(cardId: string, text: string, parentId?: string
     if (uid) {
       payload.author_id = uid;
       const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single();
-      if (prof) { payload.author_name = (prof as any).full_name ?? null; payload.author_role = (prof as any).role ?? null; }
+      if (prof) { payload.author_name = (prof as { full_name?: string | null }).full_name ?? null; payload.author_role = (prof as { role?: string | null }).role ?? null; }
     }
   } catch {}
   const { data, error } = await supabase.from(TABLE_CARD_COMMENTS).insert(payload).select("id").single();
@@ -132,5 +142,5 @@ export async function listProfiles(): Promise<ProfileLite[]> {
     .select("id, full_name, role")
     .order("full_name", { ascending: true });
   if (error) return [];
-  return (data as any) ?? [];
+  return (data as ProfileLite[]) ?? [];
 }

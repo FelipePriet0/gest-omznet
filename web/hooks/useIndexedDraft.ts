@@ -5,7 +5,7 @@ import { saveDraft, getDraft, deleteDraft } from "@/lib/drafts";
 
 const ONE_HOUR = 60 * 60 * 1000;
 
-export function useIndexedDraft<T = any>(draftId?: string | null, initial?: T) {
+export function useIndexedDraft<T = unknown>(draftId?: string | null, initial?: T) {
   const [value, setValue] = useState<T>((initial as T) ?? ({} as T));
   const [loaded, setLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -14,16 +14,19 @@ export function useIndexedDraft<T = any>(draftId?: string | null, initial?: T) {
   useEffect(() => {
     let active = true;
     // pause saves until we finish loading the new key
-    setLoaded(false);
+    if (loaded) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- pause save pipeline while loading new draftId (guarded)
+      setLoaded(false);
+    }
     (async () => {
       if (!draftId) {
         setLoaded(true);
         return;
       }
       try {
-        const data: any = await getDraft<T>(draftId);
+        const data = await getDraft<T>(draftId);
         if (!active) return;
-        if (data && Date.now() - (data.updated_at || 0) < ONE_HOUR) {
+        if (data && Date.now() - (data.updated_at ?? 0) < ONE_HOUR) {
           setValue(data.value as T);
         } else if (data) {
           await deleteDraft(draftId);

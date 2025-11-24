@@ -64,15 +64,18 @@ export function ToastContainer({ loginAt }: { loginAt: Date | null }) {
       const mostRecentId = sorted[0]?.id;
       
       if (mostRecentId && mostRecentId !== previousMostRecentIdRef.current) {
-        // Novo toast chegou, resetar para mostrar o mais recente
-        setActiveIndex(0);
+        // Novo toast chegou, resetar para mostrar o mais recente (idempotente)
+        if (activeIndex !== 0) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- reset control guarded
+          setActiveIndex(0);
+        }
         previousMostRecentIdRef.current = mostRecentId;
       }
     } else {
       // Se não há toasts, resetar a referência
       previousMostRecentIdRef.current = null;
     }
-  }, [cardCount, toasts]);
+  }, [cardCount, toasts, activeIndex]);
 
   // Calcular posicionamento dinâmico para garantir que o card apareça inteiro
   useEffect(() => {
@@ -140,12 +143,18 @@ export function ToastContainer({ loginAt }: { loginAt: Date | null }) {
   useEffect(() => {
     let timeout: NodeJS.Timeout | undefined = undefined;
     if (cardCount === 0) {
-      timeout = setTimeout(() => setShowCompleted(false), 2700);
+      timeout = setTimeout(() => {
+         
+        setShowCompleted(false);
+      }, 2700);
     } else {
-      setShowCompleted(true);
+      if (!showCompleted) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- show when there are toasts
+        setShowCompleted(true);
+      }
     }
     return () => clearTimeout(timeout);
-  }, [cardCount]);
+  }, [cardCount, showCompleted]);
 
   const handleClick = (item: InboxItem) => {
     // Abrir drawer

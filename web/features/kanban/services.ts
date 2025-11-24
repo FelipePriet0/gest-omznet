@@ -14,18 +14,16 @@ export async function changeStage(
 ) {
   const USE_RPC = process.env.NEXT_PUBLIC_USE_CHANGE_STAGE_RPC === 'true';
   // 1) Tenta via RPC centralizado (opcional para evitar 400 no console quando desabilitado)
-  const rpc = USE_RPC
-    ? await supabase.rpc('change_stage', { p_card_id: cardId, p_area: area, p_stage: stage, p_reason: reason ?? null })
-    : { data: null, error: { message: 'RPC disabled', code: 'disabled' } as any };
-  if (!USE_RPC && (rpc as any).error?.code === 'disabled') {
-    // segue para fallback direto
-  } else if (!rpc.error) {
-    await handlePostStageChanges(cardId, area, stage, assigneeId);
-    return rpc.data;
+  if (USE_RPC) {
+    const rpc = await supabase.rpc('change_stage', { p_card_id: cardId, p_area: area, p_stage: stage, p_reason: reason ?? null });
+    if (!rpc.error) {
+      await handlePostStageChanges(cardId, area, stage, assigneeId);
+      return rpc.data;
+    }
   }
 
   // 2) Fallback: atualiza diretamente a tabela (caso RPC tenha sido removido com triggers)
-  const patch: any = { stage, area };
+  const patch: { stage: string; area: 'comercial' | 'analise' } = { stage, area };
   // Opcional: manter motivo localmente se houver coluna específica (ignorado se não existir)
   try {
     // Evita 406 quando nenhuma linha é retornada usando single();
@@ -42,7 +40,7 @@ export async function changeStage(
     // Se RPC estava desativado, propaga somente o erro real do fallback
     if (!USE_RPC) throw e;
     // Retorna o erro original do RPC se existir, senão o fallback
-    throw rpc.error || e;
+    throw e;
   }
 }
 
@@ -118,32 +116,33 @@ export async function listCards(
   if (error) throw error;
 
   const rows = Array.isArray(data) ? data : [];
-  const uniqueRows = new Map<string, any>();
+  const uniqueRows = new Map<string, Record<string, unknown>>();
   for (const row of rows) {
     if (row?.id && !uniqueRows.has(row.id)) {
-      uniqueRows.set(row.id, row);
+      uniqueRows.set(row.id, row as Record<string, unknown>);
     }
   }
 
-  return Array.from(uniqueRows.values()).map((row: any) => {
-    const hours = Array.isArray(row.hora_at) ? row.hora_at : (row.hora_at ? [row.hora_at] : []);
+  return Array.from(uniqueRows.values()).map((row) => {
+    const rawHora = row.hora_at as unknown;
+    const hours = Array.isArray(rawHora) ? rawHora : (rawHora ? [rawHora] : []);
     const horaLabel = hours.length > 1
-      ? hours.map((h: any) => String(h).slice(0, 5)).join(' e ')
-      : hours[0]
-        ? String(hours[0]).slice(0, 5)
+      ? (hours as unknown[]).map((h) => String(h).slice(0, 5)).join(' e ')
+      : (hours as unknown[])[0]
+        ? String((hours as unknown[])[0]).slice(0, 5)
         : undefined;
     return {
-      id: row.id,
-      applicantId: row.applicant_id,
-      applicantName: row.applicants?.primary_name ?? '-',
-      cpfCnpj: row.applicants?.cpf_cnpj ?? '-',
-      phone: row.applicants?.phone ?? undefined,
-      whatsapp: row.applicants?.whatsapp ?? undefined,
-      bairro: row.applicants?.bairro ?? undefined,
-      dueAt: row.due_at ?? undefined,
+      id: row.id as string,
+      applicantId: row.applicant_id as string,
+      applicantName: (row.applicants as Record<string, unknown> | undefined)?.primary_name as string ?? '-',
+      cpfCnpj: (row.applicants as Record<string, unknown> | undefined)?.cpf_cnpj as string ?? '-',
+      phone: (row.applicants as Record<string, unknown> | undefined)?.phone as string | undefined,
+      whatsapp: (row.applicants as Record<string, unknown> | undefined)?.whatsapp as string | undefined,
+      bairro: (row.applicants as Record<string, unknown> | undefined)?.bairro as string | undefined,
+      dueAt: (row.due_at as string) ?? undefined,
       horaAt: horaLabel,
-      area: row.area,
-      stage: row.stage,
+      area: row.area as 'comercial' | 'analise',
+      stage: row.stage as string,
     } as KanbanCard;
   });
 }
@@ -157,9 +156,11 @@ export async function listHours(area: 'comercial' | 'analise'): Promise<string[]
     .not('hora_at', 'is', null);
   if (error) return [];
   const set = new Set<string>();
-  (data ?? []).forEach((r: any) => {
-    const hours = Array.isArray(r?.hora_at) ? r.hora_at : (r?.hora_at ? [r.hora_at] : []);
-    hours.forEach((h: any) => {
+  (data ?? []).forEach((r) => {
+    const rr = r as Record<string, unknown>;
+    const rawHora = rr?.hora_at as unknown;
+    const hours = Array.isArray(rawHora) ? rawHora : (rawHora ? [rawHora] : []);
+    (hours as unknown[]).forEach((h) => {
       const v = (h ?? '').toString().slice(0,5);
       if (v) set.add(v);
     });
@@ -193,7 +194,7 @@ async function computeDashboardFromClient(area: 'comercial' | 'analise', nowISO?
   if (error || !data) {
     return { feitasAguardando: 0, canceladas: 0, concluidas: 0, atrasadas: 0, recebidos: 0, emAnalise: 0, reanalise: 0, finalizados: 0, analiseCanceladas: 0 };
   }
-  const rows = data as any[];
+  const rows = data as unknown[];
   const lc = (s:string)=> (s||'').toLowerCase();
   const isTodayPast = (d?: string | null) => {
     if (!d) return false;
@@ -213,11 +214,11 @@ async function computeDashboardFromClient(area: 'comercial' | 'analise', nowISO?
 }
 
 export async function getKanbanDashboard(area: 'comercial' | 'analise', nowISO?: string): Promise<KanbanDashboard> {
-  const args: any = { p_area: area };
+  const args: { p_area: 'comercial' | 'analise'; p_now?: string } = { p_area: area };
   if (nowISO) args.p_now = nowISO;
   const { data, error } = await supabase.rpc('dashboard_kanban_counts', args);
   if (error) throw error;
-  const row = Array.isArray(data) ? (data[0] as any) : (data as any);
+  const row = Array.isArray(data) ? (data[0] as Record<string, unknown>) : (data as Record<string, unknown>);
   if (!row) throw new Error('dashboard_kanban_counts retornou vazio');
   return {
     feitasAguardando: Number(row?.feitas_aguardando_count ?? 0),

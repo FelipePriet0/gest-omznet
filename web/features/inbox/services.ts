@@ -14,7 +14,7 @@ export async function notifyMention(params: {
   applicantName?: string | null;
   contentPreview?: string | null;
   linkUrl?: string | null;
-  meta?: any;
+  meta?: Record<string, unknown> | null;
 }) {
   try {
     const title = '💬 Nova menção';
@@ -36,7 +36,7 @@ export async function notifyMention(params: {
       body,
       link_url: params.linkUrl ?? null,
       meta,
-    } as any);
+    });
   } catch {}
 }
 
@@ -76,7 +76,7 @@ type BaseNotifyParams = {
   contentPreview?: string | null;
   cardId?: string | null;
   commentId?: string | null;
-  meta?: any;
+  meta?: Record<string, unknown> | null;
 };
 
 export async function notifyParecerReply(params: BaseNotifyParams & { cardId: string; noteId?: string }) {
@@ -98,7 +98,7 @@ export async function notifyParecerReply(params: BaseNotifyParams & { cardId: st
       card_id: params.cardId,
       link_url: params.linkUrl ?? null,
       meta,
-    } as any);
+    });
   } catch {}
 }
 
@@ -120,7 +120,7 @@ export async function notifyCommentReply(params: BaseNotifyParams & { cardId: st
       card_id: params.cardId,
       comment_id: params.commentId,
       link_url: params.linkUrl ?? null,
-    } as any);
+    });
   } catch {}
 }
 
@@ -142,6 +142,6 @@ export async function notifyAssApp(params: BaseNotifyParams & { title?: string |
       card_id: params.cardId ?? null,
       comment_id: params.commentId ?? null,
       link_url: params.linkUrl ?? null,
-    } as any);
+    });
   } catch {}
 }

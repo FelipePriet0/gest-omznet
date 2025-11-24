@@ -39,6 +39,8 @@ const config = [
       // BUGS REAIS (mantém forte)
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+      // Por padrão nesta fase: permitir any (warn) para reduzir ruído
+      "@typescript-eslint/no-explicit-any": "warn",
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": [
         "warn",
@@ -51,6 +53,28 @@ const config = [
       "no-underscore-dangle": "off",
       "import/no-unresolved": "off",
       "import/extensions": "off",
+    },
+  },
+  // Regras específicas por pasta/arquivo
+  {
+    files: [
+      "lib/**",
+      "hooks/**",
+      "features/**/services.ts",
+    ],
+    rules: {
+      // Em camadas de domínio/infra, manter 'any' como erro
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  },
+  {
+    files: [
+      "legacy/**",
+    ],
+    rules: {
+      // Em legacy, aliviar regras para não travar evolução
+      "@typescript-eslint/no-explicit-any": "off",
+      "no-console": "off",
     },
   },
   // Override default ignores of eslint-config-next.

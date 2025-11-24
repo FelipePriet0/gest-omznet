@@ -16,12 +16,20 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
   const [dueAt, setDueAt] = useState<string>("");
   const [horaAt, setHoraAt] = useState<string>("");
   const [horaArr, setHoraArr] = useState<string[]>([]);
-  const [pareceres, setPareceres] = useState<any[]>([]);
+  const storageKey = `mz.pareceres.${cardId}`;
+  const [pareceres, setPareceres] = useState<any[]>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(`mz.pareceres.${cardId}`) : null;
+      const cached = raw ? JSON.parse(raw) : null;
+      return Array.isArray(cached) ? cached : [];
+    } catch {
+      return [];
+    }
+  });
   const [createdBy, setCreatedBy] = useState<string>("");
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
 
-  const storageKey = `mz.pareceres.${cardId}`;
 
   const refresh = useCallback(async () => {
     const { applicant: a, card: c } = await fetchApplicantCard(applicantId, cardId);
@@ -55,14 +63,6 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
 
   useEffect(() => {
     if (!open) return;
-    // Hidratar rapidamente com cache local (robustez em refresh)
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const cached = JSON.parse(raw);
-        if (Array.isArray(cached) && cached.length > 0) setPareceres(cached);
-      }
-    } catch {}
     let active = true;
     (async () => {
       if (!active) return;

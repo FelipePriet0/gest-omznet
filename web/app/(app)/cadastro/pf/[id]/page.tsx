@@ -442,11 +442,13 @@ export default function CadastroPFPage() {
         setApp(a2 || {});
 
         // Load or create pf_fichas row
-        let { data: p, error: errP } = await supabase
+        const pfRes = await supabase
           .from("pf_fichas")
           .select("*")
           .eq("applicant_id", applicantId)
           .maybeSingle();
+        let p = pfRes.data;
+        const errP = pfRes.error;
         if (!p) {
           const { error: insErr } = await supabase.from("pf_fichas").insert({ applicant_id: applicantId });
           if (!insErr) {
@@ -1286,7 +1288,13 @@ function Select({ label, value, onChange, options, error, requiredMark, disabled
 
 function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void | Promise<void>; initialQuery?: string }) {
   const [q, setQ] = useState(initialQuery || "");
-  useEffect(()=> setQ(initialQuery || ""), [initialQuery]);
+  useEffect(() => {
+    const next = initialQuery || "";
+    if (q !== next) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync internal query when prop changes (guarded)
+      setQ(next);
+    }
+  }, [initialQuery, q]);
   const iconFor = (key: string) => {
     if (key === 'aprovado') return <CheckCircle className="w-4 h-4" />;
     if (key === 'negado') return <XCircle className="w-4 h-4" />;

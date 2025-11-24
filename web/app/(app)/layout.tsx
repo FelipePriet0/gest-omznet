@@ -168,6 +168,7 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
       if (stored) {
         const parsed = Number.parseInt(stored, 10);
         if (!Number.isNaN(parsed)) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- initialize from localStorage once (guarded)
           setPanelWidth(clamp(parsed, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH));
         }
       }

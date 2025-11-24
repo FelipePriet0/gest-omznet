@@ -10,11 +10,11 @@ export const isSupabaseConfigured =
 // Wrap de fetch para evitar "TypeError: Failed to fetch" espamar no console em DNS/offline.
 const safeFetch: typeof fetch = async (input, init) => {
   try {
-    return await fetch(input as any, init as any);
+    return await fetch(input, init);
   } catch (err) {
     // Retorna uma resposta 503 sintética para o SDK lidar sem estourar TypeError no console
     const body = JSON.stringify({ error: "unreachable", message: "Supabase endpoint unreachable" });
-    return new Response(body, { status: 503, headers: { "content-type": "application/json" } }) as any;
+    return new Response(body, { status: 503, headers: { "content-type": "application/json" } }) as unknown as Response;
   }
 };
 

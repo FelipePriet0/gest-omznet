@@ -25,7 +25,7 @@ export async function listAttachments(cardId: string): Promise<CardAttachment[]>
     .eq("card_id", cardId)
     .order("created_at", { ascending: true });
   if (error) return [];
-  return (data as any) ?? [];
+  return (data as CardAttachment[]) ?? [];
 }
 
 export async function removeAttachment(id: string) {

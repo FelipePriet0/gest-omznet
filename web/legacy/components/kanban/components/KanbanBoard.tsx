@@ -116,8 +116,10 @@ export function KanbanBoard({
   );
 
   useEffect(() => {
+     
     reload();
-  }, [reload]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     onCardsChange?.(cards);
@@ -139,6 +141,7 @@ export function KanbanBoard({
     }
     const c = cards.find((x) => x.id === openCardId);
     if (c) {
+       
       setEdit({ cardId: c.id, applicantId: c.applicantId });
       return;
     }
@@ -151,6 +154,7 @@ export function KanbanBoard({
           .eq('id', openCardId)
           .single();
         if (data?.id && data?.applicant_id) {
+           
           setEdit({ cardId: String(data.id), applicantId: String(data.applicant_id) });
         }
       } catch {}

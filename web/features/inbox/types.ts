@@ -16,7 +16,7 @@ export type InboxItem = {
   content?: string | null;
   title?: string | null;
   body?: string | null;
-  meta?: any;
+  meta?: Record<string, unknown> | null;
   card_id?: string | null;
   comment_id?: string | null;
   link_url?: string | null;

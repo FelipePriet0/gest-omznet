@@ -45,6 +45,7 @@ function KanbanPageInner() {
     return unique;
   }, [responsavelParam]);
   const openCardId = sp.get("card") || undefined;
+  const myMentionsParam = sp.get('minhas_mencoes') === '1';
   const initialFiltersSummary = useMemo<AppliedFilters>(
     () => ({
       responsaveis,
@@ -52,12 +53,13 @@ function KanbanPageInner() {
         ? { start: prazo, end: prazoFim || undefined }
         : undefined,
       hora: hora || undefined,
-      myMentions: sp.get('minhas_mencoes') === '1',
+      myMentions: myMentionsParam,
       searchTerm: busca || undefined,
     }),
-    [responsaveis, prazo, prazoFim, hora, busca]
+    [responsaveis, prazo, prazoFim, hora, busca, myMentionsParam]
   );
-  const [filtersSummary, setFiltersSummary] = useState<AppliedFilters>(initialFiltersSummary);
+  // KISS: derive filters directly from URL params; evitar setState em effect
+  const filtersSummary: AppliedFilters = initialFiltersSummary;
   const [cardsSnapshot, setCardsSnapshot] = useState<KanbanCard[]>([]);
   const [mentionCardIds, setMentionCardIds] = useState<string[] | null>(null);
   
@@ -86,25 +88,23 @@ function KanbanPageInner() {
     };
   }, [router]);
 
-  useEffect(() => {
-    setFiltersSummary((prev) => {
-      const sameResponsaveis = prev.responsaveis.join("|") === initialFiltersSummary.responsaveis.join("|");
-      const samePrazo =
-        (prev.prazo?.start ?? "") === (initialFiltersSummary.prazo?.start ?? "") &&
-        (prev.prazo?.end ?? "") === (initialFiltersSummary.prazo?.end ?? "");
-      const sameHora = prev.hora === initialFiltersSummary.hora;
-      const sameSearch = (prev.searchTerm ?? "") === (initialFiltersSummary.searchTerm ?? "");
-      const sameMentions = prev.myMentions === initialFiltersSummary.myMentions;
-      if (sameResponsaveis && samePrazo && sameHora && sameSearch && sameMentions) {
-        return prev;
-      }
-      return initialFiltersSummary;
-    });
-  }, [initialFiltersSummary]);
-
   const handleFiltersChange = useCallback((next: AppliedFilters) => {
-    setFiltersSummary(next);
-  }, []);
+    const params = new URLSearchParams(sp.toString());
+    // Responsáveis
+    if (next.responsaveis && next.responsaveis.length > 0) params.set('responsavel', next.responsaveis.join(','));
+    else params.delete('responsavel');
+    // Prazo
+    if (next.prazo?.start) params.set('prazo', next.prazo.start); else params.delete('prazo');
+    if (next.prazo?.end) params.set('prazo_fim', next.prazo.end!); else params.delete('prazo_fim');
+    // Hora
+    if (next.hora) params.set('hora', next.hora); else params.delete('hora');
+    // Busca
+    if (next.searchTerm) params.set('busca', next.searchTerm); else params.delete('busca');
+    // Minhas menções
+    if (next.myMentions) params.set('minhas_mencoes', '1'); else params.delete('minhas_mencoes');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [pathname, router, sp]);
 
   useEffect(() => {
     let active = true;

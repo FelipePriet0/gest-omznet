@@ -18,7 +18,7 @@ export function openDraftDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveDraft(id: string, value: any) {
+export async function saveDraft(id: string, value: unknown) {
   const db = await openDraftDB();
   const tx = db.transaction("drafts", "readwrite");
   const store = tx.objectStore("drafts");
@@ -30,13 +30,14 @@ export async function saveDraft(id: string, value: any) {
   });
 }
 
-export async function getDraft<T = any>(id: string): Promise<{ id: string; value: T; updated_at: number } | null> {
+export async function getDraft<T = unknown>(id: string): Promise<{ id: string; value: T; updated_at: number } | null> {
   const db = await openDraftDB();
   const tx = db.transaction("drafts", "readonly");
   const store = tx.objectStore("drafts");
   return new Promise((resolve) => {
     const req = store.get(id);
-    req.onsuccess = () => resolve((req.result as any) || null);
+    req.onsuccess = () =>
+      resolve((req.result as { id: string; value: T; updated_at: number } | undefined) ?? null);
     req.onerror = () => resolve(null);
   });
 }
@@ -51,4 +52,3 @@ export async function deleteDraft(id: string) {
     tx.onabort = () => reject(tx.error);
   });
 }
-

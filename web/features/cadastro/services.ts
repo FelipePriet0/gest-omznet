@@ -10,13 +10,8 @@ export async function getCurrentUserId(): Promise<string | null> {
 }
 
 export async function checkDuplicidade(doc: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("applicants")
-    .select("id", { count: "exact", head: true })
-    .eq("cpf_cnpj", doc.trim());
-  if (error) return false;
-  // if count > 0, exists
-  return (data as any) === null ? true : true; // head:true doesn't return rows; rely on error? Safer second query
+  // Usa a consulta explícita para evitar casts e ambiguidade com head:true
+  return checkDuplicidadeQuery(doc);
 }
 
 // Safer version of duplicidade (explicit query)
@@ -32,7 +27,7 @@ export async function checkDuplicidadeQuery(doc: string): Promise<boolean> {
 }
 
 function genId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return (crypto as any).randomUUID();
+  if (typeof crypto !== 'undefined' && typeof (crypto as Crypto).randomUUID === 'function') return crypto.randomUUID();
   // fallback
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0,
@@ -67,7 +62,7 @@ export async function criarFichaPF(basic: BasicInfoPF) {
   if (appErr) throw appErr;
 
   // 2) pf_fichas (campos básicos)
-  const payload: any = { applicant_id: applicantId };
+  const payload: { applicant_id: string; birth_date?: string; naturalidade?: string; uf_naturalidade?: string } = { applicant_id: applicantId };
   if (basic.nasc) {
     // aceita yyyy-mm-dd; se vier dd/mm/aaaa tenta converter
     const ddmmyyyy = basic.nasc.trim();

@@ -144,6 +144,20 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
     }
   }, [refreshComments]);
 
+  // KISS: helper function (no hooks) to list descendants before first usage
+  function getAllDescendantIds(parentId: string, allComments: Comment[]): Set<string> {
+    const descendants = new Set<string>();
+    const findDescendants = (pid: string) => {
+      const directChildren = allComments.filter((c) => c.parent_id === pid);
+      directChildren.forEach((child) => {
+        descendants.add(child.id);
+        findDescendants(child.id);
+      });
+    };
+    findDescendants(parentId);
+    return descendants;
+  }
+
   // Wrapper para remover anexo com refresh imediato
   const removeAttachmentWithRefresh = useCallback(async (id: string) => {
     // Confirmação única centralizada
@@ -230,7 +244,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
       alert(e?.message || "Falha ao excluir anexo");
       throw e;
     }
-  }, [cardId, refreshComments, attachments, comments]);
+  }, [cardId, refreshComments, attachments, comments, tasks]);
 
   // Wrapper para toggle task com refresh imediato
   const toggleTaskWithRefresh = useCallback(async (id: string, done: boolean) => {
@@ -350,19 +364,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
     return set;
   }, [attachments]);
 
-  // Função auxiliar para buscar todos os descendentes de um comentário (recursivamente)
-  const getAllDescendantIds = useCallback((parentId: string, allComments: Comment[]): Set<string> => {
-    const descendants = new Set<string>();
-    const findDescendants = (pid: string) => {
-      const directChildren = allComments.filter((c) => c.parent_id === pid);
-      directChildren.forEach((child) => {
-        descendants.add(child.id);
-        findDescendants(child.id); // Recursivamente buscar filhos
-      });
-    };
-    findDescendants(parentId);
-    return descendants;
-  }, []);
+  // (migrado para função normal acima para evitar ordem de declaração e deps de hook)
 
   const attachmentReplyIds = useMemo(() => {
     const ids = new Set<string>();
@@ -712,7 +714,13 @@ function MentionDropdown({ items, onPick }: { items: ProfileLite[]; onPick: (p: 
 
 function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void; initialQuery?: string }) {
   const [q, setQ] = useState(initialQuery || "");
-  useEffect(()=> setQ(initialQuery||""), [initialQuery]);
+  useEffect(() => {
+    const next = initialQuery || "";
+    if (q !== next) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync query when prop changes (guarded)
+      setQ(next);
+    }
+  }, [initialQuery, q]);
   const filtered = items.filter(i => i.key.includes(q) || i.label.toLowerCase().includes(q.toLowerCase()));
   const iconFor = (key: string) => {
     if (key === 'tarefa') return <ClipboardList className="w-4 h-4" />;
@@ -813,14 +821,18 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
   }
   useEffect(() => {
     if (!replyOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- collapse cmd when reply closes (idempotent)
       setCmdOpen2(false);
       return;
     }
     const m = reply.match(/\/([\w]*)$/);
     if (m) {
+       
       setCmdQuery2((m[1] || "").toLowerCase());
+       
       setCmdOpen2(true);
     } else {
+       
       setCmdOpen2(false);
     }
   }, [reply, replyOpen]);

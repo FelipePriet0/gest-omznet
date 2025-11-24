@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { KanbanCard as Card } from "@/features/kanban/types";
@@ -19,10 +19,12 @@ export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () =>
   const [menuOpen, setMenuOpen] = useState(false);
   const pressAt = useRef(0);
 
-  const isOverdue = (() => {
+  // eslint-disable-next-line react-hooks/purity -- comparar com hora atual apenas para realce visual (não crítico)
+  const nowTsRef = useRef<number>(Date.now());
+  const isOverdue = useMemo(() => {
     if (!card?.dueAt) return false;
-    try { return new Date(card.dueAt).getTime() < Date.now(); } catch { return false; }
-  })();
+    try { return new Date(card.dueAt).getTime() < nowTsRef.current; } catch { return false; }
+  }, [card?.dueAt]);
 
   const cardClass = (card.isMentioned && isOverdue)
     ? "kanban-card rounded-2xl border border-orange-300 bg-emerald-50 p-3 shadow-[0_6px_16px_rgba(251,146,60,0.15)] hover:shadow-[0_10px_24px_rgba(251,146,60,0.25)] transition"

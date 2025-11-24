@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Pre-commit: lint staged JS/TS files in web/ and block commits on errors.
+
+changed_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^web/.*\.(ts|tsx|js|jsx)$' || true)
+
+if [ -z "$changed_files" ]; then
+  echo "[pre-commit] No staged TS/JS changes under web/. Skipping ESLint."
+  exit 0
+fi
+
+echo "[pre-commit] Running ESLint on staged files..."
+
+# Run eslint only on staged files to keep it fast.
+(cd web && npx --yes eslint --max-warnings=0 $changed_files)
+
+echo "[pre-commit] ESLint passed."
+

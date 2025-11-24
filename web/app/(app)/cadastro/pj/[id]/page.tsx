@@ -1011,7 +1011,13 @@ function Select({ label, value, onChange, options, disabled, className, required
 // ================= Parecer helpers (copied UI from EditarFicha) =================
 function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void | Promise<void>; initialQuery?: string }) {
   const [q, setQ] = useState(initialQuery || "");
-  useEffect(()=> setQ(initialQuery || ""), [initialQuery]);
+  useEffect(() => {
+    const next = initialQuery || "";
+    if (q !== next) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync internal query when prop changes (guarded)
+      setQ(next);
+    }
+  }, [initialQuery, q]);
   const iconFor = (key: string) => {
     if (key === 'aprovado') return <CheckCircle className="w-4 h-4" />;
     if (key === 'negado') return <XCircle className="w-4 h-4" />;

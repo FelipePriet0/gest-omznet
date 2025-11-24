@@ -54,7 +54,7 @@ function KanbanAnalisePageInner() {
     }),
     [responsaveis, prazo, prazoFim, hora, busca]
   );
-  const [filtersSummary, setFiltersSummary] = useState<AppliedFilters>(initialFiltersSummary);
+  const filtersSummary: AppliedFilters = initialFiltersSummary;
   const [cardsSnapshot, setCardsSnapshot] = useState<KanbanCard[]>([]);
   
   // Nova ficha modals
@@ -82,24 +82,17 @@ function KanbanAnalisePageInner() {
     };
   }, [router]);
 
-  useEffect(() => {
-    setFiltersSummary((prev) => {
-      const sameResponsaveis = prev.responsaveis.join("|") === initialFiltersSummary.responsaveis.join("|");
-      const samePrazo =
-        (prev.prazo?.start ?? "") === (initialFiltersSummary.prazo?.start ?? "") &&
-        (prev.prazo?.end ?? "") === (initialFiltersSummary.prazo?.end ?? "");
-      const sameHora = prev.hora === initialFiltersSummary.hora;
-      const sameSearch = (prev.searchTerm ?? "") === (initialFiltersSummary.searchTerm ?? "");
-      if (sameResponsaveis && samePrazo && sameHora && sameSearch) {
-        return prev;
-      }
-      return initialFiltersSummary;
-    });
-  }, [initialFiltersSummary]);
-
   const handleFiltersChange = useCallback((next: AppliedFilters) => {
-    setFiltersSummary(next);
-  }, []);
+    const params = new URLSearchParams(sp.toString());
+    if (next.responsaveis && next.responsaveis.length > 0) params.set('responsavel', next.responsaveis.join(','));
+    else params.delete('responsavel');
+    if (next.prazo?.start) params.set('prazo', next.prazo.start); else params.delete('prazo');
+    if (next.prazo?.end) params.set('prazo_fim', next.prazo.end!); else params.delete('prazo_fim');
+    if (next.hora) params.set('hora', next.hora); else params.delete('hora');
+    if (next.searchTerm) params.set('busca', next.searchTerm); else params.delete('busca');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [pathname, router, sp]);
 
   const handleCardModalClose = useCallback(() => {
     const params = new URLSearchParams(sp.toString());

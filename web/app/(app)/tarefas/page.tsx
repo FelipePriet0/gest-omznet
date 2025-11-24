@@ -47,10 +47,9 @@ export default function MinhasTarefasPage() {
   const [status, setStatus] = useState<'all'|'pending'|'completed'>('all');
   const [counts, setCounts] = useState<{pending:number; completed:number}>({ pending: 0, completed: 0 });
   const [userId, setUserId] = useState<string | null>(null);
+  const nowTs = useMemo(() => Date.now(), [items, status]);
   
   // Removidos modais/estado de "Nova ficha" no Drawer
-
-  useEffect(() => { load(); loadCounts(); }, []);
 
   // Subscription em tempo real: remove/atualiza tarefas quando criador edita/exclui
   useEffect(() => {
@@ -118,6 +117,13 @@ export default function MinhasTarefasPage() {
     });
     if (!error) setItems((data as any)||[]);
   }
+
+  // Inicializa após as funções serem definidas (evita acesso antes da declaração)
+  useEffect(() => {
+    load();
+    loadCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  }, []);
 
   async function toggle(taskId: string, done: boolean) {
     // Otimista: atualiza visualmente sem recarregar a lista
@@ -196,7 +202,7 @@ export default function MinhasTarefasPage() {
                 const createdLabel = formatDateTime(t.created_at);
                 const deadlineDate = parseDate(t.deadline);
                 const deadlineLabel = deadlineDate ? formatDateTimeFromDate(deadlineDate) : null;
-                const isOverdue = !isDone && deadlineDate ? deadlineDate.getTime() < Date.now() : false;
+                const isOverdue = !isDone && deadlineDate ? deadlineDate.getTime() < nowTs : false;
                 const creatorLabel = (t.created_name ?? "").trim() || t.created_by || "—";
                 const cardToneClass = isDone
                   ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90"

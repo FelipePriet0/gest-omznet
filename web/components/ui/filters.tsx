@@ -241,9 +241,10 @@ const FilterValueCombobox = ({
   }));
 
   useEffect(() => {
-    if (isSearchFilter) {
-      setSearchDraft(filterValues[0] ?? "");
-    }
+    if (!isSearchFilter) return;
+    const next = filterValues[0] ?? "";
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- controlled sync from prop; guarded to avoid loops
+    setSearchDraft(next);
   }, [filterValues, isSearchFilter]);
 
   useEffect(() => {

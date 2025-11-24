@@ -87,7 +87,9 @@ export function PareceresList({
   
   // Resetar estado otimista quando os dados do hook mudarem (sincronização)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local optimistic state on authoritative notes change
     setOptimisticallyDeleted(new Set());
+     
     setOptimisticallyEdited(new Map());
   }, [notes]);
   
@@ -229,13 +231,17 @@ function NoteItem({
 
   useEffect(() => {
     if (canReply) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- collapse reply UI when permission changes
     setIsReplying(false);
+     
     setCmdOpen(false);
   }, [canReply]);
 
   useEffect(() => {
     if (canEdit) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- collapse edit UI when permission changes
     setIsEditing(false);
+     
     setEditCmdOpen(false);
   }, [canEdit]);
 
@@ -551,7 +557,7 @@ function NoteItem({
 }
 
 function ParecerMenu({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () => void | Promise<void> }) {
-  if (!onEdit && !onDelete) return null;
+  // Hooks must be called unconditionally (rules-of-hooks)
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -562,6 +568,7 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () 
     document.addEventListener("mousedown", onDocMouseDown);
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, [menuOpen]);
+  if (!onEdit && !onDelete) return null;
   return (
     <div className="relative" ref={menuRef}>
       <button aria-label="Mais ações" className="parecer-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duração-200" onClick={() => setMenuOpen((v) => !v)}>
