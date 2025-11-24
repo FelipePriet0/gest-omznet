@@ -186,6 +186,9 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       normalizeValue(defaultValue ?? DEFAULT_VALUE)
     );
     const mentionLockRef = useRef(false);
+    // Stabilize onChange to avoid effect loop when parent recreates the callback
+    const onChangeRef = useRef<typeof onChange>();
+    onChangeRef.current = onChange;
     const [openHeading, setOpenHeading] = useState(false);
     const [fmtBold, setFmtBold] = useState(false);
     const [fmtItalic, setFmtItalic] = useState(false);
@@ -299,8 +302,8 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
     }, []);
 
     useEffect(() => {
-      onChange?.(valueState);
-    }, [valueState, onChange]);
+      onChangeRef.current?.(valueState);
+    }, [valueState]);
 
     // Observa seleção para refletir estado ativo dos botões
     useEffect(() => {
