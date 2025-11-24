@@ -223,7 +223,7 @@ export function KanbanBoardAnalise({
     }
   }
 
-  function openCard(c: KanbanCard) {
+  function _openCard(c: KanbanCard) {
     if (c.applicantId) router.push(`/ficha/${c.applicantId}`);
   }
 

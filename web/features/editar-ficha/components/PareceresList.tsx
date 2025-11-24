@@ -12,32 +12,33 @@ import { CmdDropdown } from "../components/CmdDropdown";
 import { DecisionTag, decisionPlaceholder } from "../utils/decision";
 
 type Note = { id: string; text: string; author_id?: string | null; author_name?: string; author_role?: string | null; created_at?: string; parent_id?: string | null; level?: number; deleted?: boolean; decision?: ComposerDecision | string | null };
+type NoteNode = Note & { children: NoteNode[] };
 
-function buildTree(notes: Note[]): Note[] {
+function buildTree(notes: Note[]): NoteNode[] {
   // Filtrar pareceres deletados (soft delete do backend)
   const activeNotes = notes.filter((n) => !n.deleted);
   
-  const byId = new Map<string, any>();
-  const normalizeText = (note: any) => {
+  const byId = new Map<string, NoteNode>();
+  const normalizeText = (note: Note) => {
     if (!note) return "";
     if (!note.decision) return note.text || "";
-    const placeholder = decisionPlaceholder(note.decision as any);
+    const placeholder = decisionPlaceholder(note.decision as ComposerDecision | null);
     return note.text === placeholder ? "" : (note.text || "");
   };
-  activeNotes.forEach((n) => byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] }));
-  const roots: any[] = [];
+  activeNotes.forEach((n) => byId.set(n.id, { ...(n as Note), text: normalizeText(n), children: [] }));
+  const roots: NoteNode[] = [];
   activeNotes.forEach((n) => {
     const node = byId.get(n.id)!;
-    if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node);
+    if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id)!.children.push(node);
     else roots.push(node);
   });
-  const sortFn = (a: any, b: any) => new Date(a.created_at || "").getTime() - new Date(b.created_at || "").getTime();
-  const sortTree = (arr: any[]) => {
+  const sortFn = (a: NoteNode, b: NoteNode) => new Date(a.created_at || "").getTime() - new Date(b.created_at || "").getTime();
+  const sortTree = (arr: NoteNode[]) => {
     arr.sort(sortFn);
     arr.forEach((x) => sortTree(x.children));
   };
   sortTree(roots);
-  return roots as any;
+  return roots;
 }
 
 export function PareceresList({
@@ -61,9 +62,9 @@ export function PareceresList({
   profiles: ProfileLite[];
   tasks: CardTask[];
   applicantName?: string | null;
-  onReply: (parentId: string, value: ComposerValue) => Promise<any>;
-  onEdit: (id: string, value: ComposerValue) => Promise<any>;
-  onDelete: (id: string) => Promise<any>;
+  onReply: (parentId: string, value: ComposerValue) => Promise<void>;
+  onEdit: (id: string, value: ComposerValue) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
   onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
   onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
@@ -206,7 +207,7 @@ function NoteItem({
   const editRef = useRef<HTMLDivElement | null>(null);
   const replyRef = useRef<HTMLDivElement | null>(null);
   const [isReplying, setIsReplying] = useState(false);
-  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
+  const [_replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -218,7 +219,7 @@ function NoteItem({
   const canDelete = !!currentUserId && node.author_id && currentUserId === node.author_id;
 
   useEffect(() => {
-    const onOpenAttach = (e: any) => {
+    const onOpenAttach = (_e: any) => {
       // apenas marcador; o modal raiz escuta e abre input hidden
     };
     window.addEventListener("mz-open-attach", onOpenAttach as any);
@@ -226,7 +227,7 @@ function NoteItem({
   }, []);
 
   const trimmedText = (node.text || "").trim();
-  const nodeTasks = tasks.filter((t) => (t as any).comment_id === node.id);
+  const nodeTasks = tasks.filter((t) => t.comment_id === node.id);
   const isRoot = depth === 0;
 
   useEffect(() => {
@@ -349,11 +350,12 @@ function NoteItem({
                 canDelete
                   ? async () => {
                       if (confirm("Excluir este parecer?")) {
-                        try {
-                          await onDelete(node.id);
-                        } catch (e: any) {
-                          alert(e?.message || "Falha ao excluir parecer");
-                        }
+  try {
+    await onDelete(node.id);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    alert(msg || "Falha ao excluir parecer");
+  }
                       }
                     }
                   : undefined
@@ -486,8 +488,9 @@ function NoteItem({
                   setReplyValue({ decision: null, text: "", mentions: [] });
                   setCmdOpen(false);
                   onTypingChange?.(false);
-                } catch (e: any) {
-                  alert(e?.message || "Falha ao responder");
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  alert(msg || "Falha ao responder");
                 }
               }}
               onCancel={() => {
@@ -516,7 +519,7 @@ function NoteItem({
                     setCmdOpen(false);
                     setCmdQuery("");
                     if (key === "aprovado" || key === "negado" || key === "reanalise") {
-                      replyComposerRef.current?.setDecision(key as any);
+                      replyComposerRef.current?.setDecision(key as ComposerDecision);
                       return;
                     }
                   }}
@@ -531,7 +534,7 @@ function NoteItem({
       {/* Children */}
       {node.children && node.children.length > 0 && (
         <div className="mt-2 space-y-2">
-          {node.children.map((c: any) => (
+          {node.children.map((c) => (
             <NoteItem
               key={c.id}
               cardId={cardId}

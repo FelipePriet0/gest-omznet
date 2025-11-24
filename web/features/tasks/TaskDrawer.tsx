@@ -54,7 +54,7 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
   const [deadlineDate, setDeadlineDate] = useState<string>("");
   const [deadlineTime, setDeadlineTime] = useState<string>("");
   const [saving, setSaving] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(0);
+  const [_sidebarWidth, setSidebarWidth] = useState(0);
   const [drawerWidth, setDrawerWidth] = useState(DRAWER_DEFAULT_WIDTH);
   const [resizing, setResizing] = useState(false);
   const resizeOriginRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: DRAWER_DEFAULT_WIDTH });
@@ -124,7 +124,7 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
     }
   }, [open]);
 
-  const handleResizeStart = useCallback(
+  const _handleResizeStart = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       if (event.button !== 0) return;
       event.preventDefault();
@@ -142,30 +142,41 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
         const { data } = await supabase.auth.getUser();
         const userId = data.user?.id;
         if (userId) {
-          const { data: meData } = await supabase.from(TABLE_PROFILES).select("id, full_name, role").eq("id", userId).single();
-          setMe(meData as any);
+          const { data: meData } = await supabase
+            .from(TABLE_PROFILES)
+            .select("id, full_name, role")
+            .eq("id", userId)
+            .single();
+          setMe((meData as ProfileLite) ?? null);
         }
-        const { data: list } = await supabase.from(TABLE_PROFILES).select("id, full_name, role").order("full_name");
-        setProfiles((list as any) ?? []);
+        const { data: list } = await supabase
+          .from(TABLE_PROFILES)
+          .select("id, full_name, role")
+          .order("full_name");
+        setProfiles(Array.isArray(list) ? (list as ProfileLite[]) : []);
         if (taskId) {
-          const { data: t } = await supabase.from('card_tasks').select('assigned_to, description, deadline').eq('id', taskId).single();
-          if (t) {
-            setAssignedTo((t as any).assigned_to ?? '');
-            setDesc((t as any).description ?? '');
-          if ((t as any).deadline) {
-            const { dateISO, time } = utcISOToLocalParts((t as any).deadline, DEFAULT_TIMEZONE);
+          type TaskRow = { assigned_to?: string | null; description?: string | null; deadline?: string | null };
+          const { data: t } = await supabase
+            .from('card_tasks')
+            .select('assigned_to, description, deadline')
+            .eq('id', taskId)
+            .single();
+          const row = (t as TaskRow) || {};
+          setAssignedTo(row.assigned_to ?? '');
+          setDesc(row.description ?? '');
+          if (row.deadline) {
+            const { dateISO, time } = utcISOToLocalParts(row.deadline, DEFAULT_TIMEZONE);
             setDeadlineDate(dateISO ?? "");
             setDeadlineTime(time ?? "");
           } else {
             setDeadlineDate("");
             setDeadlineTime("");
           }
-          }
         } else {
-        setAssignedTo('');
-        setDesc('');
-        setDeadlineDate('');
-        setDeadlineTime('');
+          setAssignedTo('');
+          setDesc('');
+          setDeadlineDate('');
+          setDeadlineTime('');
         }
       } catch {}
     })();
@@ -359,7 +370,7 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
     }
   }
 
-  async function deleteTask() {
+  async function _deleteTask() {
     if (!taskId) return;
     if (!confirm('Excluir tarefa? Esta ação não pode ser desfeita.')) return;
     setSaving(true);

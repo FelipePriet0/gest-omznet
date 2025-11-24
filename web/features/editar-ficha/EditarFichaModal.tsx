@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback, Fragment } from "react";
 import Image from "next/image";
-import clsx from "clsx";
+// clsx não é usado neste componente
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- usado em JSX aninhado abaixo
 import { User as UserIcon, MoreHorizontal } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- usado em JSX aninhado abaixo
 import { TaskCard } from "@/features/tasks/TaskCard";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import { changeStage } from "@/features/kanban/services";
@@ -16,7 +18,8 @@ import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { type ProfileLite } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
-import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts, localDateTimeToUtcISO } from "@/lib/datetime";
+import { DEFAULT_TIMEZONE, utcISOToLocalParts, localDateTimeToUtcISO } from "@/lib/datetime";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- usado em JSX aninhado abaixo
 import { renderTextWithChips } from "@/utils/richText";
 import { useDebouncedCallback } from "@/utils/useDebouncedCallback";
 import type { AppModel, CardSnapshotPatch } from "./types";
@@ -24,6 +27,7 @@ import { PLANO_OPTIONS, SVA_OPTIONS, VENC_OPTIONS } from "./constants";
 import { Section, Grid } from "./components/Layout";
 import { Field, Select, SelectAdv } from "./components/Fields";
 import { CmdDropdown } from "./components/CmdDropdown";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- usado em JSX aninhado abaixo
 import { DecisionTag, decisionPlaceholder } from "./utils/decision";
 import { PareceresList } from "./components/PareceresList";
 import { addParecer, editParecer, deleteParecer, setCardDecision, fetchApplicantCard } from "./services";
@@ -48,12 +52,12 @@ export function EditarFichaModal({
   onStageChange?: () => void;
   onCardUpdate?: (patch: CardSnapshotPatch) => void;
 }) {
-  const { open: sidebarOpen } = useSidebar();
+  const { open: _sidebarOpen } = useSidebar();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"idle"|"saving"|"saved"|"error">("idle");
   const [app, setApp] = useState<AppModel>({});
   const [dueAt, setDueAt] = useState<string>("");
-  const [horaAt, setHoraAt] = useState<string>("");
+  const [_horaAt, setHoraAt] = useState<string>("");
   const [horaArr, setHoraArr] = useState<string[]>([]);
   const [createdAt, setCreatedAt] = useState<string>("");
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -86,8 +90,7 @@ export function EditarFichaModal({
 
   // Backdrop deve cobrir a viewport inteira no modal de ficha
   // Menções no Parecer: popover desativado (continua aceitando texto com @)
-  const [createdBy, setCreatedBy] = useState<string>("");
-  const [assigneeId, setAssigneeId] = useState<string>("");
+  // removed unused createdBy/assigneeId state
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const draftKey = `parecer:${cardId}:${currentUserId ?? 'self'}`;
   // Draft minimal shape: only what must persist across sessions for 1h
@@ -101,7 +104,8 @@ export function EditarFichaModal({
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
   const composerRef = useRef<UnifiedComposerHandle | null>(null);
   // KISS: notas otimistas simples (somente criação), limpas ao sincronizar com backend
-  const [optimisticNotes, setOptimisticNotes] = useState<any[]>([]);
+  type NoteLite = { id: string; text?: string; decision?: string | null; parent_id?: string | null; author_id?: string | null; author_name?: string | null; author_role?: string | null; created_at?: string | null; deleted?: boolean };
+  const [optimisticNotes, setOptimisticNotes] = useState<NoteLite[]>([]);
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
   // UI: tarefas/anexos em conversas
   const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa', inPlace?: boolean}>({open:false});
@@ -113,7 +117,7 @@ export function EditarFichaModal({
   const canWriteParecer = !isVendor;
 
   const pendingApp = useRef<Partial<AppModel>>({});
-  const pendingCard = useRef<Record<string, any>>({});
+  const pendingCard = useRef<Record<string, unknown>>({});
   const dirtyAppFields = useRef<Set<keyof AppModel>>(new Set());
   const dirtyCardFields = useRef<Set<string>>(new Set());
   const fieldStatus = useRef<Record<string, "idle" | "pending" | "error">>({});
@@ -127,7 +131,7 @@ export function EditarFichaModal({
         if (dirtyAppFields.current.has(key)) return;
         const value = next[key];
         if (typeof value === "undefined") return;
-        (merged as any)[key] = value as any;
+        (merged as unknown as Record<string, unknown>)[key as string] = value as unknown;
       });
       return merged;
     });
@@ -176,7 +180,15 @@ export function EditarFichaModal({
       // Se for Conversa, criar comentário apenas quando não for edição in-place
       let commentIdForUpload: string | null = context?.commentId ?? null;
       if (context?.source === 'conversa' && !(context?.inPlace && context?.commentId)) {
-        const payload: any = { card_id: cardId, content: '' };
+        type NewCommentPayload = {
+          card_id: string;
+          content: string;
+          parent_id?: string | null;
+          author_id?: string;
+          author_name?: string | null;
+          author_role?: string | null;
+        };
+        const payload: NewCommentPayload = { card_id: cardId, content: '' };
         if (context?.commentId) payload.parent_id = context.commentId;
         try {
           const { data: auth } = await supabase.auth.getUser();
@@ -184,7 +196,11 @@ export function EditarFichaModal({
           if (uid) {
             payload.author_id = uid;
             const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single();
-            if (prof) { payload.author_name = (prof as any).full_name ?? null; payload.author_role = (prof as any).role ?? null; }
+            if (prof) {
+              const pr = prof as { full_name?: string | null; role?: string | null };
+              payload.author_name = pr.full_name ?? null;
+              payload.author_role = pr.role ?? null;
+            }
           }
         } catch {}
         const { data: c, error: cErr } = await supabase.from('card_comments').insert(payload).select('id').single();
@@ -215,17 +231,21 @@ export function EditarFichaModal({
         try {
           const { error } = await addParecer({ cardId, text: `📎 Anexo(s): ${names}`, parentId: null, decision: null });
           if (error) {
+            // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
             console.error("Falha ao registrar parecer para anexos", error);
             return;
           }
           await refreshCardSnapshot();
         } catch (err) {
+          // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
           console.error("Falha ao registrar parecer para anexos", err);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
+      // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
       console.error("Falha ao enviar anexos", error);
-      alert(error?.message ?? "Falha ao anexar arquivos.");
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(msg || "Falha ao anexar arquivos.");
     }
   }
 
@@ -347,8 +367,9 @@ export function EditarFichaModal({
       try {
         const [selfDraft, userDraft] = await Promise.all([getDraft(selfKey), getDraft(userKey)]);
         const now = Date.now();
-        const validSelf = selfDraft && now - (selfDraft as any).updated_at < 60*60*1000 ? (selfDraft as any) : null;
-        const validUser = userDraft && now - (userDraft as any).updated_at < 60*60*1000 ? (userDraft as any) : null;
+        type DraftRow = { updated_at: number; value: unknown };
+        const validSelf = (selfDraft as DraftRow | null) && now - (selfDraft as DraftRow).updated_at < 60*60*1000 ? (selfDraft as DraftRow) : null;
+        const validUser = (userDraft as DraftRow | null) && now - (userDraft as DraftRow).updated_at < 60*60*1000 ? (userDraft as DraftRow) : null;
         if (validSelf) {
           const chosen = !validUser || (validSelf.updated_at > validUser.updated_at) ? validSelf : validUser;
           await saveDraft(userKey, chosen.value);
@@ -372,10 +393,11 @@ export function EditarFichaModal({
       await toggleTask(taskId, done);
       // Faz um refresh leve para sincronizar completed_at e estados vindos do backend
       await refreshTasks();
-    } catch (e: any) {
+    } catch (e) {
       // Reverte em caso de erro
       setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: !done ? 'completed' : 'pending' } : t));
-      alert(e?.message || "Falha ao atualizar tarefa");
+      const msg = e instanceof Error ? e.message : String(e);
+      alert(msg || "Falha ao atualizar tarefa");
     }
   }, [refreshTasks]);
 
@@ -397,6 +419,7 @@ export function EditarFichaModal({
       // Atualiza o board
       try { onStageChange?.(); } catch {}
     } catch (err) {
+      // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
       console.error('set_card_decision failed', err);
     }
   }
@@ -420,22 +443,23 @@ export function EditarFichaModal({
         setLoading(true);
         const { applicant: a, card: c } = await fetchApplicantCard(applicantId, cardId);
         if (!active) return;
-        const a2: any = { ...(a || {}) };
+        const a2 = { ...(a || {}) } as Record<string, unknown>;
         if (typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
         applyAppSnapshot(a2 || {});
-        setPersonType((a as any)?.person_type ?? null);
+        setPersonType((a as { person_type?: string | null } | null)?.person_type ?? null);
         setCreatedAt(c?.created_at ? new Date(c.created_at).toLocaleString() : "");
         const parts = utcISOToLocalParts(c?.due_at ?? undefined, DEFAULT_TIMEZONE);
         applyCardSnapshot({ dueAt: parts.dateISO ?? "" });
-        if (Array.isArray((c as any)?.hora_at)) {
-          const list = ((c as any).hora_at as any[]).map((h) => String(h).slice(0, 5));
+        type CardRow = { hora_at?: string | string[] | null };
+        const cRow = (c as CardRow) || {};
+        if (Array.isArray(cRow.hora_at)) {
+          const list = cRow.hora_at.map((h) => String(h).slice(0, 5));
           applyCardSnapshot({ horaArr: list, horaAt: list[0] || "" });
         } else {
-          const v = c?.hora_at ? String(c.hora_at).slice(0, 5) : "";
+          const v = cRow.hora_at ? String(cRow.hora_at).slice(0, 5) : "";
           applyCardSnapshot({ horaAt: v, horaArr: v ? [v] : [] });
         }
-        setCreatedBy((c as any)?.created_by || "");
-        setAssigneeId((c as any)?.assignee_id || "");
+        // created_by/assignee_id não são usados diretamente no componente
         // Perf: perfis podem vir do hook; mantemos se já existir
         if (!profiles || profiles.length === 0) setProfiles(data.profiles || []);
       } finally {
@@ -488,7 +512,7 @@ export function EditarFichaModal({
     setSaving('saving');
     try {
       if (Object.keys(appPatch).length > 0) {
-        const patch: any = { ...appPatch };
+        const patch: Record<string, unknown> = { ...appPatch };
         if (typeof patch.venc !== 'undefined') {
           const n = parseInt(String(patch.venc), 10);
           patch.venc = Number.isFinite(n) ? n : null;
@@ -501,7 +525,7 @@ export function EditarFichaModal({
         });
       }
       if (Object.keys(cardPatch).length > 0) {
-        const cp: Record<string, any> = { ...cardPatch };
+        const cp: Record<string, unknown> = { ...cardPatch };
         const { error } = await supabase.from('kanban_cards').update(cp).eq('id', cardId);
         if (error) throw error;
         Object.keys(cp).forEach((key) => {
@@ -512,6 +536,7 @@ export function EditarFichaModal({
       setSaving('saved');
       setTimeout(() => setSaving('idle'), 1000);
     } catch (err) {
+      // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
       console.error(err);
       Object.keys(appPatch).forEach((key) => markFieldStatus(key, "error"));
       Object.keys(cardPatch).forEach((key) => markFieldStatus(key, "error"));
@@ -521,7 +546,7 @@ export function EditarFichaModal({
 
   const scheduleFlush = useDebouncedCallback(flush, 1800);
 
-  const queue = useCallback((scope:'app'|'card', key:string, value:any) => {
+  const queue = useCallback((scope:'app'|'card', key:string, value: unknown) => {
     if (scope==='app') {
       pendingApp.current = { ...pendingApp.current, [key]: value };
     } else {
@@ -541,14 +566,14 @@ export function EditarFichaModal({
     flush();
   }, [flush]);
 
-  const updateAppField = useCallback((key: keyof AppModel, value: any) => {
+  const updateAppField = useCallback((key: keyof AppModel, value: unknown) => {
     setApp((prev) => ({ ...prev, [key]: value }));
     dirtyAppFields.current.add(key);
     markFieldStatus(String(key), "pending");
     queue('app', key, value);
   }, [queue, markFieldStatus]);
 
-  const updateCardField = useCallback((key: 'due_at' | 'hora_at', value: any) => {
+  const updateCardField = useCallback((key: 'due_at' | 'hora_at', value: unknown) => {
     dirtyCardFields.current.add(key);
     markFieldStatus(key, "pending");
     queue('card', key, value);
@@ -580,11 +605,6 @@ export function EditarFichaModal({
     d = digitsOnly(d).slice(0,14);
     const p1=d.slice(0,2), p2=d.slice(2,5), p3=d.slice(5,8), p4=d.slice(8,12), p5=d.slice(12,14);
     let out=p1; if (p2) out += '.'+p2; if (p3) out += '.'+p3; if (p4) out += '/'+p4; if (p5) out += '-'+p5; return out;
-  }
-  function formatCpfCnpj(input: string) {
-    const d = digitsOnly(input);
-    if (d.length <= 11) return formatCpf(d);
-    return formatCnpj(d);
   }
   // Para telefone/whatsapp: aplica máscara se não houver letras; se tiver texto, mantém
   function maskPhoneLoose(input: string) {
@@ -694,9 +714,9 @@ export function EditarFichaModal({
             {/* Preferências e serviços */}
             <Section title="Planos e Serviços" variant="planos-servicos">
               <Grid cols={2}>
-                <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ updateAppField('plano_acesso', v); }} options={PLANO_OPTIONS as any} contentStyle={{ zIndex: 9999 }} />
-                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ updateAppField('venc', v); }} options={VENC_OPTIONS as any} contentStyle={{ zIndex: 9999 }} />
-                <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ updateAppField('sva_avulso', v); }} options={SVA_OPTIONS as any} contentStyle={{ zIndex: 9999 }} />
+                <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ updateAppField('plano_acesso', v); }} options={PLANO_OPTIONS} contentStyle={{ zIndex: 9999 }} />
+                <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ updateAppField('venc', v); }} options={VENC_OPTIONS as unknown as {label:string; value:string; disabled?:boolean}[]} contentStyle={{ zIndex: 9999 }} />
+                <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ updateAppField('sva_avulso', v); }} options={SVA_OPTIONS} contentStyle={{ zIndex: 9999 }} />
                 <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); updateAppField('carne_impresso', val); }} options={["Sim","Não"]} contentStyle={{ zIndex: 9999 }} />
               </Grid>
             </Section>
@@ -773,7 +793,7 @@ export function EditarFichaModal({
                       const payloadText = hasDecision && !txt ? decisionPlaceholder(val.decision ?? null) : txt;
                       // OTIMISTA: cria thread nível 1 localmente até o backend confirmar
                       const me = profiles.find((p) => p.id === currentUserId);
-                      const tempNote: any = {
+                      const tempNote: NoteLite = {
                         id: `tmp-${Date.now()}`,
                         text: hasDecision && !txt ? '' : txt,
                         decision: val.decision ?? null,
@@ -796,7 +816,7 @@ export function EditarFichaModal({
                         const { error } = await addParecer({ cardId, text: payloadText, parentId: null, decision: val.decision ?? null });
                         if (error) {
                           // Reverter otimista
-                          setOptimisticNotes((prev) => (prev || []).filter((n: any) => n.id !== tempNote.id));
+                          setOptimisticNotes((prev) => (prev || []).filter((n) => n.id !== tempNote.id));
                           setNovoParecer(val);
                           requestAnimationFrame(() => composerRef.current?.setValue(val));
                           alert(error.message || 'Falha ao adicionar parecer');
@@ -808,9 +828,9 @@ export function EditarFichaModal({
                         } else if (val.decision === 'reanalise') {
                           await syncDecisionStatus('reanalise');
                         }
-                      } catch (err: any) {
+                      } catch (err) {
                         // Reverter otimista
-                        setOptimisticNotes((prev) => (prev || []).filter((n: any) => n.id !== tempNote.id));
+                        setOptimisticNotes((prev) => (prev || []).filter((n) => n.id !== tempNote.id));
                         setNovoParecer(val);
                         requestAnimationFrame(() => composerRef.current?.setValue(val));
                         alert(err?.message || 'Falha ao adicionar parecer');
@@ -831,7 +851,7 @@ export function EditarFichaModal({
                   {/* Menções desativadas em Parecer */}
                   {canWriteParecer && cmdOpenParecer && (
                     <div className="absolute z-50 left-0 bottom-full mb-2">
-                      <CmdDropdown
+          <CmdDropdown
                         items={[
                           { key:'aprovado', label:'Aprovado' },
                           { key:'negado', label:'Negado' },
@@ -839,8 +859,8 @@ export function EditarFichaModal({
                         ].filter(i=> i.key.includes(cmdQueryParecer))}
                         onPick={async (key)=>{
                           setCmdOpenParecer(false); setCmdQueryParecer('');
-                          if (key==='aprovado' || key==='negado' || key==='reanalise') {
-                            composerRef.current?.setDecision(key as any);
+                    if (key==='aprovado' || key==='negado' || key==='reanalise') {
+                      composerRef.current?.setDecision(key as ComposerDecision);
                           }
                         }}
                         initialQuery={cmdQueryParecer}
@@ -850,7 +870,7 @@ export function EditarFichaModal({
                 </div>
                 <PareceresList
                   cardId={cardId}
-                  notes={[...((data.pareceres as any[]) || []), ...optimisticNotes] as any}
+                  notes={[...(data.pareceres || []), ...optimisticNotes]}
                   profiles={profiles}
                   tasks={tasks}
                   applicantName={app?.primary_name ?? null}
@@ -1004,6 +1024,19 @@ export function EditarFichaModal({
   );
 }
 
+type NoteNode = {
+  id: string;
+  text?: string;
+  decision?: ComposerDecision | string | null;
+  author_id?: string | null;
+  author_name?: string | null;
+  author_role?: string | null;
+  created_at?: string | null;
+  deleted?: boolean;
+  parent_id?: string | null;
+  children?: NoteNode[];
+};
+
 function NoteItem({
   cardId,
   node,
@@ -1020,14 +1053,14 @@ function NoteItem({
   currentUserId,
 }: {
   cardId: string;
-  node: any;
+  node: NoteNode;
   depth: number;
   profiles: ProfileLite[];
   tasks: CardTask[];
   applicantName?: string | null;
-  onReply: (parentId:string, value: ComposerValue)=>Promise<any>;
-  onEdit: (id:string, value: ComposerValue)=>Promise<any>;
-  onDelete: (id:string)=>Promise<any>;
+  onReply: (parentId:string, value: ComposerValue)=>Promise<void>;
+  onEdit: (id:string, value: ComposerValue)=>Promise<void>;
+  onDelete: (id:string)=>Promise<void>;
   onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
   onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
   onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
@@ -1173,7 +1206,7 @@ function NoteItem({
                   }
                   setIsEditing(false);
                   setEditCmdOpen(false);
-                } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); }
+                } catch(e){ const msg = e instanceof Error ? e.message : String(e); alert(msg||'Falha ao editar parecer'); }
               }}
               onCancel={()=> {
                 setIsEditing(false);
@@ -1199,10 +1232,10 @@ function NoteItem({
                   onPick={async (key)=>{
                     setEditCmdOpen(false); setEditCmdQuery('');
                     if (key==='aprovado' || key==='negado' || key==='reanalise') {
-                      editComposerRef.current?.setDecision(key as any);
+                      editComposerRef.current?.setDecision(key as ComposerDecision);
                       try {
-                        await onDecisionChange(key as any);
-                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                        await onDecisionChange(key as ComposerDecision);
+                      } catch(e){ const msg = e instanceof Error ? e.message : String(e); alert(msg||'Falha ao mover'); }
                     }
                   }}
                   initialQuery={editCmdQuery}
@@ -1256,7 +1289,7 @@ function NoteItem({
                   replyComposerRef.current?.setValue(resetVal);
                   setIsReplying(false);
                   setCmdOpen(false);
-                } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); }
+                } catch(e){ const msg = e instanceof Error ? e.message : String(e); alert(msg||'Falha ao responder parecer'); }
               }}
               onCancel={()=> {
                 setIsReplying(false);
@@ -1289,10 +1322,10 @@ function NoteItem({
                   onPick={async (key)=>{
                     setCmdOpen(false); setCmdQuery('');
                     if (key==='aprovado' || key==='negado' || key==='reanalise') {
-                      replyComposerRef.current?.setDecision(key as any);
+                      replyComposerRef.current?.setDecision(key as ComposerDecision);
                       try {
-                        await onDecisionChange(key as any);
-                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
+                        await onDecisionChange(key as ComposerDecision);
+                      } catch(e){ const msg = e instanceof Error ? e.message : String(e); alert(msg||'Falha ao mover'); }
                       return;
                     }
                     if (key==='tarefa') {

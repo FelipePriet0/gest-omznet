@@ -20,7 +20,7 @@ const colorConfig = {
   orange: { dot: "bg-[#F97316]", border: "border-orange-200" },
 } as const;
 
-export function KanbanColumn({ title, cards, color, icon, count, droppableId }: KanbanColumnProps) {
+export function KanbanColumn({ title, cards, color, icon: _icon, count, droppableId }: KanbanColumnProps) {
   const config = colorConfig[(color as keyof typeof colorConfig) || "blue"];
   const { setNodeRef, isOver } = useDroppable({ id: droppableId || title.toLowerCase().replace(/\s+/g, "_") });
 

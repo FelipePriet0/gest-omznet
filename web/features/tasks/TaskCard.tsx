@@ -13,7 +13,7 @@ type TaskCardProps = {
   currentUserId?: string | null;
 };
 
-export function TaskCard({ task, onToggle, applicantName, onEdit, currentUserId }: TaskCardProps) {
+export function TaskCard({ task, onToggle, applicantName: _applicantName, onEdit, currentUserId }: TaskCardProps) {
   const isDone = task.status === "completed";
   const dueTxt = task.deadline ? new Date(task.deadline).toLocaleString() : null;
   // Verificar se o usuário atual é o criador da tarefa

@@ -16,12 +16,13 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
   const [dueAt, setDueAt] = useState<string>("");
   const [horaAt, setHoraAt] = useState<string>("");
   const [horaArr, setHoraArr] = useState<string[]>([]);
+  type NoteLite = { id: string; text?: string; decision?: string | null; parent_id?: string | null; author_id?: string | null; author_name?: string | null; author_role?: string | null; created_at?: string | null; deleted?: boolean };
   const storageKey = `mz.pareceres.${cardId}`;
-  const [pareceres, setPareceres] = useState<any[]>(() => {
+  const [pareceres, setPareceres] = useState<NoteLite[]>(() => {
     try {
       const raw = typeof window !== 'undefined' ? localStorage.getItem(`mz.pareceres.${cardId}`) : null;
       const cached = raw ? JSON.parse(raw) : null;
-      return Array.isArray(cached) ? cached : [];
+      return Array.isArray(cached) ? (cached as NoteLite[]) : [];
     } catch {
       return [];
     }
@@ -33,27 +34,29 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
 
   const refresh = useCallback(async () => {
     const { applicant: a, card: c } = await fetchApplicantCard(applicantId, cardId);
-    const a2: any = { ...(a || {}) };
+    const a2 = { ...(a || {}) } as Record<string, unknown>;
     if (a2 && typeof a2.venc !== "undefined" && a2.venc !== null) a2.venc = String(a2.venc);
     setApp(a2 || {});
-    setPersonType((a as any)?.person_type ?? null);
+    setPersonType((a as { person_type?: 'PF' | 'PJ' } | null)?.person_type ?? null);
     setCreatedAt(c?.created_at ? new Date(c.created_at).toLocaleString() : "");
     const dueParts = utcISOToLocalParts(c?.due_at ?? undefined, DEFAULT_TIMEZONE);
     setDueAt(dueParts.dateISO ?? "");
-    if (Array.isArray((c as any)?.hora_at)) {
-      const arr: any[] = (c as any).hora_at;
+    type CardRow = { hora_at?: string | string[] | null; reanalysis_notes?: NoteLite[] | null };
+    const cRow = (c as CardRow) || {};
+    if (Array.isArray(cRow?.hora_at)) {
+      const arr = cRow.hora_at;
       const list = arr.map((h) => String(h).slice(0, 5));
       setHoraArr(list);
       setHoraAt(list[0] || "");
     } else {
-      const v = c?.hora_at ? String(c.hora_at).slice(0, 5) : "";
+      const v = cRow?.hora_at ? String(cRow.hora_at).slice(0, 5) : "";
       setHoraAt(v);
       setHoraArr(v ? [v] : []);
     }
     // Só atualiza pareceres quando backend enviar um array válido.
     // Evita limpar a UI por respostas nulas/transitórias do backend.
-    if (Array.isArray((c as any)?.reanalysis_notes)) {
-      const arr = (c as any).reanalysis_notes as any[];
+    if (Array.isArray(cRow?.reanalysis_notes)) {
+      const arr = cRow.reanalysis_notes as NoteLite[];
       setPareceres(arr);
       try { localStorage.setItem(`mz.pareceres.${cardId}`, JSON.stringify(arr)); } catch {}
     }

@@ -127,11 +127,7 @@ export function InboxSidebarEntry() {
   );
 }
 
-const inboxFilterLabels: Record<InboxFilterOption, string> = {
-  mentions: "Menções",
-  parecer: "Respostas em parecer",
-  comentarios: "Respostas em comentários",
-};
+// labels eram usados em uma versão anterior; removidos por não uso
 
 export function InboxPanel() {
   const { items, refresh } = useInbox();
@@ -166,7 +162,10 @@ export function InboxPanel() {
       })();
       // Navega se solicitado
       if (navigateTo) {
-        try { (window as any).next?.router?.push?.(navigateTo); } catch {}
+        try {
+          const w = window as unknown as { next?: { router?: { push?: (href: string) => void } } };
+          w.next?.router?.push?.(navigateTo);
+        } catch {}
         try { window.open(navigateTo, "_self"); } catch {}
       }
     },

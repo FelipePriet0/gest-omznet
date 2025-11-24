@@ -53,6 +53,7 @@ export function useInboxController(panelOpen: boolean) {
         setItems(next);
       }
     } catch (err) {
+      // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
       console.error('Failed to refresh inbox:', err);
     }
   }, []); // Sem dependências - usa refs para valores atuais
@@ -83,6 +84,7 @@ export function useInboxController(panelOpen: boolean) {
           setItems([]);
         }
       } catch (err) {
+        // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
         console.error('Failed to initialize inbox:', err);
       }
     })();
@@ -108,7 +110,7 @@ export function useInboxController(panelOpen: boolean) {
           table: "inbox_notifications", 
           filter: `user_id=eq.${uid}` 
         },
-        (payload) => {
+        (_payload) => {
           if (channelRemoved) return;
           // Debounce: aguarda 200ms antes de refresh para evitar múltiplos refreshes
           if (refreshTimeoutRef.current) {
@@ -125,7 +127,7 @@ export function useInboxController(panelOpen: boolean) {
     channel.subscribe((status) => {
       if (channelRemoved) return;
       if (status === "SUBSCRIBED") {
-        console.log('[Inbox] Realtime subscribed');
+        // conectado ao canal realtime
         // Refresh imediato ao conectar para garantir sincronização
         if (refreshRef.current) {
           setTimeout(() => {
@@ -133,6 +135,7 @@ export function useInboxController(panelOpen: boolean) {
           }, 300);
         }
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
         console.warn('[Inbox] Realtime channel error:', status);
         // Tentar refresh via polling como fallback
         if (refreshRef.current) {
@@ -155,7 +158,7 @@ export function useInboxController(panelOpen: boolean) {
       setTimeout(() => {
         try { 
           supabase.removeChannel(channel);
-        } catch (err) {
+        } catch {
           // Ignorar erros no cleanup
         }
       }, 0);

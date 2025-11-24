@@ -222,6 +222,7 @@ async function handlePostStageChanges(
       await supabase.rpc('set_card_decision', { p_card_id: cardId, p_decision: null });
     }
   } catch (err) {
+    // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
     console.warn('set_card_decision failed', err);
   }
 
@@ -239,6 +240,7 @@ async function updateAssignee(cardId: string, assigneeId: string | null) {
       .update({ assignee_id: assigneeId })
       .eq('id', cardId);
   } catch (err) {
+    // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
     console.warn('updateAssignee failed', err);
   }
 }

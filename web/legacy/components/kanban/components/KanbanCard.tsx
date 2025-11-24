@@ -95,6 +95,7 @@ export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () =>
         )}
         {card.whatsapp && (
           <span className="inline-flex items-center gap-1.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/whatsapp.svg" alt="WhatsApp" className="w-3.5 h-3.5" />
             {card.whatsapp}
           </span>

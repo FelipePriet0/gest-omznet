@@ -13,7 +13,7 @@ const inboxFilterLabels: Record<InboxFilterOption, string> = {
   comentarios: "Respostas em comentários",
 };
 
-export function InboxFilterCTA({ value, onSelect }: { value: InboxFilterOption | null; onSelect: (value: InboxFilterOption) => void }) {
+export function InboxFilterCTA({ value: _value, onSelect }: { value: InboxFilterOption | null; onSelect: (value: InboxFilterOption) => void }) {
   const [open, setOpen] = useState(false);
 
   return (

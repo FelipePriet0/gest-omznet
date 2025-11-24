@@ -46,6 +46,7 @@ export type { InboxItem, NotificationType };
 export async function listInbox(): Promise<InboxItem[]> {
   const { data, error } = await supabase.rpc('list_inbox_notifications');
   if (error) {
+    // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
     console.error('Failed to list inbox notifications', error);
     return [];
   }
@@ -55,6 +56,7 @@ export async function listInbox(): Promise<InboxItem[]> {
 export async function listMyMentionCardIds(): Promise<string[]> {
   const { data, error } = await supabase.rpc('list_my_mention_cards');
   if (error) {
+    // eslint-disable-next-line no-console -- log necessário para monitorar falhas em produção
     console.error('Failed to list mention cards', error);
     return [];
   }
@@ -81,8 +83,6 @@ type BaseNotifyParams = {
 
 export async function notifyParecerReply(params: BaseNotifyParams & { cardId: string; noteId?: string }) {
   try {
-    const title = '💬 Respondeu seu parecer';
-    const body = params.authorName ? `${params.authorName} respondeu seu parecer` : 'Responderam seu parecer';
     const meta = {
       author_name: params.authorName ?? null,
       primary_name: params.applicantName ?? null,
@@ -104,16 +104,6 @@ export async function notifyParecerReply(params: BaseNotifyParams & { cardId: st
 
 export async function notifyCommentReply(params: BaseNotifyParams & { cardId: string; commentId: string }) {
   try {
-    const title = '💬 Respondeu seu comentário';
-    const body = params.authorName ? `${params.authorName} respondeu seu comentário` : 'Responderam seu comentário';
-    const meta = {
-      author_name: params.authorName ?? null,
-      primary_name: params.applicantName ?? null,
-      applicant_name: params.applicantName ?? null,
-      content_preview: params.contentPreview ?? null,
-      is_comment_reply: true,
-      ...(params.meta ?? {}),
-    };
     await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
       user_id: params.userId,
       type: 'comment_reply',
@@ -126,16 +116,6 @@ export async function notifyCommentReply(params: BaseNotifyParams & { cardId: st
 
 export async function notifyAssApp(params: BaseNotifyParams & { title?: string | null; body?: string | null }) {
   try {
-    const defaultTitle = 'Ass App';
-    const title = params.title ?? defaultTitle;
-    const body = params.body ?? (params.authorName ? `${params.authorName} gerou um evento Ass App` : 'Novo evento Ass App');
-    const meta = {
-      author_name: params.authorName ?? null,
-      primary_name: params.applicantName ?? null,
-      applicant_name: params.applicantName ?? null,
-      content_preview: params.contentPreview ?? null,
-      ...(params.meta ?? {}),
-    };
     await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
       user_id: params.userId,
       type: 'ass_app',
