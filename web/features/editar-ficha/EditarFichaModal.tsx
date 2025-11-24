@@ -29,6 +29,8 @@ import { PareceresList } from "./components/PareceresList";
 import { addParecer, editParecer, deleteParecer, setCardDecision, fetchApplicantCard } from "./services";
 import { useEditarFichaData } from "./hooks/useEditarFichaData";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useIndexedDraft } from "@/hooks/useIndexedDraft";
+import { saveDraft, getDraft, deleteDraft } from "@/lib/drafts";
 
 
 export function EditarFichaModal({
@@ -86,6 +88,14 @@ export function EditarFichaModal({
   // Menções no Parecer: popover desativado (continua aceitando texto com @)
   const [createdBy, setCreatedBy] = useState<string>("");
   const [assigneeId, setAssigneeId] = useState<string>("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const draftKey = `parecer:${cardId}:${currentUserId ?? 'self'}`;
+  // Draft minimal shape: only what must persist across sessions for 1h
+  const [parecerDraft, setParecerDraft, clearParecerDraft, draftLoaded] = useIndexedDraft<{ text: string; decision: ComposerDecision | null }>(
+    draftKey,
+    { text: "", decision: null }
+  );
+  // Live composer state (UI): mentions are ephemeral (not persisted)
   const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
@@ -99,7 +109,6 @@ export function EditarFichaModal({
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa'; inPlace?: boolean } | null>(null);
   const { role: currentUserRole } = useUserRole();
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const isVendor = (currentUserRole ?? "").toLowerCase() === "vendedor";
   const canWriteParecer = !isVendor;
 
@@ -177,18 +186,18 @@ export function EditarFichaModal({
             const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single();
             if (prof) { payload.author_name = (prof as any).full_name ?? null; payload.author_role = (prof as any).role ?? null; }
           }
-        } catch {}
+        } catch (e) {}
         const { data: c, error: cErr } = await supabase.from('card_comments').insert(payload).select('id').single();
         if (cErr || !c?.id) throw cErr || new Error('Falha ao criar comentário para anexos');
         commentIdForUpload = c.id as string;
       } else if (context?.source === 'conversa' && context?.inPlace && context?.commentId) {
         // Edição in-place: substituir anexos existentes deste comentário e remover tarefas existentes
-        try { await supabase.from('card_attachments').delete().eq('comment_id', context.commentId); } catch {}
-        try { await supabase.from('card_tasks').delete().eq('comment_id', context.commentId); } catch {}
+        try { await supabase.from('card_attachments').delete().eq('comment_id', context.commentId); } catch (e) {}
+        try { await supabase.from('card_tasks').delete().eq('comment_id', context.commentId); } catch (e) {}
         // Limpar o texto atual para renderizar anexos inline (sem header duplicado)
-        try { await supabase.from('card_comments').update({ content: '' }).eq('id', context.commentId); } catch {}
+        try { await supabase.from('card_comments').update({ content: '' }).eq('id', context.commentId); } catch (e) {}
         // Otimista: avisar Conversa para atualizar imediatamente
-        try { window.dispatchEvent(new CustomEvent('mz-optimistic-transform', { detail: { commentId: context.commentId, to: 'attachment' } })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('mz-optimistic-transform', { detail: { commentId: context.commentId, to: 'attachment' } })); } catch (e) {}
       }
 
       const uploaded = await Attach.uploadAttachmentBatch({
@@ -224,7 +233,7 @@ export function EditarFichaModal({
     try {
       const list = await listTasks(cardId);
       setTasks(list);
-    } catch {}
+    } catch (e) {}
   }, [cardId]);
 
   useEffect(() => {
@@ -244,12 +253,12 @@ export function EditarFichaModal({
       });
     channel.subscribe((status) => {
       if (status === "CHANNEL_ERROR") {
-        try { supabase.removeChannel(channel); } catch {}
+        try { supabase.removeChannel(channel); } catch (e) {}
       }
     });
     return () => {
       active = false;
-      try { supabase.removeChannel(channel); } catch {}
+      try { supabase.removeChannel(channel); } catch (e) {}
     };
   }, [cardId, refreshTasks]);
 
@@ -261,7 +270,7 @@ export function EditarFichaModal({
         const uid = data.user?.id;
         if (!uid) return;
         setCurrentUserId(uid);
-      } catch {}
+      } catch (e) {}
     })();
   }, [open]);
 
@@ -269,6 +278,86 @@ export function EditarFichaModal({
     if (!open || canWriteParecer) return;
     requestAnimationFrame(() => composerRef.current?.focus());
   }, [open, canWriteParecer]);
+
+  // Hydrate composer DOM on open edge or key change (avoid fighting user typing)
+  const prevOpenRef = useRef<boolean>(false);
+  const prevDraftKeyRef = useRef<string | null>(null);
+  const hydratedOnceRef = useRef<boolean>(false);
+  useEffect(() => {
+    const openEdge = open && !prevOpenRef.current;
+    const keyChanged = draftKey !== prevDraftKeyRef.current;
+    prevOpenRef.current = open;
+    prevDraftKeyRef.current = draftKey;
+    if (!open) return;
+    // If opening or switching keys, hydrate when available from draft
+    if ((openEdge || keyChanged) && draftLoaded) {
+      hydratedOnceRef.current = true;
+      const nextVal: ComposerValue = {
+        decision: parecerDraft?.decision ?? null,
+        text: parecerDraft?.text ?? "",
+        mentions: [],
+      };
+      setNovoParecer(nextVal);
+      try { requestAnimationFrame(() => composerRef.current?.setValue(nextVal)); } catch (e) {}
+    }
+  }, [open, draftLoaded, draftKey, parecerDraft]);
+
+  // First successful draft load hydrate (if not hydrated by open/key change yet)
+  useEffect(() => {
+    if (!open) return;
+    if (!draftLoaded) return;
+    if (hydratedOnceRef.current) return;
+    hydratedOnceRef.current = true;
+    const nextVal: ComposerValue = {
+      decision: parecerDraft?.decision ?? null,
+      text: parecerDraft?.text ?? "",
+      mentions: [],
+    };
+    setNovoParecer(nextVal);
+    try { requestAnimationFrame(() => composerRef.current?.setValue(nextVal)); } catch (e) {}
+  }, [open, draftLoaded, parecerDraft]);
+
+  // Flush draft on unload (best-effort)
+  useEffect(() => {
+    if (!draftKey) return;
+    const onBeforeUnload = () => {
+      try { saveDraft(draftKey, { text: novoParecer.text ?? '', decision: novoParecer.decision ?? null }); } catch (e) {}
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [draftKey, novoParecer.text, novoParecer.decision]);
+
+  // Flush draft when modal is closed (captures last keystrokes even under debounce)
+  useEffect(() => {
+    if (!draftKey) return;
+    if (open === false) {
+      try { saveDraft(draftKey, { text: novoParecer.text ?? '', decision: novoParecer.decision ?? null }); } catch (e) {}
+    }
+  }, [open, draftKey, novoParecer.text, novoParecer.decision]);
+
+  // Migrate temporary 'self' key to user key once we have currentUserId
+  const migratedRef = useRef(false);
+  useEffect(() => {
+    if (!cardId) return;
+    if (!currentUserId) return;
+    if (migratedRef.current) return;
+    const selfKey = `parecer:${cardId}:self`;
+    const userKey = `parecer:${cardId}:${currentUserId}`;
+    (async () => {
+      try {
+        const [selfDraft, userDraft] = await Promise.all([getDraft(selfKey), getDraft(userKey)]);
+        const now = Date.now();
+        const validSelf = selfDraft && now - (selfDraft as any).updated_at < 60*60*1000 ? (selfDraft as any) : null;
+        const validUser = userDraft && now - (userDraft as any).updated_at < 60*60*1000 ? (userDraft as any) : null;
+        if (validSelf) {
+          const chosen = !validUser || (validSelf.updated_at > validUser.updated_at) ? validSelf : validUser;
+          await saveDraft(userKey, chosen.value);
+          await deleteDraft(selfKey);
+        }
+        migratedRef.current = true;
+      } catch (e) {}
+    })();
+  }, [cardId, currentUserId]);
 
   useEffect(() => {
     if (canWriteParecer) return;
@@ -304,9 +393,9 @@ export function EditarFichaModal({
         if (decision === 'aprovado') await changeStage(cardId, 'analise', 'aprovados');
         else if (decision === 'negado') await changeStage(cardId, 'analise', 'negados');
         else if (decision === 'reanalise') await changeStage(cardId, 'analise', 'reanalise');
-      } catch {}
+      } catch (e) {}
       // Atualiza o board
-      try { onStageChange?.(); } catch {}
+      try { onStageChange?.(); } catch (e) {}
     } catch (err) {
       console.error('set_card_decision failed', err);
     }
@@ -477,7 +566,7 @@ export function EditarFichaModal({
     if (!applicantId) return;
     const isPJ = personType === 'PJ';
     const url = isPJ ? `/cadastro/pj/${applicantId}?card=${cardId}&from=analisar` : `/cadastro/pf/${applicantId}?card=${cardId}&from=analisar`;
-    try { window.open(url, '_blank', 'noopener,noreferrer'); } catch {}
+    try { window.open(url, '_blank', 'noopener,noreferrer'); } catch (e) {}
   }
 
   // Helpers de máscara (sem restringir a entrada de texto)
@@ -672,7 +761,11 @@ export function EditarFichaModal({
                     disabled={!canWriteParecer}
                     placeholder="Escreva um novo parecer… Use @ para mencionar"
                     richText
-                    onChange={(val)=> { setNovoParecer(val); }}
+                    onChange={(val)=> {
+                      setNovoParecer(val);
+                      // Persist only the minimal draft payload
+                      setParecerDraft({ text: val.text ?? "", decision: val.decision ?? null });
+                    }}
                     onSubmit={!canWriteParecer ? undefined : async (val)=> {
                       const txt = (val.text || '').trim();
                       const hasDecision = !!val.decision;
@@ -694,6 +787,9 @@ export function EditarFichaModal({
                       const resetValue: ComposerValue = { decision: null, text: '', mentions: [] };
                       setNovoParecer(resetValue);
                       requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
+                      // Clear all potential keys on successful submit (optimistic)
+                      clearParecerDraft().catch(() => {});
+                      try { await deleteDraft(`parecer:${cardId}:self`); } catch (e) {}
                       setCmdOpenParecer(false);
                       // KISS: sem locks; exibimos otimista e aguardamos refresh
                       try {
@@ -1207,7 +1303,7 @@ function NoteItem({
                       try {
                         const ev = new CustomEvent('mz-open-attach', { detail: { commentId: node.id, source: 'parecer' } });
                         window.dispatchEvent(ev);
-                      } catch {}
+                      } catch (e) {}
                       return;
                     }
                   }}
