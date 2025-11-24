@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { DEFAULT_TIMEZONE, utcISOToLocalParts } from "@/lib/datetime";
 import { fetchApplicantCard } from "../services";

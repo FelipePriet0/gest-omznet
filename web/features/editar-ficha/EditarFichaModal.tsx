@@ -186,18 +186,18 @@ export function EditarFichaModal({
             const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single();
             if (prof) { payload.author_name = (prof as any).full_name ?? null; payload.author_role = (prof as any).role ?? null; }
           }
-        } catch (e) {}
+        } catch {}
         const { data: c, error: cErr } = await supabase.from('card_comments').insert(payload).select('id').single();
         if (cErr || !c?.id) throw cErr || new Error('Falha ao criar comentário para anexos');
         commentIdForUpload = c.id as string;
       } else if (context?.source === 'conversa' && context?.inPlace && context?.commentId) {
         // Edição in-place: substituir anexos existentes deste comentário e remover tarefas existentes
-        try { await supabase.from('card_attachments').delete().eq('comment_id', context.commentId); } catch (e) {}
-        try { await supabase.from('card_tasks').delete().eq('comment_id', context.commentId); } catch (e) {}
+        try { await supabase.from('card_attachments').delete().eq('comment_id', context.commentId); } catch {}
+        try { await supabase.from('card_tasks').delete().eq('comment_id', context.commentId); } catch {}
         // Limpar o texto atual para renderizar anexos inline (sem header duplicado)
-        try { await supabase.from('card_comments').update({ content: '' }).eq('id', context.commentId); } catch (e) {}
+        try { await supabase.from('card_comments').update({ content: '' }).eq('id', context.commentId); } catch {}
         // Otimista: avisar Conversa para atualizar imediatamente
-        try { window.dispatchEvent(new CustomEvent('mz-optimistic-transform', { detail: { commentId: context.commentId, to: 'attachment' } })); } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('mz-optimistic-transform', { detail: { commentId: context.commentId, to: 'attachment' } })); } catch {}
       }
 
       const uploaded = await Attach.uploadAttachmentBatch({
@@ -233,7 +233,7 @@ export function EditarFichaModal({
     try {
       const list = await listTasks(cardId);
       setTasks(list);
-    } catch (e) {}
+    } catch {}
   }, [cardId]);
 
   useEffect(() => {
@@ -253,12 +253,12 @@ export function EditarFichaModal({
       });
     channel.subscribe((status) => {
       if (status === "CHANNEL_ERROR") {
-        try { supabase.removeChannel(channel); } catch (e) {}
+        try { supabase.removeChannel(channel); } catch {}
       }
     });
     return () => {
       active = false;
-      try { supabase.removeChannel(channel); } catch (e) {}
+      try { supabase.removeChannel(channel); } catch {}
     };
   }, [cardId, refreshTasks]);
 
@@ -270,7 +270,7 @@ export function EditarFichaModal({
         const uid = data.user?.id;
         if (!uid) return;
         setCurrentUserId(uid);
-      } catch (e) {}
+      } catch {}
     })();
   }, [open]);
 
@@ -298,7 +298,7 @@ export function EditarFichaModal({
         mentions: [],
       };
       setNovoParecer(nextVal);
-      try { requestAnimationFrame(() => composerRef.current?.setValue(nextVal)); } catch (e) {}
+      try { requestAnimationFrame(() => composerRef.current?.setValue(nextVal)); } catch {}
     }
   }, [open, draftLoaded, draftKey, parecerDraft]);
 
@@ -314,14 +314,14 @@ export function EditarFichaModal({
       mentions: [],
     };
     setNovoParecer(nextVal);
-    try { requestAnimationFrame(() => composerRef.current?.setValue(nextVal)); } catch (e) {}
+    try { requestAnimationFrame(() => composerRef.current?.setValue(nextVal)); } catch {}
   }, [open, draftLoaded, parecerDraft]);
 
   // Flush draft on unload (best-effort)
   useEffect(() => {
     if (!draftKey) return;
     const onBeforeUnload = () => {
-      try { saveDraft(draftKey, { text: novoParecer.text ?? '', decision: novoParecer.decision ?? null }); } catch (e) {}
+      try { saveDraft(draftKey, { text: novoParecer.text ?? '', decision: novoParecer.decision ?? null }); } catch {}
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
@@ -331,7 +331,7 @@ export function EditarFichaModal({
   useEffect(() => {
     if (!draftKey) return;
     if (open === false) {
-      try { saveDraft(draftKey, { text: novoParecer.text ?? '', decision: novoParecer.decision ?? null }); } catch (e) {}
+      try { saveDraft(draftKey, { text: novoParecer.text ?? '', decision: novoParecer.decision ?? null }); } catch {}
     }
   }, [open, draftKey, novoParecer.text, novoParecer.decision]);
 
@@ -355,7 +355,7 @@ export function EditarFichaModal({
           await deleteDraft(selfKey);
         }
         migratedRef.current = true;
-      } catch (e) {}
+      } catch {}
     })();
   }, [cardId, currentUserId]);
 
@@ -393,9 +393,9 @@ export function EditarFichaModal({
         if (decision === 'aprovado') await changeStage(cardId, 'analise', 'aprovados');
         else if (decision === 'negado') await changeStage(cardId, 'analise', 'negados');
         else if (decision === 'reanalise') await changeStage(cardId, 'analise', 'reanalise');
-      } catch (e) {}
+      } catch {}
       // Atualiza o board
-      try { onStageChange?.(); } catch (e) {}
+      try { onStageChange?.(); } catch {}
     } catch (err) {
       console.error('set_card_decision failed', err);
     }
@@ -566,7 +566,7 @@ export function EditarFichaModal({
     if (!applicantId) return;
     const isPJ = personType === 'PJ';
     const url = isPJ ? `/cadastro/pj/${applicantId}?card=${cardId}&from=analisar` : `/cadastro/pf/${applicantId}?card=${cardId}&from=analisar`;
-    try { window.open(url, '_blank', 'noopener,noreferrer'); } catch (e) {}
+    try { window.open(url, '_blank', 'noopener,noreferrer'); } catch {}
   }
 
   // Helpers de máscara (sem restringir a entrada de texto)
@@ -789,7 +789,7 @@ export function EditarFichaModal({
                       requestAnimationFrame(() => composerRef.current?.setValue(resetValue));
                       // Clear all potential keys on successful submit (optimistic)
                       clearParecerDraft().catch(() => {});
-                      try { await deleteDraft(`parecer:${cardId}:self`); } catch (e) {}
+                      try { await deleteDraft(`parecer:${cardId}:self`); } catch {}
                       setCmdOpenParecer(false);
                       // KISS: sem locks; exibimos otimista e aguardamos refresh
                       try {
@@ -1303,7 +1303,7 @@ function NoteItem({
                       try {
                         const ev = new CustomEvent('mz-open-attach', { detail: { commentId: node.id, source: 'parecer' } });
                         window.dispatchEvent(ev);
-                      } catch (e) {}
+                      } catch {}
                       return;
                     }
                   }}

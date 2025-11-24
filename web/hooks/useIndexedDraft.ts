@@ -31,7 +31,7 @@ export function useIndexedDraft<T = unknown>(draftId?: string | null, initial?: 
         } else if (data) {
           await deleteDraft(draftId);
         }
-      } catch (e) {}
+      } catch {}
       if (active) setLoaded(true);
     })();
     return () => {
@@ -55,7 +55,7 @@ export function useIndexedDraft<T = unknown>(draftId?: string | null, initial?: 
   const clear = async () => {
     try {
       if (draftId) await deleteDraft(draftId);
-    } catch (e) {}
+    } catch {}
   };
 
   return [value, setValue, clear, loaded] as const;

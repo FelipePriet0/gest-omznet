@@ -184,35 +184,6 @@ export type KanbanDashboard = {
   analiseCanceladas: number;
 };
 
-async function computeDashboardFromClient(area: 'comercial' | 'analise', nowISO?: string): Promise<KanbanDashboard> {
-  const now = nowISO ? new Date(nowISO) : new Date();
-  const { data, error } = await supabase
-    .from(TABLE_KANBAN_CARDS)
-    .select('stage, area, due_at')
-    .eq('area', area)
-    .is('deleted_at', null);
-  if (error || !data) {
-    return { feitasAguardando: 0, canceladas: 0, concluidas: 0, atrasadas: 0, recebidos: 0, emAnalise: 0, reanalise: 0, finalizados: 0, analiseCanceladas: 0 };
-  }
-  const rows = data as unknown[];
-  const lc = (s:string)=> (s||'').toLowerCase();
-  const isTodayPast = (d?: string | null) => {
-    if (!d) return false;
-    try { return new Date(d).getTime() < now.getTime(); } catch { return false; }
-  };
-  return {
-    feitasAguardando: rows.filter(r => ['feitas','aguardando'].includes(lc(r.stage))).length,
-    canceladas: rows.filter(r => lc(r.stage) === 'canceladas').length,
-    concluidas: rows.filter(r => lc(r.stage) === 'concluidas').length,
-    atrasadas: rows.filter(r => ['feitas','aguardando'].includes(lc(r.stage)) && isTodayPast(r.due_at)).length,
-    recebidos: rows.filter(r => lc(r.stage) === 'recebidos').length,
-    emAnalise: rows.filter(r => lc(r.stage) === 'em_analise').length,
-    reanalise: rows.filter(r => lc(r.stage) === 'reanalise').length,
-    finalizados: rows.filter(r => lc(r.stage) === 'finalizados').length,
-    analiseCanceladas: rows.filter(r => lc(r.stage) === 'canceladas').length,
-  };
-}
-
 export async function getKanbanDashboard(area: 'comercial' | 'analise', nowISO?: string): Promise<KanbanDashboard> {
   const args: { p_area: 'comercial' | 'analise'; p_now?: string } = { p_area: area };
   if (nowISO) args.p_now = nowISO;
