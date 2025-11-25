@@ -821,7 +821,7 @@ export default function CadastroPFPage() {
 
   
   return (
-    <div className="mz-form p-6 max-w-5xl mx-auto">
+    <div className="mz-form w-full px-2 py-6 mx-auto" style={{ maxWidth: 'calc(100% - 16px)', width: 'calc(100% - 16px)' }}>
       {statusText && (
         <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
       )}
