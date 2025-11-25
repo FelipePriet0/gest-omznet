@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback, Fragment } from "react";
 import Image from "next/image";
 import clsx from "clsx";
-import { User as UserIcon, MoreHorizontal } from "lucide-react";
+import { User as UserIcon, MoreHorizontal, X } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
@@ -602,9 +602,9 @@ export function EditarFichaModal({
   return (
     <Fragment>
       {/* Backdrop: abaixo do Drawer/Sidebar (z-40) e acima do Kanban */}
-      <div className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm" />
       {/* Conteúdo do modal: acima do Drawer/Sidebar (z-70) */}
-      <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-hidden pt-8 pb-6 sm:pt-12 sm:pb-8" onClick={onClose}>
+      <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-hidden pt-8 pb-6 sm:pt-12 sm:pb-8">
       <div className="relative w-[96vw] sm:w-[95vw] max-w-[1280px] h-[90vh] bg-[var(--neutro)] shadow-2xl flex flex-col overflow-hidden" style={{ borderRadius: '28px' }} onClick={(e)=> e.stopPropagation()}>
         {/* Header completo ocupando toda a largura */}
         <div className="header-editar-ficha flex-shrink-0">
@@ -626,8 +626,13 @@ export function EditarFichaModal({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button type="button" onClick={openExpanded} className="btn-secondary-mznet no-hover whitespace-nowrap">
-                Analisar
+              <button
+                type="button"
+                aria-label="Fechar"
+                onClick={onClose}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-emerald-600/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700/40"
+              >
+                <X className="h-5 w-5 text-white" />
               </button>
             </div>
           </div>
@@ -645,6 +650,12 @@ export function EditarFichaModal({
                   <div className="text-sm text-zinc-600">Carregando…</div>
                 )}
                 <div className="space-y-6" style={{ display: loading ? 'none' : undefined }}>
+                  {/* CTA Analisar acima do bloco de Informações Pessoais, com cor primária */}
+                  <div className="flex items-center justify-end">
+                    <button type="button" onClick={openExpanded} className="btn-primary-mznet whitespace-nowrap">
+                      Analisar
+                    </button>
+                  </div>
             {/* Informações Pessoais */}
             <Section title="Informações Pessoais" variant="info-pessoais">
               <Grid cols={2}>
