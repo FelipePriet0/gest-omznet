@@ -442,6 +442,8 @@ export default function CadastroPFPage() {
       const resetValue: ComposerValue = { decision: null, text: '', mentions: [] };
       setNovoParecer(resetValue);
       requestAnimationFrame(() => parecerComposerRef.current?.setValue(resetValue));
+      try { await clearParecerDraft(); } catch {}
+      try { await deleteDraft(`parecer:${cardIdEff}:self`); } catch {}
       setMentionOpenParecer(false);
       setCmdOpenParecer(false);
     }
@@ -470,6 +472,7 @@ export default function CadastroPFPage() {
         // ensure auth
         const { data: authData } = await supabase.auth.getUser();
         const userId = authData?.user?.id || null;
+        setCurrentUserId(userId);
         // Load applicants
         const { data: a, error: errA } = await supabase
           .from("applicants")
@@ -1123,7 +1126,7 @@ export default function CadastroPFPage() {
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
                 disabled={currentUserRole === 'vendedor'}
                 richText
-                onChange={(val)=> setNovoParecer(val)}
+                onChange={(val)=> { setNovoParecer(val); try { setParecerDraft({ text: val.text ?? '', decision: val.decision ?? null }); } catch {} }}
                 onSubmit={currentUserRole === 'vendedor' ? undefined : handleSubmitParecer}
                 onCancel={()=> {
                   setCmdOpenParecer(false);

@@ -8,6 +8,8 @@ import { SimpleSelect } from "@/components/ui/select";
 import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
+import { useIndexedDraft } from "@/hooks/useIndexedDraft";
+import { saveDraft, getDraft, deleteDraft } from "@/lib/drafts";
 import { getAttachmentUrl, publicUrl } from "@/features/attachments/services";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import {
@@ -216,6 +218,7 @@ export default function CadastroPJPage() {
   // Parecer UI states
   const [pareceres, setPareceres] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
@@ -226,6 +229,11 @@ export default function CadastroPJPage() {
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
   const [cardIdEff, setCardIdEff] = useState<string>('');
+  // Draft de parecer (consistente com o modal)
+  const draftKey = useMemo(() => `parecer:${cardIdEff || ''}:${currentUserId ?? 'self'}`, [cardIdEff, currentUserId]);
+  const [parecerDraft, setParecerDraft, clearParecerDraft, draftLoaded] = useIndexedDraft<{ text: string; decision: ComposerDecision | null }>(draftKey, { text: '', decision: null });
+  const hydratedOnceRef = useRef(false);
+  const prevCardRef = useRef<string | null>(null);
   // Dirty + status tracking
   const dirtyAppFields = useRef<Set<keyof AppModel>>(new Set());
   const dirtyPjFields = useRef<Set<keyof PjModel>>(new Set());
@@ -430,6 +438,8 @@ export default function CadastroPJPage() {
       const resetValue: ComposerValue = { decision: null, text: '', mentions: [] };
       setNovoParecer(resetValue);
       requestAnimationFrame(() => parecerComposerRef.current?.setValue(resetValue));
+      try { await clearParecerDraft(); } catch {}
+      try { await deleteDraft(`parecer:${cardIdEff}:self`); } catch {}
       setMentionOpenParecer(false);
       setCmdOpenParecer(false);
     }
@@ -442,6 +452,7 @@ export default function CadastroPJPage() {
         setLoading(true);
         const { data: authData } = await supabase.auth.getUser();
         const userId = authData?.user?.id || null;
+        setCurrentUserId(userId);
         // applicants
         const { data: a } = await supabase
           .from('applicants')
@@ -563,6 +574,47 @@ export default function CadastroPJPage() {
     } catch {}
     return () => { try { if (ch1) supabase.removeChannel(ch1); if (ch2) supabase.removeChannel(ch2); if (ch3) supabase.removeChannel(ch3); } catch {} };
   }, [applicantId, cardIdEff]);
+
+  // Migrar rascunho 'self' -> user assim que tivermos currentUserId
+  useEffect(() => {
+    if (!cardIdEff) return;
+    if (!currentUserId) return;
+    (async () => {
+      try {
+        const selfKey = `parecer:${cardIdEff}:self`;
+        const userKey = `parecer:${cardIdEff}:${currentUserId}`;
+        const [selfDraft, userDraft] = await Promise.all([getDraft(selfKey), getDraft(userKey)]);
+        const now = Date.now();
+        const validSelf = selfDraft && now - (selfDraft as any).updated_at < 60*60*1000 ? (selfDraft as any) : null;
+        const validUser = userDraft && now - (userDraft as any).updated_at < 60*60*1000 ? (userDraft as any) : null;
+        if (validSelf) {
+          const chosen = !validUser || (validSelf.updated_at > validUser.updated_at) ? validSelf : validUser;
+          await saveDraft(userKey, chosen.value);
+          await deleteDraft(selfKey);
+        }
+      } catch {}
+    })();
+  }, [cardIdEff, currentUserId]);
+
+  // Hidratar composer com draft quando carregar
+  useEffect(() => {
+    const changed = cardIdEff && prevCardRef.current !== cardIdEff;
+    if (changed) { hydratedOnceRef.current = false; prevCardRef.current = cardIdEff; }
+    if (!cardIdEff) return;
+    if (!draftLoaded) return;
+    if (hydratedOnceRef.current) return;
+    hydratedOnceRef.current = true;
+    const nextVal: ComposerValue = { decision: parecerDraft?.decision ?? null, text: parecerDraft?.text ?? '', mentions: [] };
+    setNovoParecer(nextVal);
+    try { requestAnimationFrame(() => parecerComposerRef.current?.setValue(nextVal)); } catch {}
+  }, [cardIdEff, draftLoaded, parecerDraft]);
+
+  // Persistir draft no unload
+  useEffect(() => {
+    const onBeforeUnloadDraft = () => { try { saveDraft(draftKey, { text: novoParecer.text ?? '', decision: novoParecer.decision ?? null }); } catch {} };
+    window.addEventListener('beforeunload', onBeforeUnloadDraft);
+    return () => window.removeEventListener('beforeunload', onBeforeUnloadDraft);
+  }, [draftKey, novoParecer.text, novoParecer.decision]);
 
   // Debounce alinhado ao modal (1.8s)
   const scheduleFlushRef = useRef<NodeJS.Timeout | null>(null);
@@ -904,7 +956,7 @@ export default function CadastroPJPage() {
                 ref={parecerComposerRef}
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
                 richText
-                onChange={(val)=> setNovoParecer(val)}
+                onChange={(val)=> { setNovoParecer(val); try { setParecerDraft({ text: val.text ?? '', decision: val.decision ?? null }); } catch {} }}
                 onSubmit={handleSubmitParecer}
                 onCancel={()=> {
                   setCmdOpenParecer(false);
