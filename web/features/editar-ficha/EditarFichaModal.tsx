@@ -651,7 +651,8 @@ export function EditarFichaModal({
                 )}
                 <div className="space-y-6" style={{ display: loading ? 'none' : undefined }}>
                   {/* CTA Analisar acima do bloco de Informações Pessoais, com cor primária */}
-                  <div className="flex items-center justify-end">
+                  <div className="flex items-center justify-end gap-3">
+                    <span className="text-xs text-zinc-600">Clique aqui para:</span>
                     <button type="button" onClick={openExpanded} className="btn-primary-mznet whitespace-nowrap">
                       Analisar
                     </button>
@@ -921,7 +922,7 @@ export function EditarFichaModal({
               </div>
             </div>
             {/* Coluna Direita: conversas co-relacionadas (scroll próprio) */}
-            <div className="w-[38%] min-w-[320px] flex-shrink-0 h-full min-h-0 border-l border-white/10" style={{ backgroundColor: 'rgba(255,230,204,0.8)' }}>
+            <div className="w-[38%] min-w-[320px] flex-shrink-0 h-full min-h-0 border-l border-white/10" style={{ backgroundColor: 'rgba(255,230,204,0.2)' }}>
               <div className="h-full min-h-0 overflow-y-auto p-4">
                 <Conversation
                   cardId={cardId}
