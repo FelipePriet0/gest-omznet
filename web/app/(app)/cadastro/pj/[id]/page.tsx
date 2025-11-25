@@ -669,10 +669,10 @@ export default function CadastroPJPage() {
 
   
 
+  
+
   // UI spacer height to keep bottom gap consistent when a parecer is pinned
   const [pinnedSpace, setPinnedSpace] = useState<number>(0);
-
-  if (loading) return <div className="p-4 text-sm text-zinc-600">Carregando…</div>;
 
   // Flush best-effort ao descarregar a página e onBlur global (via evento)
   useEffect(() => {
@@ -685,6 +685,8 @@ export default function CadastroPJPage() {
       window.removeEventListener('mz-field-blur', onFieldBlur as any);
     };
   }, []);
+
+  if (loading) return <div className="p-4 text-sm text-zinc-600">Carregando…</div>;
 
   const reqComprov = (pj.enviou_comprovante||'') === 'Sim';
 

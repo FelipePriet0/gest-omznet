@@ -9,6 +9,8 @@ import { Textarea as UITTextarea } from "@/components/ui/textarea";
 import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
+import { useIndexedDraft } from "@/hooks/useIndexedDraft";
+import { saveDraft, getDraft, deleteDraft } from "@/lib/drafts";
 import { getAttachmentUrl, publicUrl } from "@/features/attachments/services";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import {
@@ -222,6 +224,7 @@ export default function CadastroPFPage() {
   const [pareceres, setPareceres] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
@@ -232,6 +235,11 @@ export default function CadastroPFPage() {
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
   const [pinnedSpace, setPinnedSpace] = useState<number>(0);
+  // Draft de parecer (consistente com o modal)
+  const draftKey = useMemo(() => `parecer:${cardIdEff || ''}:${currentUserId ?? 'self'}`, [cardIdEff, currentUserId]);
+  const [parecerDraft, setParecerDraft, clearParecerDraft, draftLoaded] = useIndexedDraft<{ text: string; decision: ComposerDecision | null }>(draftKey, { text: '', decision: null });
+  const hydratedOnceRef = useRef(false);
+  const prevCardRef = useRef<string | null>(null);
   // Dirty tracking e status por campo (para evitar sobrescrever durante digitação)
   const dirtyAppFields = useRef<Set<keyof AppModel>>(new Set());
   const dirtyPfFields = useRef<Set<keyof PfModel>>(new Set());
@@ -564,6 +572,47 @@ export default function CadastroPFPage() {
     return () => { active = false; };
   }, [applicantId]);
 
+  // Migrar rascunho 'self' -> user assim que tivermos currentUserId
+  useEffect(() => {
+    if (!cardIdEff) return;
+    if (!currentUserId) return;
+    (async () => {
+      try {
+        const selfKey = `parecer:${cardIdEff}:self`;
+        const userKey = `parecer:${cardIdEff}:${currentUserId}`;
+        const [selfDraft, userDraft] = await Promise.all([getDraft(selfKey), getDraft(userKey)]);
+        const now = Date.now();
+        const validSelf = selfDraft && now - (selfDraft as any).updated_at < 60*60*1000 ? (selfDraft as any) : null;
+        const validUser = userDraft && now - (userDraft as any).updated_at < 60*60*1000 ? (userDraft as any) : null;
+        if (validSelf) {
+          const chosen = !validUser || (validSelf.updated_at > validUser.updated_at) ? validSelf : validUser;
+          await saveDraft(userKey, chosen.value);
+          await deleteDraft(selfKey);
+        }
+      } catch {}
+    })();
+  }, [cardIdEff, currentUserId]);
+
+  // Hidratar composer com draft quando carregar
+  useEffect(() => {
+    const changed = cardIdEff && prevCardRef.current !== cardIdEff;
+    if (changed) { hydratedOnceRef.current = false; prevCardRef.current = cardIdEff; }
+    if (!cardIdEff) return;
+    if (!draftLoaded) return;
+    if (hydratedOnceRef.current) return;
+    hydratedOnceRef.current = true;
+    const nextVal: ComposerValue = { decision: parecerDraft?.decision ?? null, text: parecerDraft?.text ?? '', mentions: [] };
+    setNovoParecer(nextVal);
+    try { requestAnimationFrame(() => parecerComposerRef.current?.setValue(nextVal)); } catch {}
+  }, [cardIdEff, draftLoaded, parecerDraft]);
+
+  // Persistir draft no unload
+  useEffect(() => {
+    const onBeforeUnloadDraft = () => { try { saveDraft(draftKey, { text: novoParecer.text ?? '', decision: novoParecer.decision ?? null }); } catch {} };
+    window.addEventListener('beforeunload', onBeforeUnloadDraft);
+    return () => window.removeEventListener('beforeunload', onBeforeUnloadDraft);
+  }, [draftKey, novoParecer.text, novoParecer.decision]);
+
   // Realtime: applicants + pf_fichas + kanban_cards (pareceres via triangulação)
   useEffect(() => {
     let ch1:any; let ch2:any; let ch3:any;
@@ -697,6 +746,20 @@ export default function CadastroPFPage() {
     saving === "saving" ? "Salvando…" : saving === "saved" ? "Salvo" : saving === "error" ? "Erro ao salvar" : ""
   ), [saving]);
 
+  
+
+  // Flush best-effort ao descarregar a página e onBlur global (via evento)
+  useEffect(() => {
+    const onBeforeUnload = () => { try { flushAutosave(); } catch {} };
+    const onFieldBlur = () => { flushAutosave(); };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('mz-field-blur', onFieldBlur as any);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('mz-field-blur', onFieldBlur as any);
+    };
+  }, []);
+
   const PLANO_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
     { label: '— Normais —', value: '__hdr_norm', disabled: true },
     { label: '100 Mega - R$ 59,90', value: '100 Mega - R$ 59,90' },
@@ -734,18 +797,6 @@ export default function CadastroPFPage() {
   ];
 
   if (loading) return <div className="p-4 text-sm text-zinc-600">Carregando…</div>;
-
-  // Flush best-effort ao descarregar a página e onBlur global (via evento)
-  useEffect(() => {
-    const onBeforeUnload = () => { try { flushAutosave(); } catch {} };
-    const onFieldBlur = () => { flushAutosave(); };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    window.addEventListener('mz-field-blur', onFieldBlur as any);
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload);
-      window.removeEventListener('mz-field-blur', onFieldBlur as any);
-    };
-  }, []);
 
   // Validações condicionais
   const reqLocador = (pf.tipo_moradia || '').toLowerCase() === 'alugada';
