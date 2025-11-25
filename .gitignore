@@ -1,0 +1,4 @@
+# Transient logs/PIDs created by local Next.js start scripts
+.next-start.log
+.next-start.pid
+
