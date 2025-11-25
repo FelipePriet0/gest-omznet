@@ -433,7 +433,7 @@ export function EditarFichaModal({
   // Limpa notas otimistas quando snapshot do backend mudar (evita duplicatas temporárias)
   useEffect(() => {
     if (optimisticNotes.length > 0) setOptimisticNotes([]);
-  }, [data.pareceres]);
+  }, [data.pareceres]); // eslint-disable-line react-hooks/exhaustive-deps -- não incluir optimisticNotes.length para não limpar estado durante digitação
   // Inicializa dados ao abrir com snapshot fresco do backend; evita resetar inputs enquanto o modal estiver aberto
   useEffect(() => {
     if (!open || bootRef.current) return;
@@ -468,7 +468,7 @@ export function EditarFichaModal({
       }
     })();
     return () => { active = false; };
-  }, [open, applicantId, cardId, applyAppSnapshot, applyCardSnapshot]);
+  }, [open, applicantId, cardId, applyAppSnapshot, applyCardSnapshot]); // eslint-disable-line react-hooks/exhaustive-deps -- controlar hidratação inicial sem reagir a perfis
 
   // Ao fechar (ou trocar de ficha), permite nova inicialização na próxima abertura
   useEffect(() => {
@@ -542,7 +542,7 @@ export function EditarFichaModal({
       Object.keys(cardPatch).forEach((key) => markFieldStatus(key, "error"));
       setSaving('error');
     }
-  }, [open, applicantId, cardId]);
+  }, [open, applicantId, cardId, markFieldStatus]);
 
   const scheduleFlush = useDebouncedCallback(flush, 1800);
 

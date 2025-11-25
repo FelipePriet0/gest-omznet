@@ -103,7 +103,7 @@ export function PareceresList({
       // 2. Enviar requisição em background
       await onDelete(id);
       // 3. SUCESSO: O refreshCardSnapshot vai atualizar e limpar o estado otimista
-    } catch (err: any) {
+    } catch (err) {
       // 4. REVERTER se falhar
       setOptimisticallyDeleted((prev) => {
         const next = new Set(prev);
@@ -131,7 +131,7 @@ export function PareceresList({
       // 2. Enviar requisição em background
       await onEdit(id, value);
       // 3. SUCESSO: O refreshCardSnapshot vai atualizar e limpar o estado otimista
-    } catch (err: any) {
+    } catch (err) {
       // 4. REVERTER se falhar
       setOptimisticallyEdited((prev) => {
         const next = new Map(prev);
@@ -149,7 +149,7 @@ export function PareceresList({
         <NoteItem
           key={n.id}
           cardId={cardId}
-          node={n as any}
+          node={n}
           depth={0}
           profiles={profiles}
           tasks={tasks}
@@ -187,13 +187,13 @@ function NoteItem({
   onTypingChange,
 }: {
   cardId: string;
-  node: any;
+  node: NoteNode;
   depth: number;
   profiles: ProfileLite[];
   tasks: CardTask[];
-  onReply: (parentId: string, value: ComposerValue) => Promise<any>;
-  onEdit: (id: string, value: ComposerValue) => Promise<any>;
-  onDelete: (id: string) => Promise<any>;
+  onReply: (parentId: string, value: ComposerValue) => Promise<void>;
+  onEdit: (id: string, value: ComposerValue) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
   onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
   onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
@@ -219,11 +219,11 @@ function NoteItem({
   const canDelete = !!currentUserId && node.author_id && currentUserId === node.author_id;
 
   useEffect(() => {
-    const onOpenAttach = (_e: any) => {
+    const onOpenAttach = (_e: Event) => {
       // apenas marcador; o modal raiz escuta e abre input hidden
     };
-    window.addEventListener("mz-open-attach", onOpenAttach as any);
-    return () => window.removeEventListener("mz-open-attach", onOpenAttach as any);
+    window.addEventListener("mz-open-attach", onOpenAttach as EventListener);
+    return () => window.removeEventListener("mz-open-attach", onOpenAttach as EventListener);
   }, []);
 
   const trimmedText = (node.text || "").trim();
@@ -259,7 +259,7 @@ function NoteItem({
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isEditing]);
+  }, [isEditing, onTypingChange]);
 
   // Fechar campo de resposta ao clicar fora
   useEffect(() => {
@@ -274,7 +274,7 @@ function NoteItem({
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isReplying]);
+  }, [isReplying, onTypingChange]);
 
   return (
     <div 
@@ -397,8 +397,9 @@ function NoteItem({
                         setIsEditing(false);
                         setEditCmdOpen(false);
                         onTypingChange?.(false);
-                      } catch (e: any) {
-                        alert(e?.message || "Falha ao editar parecer");
+                      } catch (e) {
+                        const msg = e instanceof Error ? e.message : String(e);
+                        alert(msg || "Falha ao editar parecer");
                       }
                     }
               }
@@ -432,7 +433,7 @@ function NoteItem({
                     setEditCmdOpen(false);
                     setEditCmdQuery("");
                     if (key === "aprovado" || key === "negado" || key === "reanalise") {
-                      editComposerRef.current?.setDecision(key as any);
+                      editComposerRef.current?.setDecision(key as ComposerDecision);
                     }
                   }}
                   initialQuery={editCmdQuery}

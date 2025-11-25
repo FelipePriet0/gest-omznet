@@ -60,8 +60,8 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
       setPareceres(arr);
       try { localStorage.setItem(`mz.pareceres.${cardId}`, JSON.stringify(arr)); } catch {}
     }
-    setCreatedBy((c as any)?.created_by || "");
-    setAssigneeId((c as any)?.assignee_id || "");
+    setCreatedBy(cRow.created_by || "");
+    setAssigneeId(cRow.assignee_id || "");
   }, [applicantId, cardId]);
 
   useEffect(() => {
@@ -76,9 +76,9 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
     })();
     const chApp = supabase
       .channel(`rt-edit-app-${applicantId}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "applicants", filter: `id=eq.${applicantId}` }, (payload: any) => {
-        const row: any = payload.new || {};
-        const a3: any = { ...app };
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "applicants", filter: `id=eq.${applicantId}` }, (payload: { new?: Record<string, unknown> }) => {
+        const row = (payload.new ?? {}) as Record<string, unknown>;
+        const a3 = { ...(app as Record<string, unknown>) };
         [
           "primary_name",
           "cpf_cnpj",
@@ -96,24 +96,24 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
           "venc",
           "person_type",
         ].forEach((k) => {
-          if (k in row) (a3 as any)[k] = row[k];
+          if (k in row) (a3 as Record<string, unknown>)[k] = row[k as keyof typeof row] as unknown;
         });
-        if (typeof a3.venc !== "undefined" && a3.venc !== null) a3.venc = String(a3.venc);
-        setApp(a3);
-        if (row.person_type) setPersonType(row.person_type);
+        if (typeof (a3 as Record<string, unknown>).venc !== "undefined" && (a3 as Record<string, unknown>).venc !== null) (a3 as Record<string, unknown>).venc = String((a3 as Record<string, unknown>).venc);
+        setApp(a3 as AppModel);
+        if (typeof row.person_type === 'string') setPersonType(row.person_type as 'PF' | 'PJ');
       })
       .subscribe();
     const chCard = supabase
       .channel(`rt-edit-card-${cardId}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "kanban_cards", filter: `id=eq.${cardId}` }, (payload: any) => {
-        const row: any = payload.new || {};
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "kanban_cards", filter: `id=eq.${cardId}` }, (payload: { new?: { due_at?: string | null; hora_at?: string | string[] | null; reanalysis_notes?: NoteLite[] | null; created_by?: string | null; assignee_id?: string | null } }) => {
+        const row = payload.new || {};
         if (row.due_at) {
           const { dateISO } = utcISOToLocalParts(row.due_at, DEFAULT_TIMEZONE);
           setDueAt(dateISO ?? "");
         }
         if (row.hora_at) {
           const arr = Array.isArray(row.hora_at) ? row.hora_at : [row.hora_at];
-          const list = arr.map((h: any) => String(h).slice(0, 5));
+          const list = arr.filter(Boolean).map((h) => String(h).slice(0, 5));
           setHoraAt(list[0] || "");
           setHoraArr(list);
         }
@@ -132,7 +132,7 @@ export function useEditarFichaData(params: { open: boolean; applicantId: string;
         supabase.removeChannel(chCard);
       } catch {}
     };
-  }, [open, applicantId, cardId, refresh]);
+  }, [open, applicantId, cardId, refresh]); // eslint-disable-line react-hooks/exhaustive-deps -- evitar re-subscribe por 'app'/'storageKey'
 
   const vendorName = useMemo(() => profiles.find((p) => p.id === createdBy)?.full_name || "—", [profiles, createdBy]);
   const analystName = useMemo(() => profiles.find((p) => p.id === assigneeId)?.full_name || "—", [profiles, assigneeId]);
