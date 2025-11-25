@@ -1754,6 +1754,7 @@ function PareceresList({
               <UnifiedComposer
                 ref={editComposerRef}
                 defaultValue={editValue}
+                richText
                 onChange={(val) => setEditValue(val)}
                 onSubmit={async (val) => {
                   if (!onEdit) return;
@@ -1822,6 +1823,7 @@ function PareceresList({
                 ref={replyComposerRef}
                 defaultValue={replyValue}
                 placeholder="Responder... (/aprovado, /negado, /reanalise)"
+                richText
                 onChange={(val) => setReplyValue(val)}
                 onSubmit={async (val) => {
                   if (!onReply) return;

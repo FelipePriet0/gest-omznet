@@ -1448,7 +1448,8 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                           <UnifiedComposer
                             ref={editComposerRef}
                             defaultValue={editValue}
-                onChange={(val) => setEditValue(val)}
+                            richText
+                            onChange={(val) => setEditValue(val)}
                 onSubmit={async (val) => {
                               const trimmed = (val.text || '').trim();
                               if (!trimmed) return;
@@ -1518,6 +1519,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                             ref={replyComposerRef}
                             defaultValue={replyValue}
                             placeholder="Responder... (/aprovado, /negado, /reanalise)"
+                            richText
                 onChange={(val) => setReplyValue(val)}
                 onSubmit={async (val) => {
                               const trimmed = (val.text || '').trim();
