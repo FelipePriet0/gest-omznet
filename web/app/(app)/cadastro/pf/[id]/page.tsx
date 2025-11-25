@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback } from "react";
 import clsx from "clsx";
 import { useParams, useSearchParams } from "next/navigation";
 import { SimpleSelect } from "@/components/ui/select";
@@ -232,6 +232,47 @@ export default function CadastroPFPage() {
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
   const [pinnedSpace, setPinnedSpace] = useState<number>(0);
+  // Dirty tracking e status por campo (para evitar sobrescrever durante digitação)
+  const dirtyAppFields = useRef<Set<keyof AppModel>>(new Set());
+  const dirtyPfFields = useRef<Set<keyof PfModel>>(new Set());
+  const fieldStatus = useRef<Record<string, "idle" | "pending" | "error">>({});
+  const [, forceStatusRender] = useState(0);
+
+  const markFieldStatus = useCallback((key: string, status: "idle" | "pending" | "error") => {
+    fieldStatus.current[key] = status;
+    // força re-render para refletir status global
+    forceStatusRender((v) => v + 1);
+  }, []);
+
+  const applyAppSnapshot = useCallback((next: Partial<AppModel> | null | undefined) => {
+    if (!next) return;
+    setApp((prev) => {
+      const merged: AppModel = { ...prev };
+      (Object.keys(next) as (keyof AppModel)[]).forEach((k) => {
+        if (dirtyAppFields.current.has(k)) return;
+        const val = next[k];
+        if (typeof val === "undefined") return;
+        (merged as any)[k] = val as any;
+      });
+      return merged;
+    });
+  }, []);
+
+  const applyPfSnapshot = useCallback((next: Partial<PfModel> | null | undefined) => {
+    if (!next) return;
+    setPf((prev) => {
+      const merged: PfModel = { ...prev };
+      (Object.keys(next) as (keyof PfModel)[]).forEach((k) => {
+        if (dirtyPfFields.current.has(k)) return;
+        const val = next[k];
+        if (typeof val === "undefined") return;
+        (merged as any)[k] = val as any;
+      });
+      return merged;
+    });
+  }, []);
+
+  const getFieldStatus = useCallback((key: string) => fieldStatus.current[key] || 'idle', []);
 
   function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa' }) {
     attachmentContextRef.current = context ?? null;
@@ -439,7 +480,7 @@ export default function CadastroPFPage() {
         const a2: any = { ...(a||{}) };
         if (a2 && typeof a2.meio !== 'undefined' && a2.meio !== null) a2.meio = meioToUI(a2.meio);
         if (a2 && typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
-        setApp(a2 || {});
+        applyAppSnapshot(a2 || {});
 
         // Load or create pf_fichas row
         let { data: p, error: errP } = await supabase
@@ -477,7 +518,7 @@ export default function CadastroPFPage() {
         if (typeof pfix.tipo_comprovante !== 'undefined') pfix.tipo_comprovante = tipoComprovToUI(pfix.tipo_comprovante as any);
         if (typeof pfix.vinculo !== 'undefined') pfix.vinculo = vinculoToUI(pfix.vinculo as any);
         if (typeof pfix.estado_civil !== 'undefined') pfix.estado_civil = estadoCivilToUI(pfix.estado_civil as any);
-        setPf(pfix || {});
+        applyPfSnapshot(pfix || {});
 
         // Garantir card no Kanban (Comercial/Cadastrar no MK)
         if (userId) {
@@ -532,7 +573,7 @@ export default function CadastroPFPage() {
           Object.assign(a2, a);
           if (a2 && typeof a2.meio !== 'undefined' && a2.meio !== null) a2.meio = meioToUI(a2.meio);
           if (a2 && typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
-          setApp(a2);
+          applyAppSnapshot(a2);
         })
         .subscribe();
       ch2 = supabase
@@ -553,7 +594,7 @@ export default function CadastroPFPage() {
           if (typeof pfix.tipo_comprovante !== 'undefined') pfix.tipo_comprovante = tipoComprovToUI(pfix.tipo_comprovante as any);
           if (typeof pfix.vinculo !== 'undefined') pfix.vinculo = vinculoToUI(pfix.vinculo as any);
           if (typeof pfix.estado_civil !== 'undefined') pfix.estado_civil = estadoCivilToUI(pfix.estado_civil as any);
-          setPf(pfix);
+          applyPfSnapshot(pfix);
         })
         .subscribe();
       if (cardIdEff) {
@@ -568,6 +609,13 @@ export default function CadastroPFPage() {
     } catch {}
     return () => { try { if (ch1) supabase.removeChannel(ch1); if (ch2) supabase.removeChannel(ch2); if (ch3) supabase.removeChannel(ch3); } catch {} };
   }, [applicantId, cardIdEff]);
+
+  // Debounce alinhado ao modal (1.8s)
+  const scheduleFlushRef = useRef<NodeJS.Timeout | null>(null);
+  function scheduleFlush() {
+    if (scheduleFlushRef.current) clearTimeout(scheduleFlushRef.current);
+    scheduleFlushRef.current = setTimeout(() => { flushAutosave(); }, 1800);
+  }
 
   async function flushAutosave() {
     if (!applicantId) return;
@@ -589,6 +637,7 @@ export default function CadastroPFPage() {
           appPatch.venc = Number.isFinite(n) ? n : null;
         }
         await supabase.from("applicants").update(appPatch).eq("id", applicantId);
+        (Object.keys(appPatch) as string[]).forEach((k) => { dirtyAppFields.current.delete(k as any); markFieldStatus(k, "idle"); });
       }
       if (Object.keys(pfPayload).length > 0) {
         const patch: any = { ...pfPayload };
@@ -623,19 +672,22 @@ export default function CadastroPFPage() {
           patch.conjuge_idade = onlyc ? parseInt(onlyc,10) : null;
         }
         await supabase.from("pf_fichas").update(patch).eq("applicant_id", applicantId);
+        (Object.keys(patch) as string[]).forEach((k) => { dirtyPfFields.current.delete(k as any); markFieldStatus(k, "idle"); });
       }
       setSaving("saved");
       setTimeout(() => setSaving("idle"), 1200);
     } catch (e) {
       setSaving("error");
+      (Object.keys(appPayload) as string[]).forEach((k) => markFieldStatus(k, "error"));
+      (Object.keys(pfPayload) as string[]).forEach((k) => markFieldStatus(k, "error"));
     }
   }
 
   function queueSave(scope: "app"|"pf", key: string, value: any) {
-    if (scope === "app") { pendingApp.current = { ...pendingApp.current, [key]: value }; }
-    else { pendingPf.current = { ...pendingPf.current, [key]: value }; }
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(flushAutosave, 700);
+    if (scope === "app") { pendingApp.current = { ...pendingApp.current, [key]: value }; dirtyAppFields.current.add(key as keyof AppModel); }
+    else { pendingPf.current = { ...pendingPf.current, [key]: value }; dirtyPfFields.current.add(key as keyof PfModel); }
+    markFieldStatus(key, "pending");
+    scheduleFlush();
   }
 
   const statusText = useMemo(() => (
@@ -680,6 +732,18 @@ export default function CadastroPFPage() {
 
   if (loading) return <div className="p-4 text-sm text-zinc-600">Carregando…</div>;
 
+  // Flush best-effort ao descarregar a página e onBlur global (via evento)
+  useEffect(() => {
+    const onBeforeUnload = () => { try { flushAutosave(); } catch {} };
+    const onFieldBlur = () => { flushAutosave(); };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('mz-field-blur', onFieldBlur as any);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('mz-field-blur', onFieldBlur as any);
+    };
+  }, []);
+
   // Validações condicionais
   const reqLocador = (pf.tipo_moradia || '').toLowerCase() === 'alugada';
   const reqObs = (pf.tipo_moradia || '').toLowerCase() === 'outros';
@@ -704,45 +768,48 @@ export default function CadastroPFPage() {
   
   return (
     <div className="mz-form p-6 max-w-5xl mx-auto">
+      {statusText && (
+        <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
+      )}
 
       {/* Seção 1: Dados do Cliente */}
       <Card title="Dados do Cliente">
         {/* Linha 1: Nome | CPF | Data de Nascimento | Idade */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Field label="Nome do Cliente" value={app.primary_name || ""} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave("app","primary_name", v); }} />
-          <Field label="CPF" value={app.cpf_cnpj || ""} onChange={(v)=>{ setApp({...app, cpf_cnpj:v}); queueSave("app","cpf_cnpj", v); }} />
-          <Field label="Data de Nascimento" value={pf.birth_date ? formatDateBR(pf.birth_date as any) : ""} onChange={(v)=>{ setPf({...pf, birth_date: v}); queueSave("pf","birth_date", v); }} />
-          <Field label="Idade" value={pf.idade || ""} onChange={(v)=>{ setPf({...pf, idade:v}); queueSave('pf','idade', v); }} maxLength={2} />
+          <Field label="Nome do Cliente" value={app.primary_name || ""} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave("app","primary_name", v); }} status={getFieldStatus('primary_name')} />
+          <Field label="CPF" value={app.cpf_cnpj || ""} onChange={(v)=>{ setApp({...app, cpf_cnpj:v}); queueSave("app","cpf_cnpj", v); }} status={getFieldStatus('cpf_cnpj')} />
+          <Field label="Data de Nascimento" value={pf.birth_date ? formatDateBR(pf.birth_date as any) : ""} onChange={(v)=>{ setPf({...pf, birth_date: v}); queueSave("pf","birth_date", v); }} status={getFieldStatus('birth_date')} />
+          <Field label="Idade" value={pf.idade || ""} onChange={(v)=>{ setPf({...pf, idade:v}); queueSave('pf','idade', v); }} maxLength={2} status={getFieldStatus('idade')} />
         </div>
         {/* Linha 2: Telefone | WhatsApp | Do PS */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Field label="Telefone" value={app.phone || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave("app","phone", m); }} />
-          <Field label="WhatsApp" value={app.whatsapp || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave("app","whatsapp", m); }} />
-          <Textarea label="Do PS" value={pf.do_ps || ""} onChange={(v)=>{ setPf({...pf, do_ps:v}); queueSave("pf","do_ps", v); }} red />
+          <Field label="Telefone" value={app.phone || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave("app","phone", m); }} status={getFieldStatus('phone')} />
+          <Field label="WhatsApp" value={app.whatsapp || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave("app","whatsapp", m); }} status={getFieldStatus('whatsapp')} />
+          <Textarea label="Do PS" value={pf.do_ps || ""} onChange={(v)=>{ setPf({...pf, do_ps:v}); queueSave("pf","do_ps", v); }} red status={getFieldStatus('do_ps')} />
         </div>
         {/* Linha 3: Naturalidade | UF | E-mail */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Field label="Naturalidade" value={pf.naturalidade || ""} onChange={(v)=>{ setPf({...pf, naturalidade:v}); queueSave("pf","naturalidade", v); }} />
-          <Field label="UF" value={pf.uf_naturalidade || ""} onChange={(v)=>{ setPf({...pf, uf_naturalidade:v}); queueSave("pf","uf_naturalidade", v); }} />
-          <Field label="E-mail" value={app.email || ""} onChange={(v)=>{ setApp({...app, email:v}); queueSave("app","email", v); }} />
+          <Field label="Naturalidade" value={pf.naturalidade || ""} onChange={(v)=>{ setPf({...pf, naturalidade:v}); queueSave("pf","naturalidade", v); }} status={getFieldStatus('naturalidade')} />
+          <Field label="UF" value={pf.uf_naturalidade || ""} onChange={(v)=>{ setPf({...pf, uf_naturalidade:v}); queueSave("pf","uf_naturalidade", v); }} status={getFieldStatus('uf_naturalidade')} />
+          <Field label="E-mail" value={app.email || ""} onChange={(v)=>{ setApp({...app, email:v}); queueSave("app","email", v); }} status={getFieldStatus('email')} />
         </div>
       </Card>
 
       {/* Seção 2: Endereço */}
       <Card title="Endereço">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <Field label="Endereço" value={app.address_line || ""} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave("app","address_line", v); }} className="col-span-2" />
-          <Field label="Número" value={app.address_number || ""} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave("app","address_number", v); }} />
-          <Field label="Complemento" value={app.address_complement || ""} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave("app","address_complement", v); }} />
+          <Field label="Endereço" value={app.address_line || ""} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave("app","address_line", v); }} className="col-span-2" status={getFieldStatus('address_line')} />
+          <Field label="Número" value={app.address_number || ""} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave("app","address_number", v); }} status={getFieldStatus('address_number')} />
+          <Field label="Complemento" value={app.address_complement || ""} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave("app","address_complement", v); }} status={getFieldStatus('address_complement')} />
           <Field label="CEP" value={app.cep || ""} onChange={(v)=>{
             const m = formatCep(v);
             setApp({...app, cep:m});
             queueSave('app','cep', m);
-          }} />
-          <Field label="Bairro" value={app.bairro || ""} onChange={(v)=>{ setApp({...app, bairro:v}); queueSave("app","bairro", v); }} />
-          <Field label="Cond" value={pf.cond || ""} onChange={(v)=>{ setPf({...pf, cond:v}); queueSave("pf","cond", v); }} />
-          <Field label="Tempo" value={pf.tempo_endereco || ""} onChange={(v)=>{ setPf({...pf, tempo_endereco:v}); queueSave("pf","tempo_endereco", v); }} />
-          <Field label="Endereço Do PS" value={pf.endereco_do_ps || ""} onChange={(v)=>{ setPf({...pf, endereco_do_ps:v}); queueSave("pf","endereco_do_ps", v); }} red className="md:col-span-4" />
+          }} status={getFieldStatus('cep')} />
+          <Field label="Bairro" value={app.bairro || ""} onChange={(v)=>{ setApp({...app, bairro:v}); queueSave("app","bairro", v); }} status={getFieldStatus('bairro')} />
+          <Field label="Cond" value={pf.cond || ""} onChange={(v)=>{ setPf({...pf, cond:v}); queueSave("pf","cond", v); }} status={getFieldStatus('cond')} />
+          <Field label="Tempo" value={pf.tempo_endereco || ""} onChange={(v)=>{ setPf({...pf, tempo_endereco:v}); queueSave("pf","tempo_endereco", v); }} status={getFieldStatus('tempo_endereco')} />
+          <Field label="Endereço Do PS" value={pf.endereco_do_ps || ""} onChange={(v)=>{ setPf({...pf, endereco_do_ps:v}); queueSave("pf","endereco_do_ps", v); }} red className="md:col-span-4" status={getFieldStatus('endereco_do_ps')} />
         </div>
         {/* Checklist removido: agora marcamos no label dos campos obrigatórios */}
       </Card>
@@ -764,7 +831,7 @@ export default function CadastroPFPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Observações" value={pf.tipo_moradia_obs || ""} onChange={(v)=>{ setPf({...pf, tipo_moradia_obs:v}); queueSave("pf","tipo_moradia_obs", v); }} error={errs.tipo_moradia_obs} requiredMark={reqObs} className="md:col-span-2" />
+          <Field label="Observações" value={pf.tipo_moradia_obs || ""} onChange={(v)=>{ setPf({...pf, tipo_moradia_obs:v}); queueSave("pf","tipo_moradia_obs", v); }} error={errs.tipo_moradia_obs} requiredMark={reqObs} className="md:col-span-2" status={getFieldStatus('tipo_moradia_obs')} />
           {/* Linha 2 */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">
@@ -779,9 +846,9 @@ export default function CadastroPFPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Única no lote (Obs)" value={pf.unica_no_lote_obs || ""} onChange={(v)=>{ setPf({...pf, unica_no_lote_obs:v}); queueSave("pf","unica_no_lote_obs", v); }} error={errs.unica_no_lote_obs} requiredMark={reqUnicaObs} className="md:col-span-2" />
+          <Field label="Única no lote (Obs)" value={pf.unica_no_lote_obs || ""} onChange={(v)=>{ setPf({...pf, unica_no_lote_obs:v}); queueSave("pf","unica_no_lote_obs", v); }} error={errs.unica_no_lote_obs} requiredMark={reqUnicaObs} className="md:col-span-2" status={getFieldStatus('unica_no_lote_obs')} />
           {/* Linha 3 */}
-          <Field label="Com quem reside" value={pf.com_quem_reside || ""} onChange={(v)=>{ setPf({...pf, com_quem_reside:v}); queueSave("pf","com_quem_reside", v); }} className="md:col-span-2" />
+          <Field label="Com quem reside" value={pf.com_quem_reside || ""} onChange={(v)=>{ setPf({...pf, com_quem_reside:v}); queueSave("pf","com_quem_reside", v); }} className="md:col-span-2" status={getFieldStatus('com_quem_reside')} />
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">
               <span>Nas outras</span>
@@ -827,7 +894,7 @@ export default function CadastroPFPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Nome De" value={pf.nome_de || ""} onChange={(v)=>{ setPf({...pf, nome_de:v}); queueSave("pf","nome_de", v); if ((pf.tem_contrato||'') === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { setPf(prev=>({ ...prev, nome_comprovante: v })); queueSave('pf','nome_comprovante', v); } }} error={errs.nome_de} requiredMark={reqNomeDe} disabled={!reqNomeDe} />
+          <Field label="Nome De" value={pf.nome_de || ""} onChange={(v)=>{ setPf({...pf, nome_de:v}); queueSave("pf","nome_de", v); if ((pf.tem_contrato||'') === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { setPf(prev=>({ ...prev, nome_comprovante: v })); queueSave('pf','nome_comprovante', v); } }} error={errs.nome_de} requiredMark={reqNomeDe} disabled={!reqNomeDe} status={getFieldStatus('nome_de')} />
           {/* Linha 4 */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">
@@ -865,10 +932,10 @@ export default function CadastroPFPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Nome do Comprovante" value={pf.nome_comprovante || ""} onChange={(v)=>{ setPf({...pf, nome_comprovante:v}); queueSave("pf","nome_comprovante", v); }} error={errs.nome_comprovante} requiredMark={reqComprovante} disabled={!reqComprovante} />
+          <Field label="Nome do Comprovante" value={pf.nome_comprovante || ""} onChange={(v)=>{ setPf({...pf, nome_comprovante:v}); queueSave("pf","nome_comprovante", v); }} error={errs.nome_comprovante} requiredMark={reqComprovante} disabled={!reqComprovante} status={getFieldStatus('nome_comprovante')} />
           {/* Linha 5 */}
-          <Field label="Nome Locador" value={pf.nome_locador || ""} onChange={(v)=>{ setPf({...pf, nome_locador:v}); queueSave("pf","nome_locador", v); }} error={errs.nome_locador} requiredMark={reqLocador} className="md:col-span-2" />
-          <Field label="Telefone Locador" value={pf.telefone_locador || ""} onChange={(v)=>{ setPf({...pf, telefone_locador:v}); queueSave("pf","telefone_locador", v); }} error={errs.telefone_locador} requiredMark={reqLocador} />
+          <Field label="Nome Locador" value={pf.nome_locador || ""} onChange={(v)=>{ setPf({...pf, nome_locador:v}); queueSave("pf","nome_locador", v); }} error={errs.nome_locador} requiredMark={reqLocador} className="md:col-span-2" status={getFieldStatus('nome_locador')} />
+          <Field label="Telefone Locador" value={pf.telefone_locador || ""} onChange={(v)=>{ setPf({...pf, telefone_locador:v}); queueSave("pf","telefone_locador", v); }} error={errs.telefone_locador} requiredMark={reqLocador} status={getFieldStatus('telefone_locador')} />
           {/* Linha 6 */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">
@@ -883,11 +950,11 @@ export default function CadastroPFPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Empresa Internet" value={pf.empresa_internet || ""} onChange={(v)=>{ setPf({...pf, empresa_internet:v}); queueSave("pf","empresa_internet", v); }} />
-          <Field label="Plano Internet" value={pf.plano_internet || ""} onChange={(v)=>{ setPf({...pf, plano_internet:v}); queueSave("pf","plano_internet", v); }} />
-          <Field label="Valor Internet" value={pf.valor_internet || ""} onChange={(v)=>{ const m = formatCurrencyBR(v); setPf({...pf, valor_internet:m}); queueSave("pf","valor_internet", m); }} />
+          <Field label="Empresa Internet" value={pf.empresa_internet || ""} onChange={(v)=>{ setPf({...pf, empresa_internet:v}); queueSave("pf","empresa_internet", v); }} status={getFieldStatus('empresa_internet')} />
+          <Field label="Plano Internet" value={pf.plano_internet || ""} onChange={(v)=>{ setPf({...pf, plano_internet:v}); queueSave("pf","plano_internet", v); }} status={getFieldStatus('plano_internet')} />
+          <Field label="Valor Internet" value={pf.valor_internet || ""} onChange={(v)=>{ const m = formatCurrencyBR(v); setPf({...pf, valor_internet:m}); queueSave("pf","valor_internet", m); }} status={getFieldStatus('valor_internet')} />
           {/* Linha 7 */}
-          <Textarea label="Observações" value={pf.observacoes || ""} onChange={(v)=>{ setPf({...pf, observacoes:v}); queueSave("pf","observacoes", v); }} className="md:col-span-3" />
+          <Textarea label="Observações" value={pf.observacoes || ""} onChange={(v)=>{ setPf({...pf, observacoes:v}); queueSave("pf","observacoes", v); }} className="md:col-span-3" status={getFieldStatus('observacoes')} />
         </div>
         {/* Checklist removido: agora marcamos no label dos campos obrigatórios */}
       </Card>
@@ -895,8 +962,8 @@ export default function CadastroPFPage() {
       {/* Seções complementares resumidas (Emprego/Renda, Cônjuge, Filiação, Referências, Outras Inf, MK, Parecer) */}
       <Card title="Emprego e Renda">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Field label="Profissão" value={pf.profissao || ""} onChange={(v)=>{ setPf({...pf, profissao:v}); queueSave("pf","profissao", v); }} />
-          <Field label="Empresa" value={pf.empresa || ""} onChange={(v)=>{ setPf({...pf, empresa:v}); queueSave("pf","empresa", v); }} />
+          <Field label="Profissão" value={pf.profissao || ""} onChange={(v)=>{ setPf({...pf, profissao:v}); queueSave("pf","profissao", v); }} status={getFieldStatus('profissao')} />
+          <Field label="Empresa" value={pf.empresa || ""} onChange={(v)=>{ setPf({...pf, empresa:v}); queueSave("pf","empresa", v); }} status={getFieldStatus('empresa')} />
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">
               <span>Vínculo</span>
@@ -910,8 +977,8 @@ export default function CadastroPFPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Vínculo (Obs)" value={pf.vinculo_obs || ""} onChange={(v)=>{ setPf({...pf, vinculo_obs:v}); queueSave("pf","vinculo_obs", v); }} error={errs.vinculo_obs} requiredMark={reqVinculoObs} />
-          <Field label="Emprego do PS" value={pf.emprego_do_ps || ""} onChange={(v)=>{ setPf({...pf, emprego_do_ps:v}); queueSave("pf","emprego_do_ps", v); }} red className="lg:col-span-4" />
+          <Field label="Vínculo (Obs)" value={pf.vinculo_obs || ""} onChange={(v)=>{ setPf({...pf, vinculo_obs:v}); queueSave("pf","vinculo_obs", v); }} error={errs.vinculo_obs} requiredMark={reqVinculoObs} status={getFieldStatus('vinculo_obs')} />
+          <Field label="Emprego do PS" value={pf.emprego_do_ps || ""} onChange={(v)=>{ setPf({...pf, emprego_do_ps:v}); queueSave("pf","emprego_do_ps", v); }} red className="lg:col-span-4" status={getFieldStatus('emprego_do_ps')} />
         </div>
         </Card>
 
@@ -931,42 +998,42 @@ export default function CadastroPFPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Observações" value={pf.conjuge_obs || ""} onChange={(v)=>{ setPf({...pf, conjuge_obs:v}); queueSave("pf","conjuge_obs", v); }} className="lg:col-span-3" />
+          <Field label="Observações" value={pf.conjuge_obs || ""} onChange={(v)=>{ setPf({...pf, conjuge_obs:v}); queueSave("pf","conjuge_obs", v); }} className="lg:col-span-3" status={getFieldStatus('conjuge_obs')} />
           {/* Linha 2 */}
-          <Field label="Nome" value={pf.conjuge_nome || ""} onChange={(v)=>{ setPf({...pf, conjuge_nome:v}); queueSave("pf","conjuge_nome", v); }} className="lg:col-span-2" />
-          <Field label="Telefone" value={pf.conjuge_telefone || ""} onChange={(v)=>{ setPf({...pf, conjuge_telefone:v}); queueSave("pf","conjuge_telefone", v); }} />
-          <Field label="Whatsapp" value={pf.conjuge_whatsapp || ""} onChange={(v)=>{ setPf({...pf, conjuge_whatsapp:v}); queueSave("pf","conjuge_whatsapp", v); }} />
+          <Field label="Nome" value={pf.conjuge_nome || ""} onChange={(v)=>{ setPf({...pf, conjuge_nome:v}); queueSave("pf","conjuge_nome", v); }} className="lg:col-span-2" status={getFieldStatus('conjuge_nome')} />
+          <Field label="Telefone" value={pf.conjuge_telefone || ""} onChange={(v)=>{ setPf({...pf, conjuge_telefone:v}); queueSave("pf","conjuge_telefone", v); }} status={getFieldStatus('conjuge_telefone')} />
+          <Field label="Whatsapp" value={pf.conjuge_whatsapp || ""} onChange={(v)=>{ setPf({...pf, conjuge_whatsapp:v}); queueSave("pf","conjuge_whatsapp", v); }} status={getFieldStatus('conjuge_whatsapp')} />
           {/* Linha 3 */}
-          <Field label="CPF" value={pf.conjuge_cpf || ""} onChange={(v)=>{ setPf({...pf, conjuge_cpf:v}); queueSave("pf","conjuge_cpf", v); }} />
-          <Field label="Naturalidade" value={pf.conjuge_naturalidade || ""} onChange={(v)=>{ setPf({...pf, conjuge_naturalidade:v}); queueSave("pf","conjuge_naturalidade", v); }} />
-          <Field label="UF" value={pf.conjuge_uf || ""} onChange={(v)=>{ setPf({...pf, conjuge_uf:v}); queueSave("pf","conjuge_uf", v); }} />
-          <Field label="Idade" value={pf.conjuge_idade || ""} onChange={(v)=>{ setPf({...pf, conjuge_idade:v}); queueSave("pf","conjuge_idade", v); }} maxLength={2} />
+          <Field label="CPF" value={pf.conjuge_cpf || ""} onChange={(v)=>{ setPf({...pf, conjuge_cpf:v}); queueSave("pf","conjuge_cpf", v); }} status={getFieldStatus('conjuge_cpf')} />
+          <Field label="Naturalidade" value={pf.conjuge_naturalidade || ""} onChange={(v)=>{ setPf({...pf, conjuge_naturalidade:v}); queueSave("pf","conjuge_naturalidade", v); }} status={getFieldStatus('conjuge_naturalidade')} />
+          <Field label="UF" value={pf.conjuge_uf || ""} onChange={(v)=>{ setPf({...pf, conjuge_uf:v}); queueSave("pf","conjuge_uf", v); }} status={getFieldStatus('conjuge_uf')} />
+          <Field label="Idade" value={pf.conjuge_idade || ""} onChange={(v)=>{ setPf({...pf, conjuge_idade:v}); queueSave("pf","conjuge_idade", v); }} maxLength={2} status={getFieldStatus('conjuge_idade')} />
           {/* Linha 4 */}
-          <Field label="Do PS" value={pf.conjuge_do_ps || ""} onChange={(v)=>{ setPf({...pf, conjuge_do_ps:v}); queueSave("pf","conjuge_do_ps", v); }} red className="lg:col-span-4" />
+          <Field label="Do PS" value={pf.conjuge_do_ps || ""} onChange={(v)=>{ setPf({...pf, conjuge_do_ps:v}); queueSave("pf","conjuge_do_ps", v); }} red className="lg:col-span-4" status={getFieldStatus('conjuge_do_ps')} />
         </div>
       </Card>
 
       <Card title="Filiação">
         <Grid cols={3}>
-          <Field label="Pai — Nome" value={pf.pai_nome || ""} onChange={(v)=>{ setPf({...pf, pai_nome:v}); queueSave("pf","pai_nome", v); }} />
-          <Field label="Pai — Reside" value={pf.pai_reside || ""} onChange={(v)=>{ setPf({...pf, pai_reside:v}); queueSave("pf","pai_reside", v); }} />
-          <Field label="Pai — Telefone" value={pf.pai_telefone || ""} onChange={(v)=>{ setPf({...pf, pai_telefone:v}); queueSave("pf","pai_telefone", v); }} />
-          <Field label="Mãe — Nome" value={pf.mae_nome || ""} onChange={(v)=>{ setPf({...pf, mae_nome:v}); queueSave("pf","mae_nome", v); }} />
-          <Field label="Mãe — Reside" value={pf.mae_reside || ""} onChange={(v)=>{ setPf({...pf, mae_reside:v}); queueSave("pf","mae_reside", v); }} />
-          <Field label="Mãe — Telefone" value={pf.mae_telefone || ""} onChange={(v)=>{ setPf({...pf, mae_telefone:v}); queueSave("pf","mae_telefone", v); }} />
+          <Field label="Pai — Nome" value={pf.pai_nome || ""} onChange={(v)=>{ setPf({...pf, pai_nome:v}); queueSave("pf","pai_nome", v); }} status={getFieldStatus('pai_nome')} />
+          <Field label="Pai — Reside" value={pf.pai_reside || ""} onChange={(v)=>{ setPf({...pf, pai_reside:v}); queueSave("pf","pai_reside", v); }} status={getFieldStatus('pai_reside')} />
+          <Field label="Pai — Telefone" value={pf.pai_telefone || ""} onChange={(v)=>{ setPf({...pf, pai_telefone:v}); queueSave("pf","pai_telefone", v); }} status={getFieldStatus('pai_telefone')} />
+          <Field label="Mãe — Nome" value={pf.mae_nome || ""} onChange={(v)=>{ setPf({...pf, mae_nome:v}); queueSave("pf","mae_nome", v); }} status={getFieldStatus('mae_nome')} />
+          <Field label="Mãe — Reside" value={pf.mae_reside || ""} onChange={(v)=>{ setPf({...pf, mae_reside:v}); queueSave("pf","mae_reside", v); }} status={getFieldStatus('mae_reside')} />
+          <Field label="Mãe — Telefone" value={pf.mae_telefone || ""} onChange={(v)=>{ setPf({...pf, mae_telefone:v}); queueSave("pf","mae_telefone", v); }} status={getFieldStatus('mae_telefone')} />
         </Grid>
       </Card>
 
       <Card title="Referências Pessoais">
         <Grid cols={4}>
-          <Field label="Ref1 — Nome" value={pf.ref1_nome || ""} onChange={(v)=>{ setPf({...pf, ref1_nome:v}); queueSave("pf","ref1_nome", v); }} />
-          <Field label="Parentesco" value={pf.ref1_parentesco || ""} onChange={(v)=>{ setPf({...pf, ref1_parentesco:v}); queueSave("pf","ref1_parentesco", v); }} />
-          <Field label="Reside" value={pf.ref1_reside || ""} onChange={(v)=>{ setPf({...pf, ref1_reside:v}); queueSave("pf","ref1_reside", v); }} />
-          <Field label="Telefone" value={pf.ref1_telefone || ""} onChange={(v)=>{ setPf({...pf, ref1_telefone:v}); queueSave("pf","ref1_telefone", v); }} />
-          <Field label="Ref2 — Nome" value={pf.ref2_nome || ""} onChange={(v)=>{ setPf({...pf, ref2_nome:v}); queueSave("pf","ref2_nome", v); }} />
-          <Field label="Parentesco" value={pf.ref2_parentesco || ""} onChange={(v)=>{ setPf({...pf, ref2_parentesco:v}); queueSave("pf","ref2_parentesco", v); }} />
-          <Field label="Reside" value={pf.ref2_reside || ""} onChange={(v)=>{ setPf({...pf, ref2_reside:v}); queueSave("pf","ref2_reside", v); }} />
-          <Field label="Telefone" value={pf.ref2_telefone || ""} onChange={(v)=>{ setPf({...pf, ref2_telefone:v}); queueSave("pf","ref2_telefone", v); }} />
+          <Field label="Ref1 — Nome" value={pf.ref1_nome || ""} onChange={(v)=>{ setPf({...pf, ref1_nome:v}); queueSave("pf","ref1_nome", v); }} status={getFieldStatus('ref1_nome')} />
+          <Field label="Parentesco" value={pf.ref1_parentesco || ""} onChange={(v)=>{ setPf({...pf, ref1_parentesco:v}); queueSave("pf","ref1_parentesco", v); }} status={getFieldStatus('ref1_parentesco')} />
+          <Field label="Reside" value={pf.ref1_reside || ""} onChange={(v)=>{ setPf({...pf, ref1_reside:v}); queueSave("pf","ref1_reside", v); }} status={getFieldStatus('ref1_reside')} />
+          <Field label="Telefone" value={pf.ref1_telefone || ""} onChange={(v)=>{ setPf({...pf, ref1_telefone:v}); queueSave("pf","ref1_telefone", v); }} status={getFieldStatus('ref1_telefone')} />
+          <Field label="Ref2 — Nome" value={pf.ref2_nome || ""} onChange={(v)=>{ setPf({...pf, ref2_nome:v}); queueSave("pf","ref2_nome", v); }} status={getFieldStatus('ref2_nome')} />
+          <Field label="Parentesco" value={pf.ref2_parentesco || ""} onChange={(v)=>{ setPf({...pf, ref2_parentesco:v}); queueSave("pf","ref2_parentesco", v); }} status={getFieldStatus('ref2_parentesco')} />
+          <Field label="Reside" value={pf.ref2_reside || ""} onChange={(v)=>{ setPf({...pf, ref2_reside:v}); queueSave("pf","ref2_reside", v); }} status={getFieldStatus('ref2_reside')} />
+          <Field label="Telefone" value={pf.ref2_telefone || ""} onChange={(v)=>{ setPf({...pf, ref2_telefone:v}); queueSave("pf","ref2_telefone", v); }} status={getFieldStatus('ref2_telefone')} />
         </Grid>
       </Card>
 
@@ -1027,9 +1094,9 @@ export default function CadastroPFPage() {
             />
           </div>
 
-          <Field label="Quem solicitou" value={app.quem_solicitou || ""} onChange={(v)=>{ setApp({...app, quem_solicitou:v}); queueSave("app","quem_solicitou", v); }} />
-          <Field label="Telefone do solicitante" value={app.telefone_solicitante || ""} onChange={(v)=>{ setApp({...app, telefone_solicitante:v}); queueSave("app","telefone_solicitante", v); }} />
-          <Field label="Protocolo MK" value={app.protocolo_mk || ""} onChange={(v)=>{ setApp({...app, protocolo_mk:v}); queueSave("app","protocolo_mk", v); }} />
+          <Field label="Quem solicitou" value={app.quem_solicitou || ""} onChange={(v)=>{ setApp({...app, quem_solicitou:v}); queueSave("app","quem_solicitou", v); }} status={getFieldStatus('quem_solicitou')} />
+          <Field label="Telefone do solicitante" value={app.telefone_solicitante || ""} onChange={(v)=>{ setApp({...app, telefone_solicitante:v}); queueSave("app","telefone_solicitante", v); }} status={getFieldStatus('telefone_solicitante')} />
+          <Field label="Protocolo MK" value={app.protocolo_mk || ""} onChange={(v)=>{ setApp({...app, protocolo_mk:v}); queueSave("app","protocolo_mk", v); }} status={getFieldStatus('protocolo_mk')} />
 
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Meio</label>
@@ -1042,8 +1109,8 @@ export default function CadastroPFPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Textarea label="Informações relevantes" value={app.info_relevantes || ""} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave("app","info_relevantes", v); }} className="lg:col-span-4" />
-          <Textarea label="Informações Relevantes do MK" value={app.info_mk || ""} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave("app","info_mk", v); }} red className="lg:col-span-4" />
+          <Textarea label="Informações relevantes" value={app.info_relevantes || ""} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave("app","info_relevantes", v); }} className="lg:col-span-4" status={getFieldStatus('info_relevantes')} />
+          <Textarea label="Informações Relevantes do MK" value={app.info_mk || ""} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave("app","info_mk", v); }} red className="lg:col-span-4" status={getFieldStatus('info_mk')} />
         </div>
       </Card>
 
@@ -1204,7 +1271,7 @@ function Grid({ cols, children }: { cols: 1|2|3|4; children: React.ReactNode }) 
   return <div className={`grid gap-4 ${cls}`}>{children}</div>;
 }
 
-function Field({ label, value, onChange, className, error, red, requiredMark, disabled, maxLength }: { label: string; value: string; onChange: (v: string)=>void; className?: string; error?: boolean; red?: boolean; requiredMark?: boolean; disabled?: boolean; maxLength?: number }) {
+function Field({ label, value, onChange, className, error, red, requiredMark, disabled, maxLength, status }: { label: string; value: string; onChange: (v: string)=>void; className?: string; error?: boolean; red?: boolean; requiredMark?: boolean; disabled?: boolean; maxLength?: number; status?: 'idle'|'pending'|'error' }) {
   return (
     <div className={className}>
       <label className="mb-1 block text-xs font-medium text-zinc-700">
@@ -1218,17 +1285,19 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
       <input
         value={value}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
+        onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
         disabled={disabled}
         maxLength={maxLength}
         className={`h-10 w-full rounded-[7px] border ${error || red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 text-sm outline-none shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)]`}
         placeholder=""
         autoComplete="off"
       />
+      <FieldStatusIndicator status={status || 'idle'} />
     </div>
   );
 }
 
-function Textarea({ label, value, onChange, red, error, className, requiredMark, disabled }: { label: string; value: string; onChange: (v: string)=>void; red?: boolean; error?: boolean; className?: string; requiredMark?: boolean; disabled?: boolean }) {
+function Textarea({ label, value, onChange, red, error, className, requiredMark, disabled, status }: { label: string; value: string; onChange: (v: string)=>void; red?: boolean; error?: boolean; className?: string; requiredMark?: boolean; disabled?: boolean; status?: 'idle'|'pending'|'error' }) {
   return (
     <div className={className}>
       <label className="mb-1 block text-xs font-medium text-zinc-700">
@@ -1242,10 +1311,12 @@ function Textarea({ label, value, onChange, red, error, className, requiredMark,
       <textarea
         value={value}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
+        onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
         disabled={disabled}
         className={`min-h-[88px] w-full rounded-xl border ${error || red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 py-2 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)] shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
         placeholder=""
       />
+      <FieldStatusIndicator status={status || 'idle'} />
     </div>
   );
 }
@@ -1271,6 +1342,7 @@ function Select({ label, value, onChange, options, error, requiredMark, disabled
           <select
             value={displayValue}
             onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
+            onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
             disabled={disabled}
             className={`h-10 w-full rounded-[7px] border border-zinc-200 bg-zinc-50 px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} ${error ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-300' : 'focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
           >
@@ -1280,6 +1352,16 @@ function Select({ label, value, onChange, options, error, requiredMark, disabled
           </select>
         );
       })()}
+    </div>
+  );
+}
+
+function FieldStatusIndicator({ status }: { status: 'idle'|'pending'|'error' }) {
+  if (status === 'idle') return null;
+  return (
+    <div className="mt-1 text-xs text-gray-500 h-4 flex items-center gap-1">
+      {status === 'pending' && <span>Salvando…</span>}
+      {status === 'error' && <span className="text-red-500">Erro ao salvar</span>}
     </div>
   );
 }

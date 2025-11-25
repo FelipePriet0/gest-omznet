@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback } from "react";
 import clsx from "clsx";
 import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -226,6 +226,46 @@ export default function CadastroPJPage() {
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
   const [cardIdEff, setCardIdEff] = useState<string>('');
+  // Dirty + status tracking
+  const dirtyAppFields = useRef<Set<keyof AppModel>>(new Set());
+  const dirtyPjFields = useRef<Set<keyof PjModel>>(new Set());
+  const fieldStatus = useRef<Record<string, 'idle'|'pending'|'error'>>({});
+  const [, forceStatusRender] = useState(0);
+
+  const markFieldStatus = useCallback((key: string, status: 'idle'|'pending'|'error') => {
+    fieldStatus.current[key] = status;
+    forceStatusRender(v => v+1);
+  }, []);
+
+  const applyAppSnapshot = useCallback((next: Partial<AppModel> | null | undefined) => {
+    if (!next) return;
+    setApp((prev) => {
+      const merged: AppModel = { ...prev };
+      (Object.keys(next) as (keyof AppModel)[]).forEach((k) => {
+        if (dirtyAppFields.current.has(k)) return;
+        const val = next[k];
+        if (typeof val === 'undefined') return;
+        (merged as any)[k] = val as any;
+      });
+      return merged;
+    });
+  }, []);
+
+  const applyPjSnapshot = useCallback((next: Partial<PjModel> | null | undefined) => {
+    if (!next) return;
+    setPj((prev) => {
+      const merged: PjModel = { ...prev };
+      (Object.keys(next) as (keyof PjModel)[]).forEach((k) => {
+        if (dirtyPjFields.current.has(k)) return;
+        const val = next[k];
+        if (typeof val === 'undefined') return;
+        (merged as any)[k] = val as any;
+      });
+      return merged;
+    });
+  }, []);
+
+  const getFieldStatus = useCallback((key: string) => fieldStatus.current[key] || 'idle', []);
 
   function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa' }) {
     attachmentContextRef.current = context ?? null;
@@ -412,7 +452,7 @@ export default function CadastroPJPage() {
         const a2:any = { ...(a||{}) };
         if (a2 && typeof a2.meio !== 'undefined' && a2.meio !== null) a2.meio = meioToUI(a2.meio);
         if (a2 && typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
-        setApp(a2||{});
+        applyAppSnapshot(a2||{});
 
         // pj_fichas
         let { data: p } = await supabase
@@ -437,7 +477,7 @@ export default function CadastroPJPage() {
         if (typeof pfix.tipo_imovel !== 'undefined') pfix.tipo_imovel = tipoImovelToUI(pfix.tipo_imovel as any);
         if (typeof pfix.tipo_estabelecimento !== 'undefined') pfix.tipo_estabelecimento = tipoEstabToUI(pfix.tipo_estabelecimento as any);
         if (typeof pfix.tipo_comprovante !== 'undefined') pfix.tipo_comprovante = tipoComprovToUI(pfix.tipo_comprovante as any);
-        setPj(pfix||{});
+        applyPjSnapshot(pfix||{});
 
         // Garantir card no Kanban (Comercial/Cadastrar no MK)
         if (userId) {
@@ -492,7 +532,7 @@ export default function CadastroPJPage() {
           Object.assign(a2, a);
           if (a2 && typeof a2.meio !== 'undefined' && a2.meio !== null) a2.meio = meioToUI(a2.meio);
           if (a2 && typeof a2.venc !== 'undefined' && a2.venc !== null) a2.venc = String(a2.venc);
-          setApp(a2);
+          applyAppSnapshot(a2);
         })
         .subscribe();
       ch2 = supabase
@@ -508,7 +548,7 @@ export default function CadastroPJPage() {
           if (typeof p2.tipo_imovel !== 'undefined') p2.tipo_imovel = tipoImovelToUI(p2.tipo_imovel as any);
           if (typeof p2.tipo_estabelecimento !== 'undefined') p2.tipo_estabelecimento = tipoEstabToUI(p2.tipo_estabelecimento as any);
           if (typeof p2.tipo_comprovante !== 'undefined') p2.tipo_comprovante = tipoComprovToUI(p2.tipo_comprovante as any);
-          setPj(p2);
+          applyPjSnapshot(p2);
         })
         .subscribe();
       if (cardIdEff) {
@@ -524,6 +564,13 @@ export default function CadastroPJPage() {
     return () => { try { if (ch1) supabase.removeChannel(ch1); if (ch2) supabase.removeChannel(ch2); if (ch3) supabase.removeChannel(ch3); } catch {} };
   }, [applicantId, cardIdEff]);
 
+  // Debounce alinhado ao modal (1.8s)
+  const scheduleFlushRef = useRef<NodeJS.Timeout | null>(null);
+  function scheduleFlush() {
+    if (scheduleFlushRef.current) clearTimeout(scheduleFlushRef.current);
+    scheduleFlushRef.current = setTimeout(() => { flushAutosave(); }, 1800);
+  }
+
   async function flushAutosave() {
     if (!applicantId) return;
     const appPayload = pendingApp.current; const pjPayload = pendingPj.current;
@@ -536,6 +583,7 @@ export default function CadastroPJPage() {
         if (typeof ap.meio !== 'undefined') ap.meio = uiToMeio(String(ap.meio));
         if (typeof ap.venc !== 'undefined') { const n = parseInt(String(ap.venc),10); ap.venc = Number.isFinite(n) ? n : null; }
         await supabase.from('applicants').update(ap).eq('id', applicantId);
+        (Object.keys(ap) as string[]).forEach((k) => { dirtyAppFields.current.delete(k as any); markFieldStatus(k, 'idle'); });
       }
       if (Object.keys(pjPayload).length > 0) {
         const pp:any = { ...pjPayload };
@@ -548,16 +596,21 @@ export default function CadastroPJPage() {
         if (typeof pp.tipo_estabelecimento !== 'undefined') pp.tipo_estabelecimento = uiToTipoEstab(String(pp.tipo_estabelecimento));
         if (typeof pp.tipo_comprovante !== 'undefined') pp.tipo_comprovante = uiToTipoComprov(String(pp.tipo_comprovante));
         await supabase.from('pj_fichas').update(pp).eq('applicant_id', applicantId);
+        (Object.keys(pp) as string[]).forEach((k) => { dirtyPjFields.current.delete(k as any); markFieldStatus(k, 'idle'); });
       }
       setSaving('saved'); setTimeout(()=> setSaving('idle'), 1200);
-    } catch(e) { setSaving('error'); }
+    } catch(e) {
+      setSaving('error');
+      (Object.keys(appPayload) as string[]).forEach((k) => markFieldStatus(k, 'error'));
+      (Object.keys(pjPayload) as string[]).forEach((k) => markFieldStatus(k, 'error'));
+    }
   }
 
   function queueSave(scope:'app'|'pj', key:string, value:any) {
-    if (scope==='app') pendingApp.current = { ...pendingApp.current, [key]: value };
-    else pendingPj.current = { ...pendingPj.current, [key]: value };
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(flushAutosave, 700);
+    if (scope==='app') { pendingApp.current = { ...pendingApp.current, [key]: value }; dirtyAppFields.current.add(key as keyof AppModel); }
+    else { pendingPj.current = { ...pendingPj.current, [key]: value }; dirtyPjFields.current.add(key as keyof PjModel); }
+    markFieldStatus(key, 'pending');
+    scheduleFlush();
   }
 
   const statusText = useMemo(() => (saving==='saving' ? 'Salvando…' : saving==='saved' ? 'Salvo' : saving==='error' ? 'Erro ao salvar' : ''), [saving]);
@@ -569,22 +622,37 @@ export default function CadastroPJPage() {
 
   if (loading) return <div className="p-4 text-sm text-zinc-600">Carregando…</div>;
 
+  // Flush best-effort ao descarregar a página e onBlur global (via evento)
+  useEffect(() => {
+    const onBeforeUnload = () => { try { flushAutosave(); } catch {} };
+    const onFieldBlur = () => { flushAutosave(); };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('mz-field-blur', onFieldBlur as any);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('mz-field-blur', onFieldBlur as any);
+    };
+  }, []);
+
   const reqComprov = (pj.enviou_comprovante||'') === 'Sim';
 
   const from = (search?.get('from') || '').toLowerCase();
   const showAnalyzeCrumb = from === 'analisar';
   return (
     <div className="pj-form p-6 max-w-5xl mx-auto">
+      {statusText && (
+        <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
+      )}
 
       {/* Seção 1: Dados da Empresa */}
       <Card title="Dados da Empresa">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          <Field label="Razão Social" value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave('app','primary_name',v); }} className="lg:col-span-2" />
-          <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queueSave('app','cpf_cnpj',m); }} inputMode="numeric" maxLength={18} />
-          <Field label="Data de Abertura" value={pj.data_abertura||''} onChange={(v)=>{ const m=formatDateBR(v); setPj({...pj, data_abertura:m}); queueSave('pj','data_abertura', m); }} inputMode="numeric" maxLength={10} />
-          <Field label="Nome Fantasia" value={pj.nome_fantasia||''} onChange={(v)=>{ setPj({...pj, nome_fantasia:v}); queueSave('pj','nome_fantasia', v); }} />
-          <Field label="Nome de Fachada" value={pj.nome_fachada||''} onChange={(v)=>{ setPj({...pj, nome_fachada:v}); queueSave('pj','nome_fachada', v); }} />
-          <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} className="md:col-span-3 xl:col-span-4" />
+          <Field label="Razão Social" value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave('app','primary_name',v); }} className="lg:col-span-2" status={getFieldStatus('primary_name')} />
+          <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queueSave('app','cpf_cnpj',m); }} inputMode="numeric" maxLength={18} status={getFieldStatus('cpf_cnpj')} />
+          <Field label="Data de Abertura" value={pj.data_abertura||''} onChange={(v)=>{ const m=formatDateBR(v); setPj({...pj, data_abertura:m}); queueSave('pj','data_abertura', m); }} inputMode="numeric" maxLength={10} status={getFieldStatus('data_abertura')} />
+          <Field label="Nome Fantasia" value={pj.nome_fantasia||''} onChange={(v)=>{ setPj({...pj, nome_fantasia:v}); queueSave('pj','nome_fantasia', v); }} status={getFieldStatus('nome_fantasia')} />
+          <Field label="Nome de Fachada" value={pj.nome_fachada||''} onChange={(v)=>{ setPj({...pj, nome_fachada:v}); queueSave('pj','nome_fachada', v); }} status={getFieldStatus('nome_fachada')} />
+          <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} className="md:col-span-3 xl:col-span-4" status={getFieldStatus('area_atuacao')} />
         </div>
       </Card>
 
@@ -592,10 +660,10 @@ export default function CadastroPJPage() {
       <Card title="Endereço">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {/* Linha 1: Endereço | Número */}
-          <Field label="Endereço" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave('app','address_line', v); }} className="md:col-span-2" />
-          <Field label="Número" value={app.address_number||''} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave('app','address_number', v); }} />
+          <Field label="Endereço" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave('app','address_line', v); }} className="md:col-span-2" status={getFieldStatus('address_line')} />
+          <Field label="Número" value={app.address_number||''} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave('app','address_number', v); }} status={getFieldStatus('address_number')} />
           {/* Linha 2: Complemento (linha inteira) */}
-          <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave('app','address_complement', v); }} className="md:col-span-3" />
+          <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave('app','address_complement', v); }} className="md:col-span-3" status={getFieldStatus('address_complement')} />
           {/* Linha 3: Tipo (md:col-span-2) | Observações */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Imóvel</label>
@@ -608,11 +676,11 @@ export default function CadastroPJPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Obs Tipo de Imóvel" value={pj.obs_tipo_imovel||''} onChange={(v)=>{ setPj({...pj, obs_tipo_imovel:v}); queueSave('pj','obs_tipo_imovel', v); }} />
+          <Field label="Obs Tipo de Imóvel" value={pj.obs_tipo_imovel||''} onChange={(v)=>{ setPj({...pj, obs_tipo_imovel:v}); queueSave('pj','obs_tipo_imovel', v); }} status={getFieldStatus('obs_tipo_imovel')} />
           {/* Linha 4: CEP | Bairro | Tempo */}
-          <Field label="CEP" value={app.cep||''} onChange={(v)=>{ const m = formatCep(v); setApp({...app, cep:m}); queueSave('app','cep', m); }} />
-          <Field label="Bairro" value={app.bairro||''} onChange={(v)=>{ setApp({...app, bairro:v}); queueSave('app','bairro', v); }} />
-          <Field label="Tempo no Endereço" value={pj.tempo_endereco||''} onChange={(v)=>{ setPj({...pj, tempo_endereco:v}); queueSave('pj','tempo_endereco', v); }} />
+          <Field label="CEP" value={app.cep||''} onChange={(v)=>{ const m = formatCep(v); setApp({...app, cep:m}); queueSave('app','cep', m); }} status={getFieldStatus('cep')} />
+          <Field label="Bairro" value={app.bairro||''} onChange={(v)=>{ setApp({...app, bairro:v}); queueSave('app','bairro', v); }} status={getFieldStatus('bairro')} />
+          <Field label="Tempo no Endereço" value={pj.tempo_endereco||''} onChange={(v)=>{ setPj({...pj, tempo_endereco:v}); queueSave('pj','tempo_endereco', v); }} status={getFieldStatus('tempo_endereco')} />
           {/* Linha 5: Estabelecimento (md:col-span-2) | Observações */}
           <div className="md:col-span-2">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Estabelecimento</label>
@@ -625,18 +693,18 @@ export default function CadastroPJPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Obs Estabelecimento" value={pj.obs_estabelecimento||''} onChange={(v)=>{ setPj({...pj, obs_estabelecimento:v}); queueSave('pj','obs_estabelecimento', v); }} />
-          <Field label="Endereço do PS" value={pj.end_ps||''} onChange={(v)=>{ setPj({...pj, end_ps:v}); queueSave('pj','end_ps', v); }} red className="md:col-span-3" />
+          <Field label="Obs Estabelecimento" value={pj.obs_estabelecimento||''} onChange={(v)=>{ setPj({...pj, obs_estabelecimento:v}); queueSave('pj','obs_estabelecimento', v); }} status={getFieldStatus('obs_estabelecimento')} />
+          <Field label="Endereço do PS" value={pj.end_ps||''} onChange={(v)=>{ setPj({...pj, end_ps:v}); queueSave('pj','end_ps', v); }} red className="md:col-span-3" status={getFieldStatus('end_ps')} />
         </div>
       </Card>
 
       {/* Seção 3: Contatos e Documentos */}
       <Card title="Contatos e Documentos">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave('app','phone', m); }} />
-          <Field label="WhatsApp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave('app','whatsapp', m); }} />
-          <Field label="Fones no PS" value={pj.fones_ps||''} onChange={(v)=>{ setPj({...pj, fones_ps:v}); queueSave('pj','fones_ps', v); }} red />
-          <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queueSave('app','email', v); }} className="md:col-span-4" />
+          <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave('app','phone', m); }} status={getFieldStatus('phone')} />
+          <Field label="WhatsApp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave('app','whatsapp', m); }} status={getFieldStatus('whatsapp')} />
+          <Field label="Fones no PS" value={pj.fones_ps||''} onChange={(v)=>{ setPj({...pj, fones_ps:v}); queueSave('pj','fones_ps', v); }} red status={getFieldStatus('fones_ps')} />
+          <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queueSave('app','email', v); }} className="md:col-span-4" status={getFieldStatus('email')} />
 
           {/* Linha: Possui Internet | Operadora | Plano | Valor */}
           <div>
@@ -650,9 +718,9 @@ export default function CadastroPJPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Operadora Internet" value={pj.operadora_internet||''} onChange={(v)=>{ setPj({...pj, operadora_internet:v}); queueSave('pj','operadora_internet', v); }} />
-          <Field label="Plano Internet" value={pj.plano_internet||''} onChange={(v)=>{ setPj({...pj, plano_internet:v}); queueSave('pj','plano_internet', v); }} />
-          <Field label="Valor Internet" value={pj.valor_internet||''} onChange={(v)=>{ const m = formatCurrencyBR(v); setPj({...pj, valor_internet:m}); queueSave('pj','valor_internet', m); }} />
+          <Field label="Operadora Internet" value={pj.operadora_internet||''} onChange={(v)=>{ setPj({...pj, operadora_internet:v}); queueSave('pj','operadora_internet', v); }} status={getFieldStatus('operadora_internet')} />
+          <Field label="Plano Internet" value={pj.plano_internet||''} onChange={(v)=>{ setPj({...pj, plano_internet:v}); queueSave('pj','plano_internet', v); }} status={getFieldStatus('plano_internet')} />
+          <Field label="Valor Internet" value={pj.valor_internet||''} onChange={(v)=>{ const m = formatCurrencyBR(v); setPj({...pj, valor_internet:m}); queueSave('pj','valor_internet', m); }} status={getFieldStatus('valor_internet')} />
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Enviou Comprovante</label>
             <SimpleSelect
@@ -675,7 +743,7 @@ export default function CadastroPJPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Em nome de" value={pj.nome_comprovante||''} onChange={(v)=>{ setPj({...pj, nome_comprovante:v}); queueSave('pj','nome_comprovante', v); }} disabled={!reqComprov} requiredMark={reqComprov} />
+          <Field label="Em nome de" value={pj.nome_comprovante||''} onChange={(v)=>{ setPj({...pj, nome_comprovante:v}); queueSave('pj','nome_comprovante', v); }} disabled={!reqComprov} requiredMark={reqComprov} status={getFieldStatus('nome_comprovante')} />
           <div className="md:col-span-2">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Contrato Social</label>
             <SimpleSelect
@@ -687,7 +755,7 @@ export default function CadastroPJPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Observações" value={pj.obs_contrato_social||''} onChange={(v)=>{ setPj({...pj, obs_contrato_social:v}); queueSave('pj','obs_contrato_social', v); }} />
+          <Field label="Observações" value={pj.obs_contrato_social||''} onChange={(v)=>{ setPj({...pj, obs_contrato_social:v}); queueSave('pj','obs_contrato_social', v); }} status={getFieldStatus('obs_contrato_social')} />
         </div>
       </Card>
 
@@ -722,22 +790,22 @@ export default function CadastroPJPage() {
       />
       <Card title="Sócios">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Field label="Sócio 1 - Nome" value={pj.socio1_nome||''} onChange={(v)=>{ setPj({...pj, socio1_nome:v}); queueSave('pj','socio1_nome', v); }} />
-          <Field label="Sócio 1 - CPF" value={pj.socio1_cpf||''} onChange={(v)=>{ setPj({...pj, socio1_cpf:v}); queueSave('pj','socio1_cpf', v); }} />
-          <Field label="Sócio 1 - Tel" value={pj.socio1_telefone||''} onChange={(v)=>{ setPj({...pj, socio1_telefone:v}); queueSave('pj','socio1_telefone', v); }} />
-          <Field label="Sócio 2 - Nome" value={pj.socio2_nome||''} onChange={(v)=>{ setPj({...pj, socio2_nome:v}); queueSave('pj','socio2_nome', v); }} />
-          <Field label="Sócio 2 - CPF" value={pj.socio2_cpf||''} onChange={(v)=>{ setPj({...pj, socio2_cpf:v}); queueSave('pj','socio2_cpf', v); }} />
-          <Field label="Sócio 2 - Tel" value={pj.socio2_telefone||''} onChange={(v)=>{ setPj({...pj, socio2_telefone:v}); queueSave('pj','socio2_telefone', v); }} />
-          <Field label="Sócio 3 - Nome" value={pj.socio3_nome||''} onChange={(v)=>{ setPj({...pj, socio3_nome:v}); queueSave('pj','socio3_nome', v); }} />
-          <Field label="Sócio 3 - CPF" value={pj.socio3_cpf||''} onChange={(v)=>{ setPj({...pj, socio3_cpf:v}); queueSave('pj','socio3_cpf', v); }} />
-          <Field label="Sócio 3 - Tel" value={pj.socio3_telefone||''} onChange={(v)=>{ setPj({...pj, socio3_telefone:v}); queueSave('pj','socio3_telefone', v); }} />
+          <Field label="Sócio 1 - Nome" value={pj.socio1_nome||''} onChange={(v)=>{ setPj({...pj, socio1_nome:v}); queueSave('pj','socio1_nome', v); }} status={getFieldStatus('socio1_nome')} />
+          <Field label="Sócio 1 - CPF" value={pj.socio1_cpf||''} onChange={(v)=>{ setPj({...pj, socio1_cpf:v}); queueSave('pj','socio1_cpf', v); }} status={getFieldStatus('socio1_cpf')} />
+          <Field label="Sócio 1 - Tel" value={pj.socio1_telefone||''} onChange={(v)=>{ setPj({...pj, socio1_telefone:v}); queueSave('pj','socio1_telefone', v); }} status={getFieldStatus('socio1_telefone')} />
+          <Field label="Sócio 2 - Nome" value={pj.socio2_nome||''} onChange={(v)=>{ setPj({...pj, socio2_nome:v}); queueSave('pj','socio2_nome', v); }} status={getFieldStatus('socio2_nome')} />
+          <Field label="Sócio 2 - CPF" value={pj.socio2_cpf||''} onChange={(v)=>{ setPj({...pj, socio2_cpf:v}); queueSave('pj','socio2_cpf', v); }} status={getFieldStatus('socio2_cpf')} />
+          <Field label="Sócio 2 - Tel" value={pj.socio2_telefone||''} onChange={(v)=>{ setPj({...pj, socio2_telefone:v}); queueSave('pj','socio2_telefone', v); }} status={getFieldStatus('socio2_telefone')} />
+          <Field label="Sócio 3 - Nome" value={pj.socio3_nome||''} onChange={(v)=>{ setPj({...pj, socio3_nome:v}); queueSave('pj','socio3_nome', v); }} status={getFieldStatus('socio3_nome')} />
+          <Field label="Sócio 3 - CPF" value={pj.socio3_cpf||''} onChange={(v)=>{ setPj({...pj, socio3_cpf:v}); queueSave('pj','socio3_cpf', v); }} status={getFieldStatus('socio3_cpf')} />
+          <Field label="Sócio 3 - Tel" value={pj.socio3_telefone||''} onChange={(v)=>{ setPj({...pj, socio3_telefone:v}); queueSave('pj','socio3_telefone', v); }} status={getFieldStatus('socio3_telefone')} />
         </div>
       </Card>
 
       {/* Seção 5: Solicitação */}
       <Card title="Solicitação">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Field label="Quem Solicitou" value={app.quem_solicitou||''} onChange={(v)=>{ setApp({...app, quem_solicitou:v}); queueSave('app','quem_solicitou', v); }} />
+          <Field label="Quem Solicitou" value={app.quem_solicitou||''} onChange={(v)=>{ setApp({...app, quem_solicitou:v}); queueSave('app','quem_solicitou', v); }} status={getFieldStatus('quem_solicitou')} />
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Meio</label>
             <SimpleSelect
@@ -749,8 +817,8 @@ export default function CadastroPJPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Tel" value={app.telefone_solicitante||''} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, telefone_solicitante:m}); queueSave('app','telefone_solicitante', m); }} />
-          <Field label="Protocolo MK" value={app.protocolo_mk||''} onChange={(v)=>{ setApp({...app, protocolo_mk:v}); queueSave('app','protocolo_mk', v); }} />
+          <Field label="Tel" value={app.telefone_solicitante||''} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, telefone_solicitante:m}); queueSave('app','telefone_solicitante', m); }} status={getFieldStatus('telefone_solicitante')} />
+          <Field label="Protocolo MK" value={app.protocolo_mk||''} onChange={(v)=>{ setApp({...app, protocolo_mk:v}); queueSave('app','protocolo_mk', v); }} status={getFieldStatus('protocolo_mk')} />
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Plano de Acesso</label>
             <SimpleSelect
@@ -803,28 +871,28 @@ export default function CadastroPJPage() {
       {/* Seção 6: Informações Relevantes da Solicitação */}
       <Card title="Informações Relevantes da Solicitação">
         <div className="grid grid-cols-1 gap-4">
-          <Textarea label="Informações relevantes da solicitação" value={app.info_relevantes||''} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave('app','info_relevantes', v); }} />
+          <Textarea label="Informações relevantes da solicitação" value={app.info_relevantes||''} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave('app','info_relevantes', v); }} status={getFieldStatus('info_relevantes')} />
         </div>
       </Card>
 
       {/* Seção 7: Consulta SPC/SERASA */}
       <Card title="Consulta SPC/Serasa">
         <div className="grid grid-cols-1 gap-4">
-          <Textarea label="Consulta SPC/Serasa" value={app.info_spc||''} onChange={(v)=>{ setApp({...app, info_spc:v}); queueSave('app','info_spc', v); }} red />
+          <Textarea label="Consulta SPC/Serasa" value={app.info_spc||''} onChange={(v)=>{ setApp({...app, info_spc:v}); queueSave('app','info_spc', v); }} red status={getFieldStatus('info_spc')} />
         </div>
       </Card>
 
       {/* Seção 8: Outras Informações Relevantes do PS */}
       <Card title="Outras Informações Relevantes do PS">
         <div className="grid grid-cols-1 gap-4">
-          <Textarea label="Outras informações relevantes do PS" value={app.info_pesquisador||''} onChange={(v)=>{ setApp({...app, info_pesquisador:v}); queueSave('app','info_pesquisador', v); }} red />
+          <Textarea label="Outras informações relevantes do PS" value={app.info_pesquisador||''} onChange={(v)=>{ setApp({...app, info_pesquisador:v}); queueSave('app','info_pesquisador', v); }} red status={getFieldStatus('info_pesquisador')} />
         </div>
       </Card>
 
       {/* Seção 9: Informações Relevantes do MK */}
       <Card title="Informações Relevantes do MK">
         <div className="grid grid-cols-1 gap-4">
-          <Textarea label="Informações Relevantes do MK" value={app.info_mk||''} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave('app','info_mk', v); }} red />
+          <Textarea label="Informações Relevantes do MK" value={app.info_mk||''} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave('app','info_mk', v); }} red status={getFieldStatus('info_mk')} />
         </div>
       </Card>
 
@@ -947,7 +1015,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-function Field({ label, value, onChange, className, red, disabled, maxLength, inputMode, requiredMark }: { label: string; value: string; onChange: (v:string)=>void; className?: string; red?: boolean; disabled?: boolean; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"]; requiredMark?: boolean }) {
+function Field({ label, value, onChange, className, red, disabled, maxLength, inputMode, requiredMark, status }: { label: string; value: string; onChange: (v:string)=>void; className?: string; red?: boolean; disabled?: boolean; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"]; requiredMark?: boolean; status?: 'idle'|'pending'|'error' }) {
   return (
     <div className={className}>
       <label className="mb-1 block text-xs font-medium text-zinc-700">
@@ -961,24 +1029,28 @@ function Field({ label, value, onChange, className, red, disabled, maxLength, in
       <input
         value={value}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
+        onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
         disabled={disabled}
         maxLength={maxLength}
         inputMode={inputMode}
         className={`h-10 w-full rounded-[7px] border ${red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 text-sm outline-none shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)]`}
       />
+      <FieldStatusIndicator status={status || 'idle'} />
     </div>
   );
 }
 
-function Textarea({ label, value, onChange, red }: { label: string; value: string; onChange: (v:string)=>void; red?: boolean }) {
+function Textarea({ label, value, onChange, red, status }: { label: string; value: string; onChange: (v:string)=>void; red?: boolean; status?: 'idle'|'pending'|'error' }) {
   return (
     <div>
       <label className="mb-1 block text-xs font-medium text-zinc-700">{label}</label>
       <textarea
         value={value}
         onChange={(e)=> onChange(e.target.value)}
+        onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
         className={`min-h-[88px] w-full rounded-xl border ${red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 py-2 text-sm outline-none text-zinc-900 placeholder:text-[rgba(1,137,66,0.6)] shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
       />
+      <FieldStatusIndicator status={status || 'idle'} />
     </div>
   );
 }
@@ -997,6 +1069,7 @@ function Select({ label, value, onChange, options, disabled, className, required
       <select
         value={displayValue}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
+        onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
         disabled={disabled}
         className={`h-10 w-full rounded-[7px] border border-zinc-200 bg-zinc-50 px-3 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
       >
@@ -1004,6 +1077,16 @@ function Select({ label, value, onChange, options, disabled, className, required
           <option key={opt.value+idx} value={opt.value} disabled={!!opt.disabled}>{opt.label}</option>
         ))}
       </select>
+    </div>
+  );
+}
+
+function FieldStatusIndicator({ status }: { status: 'idle'|'pending'|'error' }) {
+  if (status === 'idle') return null;
+  return (
+    <div className="mt-1 text-xs text-gray-500 h-4 flex items-center gap-1">
+      {status === 'pending' && <span>Salvando…</span>}
+      {status === 'error' && <span className="text-red-500">Erro ao salvar</span>}
     </div>
   );
 }
