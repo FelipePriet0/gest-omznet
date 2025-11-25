@@ -667,6 +667,48 @@ body {
   transform: translateY(-1px);
 }
 
+/* Portrait tall monitors (HP 21.8" vertical: ~1080x1920, safe ~1020x1820) */
+@media (orientation: portrait) and (min-height: 1800px) and (max-width: 1100px) {
+  /* Wrapper to constrain and compact the expanded form without touching logic */
+  .expanded-portrait {
+    max-width: 1020px;           /* safe width */
+    margin: 0 auto;
+    padding-left: 8px;            /* side margins ≈ 8px */
+    padding-right: 8px;
+  }
+  /* Reduce vertical paddings and gaps */
+  .expanded-portrait .section-card,
+  .expanded-portrait .card > .p-4 {
+    padding: 8px !important;     /* denser cards */
+  }
+  .expanded-portrait .grid {
+    gap: 8px !important;         /* tighter grid gaps */
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* 3 cols typical */
+  }
+  /* Make inputs, selects, textarea more compact */
+  .expanded-portrait input,
+  .expanded-portrait textarea,
+  .expanded-portrait select,
+  .expanded-portrait .SimpleSelect-trigger {
+    height: 36px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .expanded-portrait textarea {
+    min-height: 56px;
+  }
+  /* Labels/titles slightly smaller */
+  .expanded-portrait label,
+  .expanded-portrait .field-label,
+  .expanded-portrait .section-title {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  /* Trim common margin utilities impact inside expanded */
+  .expanded-portrait .mb-6 { margin-bottom: 12px; }
+  .expanded-portrait .mt-6 { margin-top: 12px; }
+}
+
 /* Demo Field Styles - Enterprise Responsive */
 .field-group {
   position: relative;

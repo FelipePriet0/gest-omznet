@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, Fragment } from "react";
 import Image from "next/image";
+import { X } from "lucide-react";
 import { BasicInfoPF, BasicInfoPJ, PessoaTipo } from "@/features/cadastro/types";
 import { criarFichaPF, criarFichaPJ, checkDuplicidadeQuery } from "@/features/cadastro/services";
 
@@ -141,16 +142,26 @@ export function BasicInfoModal({
 
   return (
     <Fragment>
-      <div className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm" style={{ left: leftOffset }} onClick={onClose} />
-      <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ left: leftOffset }} onClick={onClose}>
+      <div className="fixed inset-0 z-[40] bg-black/40 backdrop-blur-sm" style={{ left: leftOffset }} />
+      <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ left: leftOffset }}>
       <div className="relative w-[92vw] max-w-[760px] overflow-hidden rounded-2xl bg-neutral-50 shadow-xl" onClick={(e)=> e.stopPropagation()}>
         <div className="rounded-t-2xl bg-emerald-700 px-6 py-4 text-white">
-          <div className="flex items-center gap-3">
-            <Image src="/brand/mznet.png" alt="MZNET" width={72} height={24} priority style={{ height: 'auto' }} />
-            <div className="flex flex-col">
-              <h2 className="text-base font-semibold sm:text-lg">{headerTitle}</h2>
-              <p className="text-xs text-emerald-50/90 sm:text-sm">{headerSubtitle}</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Image src="/brand/mznet.png" alt="MZNET" width={72} height={24} priority style={{ height: 'auto' }} />
+              <div className="flex flex-col">
+                <h2 className="text-base font-semibold sm:text-lg">{headerTitle}</h2>
+                <p className="text-xs text-emerald-50/90 sm:text-sm">{headerSubtitle}</p>
+              </div>
             </div>
+            <button
+              type="button"
+              aria-label="Fechar"
+              onClick={onClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-emerald-600/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
 
