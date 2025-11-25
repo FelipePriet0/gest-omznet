@@ -692,8 +692,9 @@ export default function CadastroPJPage() {
 
   const from = (search?.get('from') || '').toLowerCase();
   const showAnalyzeCrumb = from === 'analisar';
+  // Wrapper receives .expanded-portrait for compact layout on tall portrait monitors
   return (
-    <div className="pj-form w-full px-2 py-6 mx-auto" style={{ maxWidth: 'calc(100% - 16px)', width: 'calc(100% - 16px)' }}>
+    <div className="pj-form w-full px-2 py-6 mx-auto expanded-portrait" style={{ maxWidth: 'calc(100% - 16px)', width: 'calc(100% - 16px)' }}>
       {statusText && (
         <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
       )}
