@@ -79,13 +79,35 @@ function buildResponsavelOptions(profiles: CachedResponsavel[]): FilterOption[] 
   }));
 }
 
+// Evita recriar o array padrão a cada render, causando loops em effects
+const DEFAULT_ALLOWED_TYPES: FilterType[] = [
+  FilterType.BUSCAR,
+  FilterType.AREA,
+  FilterType.RESPONSAVEL,
+  FilterType.PRAZO,
+  FilterType.HORARIO,
+];
+
 export function FilterCTA({
   area = "comercial",
   onFiltersChange,
+  allowedTypes,
+  showMentions = true,
 }: {
   area?: "comercial" | "analise";
   onFiltersChange?: (filters: AppliedFilters) => void;
+  allowedTypes?: FilterType[];
+  showMentions?: boolean;
 } = {}) {
+  // Usa referência estável para os tipos permitidos
+  const allowedTypesResolved = React.useMemo(
+    () => allowedTypes ?? DEFAULT_ALLOWED_TYPES,
+    [allowedTypes]
+  );
+  const allowedKey = React.useMemo(
+    () => (allowedTypesResolved || []).join(","),
+    [allowedTypesResolved]
+  );
   const [open, setOpen] = React.useState(false);
   const [selectedView, setSelectedView] = React.useState<FilterType | null>(
     null
@@ -224,12 +246,14 @@ export function FilterCTA({
       }
     }
 
-    loadResponsaveis();
+    if (allowedTypesResolved.includes(FilterType.RESPONSAVEL)) {
+      loadResponsaveis();
+    }
 
     return () => {
       mounted = false;
     };
-  }, [area, pathname]);
+  }, [area, pathname, allowedKey]);
 
   // Inicializa a UI a partir da URL (?hora, ?prazo, ?prazo_fim)
   React.useEffect(() => {
@@ -240,7 +264,7 @@ export function FilterCTA({
     const responsavel = searchParams.get("responsavel");
     const busca = searchParams.get("busca");
 
-    if (hora) {
+    if (hora && allowedTypesResolved.includes(FilterType.HORARIO)) {
       initial.push({
         id: "hora",
         type: FilterType.HORARIO,
@@ -249,7 +273,7 @@ export function FilterCTA({
       });
     }
 
-    if (prazoInicio) {
+    if (prazoInicio && allowedTypesResolved.includes(FilterType.PRAZO)) {
       const start = prazoInicio.trim();
       const end = prazoFim?.trim();
       if (start) {
@@ -266,7 +290,7 @@ export function FilterCTA({
       }
     }
 
-    if (responsavel) {
+    if (responsavel && allowedTypesResolved.includes(FilterType.RESPONSAVEL)) {
       const ids = responsavel
         .split(",")
         .map((id) => id.trim())
@@ -281,7 +305,7 @@ export function FilterCTA({
       }
     }
 
-    if (busca) {
+    if (busca && allowedTypesResolved.includes(FilterType.BUSCAR)) {
       const trimmed = busca.trim();
       if (trimmed.length > 0) {
         initial.push({
@@ -298,7 +322,7 @@ export function FilterCTA({
   }, []);
 
   const searchParamsStr = React.useMemo(() => searchParams?.toString() ?? "", [searchParams]);
-  const [myMentions, setMyMentions] = React.useState<boolean>(() => (searchParams.get('minhas_mencoes') === '1'));
+  const [myMentions, setMyMentions] = React.useState<boolean>(() => (showMentions && searchParams.get('minhas_mencoes') === '1'));
   React.useEffect(() => {
     if (selectedView === FilterType.BUSCAR) {
       setSearchDraft(searchFilter?.value?.[0] ?? "");
@@ -452,11 +476,11 @@ export function FilterCTA({
         ? { start: prazoStartValue, end: prazoEndValue }
         : undefined,
       hora,
-      myMentions,
+      myMentions: showMentions ? myMentions : false,
       searchTerm: searchTerm && searchTerm.length > 0 ? searchTerm : undefined,
     });
 
-    if (myMentions) params.set('minhas_mencoes','1'); else params.delete('minhas_mencoes');
+    if (showMentions && myMentions) params.set('minhas_mencoes','1'); else params.delete('minhas_mencoes');
     if (searchTerm && searchTerm.length > 0) {
       params.set("busca", searchTerm);
     } else {
@@ -472,12 +496,12 @@ export function FilterCTA({
     if (nextUrl !== currentUrl) {
       router.replace(nextUrl);
     }
-  }, [filters, myMentions, router, pathname, searchParamsStr, onFiltersChange]);
+  }, [filters, myMentions, router, pathname, searchParamsStr, onFiltersChange, showMentions]);
 
   return (
     <div className="flex gap-2 flex-wrap items-center">
       <Filters filters={filters} setFilters={setFilters} />
-      {myMentions && (
+      {showMentions && myMentions && (
         <div
           className="inline-flex h-9 items-center gap-2 rounded-none px-3 text-white shadow-sm text-xs"
           style={{ backgroundColor: "var(--color-primary)", border: "1px solid var(--color-primary)" }}
@@ -688,6 +712,7 @@ export function FilterCTA({
                         {filterViewOptions
                           .flat()
                           .filter((filter: FilterOption) => filter.name !== FilterType.PRAZO)
+                          .filter((filter: FilterOption) => (allowedTypesResolved as unknown as string[]).includes(filter.name))
                           .map((filter: FilterOption) => (
                             <CommandItem
                               className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
@@ -713,6 +738,7 @@ export function FilterCTA({
                             </CommandItem>
                           ))}
                       </CommandGroup>
+                      {showMentions && (
                       <CommandItem
                         value="minhas-mencoes"
                         className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
@@ -723,6 +749,7 @@ export function FilterCTA({
                           Minhas menções
                         </span>
                       </CommandItem>
+                      )}
                       <CommandItem
                         value="toggle-calendar"
                         className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
