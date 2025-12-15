@@ -239,10 +239,12 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
               }}
             >
               <main
-                className="flex flex-1 w-full flex-col gap-3 rounded-3xl border border-neutral-200 bg-[var(--neutro)] p-3 text-zinc-900 shadow-xl shadow-emerald-900/15 md:min-w-0 md:p-6 dark:border-neutral-700 dark:bg-neutral-900 dark:text-zinc-100"
-                style={{
-                  minHeight: `calc(100vh - ${pageGutter * 2}px)`,
-                }}
+                className={
+                  isCanvas
+                    ? "flex flex-1 w-full flex-col gap-0 md:min-w-0 md:p-0"
+                    : "flex flex-1 w-full flex-col gap-3 rounded-3xl border border-neutral-200 bg-[var(--neutro)] p-3 text-zinc-900 shadow-xl shadow-emerald-900/15 md:min-w-0 md:p-6 dark:border-neutral-700 dark:bg-neutral-900 dark:text-zinc-100"
+                }
+                style={{ minHeight: `calc(100vh - ${pageGutter * 2}px)` }}
               >
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
