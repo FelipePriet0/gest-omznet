@@ -3,7 +3,7 @@
 import { Fragment, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import RouteBg from "./RouteBg";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
-import { Columns3, ListTodo, Clock, CalendarDays } from "lucide-react";
+import { Columns3, ListTodo, Clock, CalendarDays, Wrench } from "lucide-react";
 import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
 import { motion } from "framer-motion";
@@ -49,6 +49,11 @@ function AppSidebar() {
       href: "/historico",
       icon: <Clock className="h-5 w-5 text-white flex-shrink-0" />,
     },
+    {
+      label: "Builder",
+      href: "/builder",
+      icon: <Wrench className="h-5 w-5 text-white flex-shrink-0" />,
+    },
   ];
 
   return (
@@ -89,6 +94,8 @@ function AppSidebar() {
                   ? panel === "tarefas"
                   : link.label === "Histórico"
                   ? pathname.startsWith("/historico")
+                  : link.label === "Builder"
+                  ? pathname.startsWith("/builder")
                   : false;
               return (
                 <Fragment key={link.label}>

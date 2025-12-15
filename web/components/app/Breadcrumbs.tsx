@@ -20,6 +20,8 @@ function labelFor(segment: string): string {
       return "Histórico";
     case "agenda":
       return "Agenda";
+    case "builder":
+      return "Builder";
     case "perfil":
       return "Perfil";
     case "cadastro":
@@ -64,7 +66,7 @@ export function Breadcrumbs() {
     return () => { active = false; };
   }, [isExpandedCadastro, expandedId]);
   // Constrói caminhos acumulados para links
-  const items = parts.map((seg, idx) => {
+  let items = parts.map((seg, idx) => {
     const href = "/" + parts.slice(0, idx + 1).join("/");
     const isLast = idx === parts.length - 1;
     let label = labelFor(seg);
@@ -73,6 +75,16 @@ export function Breadcrumbs() {
     }
     return { href, label, isLast };
   });
+
+  // Caso especial: Builder com abas (query param tab)
+  if (parts[0] === 'builder') {
+    const tab = (search?.get('tab') || 'workflows').toLowerCase();
+    const tabLabel = tab.startsWith('tec') ? 'Técnicos' : 'Workflows';
+    items = [
+      { href: '/builder', label: 'Builder', isLast: false },
+      { href: `/builder?tab=${tab}`, label: tabLabel, isLast: true },
+    ];
+  }
 
   if (items.length === 0) return null;
 
