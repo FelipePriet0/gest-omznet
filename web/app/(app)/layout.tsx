@@ -3,7 +3,7 @@
 import { Fragment, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import RouteBg from "./RouteBg";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
-import { Columns3, ListTodo, Clock } from "lucide-react";
+import { Columns3, ListTodo, Clock, CalendarDays } from "lucide-react";
 import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
 import { motion } from "framer-motion";
@@ -33,6 +33,11 @@ function AppSidebar() {
       label: "Kanban",
       href: "/kanban",
       icon: <Columns3 className="h-5 w-5 text-white flex-shrink-0" />,
+    },
+    {
+      label: "Agenda",
+      href: "/agenda",
+      icon: <CalendarDays className="h-5 w-5 text-white flex-shrink-0" />,
     },
     {
       label: "Minhas Tarefas",
@@ -78,6 +83,8 @@ function AppSidebar() {
               const isActive =
                 link.label === "Kanban"
                   ? pathname.startsWith("/kanban")
+                  : link.label === "Agenda"
+                  ? pathname.startsWith("/agenda")
                   : link.label === "Minhas Tarefas"
                   ? panel === "tarefas"
                   : link.label === "Histórico"

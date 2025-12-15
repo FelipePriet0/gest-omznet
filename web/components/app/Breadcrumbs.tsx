@@ -18,6 +18,8 @@ function labelFor(segment: string): string {
     case "historico":
     case "histórico":
       return "Histórico";
+    case "agenda":
+      return "Agenda";
     case "perfil":
       return "Perfil";
     case "cadastro":
