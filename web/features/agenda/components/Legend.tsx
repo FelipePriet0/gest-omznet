@@ -2,9 +2,9 @@
 
 export function Legend() {
   const chip = (color: string, label: string) => (
-    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1">
+    <div className="flex items-center gap-2 rounded-full border border-white/20 bg-[var(--verde-primario)] px-2 py-0.5">
       <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-      <span className="text-xs text-[var(--verde-primario)] font-bold">{label}</span>
+      <span className="text-sm text-white font-normal">{label}</span>
     </div>
   );
   return (

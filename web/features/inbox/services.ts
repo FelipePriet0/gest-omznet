@@ -1,6 +1,6 @@
 "use client";
 
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { TABLE_INBOX_NOTIFICATIONS } from "@/lib/constants";
 
 import type { InboxItem, NotificationType } from "./types";
@@ -44,21 +44,32 @@ export async function notifyMention(params: {
 export type { InboxItem, NotificationType };
 
 export async function listInbox(): Promise<InboxItem[]> {
-  const { data, error } = await supabase.rpc('list_inbox_notifications');
-  if (error) {
-    console.error('Failed to list inbox notifications', error);
+  // Evita poluir console quando sem configuração ou offline
+  if (!isSupabaseConfigured || (typeof navigator !== 'undefined' && !navigator.onLine)) {
     return [];
   }
-  return (data as InboxItem[]) ?? [];
+  try {
+    const { data, error } = await supabase.rpc('list_inbox_notifications');
+    if (error) throw error;
+    return (data as InboxItem[]) ?? [];
+  } catch (err: any) {
+    console.warn('[inbox] Falha ao carregar notificações:', err?.message || err);
+    return [];
+  }
 }
 
 export async function listMyMentionCardIds(): Promise<string[]> {
-  const { data, error } = await supabase.rpc('list_my_mention_cards');
-  if (error) {
-    console.error('Failed to list mention cards', error);
+  if (!isSupabaseConfigured || (typeof navigator !== 'undefined' && !navigator.onLine)) {
     return [];
   }
-  return (data as string[]) ?? [];
+  try {
+    const { data, error } = await supabase.rpc('list_my_mention_cards');
+    if (error) throw error;
+    return (data as string[]) ?? [];
+  } catch (err: any) {
+    console.warn('[inbox] Falha ao listar cards com menções:', err?.message || err);
+    return [];
+  }
 }
 
 export async function markRead(id: string) {

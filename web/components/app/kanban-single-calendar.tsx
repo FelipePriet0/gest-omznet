@@ -107,10 +107,10 @@ export function KanbanSingleCalendar({ value, onChange, disablePast }: KanbanSin
                 disabled={disabled}
                 className={cn(
                   "relative z-10 flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2",
-                  outside && "text-zinc-300",
+                  outside && !isSelected && "text-zinc-300",
                   disabled && "cursor-not-allowed opacity-40",
                   !disabled && !outside && "cursor-pointer",
-                  isSelected && "bg-emerald-600 text-white shadow-[0_4px_12px_-6px_rgba(16,185,129,0.9)] font-semibold",
+                  isSelected && "bg-emerald-600 text-white shadow-[0_4px_12px_-6px_rgba(16,185,129,0.9)] font-semibold hover:bg-emerald-600 hover:text-white focus-visible:text-white",
                   !disabled && !isSelected && !outside && "hover:bg-emerald-50 hover:text-emerald-700",
                   isToday && !isSelected && "ring-1 ring-emerald-200"
                 )}
@@ -145,4 +145,3 @@ export function KanbanSingleCalendar({ value, onChange, disablePast }: KanbanSin
     </div>
   );
 }
-
