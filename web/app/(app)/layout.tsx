@@ -132,6 +132,7 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   const search = useSearchParams();
   const router = useRouter();
   const parts = pathname.split("/").filter(Boolean);
+  const isCanvas = pathname.startsWith('/builder/canvas');
   const isExpandedCadastro = parts[0] === 'cadastro' && (parts[1] === 'pf' || parts[1] === 'pj') && parts.length >= 3;
   const activePanel = (search?.get('panel') || '').toLowerCase();
   const isTasksPanel = activePanel === 'tarefas';
@@ -246,7 +247,7 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <SidebarTrigger className="hidden md:inline-flex" />
-                    <Breadcrumbs />
+                    {!isCanvas && <Breadcrumbs />}
                   </div>
                   {isExpandedCadastro && (
                     <div className="flex items-center gap-2 shrink-0">

@@ -22,6 +22,8 @@ function labelFor(segment: string): string {
       return "Agenda";
     case "builder":
       return "Builder";
+    case "canvas":
+      return "Canvas";
     case "perfil":
       return "Perfil";
     case "cadastro":

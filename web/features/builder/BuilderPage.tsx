@@ -37,7 +37,15 @@ function WorkflowsTab() {
         <div className="text-base font-bold text-[var(--verde-primario)]">Crie o seu Workflow</div>
         <div className="text-xs text-[var(--verde-primario)]">Desenhe o Workflow da equipe de instalação Mznet</div>
       </div>
-      <button type="button" className="btn-primary-mznet">Criar Workflow</button>
+      <button
+        type="button"
+        className="btn-primary-mznet"
+        onClick={() => {
+          try { window.location.href = "/builder/canvas"; } catch {}
+        }}
+      >
+        Criar Workflow
+      </button>
       <div className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-3 xl:grid-cols-5 w-full max-w-6xl">
         {[1,2,3,4,5].map((i) => (
           <div key={i} className="rounded-2xl bg-white/10 border border-white/20 p-4 text-white/80 shadow-sm">
