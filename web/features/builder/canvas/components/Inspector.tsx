@@ -3,6 +3,7 @@
 import { Check, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CanvasNode, CanvasNodeType } from "../types";
+import { PrioritySelectPopover } from "./PrioritySelectPopover";
 
 const TECHNICIANS = [
   { id: "leandro", name: "Leandro Arruda" },
@@ -132,39 +133,22 @@ export function Inspector({
 
             <div className="space-y-2">
               {node.data.priorities.map((value, idx) => (
-                <div key={idx} className="flex items-center gap-[0.5px]">
-                  <div className="text-xs text-zinc-500 w-12">{idx + 1}ª</div>
-                  <div className="relative flex-1">
-                    <select
-                      value={value}
-                      onChange={(e) => {
-                        const next = node.data.priorities.slice();
-                        next[idx] = e.target.value;
-                        onChange({ ...node, data: { ...node.data, priorities: next } });
-                      }}
-                      className="h-8 w-full rounded-[6px] border border-zinc-200 bg-white pl-3 pr-9 text-xs text-zinc-800 hover:border-zinc-300"
-                    >
-                      <option value="" disabled>
-                        Selecione...
-                      </option>
-                      {PRIORITY_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-[6px] text-zinc-600 hover:bg-zinc-100 hover:text-zinc-800"
-                      aria-label="Remover prioridade"
-                      onClick={() => {
-                        const next = node.data.priorities.filter((_, i) => i !== idx);
-                        onChange({ ...node, data: { ...node.data, priorities: next } });
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
+                <div key={idx} className="flex flex-col gap-1">
+                  <div className="text-xs font-semibold text-zinc-700">{idx + 1}º Prioridade</div>
+                  <PrioritySelectPopover
+                    value={value}
+                    options={PRIORITY_OPTIONS}
+                    placeholder="Selecionar"
+                    onChange={(picked) => {
+                      const next = node.data.priorities.slice();
+                      next[idx] = picked;
+                      onChange({ ...node, data: { ...node.data, priorities: next } });
+                    }}
+                    onRemove={() => {
+                      const next = node.data.priorities.filter((_, i) => i !== idx);
+                      onChange({ ...node, data: { ...node.data, priorities: next } });
+                    }}
+                  />
                 </div>
               ))}
             </div>
