@@ -124,7 +124,7 @@ export function Inspector({
               <button
                 type="button"
                 aria-label="Adicionar prioridade"
-                className="h-[25px] w-[50px] rounded-[6px] bg-black text-xs font-semibold text-white hover:bg-black/90 transition"
+                className="h-[25px] w-[50px] rounded-[6px] bg-[var(--verde-primario)] text-xs font-semibold text-white hover:brightness-95 transition"
                 onClick={() => onChange({ ...node, data: { ...node.data, priorities: [...node.data.priorities, ""] } })}
               >
                 + 1

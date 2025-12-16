@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export function PrioritySelectPopover({
@@ -23,8 +22,6 @@ export function PrioritySelectPopover({
   const label = value?.trim().length ? value : placeholder;
   const isPlaceholder = !value?.trim().length;
 
-  const searchableOptions = useMemo(() => options.map((o) => ({ key: o, label: o })), [options]);
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <div className="relative">
@@ -32,9 +29,9 @@ export function PrioritySelectPopover({
           <button
             type="button"
             className={cn(
-              "h-9 w-full rounded-[6px] bg-black pl-3 pr-10 text-left text-sm transition",
-              "hover:bg-black",
-              isPlaceholder ? "text-white/85" : "text-white"
+              "h-9 w-full rounded-[6px] bg-[var(--verde-primario)] pl-3 pr-10 text-left text-sm text-white transition",
+              "hover:brightness-95",
+              isPlaceholder ? "" : ""
             )}
           >
             <span className="inline-flex items-center gap-2">
@@ -58,36 +55,41 @@ export function PrioritySelectPopover({
         </button>
       </div>
 
-      <PopoverContent className="w-[260px] p-0 bg-white border-0 shadow-lg rounded-lg" side="bottom" align="start" sideOffset={6}>
-        <Command className="rounded-lg">
-          <CommandList className="p-1">
-            <CommandGroup className="p-0">
-              {searchableOptions.map((opt) => {
-                const selected = opt.key === value;
-                return (
-                  <CommandItem
-                    key={opt.key}
-                    value={opt.label}
-                    className={cn(
-                      "group flex gap-3 items-center px-2 py-2 text-gray-700 transition-all duration-150 cursor-pointer rounded-sm mx-1",
-                      "hover:bg-black hover:text-white",
-                      selected ? "bg-black text-white" : ""
-                    )}
-                    onSelect={() => {
-                      onChange(opt.key);
-                      setOpen(false);
-                    }}
-                  >
-                    <span className="w-4 flex items-center justify-center">
-                      <Check className={cn("h-4 w-4", selected ? "text-white opacity-100" : "opacity-0")} />
-                    </span>
-                    <span className="text-sm font-medium truncate">{opt.label}</span>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+      <PopoverContent
+        className="w-[260px] p-1 bg-white border-0 shadow-lg rounded-lg"
+        side="bottom"
+        align="start"
+        sideOffset={6}
+      >
+        <div role="listbox" aria-label="Selecionar prioridade" className="flex flex-col">
+          {options.map((opt) => {
+            const selected = opt === value;
+            return (
+              <button
+                key={opt}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                className={cn(
+                  "group flex items-center gap-3 px-2 py-2 text-sm font-medium rounded-sm mx-1",
+                  "transition-all duration-150 cursor-pointer",
+                  selected
+                    ? "bg-[var(--verde-primario)] !text-white"
+                    : "text-gray-700 hover:bg-[var(--verde-primario)] hover:text-white"
+                )}
+                onClick={() => {
+                  onChange(opt);
+                  setOpen(false);
+                }}
+              >
+                <span className="w-4 flex items-center justify-center">
+                  <Check className={cn("h-4 w-4", selected ? "text-white opacity-100" : "opacity-0")} />
+                </span>
+                <span className={cn("truncate", selected ? "!text-white" : "")}>{opt}</span>
+              </button>
+            );
+          })}
+        </div>
       </PopoverContent>
     </Popover>
   );
