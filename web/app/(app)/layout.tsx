@@ -246,17 +246,19 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                 }
                 style={{ minHeight: `calc(100vh - ${pageGutter * 2}px)` }}
               >
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <SidebarTrigger className="hidden md:inline-flex" />
-                    {!isCanvas && <Breadcrumbs />}
-                  </div>
-                  {isExpandedCadastro && (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Baixar PDF</button>
+                {!isCanvas && (
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <SidebarTrigger className="hidden md:inline-flex" />
+                      <Breadcrumbs />
                     </div>
-                  )}
-                </div>
+                    {isExpandedCadastro && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Baixar PDF</button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {children}
               </main>
               {isPanelOpen && (
