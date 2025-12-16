@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Home,
   LayoutGrid,
   CheckSquare,
   History,
@@ -10,26 +9,27 @@ import {
 } from 'lucide-react';
 
 import { Dock, DockIcon, DockItem, DockLabel } from '@/components/ui/dock';
+import { cn } from '@/lib/utils';
 
 const navItems = [
   {
     title: 'Kanban',
-    icon: <LayoutGrid className='h-5 w-5 text-zinc-600' />,
+    Icon: LayoutGrid,
     href: '/kanban',
   },
   {
     title: 'Minhas Tarefas',
-    icon: <CheckSquare className='h-5 w-5 text-zinc-600' />,
+    Icon: CheckSquare,
     href: '/tarefas',
   },
   {
     title: 'Histórico',
-    icon: <History className='h-5 w-5 text-zinc-600' />,
+    Icon: History,
     href: '/historico',
   },
   {
     title: 'Meu Perfil',
-    icon: <UserCircle className='h-5 w-5 text-zinc-600' />,
+    Icon: UserCircle,
     href: '/perfil',
   },
 ];
@@ -47,20 +47,27 @@ export function Navbar() {
       <Dock className='items-end pb-3'>
         {navItems.map((item, idx) => {
           const isActive = pathname === item.href;
+          const Icon = item.Icon;
           return (
             <div key={idx} onClick={() => handleNavigation(item.href)}>
               <DockItem
-                className={`aspect-square rounded-full cursor-pointer transition-colors ${
-                  isActive 
-                    ? 'bg-emerald-600' 
-                    : 'bg-zinc-100 hover:bg-zinc-200'
-                }`}
+                className={cn(
+                  'group aspect-square cursor-pointer rounded-[6px] transition-colors',
+                  isActive
+                    ? 'bg-primary'
+                    : 'bg-zinc-100 hover:bg-primary focus-visible:bg-primary'
+                )}
               >
                 <DockLabel>{item.title}</DockLabel>
                 <DockIcon>
-                  <div className={isActive ? 'text-white' : ''}>
-                    {item.icon}
-                  </div>
+                  <Icon
+                    className={cn(
+                      'h-5 w-5 transition-colors',
+                      isActive
+                        ? 'text-white'
+                        : 'text-zinc-600 group-hover:text-white group-focus:text-white'
+                    )}
+                  />
                 </DockIcon>
               </DockItem>
             </div>

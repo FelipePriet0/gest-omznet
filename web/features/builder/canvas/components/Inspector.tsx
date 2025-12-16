@@ -55,7 +55,7 @@ export function Inspector({
   if (!node) return null;
 
   return (
-    <div className="pointer-events-auto absolute right-6 top-16 w-[320px] rounded-2xl bg-white shadow-lg border border-black/5 p-4">
+    <div className="pointer-events-auto absolute right-6 top-[99px] flex h-[650px] w-[320px] flex-col rounded-2xl border border-black/5 bg-white p-4 shadow-lg">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-bold text-zinc-900">{titleForType(node.type)}</div>
@@ -73,7 +73,7 @@ export function Inspector({
         </button>
       </div>
 
-      <div className="mt-4">
+      <div className="modal-scroll mt-4 min-h-0 flex-1 overflow-y-auto">
         {node.type === "technician" && (
           <div className="space-y-2">
             <div className="text-xs font-semibold text-zinc-700">Técnicos</div>
