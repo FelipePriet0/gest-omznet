@@ -55,7 +55,7 @@ export function Inspector({
   if (!node) return null;
 
   return (
-    <div className="pointer-events-auto absolute right-6 top-[99px] flex h-[650px] w-[320px] flex-col rounded-2xl border border-black/5 bg-white p-4 shadow-lg">
+    <div className="pointer-events-auto absolute right-6 top-[99px] w-[320px] rounded-2xl border border-black/5 bg-white p-4 shadow-lg">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-bold text-zinc-900">{titleForType(node.type)}</div>
@@ -73,7 +73,7 @@ export function Inspector({
         </button>
       </div>
 
-      <div className="modal-scroll mt-4 min-h-0 flex-1 overflow-y-auto">
+      <div className="mt-4">
         {node.type === "technician" && (
           <div className="space-y-2">
             <div className="text-xs font-semibold text-zinc-700">Técnicos</div>
@@ -166,6 +166,30 @@ export function Inspector({
               onChange={(next) => onChange({ ...node, data: { ...node.data, routes: next } })}
               onClear={() => onChange({ ...node, data: { ...node.data, routes: [] } })}
             />
+
+            {node.data.routes.length > 0 ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {node.data.routes.map((route) => (
+                  <button
+                    key={route}
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-[6px] border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-800 transition hover:border-zinc-300"
+                    onClick={() => {
+                      const next = node.data.routes.filter((r) => r !== route);
+                      onChange({ ...node, data: { ...node.data, routes: next } });
+                    }}
+                    aria-label={`Remover ${route}`}
+                  >
+                    <span className="truncate">{route}</span>
+                    <span aria-hidden="true" className="text-zinc-500">
+                      ×
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-zinc-500">Nenhum bairro selecionado</div>
+            )}
           </div>
         )}
 
