@@ -267,48 +267,41 @@ export function CanvasSurface({
         }}
       >
         <svg className="absolute inset-0 overflow-visible" aria-hidden="true">
-          <defs>
-            <marker
-              id="arrow"
-              viewBox="0 0 10 10"
-              refX="10"
-              refY="5"
-              markerWidth="7"
-              markerHeight="7"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981" />
-            </marker>
-          </defs>
           {edgePaths.map((p) => (
-            <path key={p.id} d={p.d} fill="none" stroke="#10b981" strokeWidth={3} opacity={0.9} markerEnd="url(#arrow)" />
+            <path key={p.id} d={p.d} fill="none" stroke="var(--verde-primario)" strokeWidth={3} opacity={0.9} />
           ))}
           {connectingPath && (
             <path
               d={connectingPath}
               fill="none"
-              stroke="#10b981"
+              stroke="var(--verde-primario)"
               strokeWidth={2}
               opacity={0.6}
               strokeDasharray="6 6"
-              markerEnd="url(#arrow)"
             />
           )}
         </svg>
 
-        {nodes.map((n) => (
-          <NodeCard
-            key={n.id}
-            node={n}
-            selected={selectedNodeId === n.id}
-            onSelect={() => onSelectNode(n.id)}
-            onPointerDown={onNodePointerDown(n.id)}
-            onPortPointerDown={(port, ev) => handlePortPointerDown(n.id, port, ev)}
-            onPortPointerEnter={() => {}}
-            onPortPointerLeave={() => {}}
-            onSize={(size) => setSizes((prev) => ({ ...prev, [n.id]: size }))}
-          />
-        ))}
+        {nodes.map((n) => {
+          const hasIncoming = edges.some((e) => e.to.nodeId === n.id);
+          const hasOutgoing = edges.some((e) => e.from.nodeId === n.id);
+
+          return (
+            <NodeCard
+              key={n.id}
+              node={n}
+              selected={selectedNodeId === n.id}
+              showInPort={hasIncoming}
+              showOutPort={hasOutgoing}
+              onSelect={() => onSelectNode(n.id)}
+              onPointerDown={onNodePointerDown(n.id)}
+              onPortPointerDown={(port, ev) => handlePortPointerDown(n.id, port, ev)}
+              onPortPointerEnter={() => {}}
+              onPortPointerLeave={() => {}}
+              onSize={(size) => setSizes((prev) => ({ ...prev, [n.id]: size }))}
+            />
+          );
+        })}
       </div>
     </div>
   );

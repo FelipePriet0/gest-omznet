@@ -23,6 +23,8 @@ function labelForType(type: CanvasNode["type"]) {
 export function NodeCard({
   node,
   selected,
+  showInPort,
+  showOutPort,
   onSelect,
   onPointerDown,
   onPortPointerDown,
@@ -32,6 +34,8 @@ export function NodeCard({
 }: {
   node: CanvasNode;
   selected: boolean;
+  showInPort?: boolean;
+  showOutPort?: boolean;
   onSelect: () => void;
   onPointerDown: (ev: ReactPointerEvent) => void;
   onPortPointerDown: (port: PortId, ev: ReactPointerEvent) => void;
@@ -64,7 +68,10 @@ export function NodeCard({
   return (
     <div
       ref={ref}
-      className={cn("absolute rounded-2xl bg-white shadow-md border border-black/10", selected ? "ring-2 ring-emerald-400" : "")}
+      className={cn(
+        "absolute rounded-2xl bg-white shadow-md border border-black/10",
+        selected ? "ring-2 ring-[var(--verde-primario)]" : ""
+      )}
       style={{ left: node.x, top: node.y }}
       onPointerDown={(ev) => {
         onSelect();
@@ -84,8 +91,8 @@ export function NodeCard({
         onPointerEnter={() => onPortPointerEnter("in")}
         onPointerLeave={() => onPortPointerLeave("in")}
         className={cn(
-          "absolute -left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-emerald-500 border border-white shadow",
-          selected ? "" : "opacity-80"
+          "absolute -left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-[var(--verde-primario)] border border-white shadow",
+          showInPort ? (selected ? "" : "opacity-80") : "pointer-events-none opacity-0"
         )}
       />
 
@@ -100,8 +107,8 @@ export function NodeCard({
         onPointerEnter={() => onPortPointerEnter("out")}
         onPointerLeave={() => onPortPointerLeave("out")}
         className={cn(
-          "absolute -right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-emerald-500 border border-white shadow",
-          selected ? "" : "opacity-80"
+          "absolute -right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-[var(--verde-primario)] border border-white shadow",
+          showOutPort ? (selected ? "" : "opacity-80") : "pointer-events-none opacity-0"
         )}
       />
 
@@ -110,7 +117,7 @@ export function NodeCard({
           <span className="h-7 w-7 rounded-[6px] bg-black flex items-center justify-center text-white">
             {iconForType(node.type)}
           </span>
-          <span className="text-emerald-700 font-semibold">{labelForType(node.type)}</span>
+          <span className="text-[var(--verde-primario)] font-semibold">{labelForType(node.type)}</span>
         </div>
       </div>
 
