@@ -4,6 +4,7 @@ import { Check, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CanvasNode, CanvasNodeType } from "../types";
 import { PrioritySelectPopover } from "./PrioritySelectPopover";
+import { RouteMultiSelectPopover } from "./RouteMultiSelectPopover";
 
 const TECHNICIANS = [
   { id: "leandro", name: "Leandro Arruda" },
@@ -158,27 +159,13 @@ export function Inspector({
         {node.type === "route" && (
           <div className="space-y-2">
             <div className="text-xs font-semibold text-zinc-700">Rotas</div>
-            <div className="grid grid-cols-1 gap-2 max-h-[260px] overflow-auto pr-1">
-              {ROUTE_OPTIONS.map((r) => {
-                const checked = node.data.routes.includes(r);
-                return (
-                  <label
-                    key={r}
-                    className="flex items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 hover:bg-zinc-50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) => {
-                        const next = e.target.checked ? [...node.data.routes, r] : node.data.routes.filter((x) => x !== r);
-                        onChange({ ...node, data: { ...node.data, routes: next } });
-                      }}
-                    />
-                    <span className="text-sm text-zinc-800">{r}</span>
-                  </label>
-                );
-              })}
-            </div>
+            <RouteMultiSelectPopover
+              values={node.data.routes}
+              options={ROUTE_OPTIONS}
+              placeholder="Selecionar"
+              onChange={(next) => onChange({ ...node, data: { ...node.data, routes: next } })}
+              onClear={() => onChange({ ...node, data: { ...node.data, routes: [] } })}
+            />
           </div>
         )}
 

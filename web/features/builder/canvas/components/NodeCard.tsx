@@ -25,14 +25,18 @@ export function NodeCard({
   selected,
   onSelect,
   onPointerDown,
-  onPortClick,
+  onPortPointerDown,
+  onPortPointerEnter,
+  onPortPointerLeave,
   onSize,
 }: {
   node: CanvasNode;
   selected: boolean;
   onSelect: () => void;
   onPointerDown: (ev: ReactPointerEvent) => void;
-  onPortClick: (port: PortId) => void;
+  onPortPointerDown: (port: PortId, ev: ReactPointerEvent) => void;
+  onPortPointerEnter: (port: PortId) => void;
+  onPortPointerLeave: (port: PortId) => void;
   onSize: (size: { w: number; h: number }) => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -73,10 +77,12 @@ export function NodeCard({
       <button
         type="button"
         aria-label="Conectar entrada"
-        onClick={(e) => {
+        onPointerDown={(e) => {
           e.stopPropagation();
-          onPortClick("in");
+          onPortPointerDown("in", e);
         }}
+        onPointerEnter={() => onPortPointerEnter("in")}
+        onPointerLeave={() => onPortPointerLeave("in")}
         className={cn(
           "absolute -left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-emerald-500 border border-white shadow",
           selected ? "" : "opacity-80"
@@ -87,10 +93,12 @@ export function NodeCard({
       <button
         type="button"
         aria-label="Conectar saída"
-        onClick={(e) => {
+        onPointerDown={(e) => {
           e.stopPropagation();
-          onPortClick("out");
+          onPortPointerDown("out", e);
         }}
+        onPointerEnter={() => onPortPointerEnter("out")}
+        onPointerLeave={() => onPortPointerLeave("out")}
         className={cn(
           "absolute -right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-emerald-500 border border-white shadow",
           selected ? "" : "opacity-80"

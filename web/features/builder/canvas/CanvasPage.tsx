@@ -17,6 +17,49 @@ function uid(prefix: string) {
   return `${prefix}_${base}`;
 }
 
+function estimatedNodeSize(type: CanvasNodeType) {
+  if (type === "priority") return { w: 260, h: 190 };
+  if (type === "text") return { w: 260, h: 160 };
+  return { w: 260, h: 130 };
+}
+
+function rectsOverlap(a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function findFreeSpot({
+  nodes,
+  viewport,
+  type,
+}: {
+  nodes: CanvasNode[];
+  viewport: CanvasWorkflowState["viewport"];
+  type: CanvasNodeType;
+}) {
+  const { w, h } = estimatedNodeSize(type);
+  const padding = 24;
+
+  const taken = nodes.map((n) => {
+    const size = estimatedNodeSize(n.type);
+    return { x: n.x, y: n.y, w: size.w + padding, h: size.h + padding };
+  });
+
+  const baseX = 300 - viewport.x;
+  const baseY = 160 - viewport.y;
+  const stepX = 320;
+  const stepY = 220;
+
+  for (let row = 0; row < 20; row++) {
+    for (let col = 0; col < 6; col++) {
+      const candidate = { x: baseX + col * stepX, y: baseY + row * stepY, w, h };
+      const collides = taken.some((r) => rectsOverlap(candidate, r));
+      if (!collides) return { x: candidate.x, y: candidate.y };
+    }
+  }
+
+  return { x: baseX, y: baseY };
+}
+
 function initialState(): CanvasWorkflowState {
   const nodes: CanvasNode[] = [
     { id: "n_technician", type: "technician", x: 420, y: 220, data: { technicianIds: [] } },
@@ -47,8 +90,9 @@ export function CanvasPage() {
   const createNode = (type: CanvasNodeType) => {
     history.commit((prev) => {
       const id = uid("node");
-      const x = 260 + Math.round(Math.random() * 120) - prev.viewport.x;
-      const y = 180 + Math.round(Math.random() * 80) - prev.viewport.y;
+      const pos = findFreeSpot({ nodes: prev.nodes, viewport: prev.viewport, type });
+      const x = pos.x;
+      const y = pos.y;
 
       const node: CanvasNode =
         type === "technician"
@@ -123,6 +167,13 @@ export function CanvasPage() {
           }))
         }
         onCreateEdge={createEdge}
+        onUpdateEdgeTo={({ edgeId, toNodeId }) =>
+          history.setPresent((prev) => ({
+            ...prev,
+            edges: prev.edges.map((e) => (e.id === edgeId ? { ...e, to: { ...e.to, nodeId: toNodeId } } : e)),
+          }))
+        }
+        onDeleteEdge={(edgeId) => history.setPresent((prev) => ({ ...prev, edges: prev.edges.filter((e) => e.id !== edgeId) }))}
         onCommit={() => history.commit((p) => p)}
       />
 
