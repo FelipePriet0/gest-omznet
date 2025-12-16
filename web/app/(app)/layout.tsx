@@ -1,12 +1,11 @@
 "use client";
 
-import { Fragment, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import RouteBg from "./RouteBg";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
 import { Columns3, ListTodo, Clock, CalendarDays, Wrench } from "lucide-react";
 import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
-import { motion } from "framer-motion";
 import Breadcrumbs from "@/components/app/Breadcrumbs";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -124,8 +123,27 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
 
 function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   const [open, setOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(true);
-  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
+  const isDesktop = useSyncExternalStore(
+    (onStoreChange) => {
+      if (typeof window === "undefined") return () => {};
+      window.addEventListener("resize", onStoreChange);
+      return () => window.removeEventListener("resize", onStoreChange);
+    },
+    () => (typeof window === "undefined" ? true : window.innerWidth >= 768),
+    () => true
+  );
+  const [panelWidth, setPanelWidth] = useState(() => {
+    if (typeof window === "undefined") return PANEL_DEFAULT_WIDTH;
+    try {
+      const stored = window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY);
+      if (!stored) return PANEL_DEFAULT_WIDTH;
+      const parsed = Number.parseInt(stored, 10);
+      if (Number.isNaN(parsed)) return PANEL_DEFAULT_WIDTH;
+      return clamp(parsed, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH);
+    } catch {
+      return PANEL_DEFAULT_WIDTH;
+    }
+  });
   const [isResizingPanel, setIsResizingPanel] = useState(false);
   const resizeOriginRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: PANEL_DEFAULT_WIDTH });
   const pathname = usePathname() || "/";
@@ -165,29 +183,6 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
     },
     [isDesktop, panelWidth]
   );
-
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsDesktop(window.innerWidth >= 768);
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY);
-      if (stored) {
-        const parsed = Number.parseInt(stored, 10);
-        if (!Number.isNaN(parsed)) {
-          setPanelWidth(clamp(parsed, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH));
-        }
-      }
-    } catch {}
-  }, []);
 
   useEffect(() => {
     if (!isPanelOpen) return;

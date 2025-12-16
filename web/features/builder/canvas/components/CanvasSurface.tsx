@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { CanvasEdge, CanvasMode, CanvasNode, CanvasViewport, PortId } from "../types";
 import { NodeCard } from "./NodeCard";
@@ -30,7 +30,6 @@ export function CanvasSurface({
   onSelectNode,
   onChangeViewport,
   onMoveNode,
-  onDeleteNode,
   onCreateEdge,
   onCommit,
 }: {
@@ -42,7 +41,6 @@ export function CanvasSurface({
   onSelectNode: (id: string | null) => void;
   onChangeViewport: (next: CanvasViewport) => void;
   onMoveNode: (id: string, pos: { x: number; y: number }) => void;
-  onDeleteNode: (id: string) => void;
   onCreateEdge: (edge: { fromNodeId: string; toNodeId: string }) => void;
   onCommit: () => void;
 }) {
@@ -157,19 +155,6 @@ export function CanvasSurface({
     }
   };
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Delete" && e.key !== "Backspace") return;
-      if (!selectedNodeId) return;
-      if (document.activeElement && ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
-      if (!window.confirm("Excluir este card?")) return;
-      onDeleteNode(selectedNodeId);
-      onCommit();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedNodeId, onDeleteNode, onCommit]);
-
   const edgePaths = useMemo(() => {
     return edges.map((e) => {
       const a = portPosition(e.from.nodeId, "out");
@@ -214,10 +199,6 @@ export function CanvasSurface({
             node={n}
             selected={selectedNodeId === n.id}
             onSelect={() => onSelectNode(n.id)}
-            onDelete={() => {
-              onDeleteNode(n.id);
-              onCommit();
-            }}
             onPointerDown={onNodePointerDown(n.id)}
             onPortClick={(port) => handlePortClick(n.id, port)}
             onSize={(size) => setSizes((prev) => ({ ...prev, [n.id]: size }))}

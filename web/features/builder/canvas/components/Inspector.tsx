@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { CanvasNode, CanvasNodeType } from "../types";
 
 const TECHNICIANS = [
@@ -80,11 +81,17 @@ export function Inspector({
                 return (
                   <label
                     key={t.id}
-                    className="flex items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 hover:bg-zinc-50"
+                    className={cn(
+                      "group flex items-center gap-3 rounded-[6px] border px-3 py-2 transition",
+                      checked
+                        ? "border-[var(--verde-primario)] bg-[var(--verde-primario)] text-white"
+                        : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 hover:border-zinc-300"
+                    )}
                   >
                     <input
                       type="checkbox"
                       checked={checked}
+                      className="sr-only"
                       onChange={(e) => {
                         const next = e.target.checked
                           ? [...node.data.technicianIds, t.id]
@@ -92,7 +99,16 @@ export function Inspector({
                         onChange({ ...node, data: { ...node.data, technicianIds: next } });
                       }}
                     />
-                    <span className="text-sm text-zinc-800">{t.name}</span>
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "h-5 w-5 rounded-[6px] border flex items-center justify-center",
+                        checked ? "border-white bg-white/15" : "border-zinc-300 bg-white group-hover:border-zinc-400"
+                      )}
+                    >
+                      <Check className={cn("h-4 w-4", checked ? "text-white opacity-100" : "opacity-0")} />
+                    </span>
+                    <span className={cn("text-sm font-medium", checked ? "text-white" : "text-zinc-800")}>{t.name}</span>
                   </label>
                 );
               })}
@@ -106,47 +122,49 @@ export function Inspector({
               <div className="text-xs font-semibold text-zinc-700">Prioridades</div>
               <button
                 type="button"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline"
+                aria-label="Adicionar prioridade"
+                className="h-[25px] w-[50px] rounded-[6px] bg-black text-xs font-semibold text-white hover:bg-black/90 transition"
                 onClick={() => onChange({ ...node, data: { ...node.data, priorities: [...node.data.priorities, ""] } })}
               >
-                <Plus className="h-3.5 w-3.5" />
-                +1 Prioridade
+                + 1
               </button>
             </div>
 
             <div className="space-y-2">
               {node.data.priorities.map((value, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <div className="text-xs text-zinc-500 w-20">{idx + 1}ª</div>
-                  <select
-                    value={value}
-                    onChange={(e) => {
-                      const next = node.data.priorities.slice();
-                      next[idx] = e.target.value;
-                      onChange({ ...node, data: { ...node.data, priorities: next } });
-                    }}
-                    className="h-9 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-sm text-zinc-800"
-                  >
-                    <option value="" disabled>
-                      Selecione...
-                    </option>
-                    {PRIORITY_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
+                <div key={idx} className="flex items-center gap-[0.5px]">
+                  <div className="text-xs text-zinc-500 w-12">{idx + 1}ª</div>
+                  <div className="relative flex-1">
+                    <select
+                      value={value}
+                      onChange={(e) => {
+                        const next = node.data.priorities.slice();
+                        next[idx] = e.target.value;
+                        onChange({ ...node, data: { ...node.data, priorities: next } });
+                      }}
+                      className="h-8 w-full rounded-[6px] border border-zinc-200 bg-white pl-3 pr-9 text-xs text-zinc-800 hover:border-zinc-300"
+                    >
+                      <option value="" disabled>
+                        Selecione...
                       </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="h-9 w-9 rounded-xl border border-zinc-200 hover:bg-zinc-50"
-                    aria-label="Remover prioridade"
-                    onClick={() => {
-                      const next = node.data.priorities.filter((_, i) => i !== idx);
-                      onChange({ ...node, data: { ...node.data, priorities: next } });
-                    }}
-                  >
-                    ×
-                  </button>
+                      {PRIORITY_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-[6px] text-zinc-600 hover:bg-zinc-100 hover:text-zinc-800"
+                      aria-label="Remover prioridade"
+                      onClick={() => {
+                        const next = node.data.priorities.filter((_, i) => i !== idx);
+                        onChange({ ...node, data: { ...node.data, priorities: next } });
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

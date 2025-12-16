@@ -63,17 +63,6 @@ export function CanvasPage() {
     });
   };
 
-  const deleteNode = (id: string) => {
-    history.setPresent((prev) => {
-      return {
-        ...prev,
-        nodes: prev.nodes.filter((n) => n.id !== id),
-        edges: prev.edges.filter((e) => e.from.nodeId !== id && e.to.nodeId !== id),
-        selectedNodeId: prev.selectedNodeId === id ? null : prev.selectedNodeId,
-      };
-    });
-  };
-
   const createEdge = ({ fromNodeId, toNodeId }: { fromNodeId: string; toNodeId: string }) => {
     history.setPresent((prev) => {
       const exists = prev.edges.some((e) => e.from.nodeId === fromNodeId && e.to.nodeId === toNodeId);
@@ -133,7 +122,6 @@ export function CanvasPage() {
             nodes: prev.nodes.map((n) => (n.id === id ? { ...n, ...pos } : n)),
           }))
         }
-        onDeleteNode={deleteNode}
         onCreateEdge={createEdge}
         onCommit={() => history.commit((p) => p)}
       />
