@@ -12,8 +12,14 @@ type DragState =
 
 type ConnectingState =
   | { kind: "none" }
-  | { kind: "from"; nodeId: string; mouse: { x: number; y: number } }
-  | { kind: "detach"; edgeId: string; fromNodeId: string; mouse: { x: number; y: number } };
+  | { kind: "create"; from: { nodeId: string; port: PortId }; mouse: { x: number; y: number } }
+  | {
+      kind: "detach";
+      edgeId: string;
+      fixed: { nodeId: string; port: PortId };
+      draggingEnd: "from" | "to";
+      mouse: { x: number; y: number };
+    };
 
 function bezierPath(a: { x: number; y: number }, b: { x: number; y: number }) {
   const dx = Math.max(80, Math.abs(b.x - a.x) * 0.35);
@@ -32,7 +38,7 @@ export function CanvasSurface({
   onChangeViewport,
   onMoveNode,
   onCreateEdge,
-  onUpdateEdgeTo,
+  onUpdateEdgeEnd,
   onDeleteEdge,
   onCommit,
 }: {
@@ -44,8 +50,8 @@ export function CanvasSurface({
   onSelectNode: (id: string | null) => void;
   onChangeViewport: (next: CanvasViewport) => void;
   onMoveNode: (id: string, pos: { x: number; y: number }) => void;
-  onCreateEdge: (edge: { fromNodeId: string; toNodeId: string }) => void;
-  onUpdateEdgeTo: (edge: { edgeId: string; toNodeId: string }) => void;
+  onCreateEdge: (edge: { from: { nodeId: string; port: PortId }; to: { nodeId: string; port: PortId } }) => void;
+  onUpdateEdgeEnd: (edge: { edgeId: string; end: "from" | "to"; nodeId: string; port: PortId }) => void;
   onDeleteEdge: (edgeId: string) => void;
   onCommit: () => void;
 }) {
@@ -65,7 +71,7 @@ export function CanvasSurface({
       const node = nodeById.get(nodeId);
       if (!node) return { x: 0, y: 0 };
       const size = sizes[nodeId] ?? { w: 220, h: 64 };
-      const x = port === "in" ? node.x : node.x + size.w;
+      const x = port === "left" ? node.x : node.x + size.w;
       const y = node.y + size.h / 2;
       return { x, y };
     },
@@ -100,10 +106,10 @@ export function CanvasSurface({
   };
 
   const onPointerMove = (ev: ReactPointerEvent) => {
-    if (connecting.kind === "from" || connecting.kind === "detach") {
+    if (connecting.kind === "create" || connecting.kind === "detach") {
       const canvasPoint = clientToCanvas(ev.clientX, ev.clientY);
       setConnecting((prev) => {
-        if (prev.kind === "from") return { ...prev, mouse: canvasPoint };
+        if (prev.kind === "create") return { ...prev, mouse: canvasPoint };
         if (prev.kind === "detach") return { ...prev, mouse: canvasPoint };
         return prev;
       });
@@ -124,21 +130,25 @@ export function CanvasSurface({
     }
   };
 
-  const findClosestInPort = useCallback(
+  const findClosestPort = useCallback(
     (point: { x: number; y: number }, opts?: { excludeNodeId?: string }) => {
-      let closest: { nodeId: string; dist: number } | null = null;
+      let closest: { nodeId: string; port: PortId; dist: number } | null = null;
       const maxDist = 22;
 
       for (const n of nodes) {
         if (opts?.excludeNodeId && n.id === opts.excludeNodeId) continue;
-        const p = portPosition(n.id, "in");
-        const dx = p.x - point.x;
-        const dy = p.y - point.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > maxDist) continue;
-        if (!closest || dist < closest.dist) closest = { nodeId: n.id, dist };
+        const candidates: PortId[] = ["left", "right"];
+        for (const port of candidates) {
+          const p = portPosition(n.id, port);
+          const dx = p.x - point.x;
+          const dy = p.y - point.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > maxDist) continue;
+          if (!closest || dist < closest.dist) closest = { nodeId: n.id, port, dist };
+        }
       }
-      return closest;
+      if (!closest) return null;
+      return { nodeId: closest.nodeId, port: closest.port };
     },
     [nodes, portPosition]
   );
@@ -150,11 +160,11 @@ export function CanvasSurface({
       onCommit();
     }
 
-    if (connecting.kind === "from") {
+    if (connecting.kind === "create") {
       const dropPoint = clientToCanvas(ev.clientX, ev.clientY);
-      const target = findClosestInPort(dropPoint, { excludeNodeId: connecting.nodeId });
+      const target = findClosestPort(dropPoint, { excludeNodeId: connecting.from.nodeId });
       if (target) {
-        onCreateEdge({ fromNodeId: connecting.nodeId, toNodeId: target.nodeId });
+        onCreateEdge({ from: connecting.from, to: target });
         onCommit();
       }
       setConnecting({ kind: "none" });
@@ -163,9 +173,9 @@ export function CanvasSurface({
 
     if (connecting.kind === "detach") {
       const dropPoint = clientToCanvas(ev.clientX, ev.clientY);
-      const target = findClosestInPort(dropPoint);
-      if (target && target.nodeId !== connecting.fromNodeId) {
-        onUpdateEdgeTo({ edgeId: connecting.edgeId, toNodeId: target.nodeId });
+      const target = findClosestPort(dropPoint, { excludeNodeId: connecting.fixed.nodeId });
+      if (target && target.nodeId !== connecting.fixed.nodeId) {
+        onUpdateEdgeEnd({ edgeId: connecting.edgeId, end: connecting.draggingEnd, nodeId: target.nodeId, port: target.port });
         onCommit();
       } else {
         onDeleteEdge(connecting.edgeId);
@@ -187,26 +197,6 @@ export function CanvasSurface({
     [viewport.x, viewport.y]
   );
 
-  const findLastEdgeForPort = useCallback(
-    (nodeId: string, port: PortId) => {
-      if (port === "in") {
-        for (let i = edges.length - 1; i >= 0; i--) {
-          const e = edges[i];
-          if (e.to.nodeId === nodeId) return e;
-        }
-      }
-
-      if (port === "out") {
-        for (let i = edges.length - 1; i >= 0; i--) {
-          const e = edges[i];
-          if (e.from.nodeId === nodeId) return e;
-        }
-      }
-      return null;
-    },
-    [edges]
-  );
-
   const handlePortPointerDown = (nodeId: string, port: PortId, ev: ReactPointerEvent) => {
     if (mode !== "cursor") return;
     if (ev.button !== 0) return;
@@ -216,33 +206,53 @@ export function CanvasSurface({
 
     const canvasPoint = clientToCanvas(ev.clientX, ev.clientY);
 
-    if (port === "out") {
-      setConnecting({ kind: "from", nodeId, mouse: canvasPoint });
-      return;
+    for (let i = edges.length - 1; i >= 0; i--) {
+      const edge = edges[i];
+      if (edge.from.nodeId === nodeId && edge.from.port === port) {
+        setConnecting({
+          kind: "detach",
+          edgeId: edge.id,
+          fixed: edge.to,
+          draggingEnd: "from",
+          mouse: canvasPoint,
+        });
+        return;
+      }
+
+      if (edge.to.nodeId === nodeId && edge.to.port === port) {
+        setConnecting({
+          kind: "detach",
+          edgeId: edge.id,
+          fixed: edge.from,
+          draggingEnd: "to",
+          mouse: canvasPoint,
+        });
+        return;
+      }
     }
 
-    const edge = findLastEdgeForPort(nodeId, "in");
-    if (!edge) return;
-    setConnecting({ kind: "detach", edgeId: edge.id, fromNodeId: edge.from.nodeId, mouse: canvasPoint });
+    setConnecting({ kind: "create", from: { nodeId, port }, mouse: canvasPoint });
   };
 
   const edgePaths = useMemo(() => {
-    return edges.map((e) => {
-      const a = portPosition(e.from.nodeId, "out");
-      const b = portPosition(e.to.nodeId, "in");
+    const visibleEdges = connecting.kind === "detach" ? edges.filter((e) => e.id !== connecting.edgeId) : edges;
+
+    return visibleEdges.map((e) => {
+      const a = portPosition(e.from.nodeId, e.from.port);
+      const b = portPosition(e.to.nodeId, e.to.port);
       return { id: e.id, d: bezierPath(a, b) };
     });
-  }, [edges, portPosition]);
+  }, [connecting, edges, portPosition]);
 
   const connectingPath = useMemo(() => {
-    if (connecting.kind === "from") {
-      const a = portPosition(connecting.nodeId, "out");
+    if (connecting.kind === "create") {
+      const a = portPosition(connecting.from.nodeId, connecting.from.port);
       const b = connecting.mouse;
       return bezierPath(a, b);
     }
 
     if (connecting.kind === "detach") {
-      const a = portPosition(connecting.fromNodeId, "out");
+      const a = portPosition(connecting.fixed.nodeId, connecting.fixed.port);
       const b = connecting.mouse;
       return bezierPath(a, b);
     }
@@ -283,16 +293,21 @@ export function CanvasSurface({
         </svg>
 
         {nodes.map((n) => {
-          const hasIncoming = edges.some((e) => e.to.nodeId === n.id);
-          const hasOutgoing = edges.some((e) => e.from.nodeId === n.id);
+          const hasLeft = edges.some(
+            (e) => (e.from.nodeId === n.id && e.from.port === "left") || (e.to.nodeId === n.id && e.to.port === "left")
+          );
+          const hasRight = edges.some(
+            (e) => (e.from.nodeId === n.id && e.from.port === "right") || (e.to.nodeId === n.id && e.to.port === "right")
+          );
+          const isSelected = selectedNodeId === n.id;
 
           return (
             <NodeCard
               key={n.id}
               node={n}
-              selected={selectedNodeId === n.id}
-              showInPort={hasIncoming}
-              showOutPort={hasOutgoing}
+              selected={isSelected}
+              showLeftPort={isSelected || hasLeft}
+              showRightPort={isSelected || hasRight}
               onSelect={() => onSelectNode(n.id)}
               onPointerDown={onNodePointerDown(n.id)}
               onPortPointerDown={(port, ev) => handlePortPointerDown(n.id, port, ev)}

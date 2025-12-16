@@ -31,12 +31,12 @@ export type CanvasNode =
   | (CanvasNodeBase & { type: "route"; data: RouteNodeData })
   | (CanvasNodeBase & { type: "text"; data: TextNodeData });
 
-export type PortId = "in" | "out";
+export type PortId = "left" | "right";
 
 export type CanvasEdge = {
   id: string;
-  from: { nodeId: string; port: "out" };
-  to: { nodeId: string; port: "in" };
+  from: { nodeId: string; port: PortId };
+  to: { nodeId: string; port: PortId };
 };
 
 export type CanvasViewport = {

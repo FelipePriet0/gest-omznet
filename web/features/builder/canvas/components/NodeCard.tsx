@@ -23,8 +23,8 @@ function labelForType(type: CanvasNode["type"]) {
 export function NodeCard({
   node,
   selected,
-  showInPort,
-  showOutPort,
+  showLeftPort,
+  showRightPort,
   onSelect,
   onPointerDown,
   onPortPointerDown,
@@ -34,8 +34,8 @@ export function NodeCard({
 }: {
   node: CanvasNode;
   selected: boolean;
-  showInPort?: boolean;
-  showOutPort?: boolean;
+  showLeftPort?: boolean;
+  showRightPort?: boolean;
   onSelect: () => void;
   onPointerDown: (ev: ReactPointerEvent) => void;
   onPortPointerDown: (port: PortId, ev: ReactPointerEvent) => void;
@@ -83,32 +83,32 @@ export function NodeCard({
       {/* entrada */}
       <button
         type="button"
-        aria-label="Conectar entrada"
+        aria-label="Conectar (lado esquerdo)"
         onPointerDown={(e) => {
           e.stopPropagation();
-          onPortPointerDown("in", e);
+          onPortPointerDown("left", e);
         }}
-        onPointerEnter={() => onPortPointerEnter("in")}
-        onPointerLeave={() => onPortPointerLeave("in")}
+        onPointerEnter={() => onPortPointerEnter("left")}
+        onPointerLeave={() => onPortPointerLeave("left")}
         className={cn(
           "absolute -left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-[var(--verde-primario)] border border-white shadow",
-          showInPort ? (selected ? "" : "opacity-80") : "pointer-events-none opacity-0"
+          showLeftPort ? (selected ? "" : "opacity-80") : "pointer-events-none opacity-0"
         )}
       />
 
       {/* saída */}
       <button
         type="button"
-        aria-label="Conectar saída"
+        aria-label="Conectar (lado direito)"
         onPointerDown={(e) => {
           e.stopPropagation();
-          onPortPointerDown("out", e);
+          onPortPointerDown("right", e);
         }}
-        onPointerEnter={() => onPortPointerEnter("out")}
-        onPointerLeave={() => onPortPointerLeave("out")}
+        onPointerEnter={() => onPortPointerEnter("right")}
+        onPointerLeave={() => onPortPointerLeave("right")}
         className={cn(
           "absolute -right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-[var(--verde-primario)] border border-white shadow",
-          showOutPort ? (selected ? "" : "opacity-80") : "pointer-events-none opacity-0"
+          showRightPort ? (selected ? "" : "opacity-80") : "pointer-events-none opacity-0"
         )}
       />
 

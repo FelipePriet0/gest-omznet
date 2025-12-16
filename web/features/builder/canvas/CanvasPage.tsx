@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { ChevronLeft } from "lucide-react";
 import { useHistory } from "./useHistory";
-import type { CanvasEdge, CanvasNode, CanvasNodeType, CanvasWorkflowState } from "./types";
+import type { CanvasEdge, CanvasNode, CanvasNodeType, CanvasWorkflowState, PortId } from "./types";
 import { CanvasDock } from "./components/CanvasDock";
 import { CanvasSurface } from "./components/CanvasSurface";
 import { Inspector } from "./components/Inspector";
@@ -68,8 +68,8 @@ function initialState(): CanvasWorkflowState {
   ];
 
   const edges: CanvasEdge[] = [
-    { id: "e_1", from: { nodeId: "n_technician", port: "out" }, to: { nodeId: "n_priority", port: "in" } },
-    { id: "e_2", from: { nodeId: "n_priority", port: "out" }, to: { nodeId: "n_route", port: "in" } },
+    { id: "e_1", from: { nodeId: "n_technician", port: "right" }, to: { nodeId: "n_priority", port: "left" } },
+    { id: "e_2", from: { nodeId: "n_priority", port: "right" }, to: { nodeId: "n_route", port: "left" } },
   ];
 
   return {
@@ -107,14 +107,24 @@ export function CanvasPage() {
     });
   };
 
-  const createEdge = ({ fromNodeId, toNodeId }: { fromNodeId: string; toNodeId: string }) => {
+  const createEdge = ({
+    from,
+    to,
+  }: {
+    from: { nodeId: string; port: PortId };
+    to: { nodeId: string; port: PortId };
+  }) => {
     history.setPresent((prev) => {
-      const exists = prev.edges.some((e) => e.from.nodeId === fromNodeId && e.to.nodeId === toNodeId);
+      const exists = prev.edges.some(
+        (e) =>
+          (e.from.nodeId === from.nodeId && e.to.nodeId === to.nodeId) ||
+          (e.from.nodeId === to.nodeId && e.to.nodeId === from.nodeId)
+      );
       if (exists) return prev;
       const edge: CanvasEdge = {
         id: uid("edge"),
-        from: { nodeId: fromNodeId, port: "out" },
-        to: { nodeId: toNodeId, port: "in" },
+        from,
+        to,
       };
       return { ...prev, edges: [...prev.edges, edge] };
     });
@@ -167,10 +177,13 @@ export function CanvasPage() {
           }))
         }
         onCreateEdge={createEdge}
-        onUpdateEdgeTo={({ edgeId, toNodeId }) =>
+        onUpdateEdgeEnd={({ edgeId, end, nodeId, port }) =>
           history.setPresent((prev) => ({
             ...prev,
-            edges: prev.edges.map((e) => (e.id === edgeId ? { ...e, to: { ...e.to, nodeId: toNodeId } } : e)),
+            edges: prev.edges.map((e) => {
+              if (e.id !== edgeId) return e;
+              return end === "from" ? { ...e, from: { nodeId, port } } : { ...e, to: { nodeId, port } };
+            }),
           }))
         }
         onDeleteEdge={(edgeId) => history.setPresent((prev) => ({ ...prev, edges: prev.edges.filter((e) => e.id !== edgeId) }))}

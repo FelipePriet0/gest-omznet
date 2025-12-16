@@ -1,0 +1,228 @@
+# 🧠 Canvas Workflow — Construtor de Regras de Agendamento
+
+## 🎯 Objetivo da Funcionalidade
+
+O **Canvas Workflow** é o núcleo lógico do sistema de agendamento. Sua função é **definir como o sistema decide**:
+
+* quais **técnicos** entram no fluxo
+* quais **prioridades** devem ser respeitadas
+* quais **rotas** direcionam a execução
+
+O resultado deste canvas **alimenta a Agenda**, que apenas executa o que foi definido aqui.
+
+> Princípio central: **o Canvas pensa, a Agenda executa.**
+
+---
+
+## 🧩 Estrutura Visual do Canvas
+
+A interface é composta por três áreas principais:
+
+1. **Aba Lateral (CTAs de criação)**
+2. **Área Central (Canvas de conexão)**
+3. **Navbar Inferior (controle do canvas)**
+
+---
+
+## 🧩 Aba Lateral — CTAs de Criação
+
+Localizada à esquerda, a aba lateral contém os blocos disponíveis para construção do workflow.
+
+### CTAs disponíveis:
+
+* **Técnicos**
+* **Prioridades**
+* **Rotas**
+* **Texto** (informativo / anotação)
+
+### Comportamento padrão
+
+1. Usuário clica em um CTA
+2. Um **card de configuração** é aberto no lado direito
+3. Após configuração, um **card é inserido no canvas**
+4. O card passa a aceitar conexões (setas)
+
+---
+
+## 🧱 Cards do Canvas
+
+Cada card representa um **bloco lógico do workflow**. Eles são conectados por setas que indicam a ordem de decisão.
+
+### Elementos comuns a todos os cards
+
+* **Título** (topo do card)
+* **Subtítulo explicativo**
+* **Ícone de lixeira** no canto superior direito
+
+  * Cor primária
+  * Aciona confirmação antes da exclusão
+
+---
+
+## 👷 Card: Técnicos
+
+### Objetivo
+
+Definir **quais técnicos** participam deste workflow.
+
+### Conteúdo do Card
+
+* **Title:** Selecione o Técnico
+* **Subtitle:** Escolha o(s) técnico(s) desse workflow
+
+### CTA / Popover
+
+* Ícone de técnico
+* Placeholder: **“Técnicos”**
+* Ícones de seta (↓ ↑)
+
+Ao clicar:
+
+* Abre popover com **lista de todos os técnicos cadastrados**
+* Permite **seleção múltipla**
+
+O card pode representar:
+
+* Um técnico específico
+* Um grupo de técnicos
+
+---
+
+## ⚠️ Card: Prioridade
+
+### Objetivo
+
+Definir a **ordem de importância** para tomada de decisão dentro do workflow.
+
+### Conteúdo do Card
+
+* **Title:** Defina as prioridades
+* **Subtitle:** Defina as prioridades desse card
+
+### CTA / Popover (Prioridade principal)
+
+* Ícone de técnico
+* Placeholder: **“Prioridades”**
+* Ícones de seta (↓ ↑)
+
+Ao clicar:
+
+* Abre popover com **lista de prioridades disponíveis**
+* Permite **selecionar apenas 1 prioridade por nível**
+
+### Lista de prioridades disponíveis
+
+* Bairro
+* Casa
+* Prédio com Prumada
+* Prédio sem Prumada (+ 3 andares) ou Wi-Fi Extend
+
+---
+
+### CTA secundário: **+1 Prioridade**
+
+* Localizado no **canto inferior esquerdo do popover**
+* Ao clicar:
+
+  * Cria uma **prioridade posterior** à anterior
+  * Exemplo:
+
+    * Prioridade 1 → Bairro
+    * Prioridade 2 → Casa
+    * Prioridade 3 → Prédio com Prumada
+
+Visualmente, cada prioridade aparece listada no card em ordem crescente.
+
+---
+
+## 🗺️ Card: Rota
+
+### Objetivo
+
+Definir **para onde o técnico deve ir**, com base em localização.
+
+### Conteúdo do Card
+
+* **Title:** Defina a(s) Rotas
+* **Subtitle:** Defina as rotas desse card
+
+### CTA / Popover
+
+* Ícone de técnico
+* Placeholder: **“Rota(s)”**
+* Ícones de seta (↓ ↑)
+
+Ao clicar:
+
+* Abre popover com **lista de bairros disponíveis**
+* Permite **seleção múltipla**
+
+> Lista inicial: bairros de Uberlândia (expansível no futuro).
+
+---
+
+## 📝 Card: Texto
+
+### Objetivo
+
+Permitir **anotações livres** dentro do workflow.
+
+Uso típico:
+
+* Explicar regras
+* Contextualizar decisões
+* Ajudar no entendimento do fluxo
+
+Este card **não interfere na lógica** do sistema.
+
+---
+
+## 🔗 Conexões entre Cards (Setas)
+
+* As setas representam o **fluxo de decisão**
+* A ordem da conexão define:
+
+  1. Primeiro filtro
+  2. Segundo critério
+  3. Direcionamento final
+
+Exemplo lógico:
+
+Técnicos → Prioridades → Rotas → Output
+
+---
+
+## 🎛️ Navbar Inferior (Centralizada)
+
+Localizada na parte inferior do canvas.
+
+### Ícones e Funções
+
+* 🖐 **Mão** → Modo Grab (mover o canvas)
+* 🖱 **Cursor** → Modo Interação (clicar em cards, CTAs, popovers)
+* ↩ **Voltar** → Desfaz última ação
+* ↪ **Avançar** → Refaz ação desfeita
+
+> Apenas um modo (Mão ou Cursor) pode estar ativo por vez.
+
+---
+
+## 🔒 Regras Importantes
+
+* O Canvas **não agenda instalações**
+* O Canvas **não executa ações**
+* O Canvas **define regras puras**
+* Toda alteração só impacta a Agenda após salvar o workflow
+
+---
+
+## ✅ Resultado Esperado
+
+* Clareza total da lógica de agendamento
+* Redução de decisões manuais
+* Workflow visual e auditável
+* Base sólida para automação futura e IA
+
+---
+
+> Próximo passo natural: **Motor de Decisão — como o sistema interpreta o Canvas e gera o output para a Agenda**
