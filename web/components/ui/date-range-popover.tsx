@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { parseDateOnly, toDateOnlyISO } from "@/lib/datetime";
+import { KanbanRangeCalendar } from "@/components/app/kanban-range-calendar";
 
 export type DateRangeValue = { start?: string; end?: string };
 
@@ -20,6 +21,7 @@ type DateRangePopoverProps = {
   placeholder?: string;
   disabled?: boolean;
   disablePast?: boolean;
+  variant?: "default" | "kanban";
 };
 
 const dayPickerClassNames = {
@@ -70,6 +72,7 @@ export function DateRangePopover({
   placeholder,
   disabled,
   disablePast,
+  variant = "default",
 }: DateRangePopoverProps) {
   const [open, setOpen] = React.useState(false);
   const selectedRange = React.useMemo<DateRange | undefined>(() => {
@@ -110,29 +113,47 @@ export function DateRangePopover({
             </div>
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 border-0 shadow-md bg-white rounded-xl" align="start" sideOffset={8}>
-          <DayPicker
-            mode="range"
-            locale={ptBR}
-            selected={selectedRange}
-            onSelect={(range, selectedDay, modifiers, e) => {
-              if (!range?.from) {
-                onChange({});
-                return;
-              }
-              const next: DateRangeValue = {
-                start: toDateOnlyISO(range.from),
-                end: range.to ? toDateOnlyISO(range.to) : undefined,
-              };
-              onChange(next);
-              if (range.to) {
-                setOpen(false);
-              }
-            }}
-            numberOfMonths={1}
-            classNames={dayPickerClassNames}
-            disabled={disablePast ? { before: new Date() } : undefined}
-          />
+        <PopoverContent
+          className={cn(
+            "w-auto p-0 border-0",
+            variant === "kanban" ? "bg-transparent shadow-none" : "shadow-md bg-white rounded-xl"
+          )}
+          align="start"
+          sideOffset={8}
+        >
+          {variant === "kanban" ? (
+            <KanbanRangeCalendar
+              value={value}
+              disablePast={disablePast}
+              onChange={(next) => {
+                onChange(next);
+                if (next.start && next.end) setOpen(false);
+              }}
+            />
+          ) : (
+            <DayPicker
+              mode="range"
+              locale={ptBR}
+              selected={selectedRange}
+              onSelect={(range) => {
+                if (!range?.from) {
+                  onChange({});
+                  return;
+                }
+                const next: DateRangeValue = {
+                  start: toDateOnlyISO(range.from),
+                  end: range.to ? toDateOnlyISO(range.to) : undefined,
+                };
+                onChange(next);
+                if (range.to) {
+                  setOpen(false);
+                }
+              }}
+              numberOfMonths={1}
+              classNames={dayPickerClassNames}
+              disabled={disablePast ? { before: new Date() } : undefined}
+            />
+          )}
         </PopoverContent>
       </Popover>
     </div>
