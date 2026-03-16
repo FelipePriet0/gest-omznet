@@ -2217,3 +2217,4 @@ textarea[placeholder="Analisar"]::placeholder {
 .form-zoom-controls .btn-zoom:hover,
 .form-zoom-controls .btn-zoom-reset:hover { background: #f8fafc; }
 .form-zoom-controls .zoom-label { font-size: 12px; color: #475569; min-width: 34px; text-align: center; }
+.emoji-cursor-active, .emoji-cursor-active * { cursor: none !important; }

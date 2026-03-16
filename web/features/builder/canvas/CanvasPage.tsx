@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { useHistory } from "./useHistory";
 import type { CanvasEdge, CanvasNode, CanvasNodeType, CanvasWorkflowState, PortId } from "./types";
 import { CanvasDock } from "./components/CanvasDock";
+import { getWorkflow, saveWorkflow } from "@/features/builder/services";
 import { CanvasSurface } from "./components/CanvasSurface";
 import { Inspector } from "./components/Inspector";
 import { LeftPalette } from "./components/LeftPalette";
@@ -82,10 +84,72 @@ function initialState(): CanvasWorkflowState {
 }
 
 export function CanvasPage() {
+  const sp = useSearchParams();
+  const router = useRouter();
+  const wfId = sp?.get("id") || null;
+  const [loaded, setLoaded] = useState(false);
+  const [currentId, setCurrentId] = useState<string | null>(wfId);
   const history = useHistory<CanvasWorkflowState>(useMemo(() => initialState(), []), { max: 80 });
   const state = history.present;
+  const savingRef = useRef(false);
 
   const selectedNode = state.selectedNodeId ? state.nodes.find((n) => n.id === state.selectedNodeId) ?? null : null;
+  const routeRankForSelected = useMemo(() => {
+    if (!selectedNode || selectedNode.type !== 'route') return null;
+    let rank = 0;
+    for (const n of state.nodes) {
+      if (n.type === 'route') {
+        rank += 1;
+        if (n.id === selectedNode.id) return rank;
+      }
+    }
+    return null;
+  }, [selectedNode, state.nodes]);
+
+  // Load workflow state when id is provided
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!wfId) { setLoaded(true); return; }
+      try {
+        const wf = await getWorkflow(wfId);
+        if (!active) return;
+        if (wf && wf.state) {
+          // Initialize history with loaded state
+          history.setPresent((prev) => ({ ...(wf.state as any) }));
+          setCurrentId(wf.id);
+        } else {
+          setCurrentId(wfId);
+        }
+      } finally {
+        if (active) setLoaded(true);
+      }
+    })();
+    return () => { active = false; };
+  }, [wfId, history]);
+
+  // Debounced save on commit
+  const scheduleSave = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function saveNow(nextState?: CanvasWorkflowState) {
+    const payload = nextState || history.present;
+    if (savingRef.current) return;
+    savingRef.current = true;
+    (async () => {
+      try {
+        const wf = await saveWorkflow({ id: currentId, state: payload });
+        if (!currentId) {
+          setCurrentId(wf.id);
+          try { router.replace(`/builder/canvas?id=${wf.id}`); } catch {}
+        }
+      } finally {
+        savingRef.current = false;
+      }
+    })();
+  }
+  function scheduleSaveNow() {
+    if (scheduleSave.current) clearTimeout(scheduleSave.current);
+    scheduleSave.current = setTimeout(() => saveNow(), 600);
+  }
 
   const createNode = (type: CanvasNodeType) => {
     history.commit((prev) => {
@@ -105,6 +169,7 @@ export function CanvasPage() {
 
       return { ...prev, nodes: [...prev.nodes, node], selectedNodeId: id };
     });
+    scheduleSaveNow();
   };
 
   const createEdge = ({
@@ -130,6 +195,27 @@ export function CanvasPage() {
     });
   };
 
+  // Emoji cursor state (global follower across the whole /builder/canvas viewport)
+  const [cursor, setCursor] = useState<{ x: number; y: number; visible: boolean }>({ x: 0, y: 0, visible: true });
+  useEffect(() => {
+    const handleMove = (ev: PointerEvent) => {
+      setCursor({ x: ev.clientX, y: ev.clientY, visible: true });
+    };
+    const handleLeave = (ev: PointerEvent) => {
+      // Hide when pointer leaves the window (relatedTarget === null)
+      if ((ev as any).relatedTarget == null) setCursor((c) => ({ ...c, visible: false }));
+    };
+    document.addEventListener("pointermove", handleMove, { passive: true } as any);
+    document.addEventListener("pointerout", handleLeave, { passive: true } as any);
+    // Hide native cursor globally while on this page
+    try { document.documentElement.classList.add("emoji-cursor-active"); } catch {}
+    return () => {
+      document.removeEventListener("pointermove", handleMove as any);
+      document.removeEventListener("pointerout", handleLeave as any);
+      try { document.documentElement.classList.remove("emoji-cursor-active"); } catch {}
+    };
+  }, []);
+
   return (
     <div
       className="relative flex-1 w-full h-full rounded-3xl overflow-hidden"
@@ -141,6 +227,16 @@ export function CanvasPage() {
         backgroundPosition: "-1px -1px",
       }}
     >
+      {/* Emoji cursor overlay (fixed, above everything in the page) */}
+      {cursor.visible && (
+        <div
+          aria-hidden
+          style={{ position: "fixed", left: cursor.x, top: cursor.y, transform: "translate(-50%, -50%)", pointerEvents: "none", zIndex: 9999 }}
+          className="text-2xl select-none"
+        >
+          👆
+        </div>
+      )}
       {/* Top left: back + title */}
       <div className="pointer-events-auto absolute left-6 top-6 z-20 flex items-center gap-2">
         <button
@@ -188,16 +284,19 @@ export function CanvasPage() {
         }
         onDeleteEdge={(edgeId) => history.setPresent((prev) => ({ ...prev, edges: prev.edges.filter((e) => e.id !== edgeId) }))}
         onCommit={() => history.commit((p) => p)}
+        onCommit={() => { history.commit((p) => p); scheduleSaveNow(); }}
       />
 
       {/* Right inspector (config panel) */}
       <Inspector
         node={selectedNode}
+        routeRank={routeRankForSelected}
         onChange={(next) => {
           history.commit((prev) => ({
             ...prev,
             nodes: prev.nodes.map((n) => (n.id === next.id ? next : n)),
           }));
+          scheduleSaveNow();
         }}
         onDelete={() => {
           if (!state.selectedNodeId) return;
@@ -210,6 +309,7 @@ export function CanvasPage() {
               selectedNodeId: null,
             };
           });
+          scheduleSaveNow();
         }}
       />
 
