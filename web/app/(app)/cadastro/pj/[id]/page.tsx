@@ -204,6 +204,14 @@ const TIPO_COMPROV_UI = ['Energia','Agua','Internet','Outro'] as const;
 function uiToTipoComprov(v:string): string|null { const m:any={ Energia:'energia',Agua:'agua',Internet:'internet',Outro:'outro' }; return m[v] ?? null; }
 function tipoComprovToUI(v:string|null): string { const m:any={ energia:'Energia',agua:'Agua',internet:'Internet',outro:'Outro' }; return v ? (m[v] ?? '') : ''; }
 
+// Tipo de Instalação (Agenda/Builder)
+const TIPO_INST_UI_PJ = ['XXXX','Casa','Prédio com Prumada','Prédio sem Prumada','Wi-Fi Extend'] as const;
+function uiToTipoInstPJ(v: string): string | null {
+  if (v === 'XXXX') return null; // 'Nada' -> não altera lógica; persiste null
+  const m: any = { 'Casa':'casa','Prédio com Prumada':'predio_com_prumada','Prédio sem Prumada':'predio_sem_prumada','Wi-Fi Extend':'wifi_extend' };
+  return m[v] ?? null;
+}
+
 export default function CadastroPJPage() {
   const params = useParams();
   const search = useSearchParams();
@@ -229,6 +237,7 @@ export default function CadastroPJPage() {
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
   const [cardIdEff, setCardIdEff] = useState<string>('');
+  const [tipoInstalacao, setTipoInstalacao] = useState<string>('');
   // Draft de parecer (consistente com o modal)
   const draftKey = useMemo(() => `parecer:${cardIdEff || ''}:${currentUserId ?? 'self'}`, [cardIdEff, currentUserId]);
   const [parecerDraft, setParecerDraft, clearParecerDraft, draftLoaded] = useIndexedDraft<{ text: string; decision: ComposerDecision | null }>(draftKey, { text: '', decision: null });
@@ -512,7 +521,7 @@ export default function CadastroPJPage() {
         // Triangulação: pegar card por applicant_id e carregar pareceres
         const { data: cardRow } = await supabase
           .from('kanban_cards')
-          .select('id, reanalysis_notes')
+          .select('id, reanalysis_notes, tipo_instalacao')
           .eq('applicant_id', applicantId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false })
@@ -522,6 +531,11 @@ export default function CadastroPJPage() {
         if (useCardId) {
           setCardIdEff(useCardId);
           if (Array.isArray((cardRow as any).reanalysis_notes)) setPareceres((cardRow as any).reanalysis_notes);
+          try {
+            const can = (cardRow as any)?.tipo_instalacao as string | null | undefined;
+            const mapBack: any = { casa:'Casa', predio_com_prumada:'Prédio com Prumada', predio_sem_prumada:'Prédio sem Prumada', 'wifi_extend':'Wi-Fi Extend' };
+            setTipoInstalacao(can ? (mapBack[can] || '') : '');
+          } catch {}
         }
         try { setProfiles(await listProfiles()); } catch {}
       } finally {
@@ -686,18 +700,42 @@ export default function CadastroPJPage() {
     };
   }, []);
 
+  // Zoom control for PJ (persisted) — must be declared before any early return
+  const [zoom, setZoom] = useState<number>(() => {
+    if (typeof window === 'undefined') return 1;
+    try {
+      const s = window.localStorage.getItem('form-zoom-pj');
+      if (!s) return 1;
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? Math.min(1.5, Math.max(0.75, n)) : 1;
+    } catch { return 1; }
+  });
+  useEffect(() => { try { window.localStorage.setItem('form-zoom-pj', String(zoom)); } catch {} }, [zoom]);
+
   if (loading) return <div className="p-4 text-sm text-zinc-600">Carregando…</div>;
 
   const reqComprov = (pj.enviou_comprovante||'') === 'Sim';
 
   const from = (search?.get('from') || '').toLowerCase();
   const showAnalyzeCrumb = from === 'analisar';
-  // Wrapper receives .expanded-portrait for compact layout on tall portrait monitors
+  // Wrapper receives .expanded-portrait para layout compacto
+  // Aplica zoom escalável tipo Adobe: controles acima do primeiro card e scaler centralizado
   return (
-    <div className="pj-form w-full px-2 py-6 mx-auto expanded-portrait" style={{ maxWidth: 'calc(100% - 16px)', width: 'calc(100% - 16px)' }}>
-      {statusText && (
-        <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
-      )}
+    <div className="form-zoom-wrap">
+      {/* Controles inline, acima do primeiro card (Dados da Empresa), não escalam */}
+      <div className="form-fixed-width px-3 md:px-4 expanded-portrait" style={{ paddingTop: 0 }}>
+        <div className="form-zoom-controls form-zoom-controls--inline">
+          <button className="btn-zoom" onClick={() => setZoom(z => Math.max(0.75, +(z - 0.05).toFixed(2)))}>−</button>
+          <span className="zoom-label">{Math.round(zoom * 100)}%</span>
+          <button className="btn-zoom" onClick={() => setZoom(z => Math.min(1.5, +(z + 0.05).toFixed(2)))}>+</button>
+          <button className="btn-zoom-reset" onClick={() => setZoom(1)}>Reset</button>
+        </div>
+      </div>
+      <div className="form-zoom-scaler" style={{ transform: `scale(${zoom})`, margin: '12px auto 0 auto' }}>
+        <div className="pj-form ficha-pj px-3 md:px-4 py-6 expanded-portrait">
+          {statusText && (
+            <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
+          )}
 
       {/* Seção 1: Dados da Empresa */}
       <Card title="Dados da Empresa">
@@ -726,6 +764,23 @@ export default function CadastroPJPage() {
               value={pj.tipo_imovel||''}
               onChange={(v)=>{ setPj({...pj, tipo_imovel:v}); queueSave('pj','tipo_imovel', v); }}
               options={["Comércio Terreo","Comércio Sala","Casa"]}
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Instalação</label>
+            <SimpleSelect
+              value={tipoInstalacao}
+              onChange={(v)=>{
+                setTipoInstalacao(v);
+                if (cardIdEff) {
+                  const dbVal = uiToTipoInstPJ(v);
+                  supabase.from('kanban_cards').update({ tipo_instalacao: dbVal }).eq('id', cardIdEff).then(()=>{});
+                }
+              }}
+              options={[...TIPO_INST_UI_PJ]}
               className="mt-0"
               triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
               contentClassName="rounded-lg shadow-lg border-0"
@@ -1057,6 +1112,8 @@ export default function CadastroPJPage() {
         </Card>
       )}
       {pinnedSpace>0 && (<div aria-hidden className="w-full" style={{ height: pinnedSpace }} />)}
+        </div>
+      </div>
     </div>
   );
 }

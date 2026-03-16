@@ -709,6 +709,108 @@ body {
   .expanded-portrait .mt-6 { margin-top: 12px; }
 }
 
+/* Expanded ficha container: PJ (407/670 ≈ 0.61) */
+.ficha-pj {
+  aspect-ratio: 407 / 670;
+  width: min(900px, 90vh);
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 11px; /* ultra-compact for PJ */
+  line-height: 1.28;
+  padding: 8px !important;
+}
+
+@media (max-width: 768px) {
+  .ficha-pj { aspect-ratio: auto; width: 100%; }
+}
+
+/* Compact layout rules for Expanded PJ (mirror PF density) */
+.ficha-pj .rounded-xl.bg-white { margin-bottom: 6px !important; }
+.ficha-pj .rounded-xl.bg-white > .p-4 { padding: 6px 10px !important; }
+.ficha-pj .rounded-xl.bg-white > div:first-child { height: 22px; display: flex; align-items: center; padding: 0 10px; font-size: 11px; }
+
+.ficha-pj .grid { gap: 4px !important; }
+@media (min-width: 1024px) {
+  .ficha-pj .grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .ficha-pj .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+}
+@media (min-width: 1536px) {
+  .ficha-pj .grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+}
+
+.ficha-pj input,
+.ficha-pj select,
+.ficha-pj .SimpleSelect-trigger { height: 26px !important; min-height: 26px; padding: 0 6px !important; font-size: 11px !important; }
+
+.ficha-pj label,
+.ficha-pj .field-label { font-size: 10.5px; margin-bottom: 1px; }
+
+.ficha-pj textarea { min-height: 38px !important; padding: 4px 6px !important; font-size: 11px !important; }
+
+.ficha-pj .mt-4 { margin-top: 4px !important; }
+.ficha-pj .mb-4 { margin-bottom: 4px !important; }
+.ficha-pj .mb-6 { margin-bottom: 6px !important; }
+
+/* Expanded ficha container: PF (407/670 ≈ 0.61, conforme solicitação) */
+.ficha-pf {
+  aspect-ratio: 407 / 670;
+  width: min(900px, 90vh);
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 11px; /* ultra-compact base text in PF */
+  line-height: 1.28;
+  padding: 8px !important; /* reduce outer paddings */
+}
+
+@media (max-width: 768px) {
+  .ficha-pf { aspect-ratio: auto; width: 100%; }
+}
+
+/* Compact layout rules for Expanded PF */
+.ficha-pf {
+  /* section spacing between cards */
+}
+.ficha-pf .rounded-xl.bg-white { margin-bottom: 6px !important; }
+.ficha-pf .rounded-xl.bg-white > .p-4 { padding: 6px 10px !important; }
+.ficha-pf .rounded-xl.bg-white > div:first-child { height: 22px; display: flex; align-items: center; padding: 0 10px; font-size: 11px; }
+
+.ficha-pf .grid { gap: 4px !important; }
+
+/* Make grids pack more fields per row on wider screens */
+@media (min-width: 1024px) {
+  .ficha-pf .grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .ficha-pf .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+}
+@media (min-width: 1536px) {
+  .ficha-pf .grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+}
+
+/* Inputs and selects height */
+.ficha-pf input,
+.ficha-pf select,
+.ficha-pf .SimpleSelect-trigger { height: 26px !important; min-height: 26px; padding: 0 6px !important; font-size: 11px !important; }
+
+/* Labels */
+.ficha-pf label,
+.ficha-pf .field-label { font-size: 10.5px; margin-bottom: 1px; }
+
+/* Shorter textareas in compact PF view */
+.ficha-pf textarea { min-height: 38px !important; padding: 4px 6px !important; font-size: 11px !important; }
+
+/* Trim common utility margins inside PF */
+.ficha-pf .mt-4 { margin-top: 4px !important; }
+.ficha-pf .mb-4 { margin-bottom: 4px !important; }
+.ficha-pf .mb-6 { margin-bottom: 6px !important; }
+
+/* Status line (saving/error) — shrink height and spacing */
+.ficha-pf .mt-1.h-4 { margin-top: 2px !important; height: 12px !important; font-size: 10px !important; }
+
 /* Demo Field Styles - Enterprise Responsive */
 .field-group {
   position: relative;
@@ -2055,3 +2157,63 @@ textarea[placeholder="Analisar"]::placeholder {
   letter-spacing: 0.5px;
   line-height: 1.5;
 }
+/* Generic smart zoom wrappers for PF/PJ */
+.form-zoom-wrap {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column; /* stack controls above ficha */
+  align-items: center;     /* center both controls and ficha */
+}
+.form-zoom-scaler {
+  transform-origin: top center;
+  display: inline-block; /* shrink-wrap to content for proper centering */
+}
+.form-zoom-controls {
+  position: sticky;
+  top: 8px;
+  z-index: 50;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  background: rgba(255,255,255,0.75);
+  border: 1px solid #e5e7eb;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.form-zoom-controls--inline {
+  position: static;
+  top: auto;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin: 8px 0 6px 0;
+}
+
+/* Width-only wrapper to align controls with ficha width (no aspect lock) */
+.form-fixed-width {
+  width: min(900px, 90vh);
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.form-zoom-controls .btn-zoom,
+.form-zoom-controls .btn-zoom-reset {
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #0f172a;
+}
+.form-zoom-controls .btn-zoom:hover,
+.form-zoom-controls .btn-zoom-reset:hover { background: #f8fafc; }
+.form-zoom-controls .zoom-label { font-size: 12px; color: #475569; min-width: 34px; text-align: center; }

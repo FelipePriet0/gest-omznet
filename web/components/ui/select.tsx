@@ -64,7 +64,7 @@ export function SimpleSelect({
         <button
           type="button"
           className={cn(
-            "flex h-12 w-full items-center justify-between rounded-lg bg-white px-5 py-3 text-sm text-zinc-900 outline-none",
+            "SimpleSelect-trigger flex h-12 w-full items-center justify-between rounded-lg bg-white px-5 py-3 text-sm text-zinc-900 outline-none",
             flat ? "border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent" : "border border-zinc-300 shadow-sm focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20",
             className,
             triggerClassName,
