@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { listWorkflows, saveWorkflow, publishWorkflow, duplicateWorkflow, type BuilderWorkflow } from "@/features/builder/services";
 
 import { AddTechnicianModal, type TechnicianCreateValue } from "@/features/builder/AddTechnicianModal";
+import { Pointer } from "@/registry/magicui/pointer";
 import { formatDateLabel } from "@/lib/datetime";
+import { listTechnicians as listTechRows, createTechnician } from "@/features/technicians/services";
 
 type TabKey = "workflows" | "tecnicos";
 
@@ -34,28 +37,93 @@ function TabsToolbar({ tab, onChange }: { tab: TabKey; onChange: (t: TabKey) => 
 }
 
 function WorkflowsTab() {
+  const router = useRouter();
+  const [items, setItems] = useState<BuilderWorkflow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const reload = async () => {
+    setLoading(true);
+    try { setItems(await listWorkflows()); } finally { setLoading(false); }
+  };
+
+  useEffect(() => { reload(); }, []);
+
+  const create = async () => {
+    setSavingId("new");
+    try {
+      const minimal = { mode: "cursor", viewport: { x: 0, y: 0 }, nodes: [], edges: [], selectedNodeId: null };
+      const wf = await saveWorkflow({ state: minimal, name: "Novo Workflow" });
+      router.replace(`/builder/canvas?id=${wf.id}`);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const togglePublish = async (wf: BuilderWorkflow) => {
+    setSavingId(wf.id);
+    try {
+      await publishWorkflow(wf.id, !wf.published_at);
+      await reload();
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const duplicate = async (wf: BuilderWorkflow) => {
+    setSavingId(wf.id);
+    try {
+      const id = await duplicateWorkflow(wf.id);
+      router.replace(`/builder/canvas?id=${id}`);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-6 w-full">
       <div className="text-center">
         <div className="text-base font-bold text-[var(--verde-primario)]">Crie o seu Workflow</div>
         <div className="text-xs text-[var(--verde-primario)]">Desenhe o Workflow da equipe de instalação Mznet</div>
       </div>
-      <button
-        type="button"
-        className="btn-primary-mznet"
-        onClick={() => {
-          try { window.location.href = "/builder/canvas"; } catch {}
-        }}
-      >
-        Criar Workflow
+      {/* Emoji pointer guidance area */}
+      <div className="border-border rounded-lg border bg-white/60 backdrop-blur p-4 w-full max-w-3xl">
+        <div className="relative h-28 w-full">
+          <Pointer>
+            <div className="text-2xl">👆</div>
+          </Pointer>
+        </div>
+      </div>
+      <button type="button" className="btn-primary-mznet" onClick={create} disabled={savingId === 'new'}>
+        {savingId === 'new' ? 'Criando…' : 'Criar Workflow'}
       </button>
-      <div className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-3 xl:grid-cols-5 w-full max-w-6xl">
-        {[1,2,3,4,5].map((i) => (
-          <div key={i} className="rounded-2xl bg-white/10 border border-white/20 p-4 text-white/80 shadow-sm">
-            <div className="text-sm font-semibold text-white/90">Workflow {i}</div>
-            <div className="mt-6 h-16 rounded-xl bg-black/20" />
+
+      <div className="mt-2 w-full max-w-6xl">
+        {loading ? (
+          <div className="text-sm text-white/80">Carregando…</div>
+        ) : items.length === 0 ? (
+          <div className="text-sm text-white/60">Nenhum workflow ainda.</div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3 xl:grid-cols-4">
+            {items.map((wf) => (
+              <div key={wf.id} className="rounded-2xl bg-white/10 border border-white/20 p-4 text-white/90 shadow-sm flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold truncate" title={wf.name}>{wf.name}</div>
+                  {wf.published_at && (
+                    <span className="rounded-full border border-emerald-500/30 bg-emerald-600/15 px-2 py-1 text-[11px] font-semibold text-emerald-100">Publicado</span>
+                  )}
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  <button type="button" className="btn-small-secondary" onClick={() => router.push(`/builder/canvas?id=${wf.id}`)}>Abrir</button>
+                  <button type="button" className="btn-small-secondary" onClick={() => duplicate(wf)} disabled={savingId === wf.id}>Duplicar</button>
+                  <button type="button" className="btn-small-secondary" onClick={() => togglePublish(wf)} disabled={savingId === wf.id}>
+                    {wf.published_at ? 'Despublicar' : 'Publicar'}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -63,25 +131,40 @@ function WorkflowsTab() {
 
 function TechniciansTab() {
   const [open, setOpen] = useState(false);
-  const [technicians, setTechnicians] = useState<
-    Array<{
-      id: string;
-      name: string;
-      activity?: string;
-      deadline?: TechnicianCreateValue["deadline"];
-      status?: TechnicianCreateValue["status"];
-    }>
-  >([
-    { id: "seed-1", name: "Leandro Arruda", activity: "Instalação", status: "Pendente" },
-    { id: "seed-2", name: "Alessandro", activity: "Manutenção", status: "Pendente" },
-  ]);
+  const [technicians, setTechnicians] = useState<Array<{ id: string; name: string; activity?: string; deadline?: TechnicianCreateValue["deadline"]; status?: TechnicianCreateValue["status"] }>>([]);
+  const [canManage, setCanManage] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const addTechnician = (value: TechnicianCreateValue) => {
-    const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now());
-    setTechnicians((prev) => [
-      { id, name: value.name, activity: value.activity, deadline: value.deadline, status: value.status },
-      ...prev,
-    ]);
+  async function reload() {
+    const rows = await listTechRows(true);
+    setTechnicians(rows.map((r) => ({ id: r.id, name: r.name, activity: r.activity || undefined })));
+  }
+  useEffect(() => {
+    reload().catch(() => {});
+    // Gate by role via RPC is_installer (gestores de rota/instalação/instalador/gestor)
+    (async () => {
+      try {
+        const { data } = await (await import("@/lib/supabaseClient")).supabase.rpc('is_installer');
+        setCanManage(Boolean(data));
+      } catch {
+        setCanManage(true); // fail-open for now
+      }
+    })();
+  }, []);
+
+  const addTechnician = async (value: TechnicianCreateValue) => {
+    setErrorMsg(null);
+    try {
+      const start = (value.deadline?.start as any) || null;
+      const end = (value.deadline?.end as any) || null;
+      await createTechnician({ name: value.name, activity: value.activity, start, end });
+      await reload();
+    } catch (e: any) {
+      const msg = e?.message || 'Sem permissão para criar técnico (role).';
+      setErrorMsg(msg);
+      alert(msg);
+      throw e;
+    }
   };
 
   return (
@@ -90,9 +173,12 @@ function TechniciansTab() {
         <div className="text-base font-bold text-[var(--verde-primario)]">Gerencie os técnicos Mznet</div>
         <div className="text-xs text-[var(--verde-primario)]">Crie e gerencie os técnicos da equipe de instalação Mznet</div>
       </div>
-      <button type="button" className="btn-primary-mznet" onClick={() => setOpen(true)}>
+      <button type="button" className="btn-primary-mznet" onClick={() => setOpen(true)} disabled={!canManage}>
         Adicionar Técnico
       </button>
+      {!canManage && (
+        <div className="text-[13px] text-white/70">Apenas gestores de rota (role Instalação) podem criar técnicos.</div>
+      )}
 
       <AddTechnicianModal open={open} onOpenChange={setOpen} onSave={addTechnician} />
 
