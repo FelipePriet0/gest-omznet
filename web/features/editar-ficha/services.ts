@@ -35,9 +35,8 @@ export async function fetchApplicantCard(applicantId: string, cardId: string) {
     .single();
   const { data: c, error: cErr } = await supabase
     .from(TABLE_KANBAN_CARDS)
-    .select("created_at, due_at, hora_at, reanalysis_notes, created_by, assignee_id")
+    .select("created_at, due_at, hora_at, reanalysis_notes, created_by, assignee_id, tipo_instalacao")
     .eq("id", cardId)
     .single();
   return { applicant: a, card: c, applicantError: aErr, cardError: cErr } as const;
 }
-

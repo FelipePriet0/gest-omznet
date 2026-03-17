@@ -8,6 +8,7 @@ export type BuilderWorkflow = {
   owner_id: string;
   state: any;
   published_at: string | null;
+  active: boolean;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -36,6 +37,17 @@ export async function publishWorkflow(id: string, publish = true): Promise<Build
   const { data, error } = await supabase.rpc("publish_builder_workflow", { p_id: id, p_publish: publish });
   if (error) throw error;
   return data as any as BuilderWorkflow;
+}
+
+export async function toggleWorkflowActive(id: string, active: boolean): Promise<BuilderWorkflow> {
+  const { data, error } = await supabase.rpc("toggle_workflow_active", { p_id: id, p_active: active });
+  if (error) throw error;
+  return data as any as BuilderWorkflow;
+}
+
+export async function deleteWorkflow(id: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_builder_workflow", { p_id: id });
+  if (error) throw error;
 }
 
 export async function duplicateWorkflow(id: string): Promise<string> {

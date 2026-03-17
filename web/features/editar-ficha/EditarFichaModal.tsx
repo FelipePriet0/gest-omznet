@@ -27,6 +27,8 @@ import { CmdDropdown } from "./components/CmdDropdown";
 import { DecisionTag, decisionPlaceholder } from "./utils/decision";
 import { PareceresList } from "./components/PareceresList";
 import { addParecer, editParecer, deleteParecer, setCardDecision, fetchApplicantCard } from "./services";
+import { suggestAssignmentRPC } from "@/features/agenda/services";
+import { listRoutes, type Route } from "@/features/builder/services";
 import { useEditarFichaData } from "./hooks/useEditarFichaData";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useIndexedDraft } from "@/hooks/useIndexedDraft";
@@ -49,6 +51,7 @@ export function EditarFichaModal({
   onCardUpdate?: (patch: CardSnapshotPatch) => void;
 }) {
   const { open: sidebarOpen } = useSidebar();
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"idle"|"saving"|"saved"|"error">("idle");
   const [app, setApp] = useState<AppModel>({});
@@ -83,6 +86,13 @@ export function EditarFichaModal({
       };
     }
   }, [open]);
+
+  // Carregar bairros (rotas) do banco uma única vez
+  useEffect(() => {
+    listRoutes()
+      .then((r) => setRoutes(r.filter((x) => x.active)))
+      .catch(console.error);
+  }, []);
 
   // Backdrop deve cobrir a viewport inteira no modal de ficha
   // Menções no Parecer: popover desativado (continua aceitando texto com @)
@@ -434,6 +444,7 @@ export function EditarFichaModal({
           const v = c?.hora_at ? String(c.hora_at).slice(0, 5) : "";
           applyCardSnapshot({ horaAt: v, horaArr: v ? [v] : [] });
         }
+        try { setTipoInstalacao(tipoInstCanToUI((c as any)?.tipo_instalacao ?? null)); } catch {}
         setCreatedBy((c as any)?.created_by || "");
         setAssigneeId((c as any)?.assignee_id || "");
         // Perf: perfis podem vir do hook; mantemos se já existir
@@ -548,7 +559,7 @@ export function EditarFichaModal({
     queue('app', key, value);
   }, [queue, markFieldStatus]);
 
-  const updateCardField = useCallback((key: 'due_at' | 'hora_at', value: any) => {
+  const updateCardField = useCallback((key: 'due_at' | 'hora_at' | 'tipo_instalacao' | 'technician_id', value: any) => {
     dirtyCardFields.current.add(key);
     markFieldStatus(key, "pending");
     queue('card', key, value);
@@ -557,10 +568,23 @@ export function EditarFichaModal({
   // (remoção) addParecer local substituído por services/addParecer e lógica inline
 
   const horarios = ["08:30","10:30","13:30","15:30"];
+  // Tipo de Instalação (Agenda/Builder)
+  const TIPO_INST_UI_DEFAULT = ['Casa','Prédio com Prumada','Prédio sem Prumada','Wi-Fi Extend'] as const;
+  const TIPO_INST_UI_PJ = ['XXXX','Casa','Prédio com Prumada','Prédio sem Prumada','Wi-Fi Extend'] as const; // 'XXXX' = Nada
+  function tipoInstCanToUI(v?: string | null) {
+    const map: any = { casa:'Casa', predio_com_prumada:'Prédio com Prumada', predio_sem_prumada:'Prédio sem Prumada', 'wifi_extend':'Wi-Fi Extend' };
+    return v ? (map[v] || '') : '';
+  }
+  function tipoInstUIToCan(v: string): string | null {
+    if (v === 'XXXX') return null;
+    const map: any = { 'Casa':'casa','Prédio com Prumada':'predio_com_prumada','Prédio sem Prumada':'predio_sem_prumada','Wi-Fi Extend':'wifi_extend' };
+    return map[v] ?? null;
+  }
   // Exibe somente estados úteis; não mostra mais "Salvo" para evitar animação/jitter visual
   const statusText = useMemo(() => (
     saving === 'saving' ? 'Salvando…' : saving === 'error' ? 'Erro ao salvar' : ''
   ), [saving]);
+  const [tipoInstalacao, setTipoInstalacao] = useState<string>('');
 
   function openExpanded() {
     if (!applicantId) return;
@@ -684,17 +708,34 @@ export function EditarFichaModal({
 
             {/* Endereço */}
             <Section title="Endereço" variant="endereco">
-              <Grid cols={2}>
+              <Grid cols={3}>
                 <div className="mt-1">
                   <Field label="Logradouro" value={app.address_line||''} onChange={(v)=>{ updateAppField('address_line', v); }} status={getFieldStatus('address_line')} onBlur={handleFieldBlur} />
                 </div>
                 <Field label="Número" value={app.address_number||''} onChange={(v)=>{ updateAppField('address_number', v); }} status={getFieldStatus('address_number')} onBlur={handleFieldBlur} />
+                <Select
+                  label="Tipo de Instalação"
+                  value={tipoInstalacao}
+                  onChange={(v) => {
+                    setTipoInstalacao(v);
+                    const can = tipoInstUIToCan(v);
+                    updateCardField('tipo_instalacao', can);
+                  }}
+                  options={((personType||'')==='PJ' ? [...TIPO_INST_UI_PJ] : [...TIPO_INST_UI_DEFAULT]) as any}
+                  contentStyle={{ zIndex: 9999 }}
+                />
               </Grid>
               <div className="mt-4 sm:mt-6">
                 <Grid cols={3}>
                   <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ updateAppField('address_complement', v); }} status={getFieldStatus('address_complement')} onBlur={handleFieldBlur} />
                   <div className="mt-1">
-                    <Field label="Bairro" value={app.bairro||''} onChange={(v)=>{ updateAppField('bairro', v); emitCardUpdate({ bairro: v }); }} status={getFieldStatus('bairro')} onBlur={handleFieldBlur} />
+                    <Select
+                      label="Bairro"
+                      value={app.bairro||''}
+                      onChange={(v)=>{ updateAppField('bairro', v); emitCardUpdate({ bairro: v }); handleFieldBlur?.(); }}
+                      options={routes.map(r => ({ label: r.name, value: r.name }))}
+                      contentStyle={{ zIndex: 9999 }}
+                    />
                   </div>
                   <div className="mt-1">
                     <Field label="CEP" value={app.cep||''} onChange={(v)=>{ updateAppField('cep', v); }} status={getFieldStatus('cep')} onBlur={handleFieldBlur} />
@@ -720,17 +761,44 @@ export function EditarFichaModal({
                 <DateSingleKanbanPopover
                   label="Instalação agendada para"
                   value={dueAt}
-                  onChange={(val) => {
+                  onChange={async (val) => {
                     setDueAt(val || "");
                     if (!val) {
                       updateCardField('due_at', null);
-                      emitCardUpdate({ dueAt: null });
+                      updateCardField('hora_at', null);
+                      updateCardField('technician_id', null);
+                      setHoraArr([]);
+                      setHoraAt("");
+                      emitCardUpdate({ dueAt: null, horaAt: null });
                       return;
                     }
                     // Persistir meio-dia local para estabilizar a data (evita shift por fuso)
                     const noonUtc = localDateTimeToUtcISO(val, '12:00', DEFAULT_TIMEZONE);
                     updateCardField('due_at', noonUtc ?? null);
                     emitCardUpdate({ dueAt: noonUtc ?? null });
+
+                    // Matching automático: o Workflow decide o técnico e o horário
+                    try {
+                      const tipoInstalacao = (app as any).tipo_instalacao ?? null;
+                      const { technician_id, time_slot } = await suggestAssignmentRPC(
+                        applicantId,
+                        val,           // YYYY-MM-DD
+                        tipoInstalacao
+                      );
+                      if (technician_id) {
+                        updateCardField('technician_id', technician_id);
+                      }
+                      if (time_slot) {
+                        const slots = [time_slot];
+                        setHoraArr(slots);
+                        setHoraAt(time_slot);
+                        updateCardField('hora_at', slots.map((s) => `${s}:00`));
+                        emitCardUpdate({ horaAt: time_slot });
+                      }
+                    } catch (err) {
+                      // Falha silenciosa: due_at já foi salvo; técnico/horário podem ser ajustados manualmente
+                      console.warn('[EditarFichaModal] suggest_assignment falhou; técnico não atribuído automaticamente', err);
+                    }
                   }}
                 />
                 <TimeMultiSelect

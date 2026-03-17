@@ -1,57 +1,61 @@
 "use client";
 
+import React from "react";
 import { Check, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CanvasNode, CanvasNodeType } from "../types";
 import { PrioritySelectPopover } from "./PrioritySelectPopover";
 import { RouteMultiSelectPopover } from "./RouteMultiSelectPopover";
+import { listPriorities, listRoutes, listTechnicians } from "@/features/builder/services";
 
-const TECHNICIANS = [
-  { id: "leandro", name: "Leandro Arruda" },
-  { id: "alessandro", name: "Alessandro" },
-  { id: "rafael", name: "Rafael" },
-];
-
-const PRIORITY_OPTIONS = [
-  "Bairro",
-  "Casa",
-  "Prédio com Prumada",
-  "Prédio sem Prumada (+3 andares)",
-  "Wi-Fi Extend",
-];
-
-const ROUTE_OPTIONS = [
-  "Centro",
-  "Santa Mônica",
-  "Tibery",
-  "Umuarama",
-  "Martins",
-  "Luizote",
-];
+function useBuilderRefs() {
+  const [technicians, setTechnicians] = React.useState<{ id: string; name: string }[]>([]);
+  const [priorities, setPriorities] = React.useState<string[]>([]);
+  const [routes, setRoutes] = React.useState<string[]>([]);
+  React.useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const [t, p, r] = await Promise.all([
+          listTechnicians().catch(() => []),
+          listPriorities().catch(() => []),
+          listRoutes().catch(() => []),
+        ]);
+        if (!active) return;
+        setTechnicians(t);
+        setPriorities(p.map((x) => x.label));
+        setRoutes(r.filter((x) => x.active).map((x) => x.name));
+      } catch {}
+    })();
+    return () => { active = false; };
+  }, []);
+  return { technicians, priorities, routes };
+}
 
 function titleForType(type: CanvasNodeType) {
   if (type === "technician") return "Selecione os Técnicos";
   if (type === "priority") return "Defina as Prioridades";
-  if (type === "route") return "Defina as Rotas";
-  return "Texto";
+  return "Defina as Rotas";
 }
 
 function subtitleForType(type: CanvasNodeType) {
   if (type === "technician") return "Escolha o(s) técnico(s) desse workflow";
   if (type === "priority") return "Defina as prioridades desse card";
-  if (type === "route") return "Defina as rotas desse card";
-  return "Anotação livre (não altera a lógica)";
+  return "Defina as rotas desse card";
 }
 
 export function Inspector({
   node,
+  routeRank,
   onChange,
   onDelete,
 }: {
   node: CanvasNode | null;
+  routeRank?: number | null;
   onChange: (next: CanvasNode) => void;
   onDelete: () => void;
 }) {
+  const { technicians: TECHNICIANS, priorities: PRIORITY_OPTIONS, routes: ROUTE_OPTIONS } = useBuilderRefs();
   if (!node) return null;
 
   return (
@@ -60,6 +64,12 @@ export function Inspector({
         <div className="min-w-0">
           <div className="text-sm font-bold text-zinc-900">{titleForType(node.type)}</div>
           <div className="text-xs text-zinc-500">{subtitleForType(node.type)}</div>
+          {node.type === 'route' && typeof routeRank === 'number' && routeRank > 0 && (
+            <div className="mt-1 inline-flex items-center gap-2 text-xs">
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-600/10 px-2 py-0.5 font-semibold text-emerald-700">Quadro de Bairros {routeRank}</span>
+              <span className="text-zinc-500">Quanto menor o número, maior a prioridade.</span>
+            </div>
+          )}
         </div>
         <button
           type="button"
@@ -193,17 +203,6 @@ export function Inspector({
           </div>
         )}
 
-        {node.type === "text" && (
-          <div className="space-y-2">
-            <div className="text-xs font-semibold text-zinc-700">Texto</div>
-            <textarea
-              value={node.data.text}
-              onChange={(e) => onChange({ ...node, data: { ...node.data, text: e.target.value } })}
-              className="min-h-[140px] w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800"
-              placeholder="Escreva uma anotação..."
-            />
-          </div>
-        )}
       </div>
     </div>
   );

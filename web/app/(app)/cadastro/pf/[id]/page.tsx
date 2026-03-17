@@ -20,6 +20,7 @@ import {
 } from "@/features/attachments/upload";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { renderTextWithChips } from "@/utils/richText";
+import { listRoutes, type Route } from "@/features/builder/services";
 //
 
 const DECISION_META: Record<string, { label: string; className: string }> = {
@@ -213,6 +214,7 @@ function formatCep(input: string) {
 export default function CadastroPFPage() {
   const params = useParams();
   const applicantId = params?.id as string;
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"idle"|"saving"|"saved"|"error">("idle");
   const [app, setApp] = useState<AppModel>({});
@@ -371,6 +373,11 @@ export default function CadastroPFPage() {
     event.target.value = "";
     await processAttachmentSelection(files);
   }
+
+  // Carregar rotas (bairros) do banco
+  useEffect(() => {
+    listRoutes().then((r) => setRoutes(r.filter((x) => x.active))).catch(console.error);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -890,7 +897,18 @@ export default function CadastroPFPage() {
             setApp({...app, cep:m});
             queueSave('app','cep', m);
           }} status={getFieldStatus('cep')} />
-          <Field label="Bairro" value={app.bairro || ""} onChange={(v)=>{ setApp({...app, bairro:v}); queueSave("app","bairro", v); }} status={getFieldStatus('bairro')} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Bairro</label>
+            <SimpleSelect
+              value={app.bairro || ""}
+              onChange={(v)=>{ setApp({...app, bairro:v}); queueSave("app","bairro", v); }}
+              options={routes.map(r => ({ label: r.name, value: r.name }))}
+              placeholder="— selecione —"
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Cond" value={pf.cond || ""} onChange={(v)=>{ setPf({...pf, cond:v}); queueSave("pf","cond", v); }} status={getFieldStatus('cond')} />
           <Field label="Tempo" value={pf.tempo_endereco || ""} onChange={(v)=>{ setPf({...pf, tempo_endereco:v}); queueSave("pf","tempo_endereco", v); }} status={getFieldStatus('tempo_endereco')} />
           <Field label="Endereço Do PS" value={pf.endereco_do_ps || ""} onChange={(v)=>{ setPf({...pf, endereco_do_ps:v}); queueSave("pf","endereco_do_ps", v); }} red className="md:col-span-4" status={getFieldStatus('endereco_do_ps')} />

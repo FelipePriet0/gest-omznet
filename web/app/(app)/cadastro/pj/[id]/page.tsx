@@ -19,6 +19,7 @@ import {
 } from "@/features/attachments/upload";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { renderTextWithChips } from "@/utils/richText";
+import { listRoutes, type Route } from "@/features/builder/services";
 //
 
 function digitsOnly(value: string) {
@@ -216,6 +217,7 @@ export default function CadastroPJPage() {
   const params = useParams();
   const search = useSearchParams();
   const applicantId = params?.id as string;
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<"idle"|"saving"|"saved"|"error">("idle");
   const [app, setApp] = useState<AppModel>({});
@@ -368,6 +370,11 @@ export default function CadastroPJPage() {
     event.target.value = "";
     await processAttachmentSelection(files);
   }
+
+  // Carregar rotas (bairros) do banco
+  useEffect(() => {
+    listRoutes().then((r) => setRoutes(r.filter((x) => x.active))).catch(console.error);
+  }, []);
 
   useEffect(() => {
     function handleOpenAttach(event?: Event) {
@@ -789,7 +796,18 @@ export default function CadastroPJPage() {
           <Field label="Obs Tipo de Imóvel" value={pj.obs_tipo_imovel||''} onChange={(v)=>{ setPj({...pj, obs_tipo_imovel:v}); queueSave('pj','obs_tipo_imovel', v); }} status={getFieldStatus('obs_tipo_imovel')} />
           {/* Linha 4: CEP | Bairro | Tempo */}
           <Field label="CEP" value={app.cep||''} onChange={(v)=>{ const m = formatCep(v); setApp({...app, cep:m}); queueSave('app','cep', m); }} status={getFieldStatus('cep')} />
-          <Field label="Bairro" value={app.bairro||''} onChange={(v)=>{ setApp({...app, bairro:v}); queueSave('app','bairro', v); }} status={getFieldStatus('bairro')} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Bairro</label>
+            <SimpleSelect
+              value={app.bairro||''}
+              onChange={(v)=>{ setApp({...app, bairro:v}); queueSave('app','bairro', v); }}
+              options={routes.map(r => ({ label: r.name, value: r.name }))}
+              placeholder="— selecione —"
+              className="mt-0"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
           <Field label="Tempo no Endereço" value={pj.tempo_endereco||''} onChange={(v)=>{ setPj({...pj, tempo_endereco:v}); queueSave('pj','tempo_endereco', v); }} status={getFieldStatus('tempo_endereco')} />
           {/* Linha 5: Estabelecimento (md:col-span-2) | Observações */}
           <div className="md:col-span-2">

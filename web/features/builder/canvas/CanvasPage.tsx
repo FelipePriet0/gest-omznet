@@ -21,7 +21,6 @@ function uid(prefix: string) {
 
 function estimatedNodeSize(type: CanvasNodeType) {
   if (type === "priority") return { w: 260, h: 190 };
-  if (type === "text") return { w: 260, h: 160 };
   return { w: 260, h: 130 };
 }
 
@@ -188,9 +187,7 @@ export function CanvasPage() {
           ? { id, type, x, y, data: { technicianIds: [] } }
           : type === "priority"
             ? { id, type, x, y, data: { priorities: ["", "", ""] } }
-            : type === "route"
-              ? { id, type, x, y, data: { routes: [] } }
-              : { id, type: "text", x, y, data: { text: "" } };
+            : { id, type: "route", x, y, data: { routes: [] } };
 
       return { ...prev, nodes: [...prev.nodes, node], selectedNodeId: id };
     });

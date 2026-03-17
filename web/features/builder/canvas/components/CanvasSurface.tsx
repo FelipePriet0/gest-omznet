@@ -59,6 +59,13 @@ export function CanvasSurface({
   const dragRef = useRef<DragState>({ kind: "none" });
   const [connecting, setConnecting] = useState<ConnectingState>({ kind: "none" });
   const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
+  const updateSize = useCallback((id: string, size: { w: number; h: number }) => {
+    setSizes((prev) => {
+      const curr = prev[id];
+      if (curr && curr.w === size.w && curr.h === size.h) return prev;
+      return { ...prev, [id]: size };
+    });
+  }, []);
 
   const nodeById = useMemo(() => {
     const map = new Map<string, CanvasNode>();
@@ -260,6 +267,19 @@ export function CanvasSurface({
     return null;
   }, [connecting, portPosition]);
 
+  // Compute route ranks based on creation order (order in nodes array)
+  const routeRankMap = useMemo(() => {
+    const map = new Map<string, number>();
+    let rank = 0;
+    for (const n of nodes) {
+      if (n.type === 'route') {
+        rank += 1;
+        map.set(n.id, rank);
+      }
+    }
+    return map;
+  }, [nodes]);
+
   return (
     <div
       ref={wrapRef}
@@ -308,12 +328,13 @@ export function CanvasSurface({
               selected={isSelected}
               showLeftPort={isSelected || hasLeft}
               showRightPort={isSelected || hasRight}
+              routeRank={n.type === 'route' ? (routeRankMap.get(n.id) || null) : null}
               onSelect={() => onSelectNode(n.id)}
               onPointerDown={onNodePointerDown(n.id)}
               onPortPointerDown={(port, ev) => handlePortPointerDown(n.id, port, ev)}
               onPortPointerEnter={() => {}}
               onPortPointerLeave={() => {}}
-              onSize={(size) => setSizes((prev) => ({ ...prev, [n.id]: size }))}
+              onSize={(size) => updateSize(n.id, size)}
             />
           );
         })}

@@ -9,6 +9,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -128,8 +129,9 @@ export function AddTechnicianModal({
       }}
     >
       <DialogContent className="max-w-[560px] rounded-2xl bg-white">
-        <DialogHeader className="space-y-0">
+        <DialogHeader className="space-y-1">
           <DialogTitle className="text-[var(--verde-primario)]">Adicione um técnico a equipe</DialogTitle>
+          <DialogDescription>Preencha os dados do técnico de rua. Somente gestores de rota podem criar.</DialogDescription>
         </DialogHeader>
 
         <form

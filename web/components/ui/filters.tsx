@@ -214,10 +214,12 @@ const FilterValueCombobox = ({
   filterType,
   filterValues,
   setFilterValues,
+  optionsMap,
 }: {
   filterType: FilterType;
   filterValues: string[];
   setFilterValues: (filterValues: string[]) => void;
+  optionsMap: Record<FilterType, FilterOption[]>;
 }) => {
   const [open, setOpen] = useState(false);
   const [commandInput, setCommandInput] = useState("");
@@ -226,7 +228,7 @@ const FilterValueCombobox = ({
   const [searchDraft, setSearchDraft] = useState(() => filterValues[0] ?? "");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const allOptions = filterViewToFilterOptions[filterType] ?? [];
+  const allOptions = optionsMap[filterType] ?? [];
 
   const nonSelectedFilterValues = allOptions.filter(
     (filter) => !filterValues.includes(filter.value ?? filter.name)
@@ -504,15 +506,24 @@ function toYMD(date: Date) {
 export default function Filters({
   filters,
   setFilters,
+  options,
+  showEmpty = false,
 }: {
   filters: Filter[];
   setFilters: Dispatch<SetStateAction<Filter[]>>;
+  options?: { area?: FilterOption[]; responsavel?: FilterOption[]; prazo?: FilterOption[]; horario?: FilterOption[] };
+  showEmpty?: boolean;
 }) {
+  const optionsMap: Record<FilterType, FilterOption[]> = {
+    [FilterType.BUSCAR]: [],
+    [FilterType.AREA]: options?.area ?? areaFilterOptions,
+    [FilterType.RESPONSAVEL]: options?.responsavel ?? responsavelFilterOptions,
+    [FilterType.PRAZO]: options?.prazo ?? prazoFilterOptions,
+    [FilterType.HORARIO]: options?.horario ?? horarioFilterOptions,
+  };
   return (
     <div className="flex gap-2">
-      {filters
-        .filter((filter) => filter.value?.length > 0)
-        .map((filter) => (
+      {(showEmpty ? filters : filters.filter((filter) => filter.value?.length > 0)).map((filter) => (
           <div
             key={filter.id}
             className="inline-flex items-center gap-2 rounded-none px-3 py-1 text-white shadow-sm text-xs"
@@ -537,6 +548,7 @@ export default function Filters({
                   )
                 );
               }}
+              optionsMap={optionsMap}
             />
             <button
               type="button"
