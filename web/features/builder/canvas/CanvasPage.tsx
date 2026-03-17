@@ -92,6 +92,9 @@ export function CanvasPage() {
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [workflowName, setWorkflowName] = useState<string>("New Workflow");
   const [publishing, setPublishing] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [renaming, setRenaming] = useState(false);
   const history = useHistory<CanvasWorkflowState>(useMemo(() => initialState(), []), { max: 80 });
   const state = history.present;
   const savingRef = useRef(false);
@@ -217,26 +220,7 @@ export function CanvasPage() {
     });
   };
 
-  // Emoji cursor state (global follower across the whole /builder/canvas viewport)
-  const [cursor, setCursor] = useState<{ x: number; y: number; visible: boolean }>({ x: 0, y: 0, visible: true });
-  useEffect(() => {
-    const handleMove = (ev: PointerEvent) => {
-      setCursor({ x: ev.clientX, y: ev.clientY, visible: true });
-    };
-    const handleLeave = (ev: PointerEvent) => {
-      // Hide when pointer leaves the window (relatedTarget === null)
-      if ((ev as any).relatedTarget == null) setCursor((c) => ({ ...c, visible: false }));
-    };
-    document.addEventListener("pointermove", handleMove, { passive: true } as any);
-    document.addEventListener("pointerout", handleLeave, { passive: true } as any);
-    // Hide native cursor globally while on this page
-    try { document.documentElement.classList.add("emoji-cursor-active"); } catch {}
-    return () => {
-      document.removeEventListener("pointermove", handleMove as any);
-      document.removeEventListener("pointerout", handleLeave as any);
-      try { document.documentElement.classList.remove("emoji-cursor-active"); } catch {}
-    };
-  }, []);
+  // No custom cursor; use native system cursor
 
   return (
     <div
@@ -275,17 +259,8 @@ export function CanvasPage() {
           {publishing ? 'Salvando…' : (publishedAt ? 'Despublicar' : 'Publicar')}
         </button>
       </div>
-      {/* Emoji cursor overlay (fixed, above everything in the page) */}
-      {cursor.visible && (
-        <div
-          aria-hidden
-          style={{ position: "fixed", left: cursor.x, top: cursor.y, transform: "translate(-50%, -50%)", pointerEvents: "none", zIndex: 9999 }}
-          className="text-2xl select-none"
-        >
-          👆
-        </div>
-      )}
-      {/* Top left: back + title */}
+      {/* Native cursor restored; no overlay */}
+      {/* Top left: back + title (editable) */}
       <div className="pointer-events-auto absolute left-6 top-6 z-20 flex items-center gap-2">
         <button
           type="button"
@@ -299,7 +274,57 @@ export function CanvasPage() {
         >
           <ChevronLeft className="h-5 w-5 text-emerald-700" />
         </button>
-        <div className="text-lg font-semibold text-black">{workflowName}</div>
+        {editingName ? (
+          <input
+            autoFocus
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            onKeyDown={async (e) => {
+              if (e.key === 'Escape') { setEditingName(false); return; }
+              if (e.key === 'Enter') {
+                if (!currentId) return setEditingName(false);
+                const name = draftName.trim() || 'Sem título';
+                setRenaming(true);
+                try {
+                  const next = await saveWorkflow({ id: currentId, name, state: history.present });
+                  setWorkflowName(next.name || name);
+                } catch (err) {
+                  alert((err as any)?.message || 'Falha ao renomear');
+                } finally {
+                  setRenaming(false);
+                  setEditingName(false);
+                }
+              }
+            }}
+            onBlur={async () => {
+              if (!currentId) { setEditingName(false); return; }
+              const name = draftName.trim();
+              if (!name || name === workflowName) { setEditingName(false); return; }
+              setRenaming(true);
+              try {
+                const next = await saveWorkflow({ id: currentId, name, state: history.present });
+                setWorkflowName(next.name || name);
+              } catch (err) {
+                alert((err as any)?.message || 'Falha ao renomear');
+              } finally {
+                setRenaming(false);
+                setEditingName(false);
+              }
+            }}
+            className="text-lg font-semibold text-black bg-white/80 border border-zinc-300 rounded-md px-2 py-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            placeholder="Nome do Workflow"
+            disabled={renaming}
+          />
+        ) : (
+          <button
+            type="button"
+            className="text-lg font-semibold text-black rounded px-1 hover:bg-black/5"
+            title="Clique para renomear"
+            onClick={() => { setDraftName(workflowName); setEditingName(true); }}
+          >
+            {workflowName}
+          </button>
+        )}
       </div>
 
       {/* Left palette */}
