@@ -6,7 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import { useHistory } from "./useHistory";
 import type { CanvasEdge, CanvasNode, CanvasNodeType, CanvasWorkflowState, PortId } from "./types";
 import { CanvasDock } from "./components/CanvasDock";
-import { getWorkflow, saveWorkflow } from "@/features/builder/services";
+import { getWorkflow, saveWorkflow, publishWorkflow } from "@/features/builder/services";
 import { CanvasSurface } from "./components/CanvasSurface";
 import { Inspector } from "./components/Inspector";
 import { LeftPalette } from "./components/LeftPalette";
@@ -89,6 +89,9 @@ export function CanvasPage() {
   const wfId = sp?.get("id") || null;
   const [loaded, setLoaded] = useState(false);
   const [currentId, setCurrentId] = useState<string | null>(wfId);
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  const [workflowName, setWorkflowName] = useState<string>("New Workflow");
+  const [publishing, setPublishing] = useState(false);
   const history = useHistory<CanvasWorkflowState>(useMemo(() => initialState(), []), { max: 80 });
   const state = history.present;
   const savingRef = useRef(false);
@@ -118,6 +121,8 @@ export function CanvasPage() {
           // Initialize history with loaded state
           history.setPresent((prev) => ({ ...(wf.state as any) }));
           setCurrentId(wf.id);
+          setPublishedAt(wf.published_at as any);
+          setWorkflowName(wf.name || "New Workflow");
         } else {
           setCurrentId(wfId);
         }
@@ -126,7 +131,7 @@ export function CanvasPage() {
       }
     })();
     return () => { active = false; };
-  }, [wfId, history]);
+  }, [wfId]);
 
   // Debounced save on commit
   const scheduleSave = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -134,13 +139,26 @@ export function CanvasPage() {
     const payload = nextState || history.present;
     if (savingRef.current) return;
     savingRef.current = true;
+    // Debug log to verify what we're sending to the backend
+    try {
+      console.log('[Canvas] saveNow: sending state', {
+        workflowId: currentId,
+        nodesLen: Array.isArray((payload as any)?.nodes) ? (payload as any).nodes.length : undefined,
+        firstNodeType: (payload as any)?.nodes?.[0]?.type,
+        edgesLen: Array.isArray((payload as any)?.edges) ? (payload as any).edges.length : undefined,
+      });
+    } catch {}
+
     (async () => {
       try {
         const wf = await saveWorkflow({ id: currentId, state: payload });
+        try { console.log('[Canvas] saveNow: saved', { workflowId: wf?.id, nodesLen: (payload as any)?.nodes?.length }); } catch {}
         if (!currentId) {
           setCurrentId(wf.id);
           try { router.replace(`/builder/canvas?id=${wf.id}`); } catch {}
         }
+      } catch (err) {
+        console.error('[Canvas] saveNow: saveWorkflow failed', err);
       } finally {
         savingRef.current = false;
       }
@@ -148,10 +166,14 @@ export function CanvasPage() {
   }
   function scheduleSaveNow() {
     if (scheduleSave.current) clearTimeout(scheduleSave.current);
-    scheduleSave.current = setTimeout(() => saveNow(), 600);
+    scheduleSave.current = setTimeout(() => {
+      try { console.log('[Canvas] scheduleSaveNow: trigger'); } catch {}
+      saveNow();
+    }, 600);
   }
 
   const createNode = (type: CanvasNodeType) => {
+    try { console.log('[Canvas] createNode', { type }); } catch {}
     history.commit((prev) => {
       const id = uid("node");
       const pos = findFreeSpot({ nodes: prev.nodes, viewport: prev.viewport, type });
@@ -226,7 +248,33 @@ export function CanvasPage() {
         backgroundSize: "20px 20px, 20px 20px",
         backgroundPosition: "-1px -1px",
       }}
-    >
+      >
+      {/* Top right: publish controls */}
+      <div className="pointer-events-auto absolute right-6 top-6 z-20 flex items-center gap-2">
+        {publishedAt && (
+          <span className="rounded-full border border-emerald-500/30 bg-emerald-600/15 px-2 py-1 text-[11px] font-semibold text-emerald-100">
+            Publicado
+          </span>
+        )}
+        <button
+          type="button"
+          className="btn-small-secondary"
+          disabled={!currentId || publishing}
+          onClick={async () => {
+            if (!currentId) return;
+            setPublishing(true);
+            try {
+              const next = await publishWorkflow(currentId, !publishedAt);
+              setPublishedAt(next.published_at as any);
+            } catch (e) {
+              alert((e as any)?.message || 'Falha ao publicar');
+            } finally { setPublishing(false); }
+          }}
+          title={publishedAt ? 'Despublicar' : 'Publicar'}
+        >
+          {publishing ? 'Salvando…' : (publishedAt ? 'Despublicar' : 'Publicar')}
+        </button>
+      </div>
       {/* Emoji cursor overlay (fixed, above everything in the page) */}
       {cursor.visible && (
         <div
@@ -251,7 +299,7 @@ export function CanvasPage() {
         >
           <ChevronLeft className="h-5 w-5 text-emerald-700" />
         </button>
-        <div className="text-lg font-semibold text-black">New Workflow</div>
+        <div className="text-lg font-semibold text-black">{workflowName}</div>
       </div>
 
       {/* Left palette */}
@@ -283,7 +331,6 @@ export function CanvasPage() {
           }))
         }
         onDeleteEdge={(edgeId) => history.setPresent((prev) => ({ ...prev, edges: prev.edges.filter((e) => e.id !== edgeId) }))}
-        onCommit={() => history.commit((p) => p)}
         onCommit={() => { history.commit((p) => p); scheduleSaveNow(); }}
       />
 
