@@ -8,6 +8,9 @@ import { AgendaGrid } from "./components/AgendaGrid";
 import { DateNavigator } from "./components/DateNavigator";
 import { Legend } from "./components/Legend";
 import { TIME_SLOTS } from "./mock";
+import { getLatestPublishedWorkflow } from "@/features/builder/services";
+import type { CanvasWorkflowState } from "@/features/builder/canvas/types";
+import { suggestAssignment } from "./matching";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { fetchAgendaTechnicians, fetchAgendaCardsByDate, updateScheduleCard, clearScheduleCard, updateApplicant, validateMove, createApplicant, createScheduleCard } from "./services";
 import type { ScheduleCard, Technician } from "./types";
@@ -57,6 +60,19 @@ export function AgendaPage() {
   };
 
   const slots = useMemo(() => TIME_SLOTS, []);
+  const [wfState, setWfState] = useState<CanvasWorkflowState | null>(null);
+  const [defaultTechIdState, setDefaultTechIdState] = useState<string | undefined>(undefined);
+  const [defaultSlotState, setDefaultSlotState] = useState<string | undefined>(undefined);
+
+  // Load latest published workflow (for auto-suggest defaults)
+  useEffect(() => {
+    (async () => {
+      try {
+        const wf = await getLatestPublishedWorkflow();
+        setWfState((wf?.state as any) || null);
+      } catch {}
+    })();
+  }, []);
 
   async function doMove(cardId: string, d: string, techId: string, time: string) {
     await validateMove({ id: cardId, dateISO: d, technician_id: techId, time_slot: time })
@@ -85,6 +101,28 @@ export function AgendaPage() {
       onConfirm: () => doMove(cardId, d, techId, time),
     });
   };
+
+  // When user hits "+ Novo horário", prepare default tech/slot suggestion
+  useEffect(() => {
+    if (!createSignal) return;
+    try {
+      const { technician_id, time_slot } = suggestAssignment({
+        workflow: wfState || null,
+        technicians,
+        dateISO,
+        cards,
+        applicantBairro: null,
+        tipoInstalacao: null,
+        timeSlots: slots,
+      });
+      setDefaultTechIdState(technician_id || technicians.find((t)=>t.active)?.id || technicians[0]?.id);
+      setDefaultSlotState(time_slot || slots[0]);
+    } catch {
+      setDefaultTechIdState(technicians.find((t)=>t.active)?.id || technicians[0]?.id);
+      setDefaultSlotState(slots[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createSignal]);
 
   // Derived filters
   const filteredCards = useMemo(() => {
@@ -187,8 +225,8 @@ export function AgendaPage() {
           cards={filteredCards}
           canEdit={canEdit}
           createSignal={createSignal}
-          defaultTechId={technicians.find(t => t.active)?.id}
-          defaultSlot={slots[0]}
+          defaultTechId={defaultTechIdState || technicians.find(t => t.active)?.id}
+          defaultSlot={defaultSlotState || slots[0]}
           onCreate={(payload) => {
             setCards((prev) => [...prev, payload]);
           }}
