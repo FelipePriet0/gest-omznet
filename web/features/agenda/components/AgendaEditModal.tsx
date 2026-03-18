@@ -58,7 +58,7 @@ export function AgendaEditModal({
   open: boolean;
   card: ScheduleCard | null;
   technicians: Technician[];
-  slots: string[];
+  slots: readonly string[];
   onClose: () => void;
   onSave: (patch: Partial<ScheduleCard>) => void;
   onDelete: () => void;

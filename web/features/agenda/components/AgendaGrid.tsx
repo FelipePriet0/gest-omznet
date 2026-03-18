@@ -75,7 +75,7 @@ export function AgendaGrid({
 }: {
   dateISO: string;
   technicians: Technician[];
-  slots: string[];
+  slots: readonly string[];
   cards: ScheduleCard[];
   freeRows: FreeRow[];
   canEdit: boolean;

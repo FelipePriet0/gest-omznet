@@ -9,13 +9,15 @@ export function TimeMultiSelect({
   value,
   onApply,
   className,
+  triggerClassName,
   allowedPairs,
 }: {
   label: string;
-  times: string[]; // 'HH:MM'
+  times: readonly string[]; // 'HH:MM'
   value: string[]; // selected 'HH:MM'
   onApply: (vals: string[]) => void;
   className?: string;
+  triggerClassName?: string;
   allowedPairs?: [string, string][]; // ex: [["08:30","10:30"],["13:30","15:30"]]
 }) {
   const [open, setOpen] = React.useState(false);
@@ -75,7 +77,10 @@ export function TimeMultiSelect({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="mt-1 flex h-12 w-full items-center justify-between rounded-lg border border-zinc-300 bg-white px-5 py-3 text-left text-sm text-zinc-900 shadow-none outline-none focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20"
+              className={[
+                "mt-1 flex h-12 w-full items-center justify-between rounded-lg border border-zinc-300 bg-white px-5 py-3 text-left text-sm text-zinc-900 shadow-none outline-none focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20",
+                triggerClassName || "",
+              ].join(" ")}
               style={{ boxShadow: "0 1px 4px rgba(24, 50, 71, 0.08)" }}
             >
               <span className="truncate">{labelText}</span>
