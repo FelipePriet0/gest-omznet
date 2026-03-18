@@ -13,6 +13,7 @@ export type ScheduleStatus = 'aprovado' | 'reanalise' | 'mudanca_endereco';
 
 export type ScheduleCard = {
   id: string;
+  applicant_id: string;
   date: string; // YYYY-MM-DD
   technician_id: string;
   free_row_id?: string | null; // UUID da linha livre (quando sem técnico)
