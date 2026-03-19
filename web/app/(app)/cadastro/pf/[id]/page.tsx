@@ -226,6 +226,7 @@ export default function CadastroPFPage() {
   const from = (search?.get('from') || '').toLowerCase();
   const [cardIdEff, setCardIdEff] = useState<string>('');
   const [tipoInstalacao, setTipoInstalacao] = useState<string>('');
+  const [valorInternetWarn, setValorInternetWarn] = useState(false);
   const showAnalyzeCrumb = from === 'analisar';
   // Parecer states
   const [pareceres, setPareceres] = useState<any[]>([]);
@@ -854,9 +855,9 @@ export default function CadastroPFPage() {
   // Wrapper receives .expanded-portrait for compact layout on tall portrait monitors
   // Apply PF aspect (407/670) and responsive sizing with `.ficha-pf` and smart zoom scaler
   return (
-    <div className="form-zoom-wrap">
+    <div className="form-zoom-wrap" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflowX: 'hidden' }}>
       {/* Controls inline, above first card (Dados do Cliente), not scaled */}
-      <div className="form-fixed-width px-3 md:px-4 expanded-portrait" style={{ paddingTop: 0 }}>
+      <div className="form-fixed-width px-3 md:px-4 expanded-portrait" style={{ paddingTop: 0, flexShrink: 0 }}>
         <div className="form-zoom-controls form-zoom-controls--inline">
           <button className="btn-zoom" onClick={() => setZoom(z => Math.max(0.75, +(z - 0.05).toFixed(2)))}>−</button>
           <span className="zoom-label">{Math.round(zoom * 100)}%</span>
@@ -864,7 +865,7 @@ export default function CadastroPFPage() {
           <button className="btn-zoom-reset" onClick={() => setZoom(1)}>Reset</button>
         </div>
       </div>
-      <div className="form-zoom-scaler" style={{ transform: `scale(${zoom})`, margin: '12px auto 0 auto' }}>
+      <div className="form-zoom-scaler" style={{ zoom: zoom, margin: '12px auto 0 auto', minHeight: 'fit-content', width: '100%' }}>
         <div className="mz-form ficha-pf px-3 md:px-4 py-6 expanded-portrait">
           {statusText && (
             <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
@@ -914,6 +915,7 @@ export default function CadastroPFPage() {
               className="mt-0"
               triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
               contentClassName="rounded-lg shadow-lg border-0"
+              contentStyle={{ zIndex: 9999 }}
             />
           </div>
           <Field label="Cond" value={pf.cond || ""} onChange={(v)=>{ setPf({...pf, cond:v}); queueSave("pf","cond", v); }} status={getFieldStatus('cond')} />
@@ -925,7 +927,7 @@ export default function CadastroPFPage() {
 
       {/* Seção 3: Relações de Residência */}
       <Card title="Relações de Residência">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Linha 1 */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">
@@ -958,7 +960,7 @@ export default function CadastroPFPage() {
             />
           </div>
           <Field label="Observações" value={pf.tipo_moradia_obs || ""} onChange={(v)=>{ setPf({...pf, tipo_moradia_obs:v}); queueSave("pf","tipo_moradia_obs", v); }} error={errs.tipo_moradia_obs} requiredMark={reqObs} status={getFieldStatus('tipo_moradia_obs')} />
-          {/* Linha 2 */}
+          {/* Linha 2: "Única no lote" primeiro (esquerda) e Observação maior ao lado */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">
               <span>Única no lote</span>
@@ -972,7 +974,15 @@ export default function CadastroPFPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Única no lote (Obs)" value={pf.unica_no_lote_obs || ""} onChange={(v)=>{ setPf({...pf, unica_no_lote_obs:v}); queueSave("pf","unica_no_lote_obs", v); }} error={errs.unica_no_lote_obs} requiredMark={reqUnicaObs} className="md:col-span-2" status={getFieldStatus('unica_no_lote_obs')} />
+          <Field
+            label="Única no lote (Obs)"
+            value={pf.unica_no_lote_obs || ""}
+            onChange={(v)=>{ setPf({...pf, unica_no_lote_obs:v}); queueSave("pf","unica_no_lote_obs", v); }}
+            error={errs.unica_no_lote_obs}
+            requiredMark={reqUnicaObs}
+            className="sm:col-span-2"
+            status={getFieldStatus('unica_no_lote_obs')}
+          />
           {/* Linha 3 */}
           <Field label="Com quem reside" value={pf.com_quem_reside || ""} onChange={(v)=>{ setPf({...pf, com_quem_reside:v}); queueSave("pf","com_quem_reside", v); }} className="md:col-span-2" status={getFieldStatus('com_quem_reside')} />
           <div>
@@ -1021,7 +1031,7 @@ export default function CadastroPFPage() {
             />
           </div>
           <Field label="Nome De" value={pf.nome_de || ""} onChange={(v)=>{ setPf({...pf, nome_de:v}); queueSave("pf","nome_de", v); if ((pf.tem_contrato||'') === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { setPf(prev=>({ ...prev, nome_comprovante: v })); queueSave('pf','nome_comprovante', v); } }} error={errs.nome_de} requiredMark={reqNomeDe} disabled={!reqNomeDe} status={getFieldStatus('nome_de')} />
-          {/* Linha 4 */}
+          {/* Linha 4 - Comprovantes na mesma linha */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">
               <span>Enviou Comprovante</span>
@@ -1078,7 +1088,26 @@ export default function CadastroPFPage() {
           </div>
           <Field label="Empresa Internet" value={pf.empresa_internet || ""} onChange={(v)=>{ setPf({...pf, empresa_internet:v}); queueSave("pf","empresa_internet", v); }} status={getFieldStatus('empresa_internet')} />
           <Field label="Plano Internet" value={pf.plano_internet || ""} onChange={(v)=>{ setPf({...pf, plano_internet:v}); queueSave("pf","plano_internet", v); }} status={getFieldStatus('plano_internet')} />
-          <Field label="Valor Internet" value={pf.valor_internet || ""} onChange={(v)=>{ const m = formatCurrencyBR(v); setPf({...pf, valor_internet:m}); queueSave("pf","valor_internet", m); }} status={getFieldStatus('valor_internet')} />
+          <div>
+            <Field
+              label="Valor Internet"
+              value={pf.valor_internet || ""}
+              onChange={(v)=>{
+                // Permitir digitar apenas números; aplicar máscara BRL sem quebrar aviso
+                const allowedMask = /[R$\s.,]/g; // caracteres de máscara inseridos automaticamente
+                const raw = v.replace(allowedMask, '');
+                const hasNonDigit = /[^\d]/.test(raw);
+                setValorInternetWarn(hasNonDigit);
+                const masked = formatCurrencyBR(v);
+                setPf({...pf, valor_internet: masked});
+                queueSave("pf","valor_internet", masked);
+              }}
+              status={getFieldStatus('valor_internet')}
+              placeholder="apenas números"
+              inputMode="numeric"
+            />
+            {valorInternetWarn && <p className="mt-1 text-xs font-medium text-red-500">Esse campo aceita apenas Números</p>}
+          </div>
           {/* Linha 7 */}
           <Textarea label="Observações" value={pf.observacoes || ""} onChange={(v)=>{ setPf({...pf, observacoes:v}); queueSave("pf","observacoes", v); }} className="md:col-span-3" status={getFieldStatus('observacoes')} />
         </div>
@@ -1395,7 +1424,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 // (UI demo wrapper removido; voltamos ao Card padrão)
 
 function Grid({ cols, children }: { cols: 1|2|3|4; children: React.ReactNode }) {
-  const cls = cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-1 sm:grid-cols-2" : cols === 3 ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 md:grid-cols-4";
+  const cls = cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-1 sm:grid-cols-2" : cols === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-4";
   return <div className={`grid gap-4 ${cls}`}>{children}</div>;
 }
 

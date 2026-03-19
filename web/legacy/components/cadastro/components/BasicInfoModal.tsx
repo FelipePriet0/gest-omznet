@@ -132,6 +132,12 @@ export function BasicInfoModal({
       try {
         window.open(url, "_blank", "noopener,noreferrer");
       } catch {}
+      // Emite evento para que o Kanban recarregue a lista
+      try {
+        window.dispatchEvent(new CustomEvent('mz-card-created', {
+          detail: { applicantId: res.applicantId, cardId: res.cardId, personType: tipo }
+        }));
+      } catch {}
       onClose();
     } catch (e: any) {
       setError(e?.message || "Erro ao criar ficha");

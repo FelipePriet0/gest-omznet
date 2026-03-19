@@ -120,6 +120,19 @@ function KanbanPageInner() {
     return () => { active = false; };
   }, [filtersSummary.myMentions]);
 
+  // Listener para quando uma nova ficha é criada — força refresh do Kanban
+  useEffect(() => {
+    const handleCardCreated = (event: Event) => {
+      if (event instanceof CustomEvent) {
+        // Força uma atualização dos filtros para refetch dos cards
+        // Disparando uma mudança mínima no state de filtros
+        setFiltersSummary((prev) => ({ ...prev }));
+      }
+    };
+    window.addEventListener('mz-card-created', handleCardCreated);
+    return () => window.removeEventListener('mz-card-created', handleCardCreated);
+  }, []);
+
   const handleCardModalClose = useCallback(() => {
     const params = new URLSearchParams(sp.toString());
     if (!params.has("card")) return;

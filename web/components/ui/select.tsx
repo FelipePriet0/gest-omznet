@@ -51,7 +51,7 @@ export function SimpleSelect({
     // If custom z-index is provided, don't apply z-50 class (it would conflict)
     const hasCustomZIndex = contentStyle?.zIndex !== undefined;
     return cn(
-      hasCustomZIndex ? "" : "z-50",
+      hasCustomZIndex ? "" : "z-[100]",
       "min-w-[12rem] overflow-hidden rounded-md bg-white text-zinc-900 mz-select-content",
       flat ? "border-0 shadow-none" : "border shadow-md",
       contentClassName,
