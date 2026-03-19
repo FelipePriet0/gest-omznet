@@ -106,13 +106,9 @@ export function AddTechnicianModal({
   const [deadline, setDeadline] = useState<DateRangeValue>({});
 
   const canSave = useMemo(() => {
-    return Boolean(
-      name.trim().length > 1 &&
-        activity.trim().length > 0 &&
-        deadline.start &&
-        deadline.end
-    );
-  }, [activity, deadline.end, deadline.start, name]);
+    // Tornar o prazo opcional: permitir salvar apenas com nome e atividade
+    return Boolean(name.trim().length > 1 && activity.trim().length > 0);
+  }, [activity, name]);
 
   const reset = () => {
     setName("");
@@ -166,7 +162,7 @@ export function AddTechnicianModal({
           </div>
 
           <div className="grid gap-2">
-            <Label>Prazo da atividade</Label>
+            <Label>Prazo da atividade (opcional)</Label>
             <DateRangePopover
               value={deadline}
               onChange={setDeadline}
