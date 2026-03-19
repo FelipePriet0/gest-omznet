@@ -13,9 +13,8 @@ export function initialTechnicians(): Technician[] {
 
 export function initialCards(dateISO: string): ScheduleCard[] {
   return [
-    { id: "sch-1", date: dateISO, technician_id: "tech-ana", time_slot: "08:30", cliente: "Carlos Pereira", bairro: "Centro", tipo_instalacao: "casa", status: "aprovado" },
-    { id: "sch-2", date: dateISO, technician_id: "tech-joao", time_slot: "10:30", cliente: "Ana Paula", bairro: "Jardins", tipo_instalacao: "prédio", status: "reanalise" },
-    { id: "sch-3", date: dateISO, technician_id: "tech-maria", time_slot: "13:30", cliente: "Marcos Lima", bairro: "Vila Nova", tipo_instalacao: "prumada", status: "mudanca_endereco" },
+    { id: "sch-1", applicant_id: "app-1", date: dateISO, technician_id: "tech-ana", time_slot: "08:30", cliente: "Carlos Pereira", bairro: "Centro", tipo_instalacao: "casa", status: "aprovado" },
+    { id: "sch-2", applicant_id: "app-2", date: dateISO, technician_id: "tech-joao", time_slot: "10:30", cliente: "Ana Paula", bairro: "Jardins", tipo_instalacao: "predio_com_prumada", status: "reanalise" },
+    { id: "sch-3", applicant_id: "app-3", date: dateISO, technician_id: "tech-maria", time_slot: "13:30", cliente: "Marcos Lima", bairro: "Vila Nova", tipo_instalacao: "predio_sem_prumada", status: "mudanca_endereco" },
   ];
 }
-

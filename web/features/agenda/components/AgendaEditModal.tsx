@@ -303,6 +303,7 @@ export function AgendaEditModal({
             </FieldRow>
             <FieldRow label="Horário">
               <TimeMultiSelect
+                label="Horário"
                 times={slots}
                 value={slotArr}
                 onApply={(v) => setSlotArr(v)}
