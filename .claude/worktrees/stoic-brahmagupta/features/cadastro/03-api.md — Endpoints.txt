@@ -1,0 +1,16 @@
+| Endpoint | Método | Função | Request | Response |
+| --- | --- | --- | --- | --- |
+| `/api/cadastro/check-duplicidade` | GET | Verifica CPF/CNPJ existente | `?doc=000...` | `{ exists: boolean }` |
+| `/api/cadastro/ficha` | POST | Cria **applicant** + card na **Feitas/Cadastrar no MK** | `{ tipo:'PF' | 'PJ', basic: {...} }` |
+| `/api/cadastro/ficha/:id` | GET | Lê dados básicos + vínculo PF/PJ | — | `{ applicant, pf?, pj? }` |
+| `/api/cadastro/ficha/:id` | PUT | Atualiza dados básicos | `{ basic: {...} }` | `{ ok:true }` |
+| `/api/cadastro/pf/:id` | PUT | Atualiza campos **Expanded PF** | `{ pf: {...} }` | `{ ok:true }` |
+| `/api/cadastro/pj/:id` | PUT | Atualiza campos **Expanded PJ** | `{ pj: {...} }` | `{ ok:true }` |
+| `/api/cadastro/cancel/:card_id` | POST | Cancela e exige **motivo** | `{ reason }` | `{ ok:true }` |
+
+**Notas operacionais (como funciona):**
+
+- **check-duplicidade:** roda antes do “Continuar”. Se `exists=true`, desabilita CTA e mostra snackbar de alerta.
+- **POST /ficha:** cria `applicant`, garante **unicidade** do doc, e posiciona/mantém o card em **Feitas/Cadastrar no MK**.
+- **PUT /pf | /pj:** recebem patches frequentes (auto-save); validam enums/dropdowns condicionais (ex.: “tipo de moradia”, “enviou comprovante” etc.).
+- **cancel/:card_id:** abre modal, exige motivo, registra auditoria e move card para **Canceladas**.

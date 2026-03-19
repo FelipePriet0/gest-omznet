@@ -1,0 +1,228 @@
+# **📋 Funcionalidade Tarefas**
+
+## **🎯 O que é**
+
+Será uma funcionalidade que permite que colaboradores atribuam tarefas uns aos outros dentro do contexto de fichas comerciais. É uma ferramenta de gestão de atividades que conecta conversas, anexos e o fluxo de trabalho do Kanban.
+
+### Como chamar função:
+
+Digitar “/tarefa” nos campos de digitação cujo CTA está ativo (Descritos abaixo):
+
+### **📍 Onde aparecerá**
+
+1. Em todos Campos parecer (Seja o primeiro (Pai) ou Resposta ou Sub-resposta) (Dentro de Editar ficha e Expanded Ficha)
+2. Em todos Campos de conversas Co-relacionadas (Seja Trhead (PAI), Resposta (Comentário) OU sub-resposta (Comentário). 
+
+**🚀 O que abre**
+
+Modal central: **"Adicionar Tarefa"** 
+
+Quando chamado por “/tarefas”, nos campos cujo CTA está ativo, abre um **drawer lateral** (Sheet) com:
+
+### **Header (Cabeçalho)**
+
+- **Título**: "Adicionar Tarefa" ou "Editar Tarefa"
+- **Descrição**: "Crie uma nova tarefa para a equipe"
+- **Design**: Gradiente verde com fundo moderno
+
+### **Seção 1: Atribuição da Tarefa**
+
+- **Campo "De"**:
+- Nome do usuário atual (auto-preenchido pelo Autor (Colaborador) que está criando a tarefa
+- Não editável
+- Fundo cinza para indicar desabilitado
+
+- **Campo "Para"**:
+- Dropdown com lista de colaboradores
+- Mostra nome + cargo (ex: "João Silva · Analista")
+- Indicador de quantos colaboradores disponíveis
+
+### **Seção 2: Descrição da Tarefa**
+
+- **Campo de texto**:
+- Placeholder: "Ex.: Reagendar instalação para o dia 12/10 às 14h."
+- 4 linhas de altura
+- Validação obrigatória
+
+### **Seção 3: Prazo**
+
+- **Campo de data/hora**:
+- Opcional
+- Formato: datetime-local
+- Mostra preview da data selecionada
+
+### **Botões de Ação**
+
+- **"Cancelar"** (cinza): Fecha o drawer
+- **"Criar Tarefa"** (verde): Confirma criação
+
+**🎨 Estrutura Desenhada do Modal**
+
+```tsx
+┌─────────────────────────────────────┐
+│ 🟢 Header - Gradiente Verde         │
+│ "Adicionar Tarefa"                  │
+│ "Crie uma nova tarefa para a equipe" │
+├─────────────────────────────────────┤
+│ 🔵 Seção: Atribuição                │
+│ De: [João Silva] (cinza)            │
+│ Para: [Dropdown ▼]                  │
+│ ● 3 colaborador(es) disponível(is)  │
+├─────────────────────────────────────┤
+│ 🟢 Seção: Descrição                 │
+│ [Campo de texto 4 linhas]           │
+│ "Seja claro e específico..."        │
+├─────────────────────────────────────┤
+│ 🟣 Seção: Prazo                     │
+│ [Data/Hora] (Opcional)              │
+│ ● Prazo definido para 12/10/2024    │
+├─────────────────────────────────────┤
+│ [Cancelar] [Criar Tarefa]           │
+└─────────────────────────────────────┘
+```
+
+## **💾 O que gera (Ao “Criar Tarefa”)**
+
+**Tabela: card_tasks**
+
+Quando uma tarefa é criada, o sistema: 
+
+1. **Insere registro** na tabela card_tasks 
+2. **Cria comentário** na conversa encadeada OU no parecer (Onde for chamado a função “/tarefa”)
+3. **Envia notificação** para o usuário atribuído 
+4. **Atualiza interface** em tempo real
+
+### **🎯 Features do Campo Visual (Tarefa Criada)**
+
+**Dentro das Conversas Co-relacionadas e Pareceres (Seja Trhead (Pai) OU Comentários (Resposta) OU Sub-Resposta (Comentários)** 
+
+A tarefa aparece como uma **mensagem especial** com a seguinte estrutura: 
+
+1. Canto Superior: Data de criação /  Nome de quem Criou + Cargo (Ex: 22/10 11:20 Felipe Prieto (Gestor) +  
+2. Card da tarefa: 
+- Checkbox (Para marcação: Pendente / Concluída)  + “Tarefa”
+Para: “@Colaborador” selecionado dentro do modal no campo: “Para”
+Descrição: “Texto descrito no campo: “Descreva a tarefa” dentro do modal
+Prazo: Acompanha “Data e hora” selecionada no campo “Prazo” dentro do Modal. 
+
+**Visual da Tarefa**
+
+```tsx
+┌─────────────────────────────────────┐
+│ ☐ [Checkbox] 📋 Tarefa Criada      |
+│                                     │
+│ 👤 Para: @João Silva                │
+│ 📝 Descrição: Reagendar instalação  │
+│ ⏰ Prazo: 12/10/2024 às 14h                   │
+└─────────────────────────────────────┘
+```
+
+- Checkbox (Campo (Checkbox) de marcação para tarefas Pendentes e Concluidas.
+
+- Quando clicado: Mudar cor do card da tarefa para verde, riscar as linhas e marcar o Checkbox com um “V” de “Check”. Modele a funcionalidade “/Tarefas” do Notion e vamos fazer igual.
+
+## **📊 Indicadores Visuais**
+
+### **Status da Tarefa**
+
+- **🟡 Pendente**: Checkbox vazio, fundo azul
+- **🟢 Concluída**: Checkbox marcado, fundo verde, texto riscado
+- **🔴 Atrasada**: Fundo vermelho, ícone de alerta
+
+- **Clique na tarefa**: Abre modal da TAREFA, com todas as informações preenchidas (Realtime), dando opção do Colaborador que criou, editar a tarefa.
+
+### Regra:
+
+- Tarefas que vem/são chamadas no campo de conversas co-relacionadas (Trheads e comentários) (Tem os CTAs de responder + Excluir) da própria conversa co-relacionada. Ou seja, a funcionalidade “Tarefa” , quando criada, aparece dentro da conversa co-relacionada, herdando dessa funcionalidade as Actions de: Responder e Excluir. 
+
+”Editar, vem de clicar em cima da tarefa, fazendo abrir o Modal novamente, com as informações preenchidas e dando abertura para o criador da tarefa alterar os campos (Todos os Campos).
+- Tarefas que vem/são chamadas no campo Parecer (Em editar ficha ou Expanded Ficha) (Tem os CTAs de responder + Excluir), herdados do próprio parecer.
+
+”Editar, vem de clicar em cima da tarefa, fazendo abrir o Modal novamente, com as informações preenchidas e dando abertura para o criador da tarefa alterar os campos (Todos os Campos). 
+
+Lembrando que: Devemos apagar do Banco ao “Excluir” uma tarefa, seguindo “Hard Delete”.
+
+ **Tabela da Funcionalidade**
+
+- **Tabela: card_tasks**
+
+| Coluna | Tipo | Descrição |
+| --- | --- | --- |
+| id | UUID | Identificador único da tarefa |
+| card_id | UUID | ID do card relacionado (FK) |
+| card_title | TEXT | Nome da ficha (denormalizado) |
+| created_by | UUID | ID do usuário que criou (FK) |
+| assigned_to | UUID | ID do usuário responsável (FK) |
+| description | TEXT | Descrição da tarefa |
+| status | TEXT | 'pending' ou 'completed' |
+| deadline | TIMESTAMPTZ | Prazo para conclusão |
+| comment_id | UUID | ID do comentário associado (FK) |
+| created_at | TIMESTAMPTZ | Data de criação |
+| updated_at | TIMESTAMPTZ | Data da última atualização |
+| completed_at | TIMESTAMPTZ | Data de conclusão |
+
+## **🔗 Foreign Keys (FKs)**
+
+**Conexões da Tabela card_tasks**
+
+| Coluna | Referencia | Tabela | Ação |
+| --- | --- | --- | --- |
+| card_id | kanban_cards.id | kanban_cards | CASCADE (deleta tarefa se card for deletado) |
+| created_by | profiles.id | profiles | CASCADE (deleta tarefa se usuário for deletado) |
+| assigned_to | profiles.id | profiles | CASCADE (deleta tarefa se usuário for deletado) |
+| comment_id | card_comments.id | card_comments | SET NULL (mantém tarefa se comentário for deletado) |
+
+## **🛡️ Políticas de Segurança (RLS)**
+
+**Permissões da Tabela card_tasks**
+
+| Ação | Quem Pode | Condição |
+| --- | --- | --- |
+| **SELECT** | Qualquer usuário autenticado | - |
+| **INSERT** | Qualquer usuário autenticado | Pode criar tarefa para si mesmo |
+| **UPDATE** | Qualquer usuário autenticado | - |
+| **DELETE** | Apenas quem criou a tarefa | auth.uid() = created_by |
+| EDIT  | Apenas quem criou a tarefa | auth.uid() = created_by |
+
+## **Funcionalidades que devem Hookar com o Backend :**
+
+## **Checkbox de Status de Tarefa**
+
+- Hookado com Coluna: public.card_tasks.status → Se pressionado/marcado muda de Pending para completed. 
+**Comportamento**:
+**Marcado** → status = 'completed' → **🟢 Concluída**: Checkbox marcado, fundo verde, texto riscado 
+**Desmarcado** → status = 'pending' → **🟡 Pendente**: Checkbox vazio, fundo azul
+**Trigger Automático**: Quando status muda para 'completed', o campo completed_at é preenchido automaticamente
+
+### **Campo de Descrição**
+
+- **Hook**: useTasks → updateTask()
+- **Coluna**: card_tasks.description
+- **Validação**: Campo obrigatório, mínimo 1 caractere
+
+### **Campo "Para" (Atribuição)**
+
+- **Hook**: card_tasks.assigned_to
+- **FK**: Referencia profiles.id
+- **Validação**: Deve ser um usuário válido do sistema
+
+### **Campo de Prazo**
+
+- **Hook**: card_tasks.deadline
+- **Tipo**: TIMESTAMPTZ
+- **Opcional**: Pode ser NULL
+
+### **Criação de Tarefa**
+
+- **Hook**: **Colunas Abaixo Preenchidas Automaticamente**:
+- created_by → auth.uid() (usuário atual)
+- card_title → Título do card (trigger automático)
+- created_at → now()
+- status → 'pending' (padrão)
+
+### **Notificações**
+
+- **Trigger**: Quando tarefa é criada
+- **Tipo**: task_assigned
+- **Destinatário**: Usuário em assigned_to
+- **Conteúdo**: "Nova tarefa: [descrição]"

@@ -1,0 +1,174 @@
+# Agenda — Visão de Agendamentos
+
+## 🎯 Objetivo da funcionalidade
+
+Centralizar a visualização dos agendamentos de instalação em um único lugar, com leitura simples e rápida para todas as roles, garantindo que **apenas a role Instalação** possa editar, mover ou excluir agendamentos. A Agenda funciona como um **painel operacional**, não como um construtor de regras.
+
+---
+
+## 🧩 Funcionalidades
+
+### 1. Visualização em formato de grade (modelo Sheets)
+
+A interface replica a lógica visual de uma planilha:
+
+- **Colunas (Horários fixos):**
+    - 08:30
+    - 10:30
+    - 13:30
+    - 15:30
+- **Linhas:**
+    - Técnicos de instalação ativos no dia
+- **Células:**
+    - Cada célula representa um *slot de agendamento* (Técnico + Horário)
+
+---
+
+### 2. Cartões de agendamento (Cards)
+
+Cada agendamento aparece como um **card dentro da célula**, contendo:
+
+- Nome do cliente
+- Bairro
+- Tipo de instalação (ex: casa, prédio, prumada, IP fixo)
+- Status visual (via cor)
+
+---
+
+### 3. Sistema de cores e legenda
+
+Os cards possuem **cores padronizadas**, com legenda visível na interface:
+
+- 🟢 Aprovado
+- 🟠 Reanalise
+- 🟡 Mudança de Endereço
+
+> As cores são informativas e não alteram regras automaticamente.
+> 
+
+---
+
+### 4. Navegação por dia
+
+No topo da página:
+
+- Exibição clara da **data atual selecionada**
+- Dois CTAs:
+    - ◀ Dia anterior
+    - ▶ Próximo dia
+
+A troca de dia atualiza toda a grade (técnicos + agendamentos).
+
+---
+
+### 5. Controle por Role (RBAC)
+
+- **Instalação**:
+    - Criar agendamento
+    - Editar card
+    - Mover entre horários ou técnicos (drag & drop)
+    - Excluir agendamento
+- **Demais roles (Comercial, Análise, Gestão, etc.)**:
+    - Apenas leitura
+    - Não podem interagir com cards
+
+---
+
+## 🧭 Fluxo do Usuário
+
+### Fluxo — Usuário Leitor (não Instalação)
+
+1. Usuário acessa a página **Agenda**
+2. Visualiza automaticamente o dia atual
+3. Consulta:
+    - Técnicos disponíveis
+    - Horários ocupados
+    - Status dos agendamentos
+4. Navega entre dias, sem permissão de alteração
+
+---
+
+### Fluxo — Usuário Instalação
+
+1. Acessa a página **Agenda**
+2. Visualiza o dia atual
+3. Executa ações possíveis:
+    - Criar novo agendamento em um slot vazio
+    - Arrastar um card para outro horário ou técnico
+    - Editar informações do card
+    - Excluir agendamento
+4. Sistema salva alterações em tempo real
+
+---
+
+## ⚙️ Requisitos Técnicos
+
+### 1. Estrutura de Dados (base conceitual)
+
+- **AgendaDay**
+    - date
+- **Technician**
+    - id
+    - nome
+    - ativo
+- **ScheduleSlot**
+    - date
+    - technician_id
+    - time_slot (08:30, 10:30, etc.)
+- **ScheduleCard**
+    - slot_id
+    - cliente
+    - bairro
+    - tipo_instalacao
+    - status
+    - cor
+
+---
+
+### 2. Controle de Permissão
+
+- RBAC obrigatório no backend
+- Validação dupla:
+    - Frontend (UI bloqueada)
+    - Backend (policy de escrita)
+
+Somente a role **Instalação** pode executar mutations.
+
+---
+
+### 3. Atualização em tempo real
+
+- Alterações refletem instantaneamente na agenda
+- Leitores veem mudanças sem reload
+- Evitar conflitos de edição simultânea
+
+---
+
+### 4. Performance e usabilidade
+
+- Renderização apenas do dia selecionado
+- Grid estável (horários fixos)
+- Scroll vertical para técnicos
+- UI otimizada para leitura rápida
+
+---
+
+## 🔒 Regras Importantes
+
+- Agenda **não decide regras** → apenas executa
+- Nenhuma automação ocorre aqui
+- Toda lógica de decisão pertence ao **Canvas Builder de Agendamento**
+
+---
+
+## ✅ Resultado Esperado
+
+- Agenda clara, visual e operacional
+- Redução de erros de comunicação entre setores
+- Instalação com controle total
+- Demais áreas com transparência e previsibilidade
+
+---
+
+> Próximo documento: Canvas Builder de Agendamento (Construtor de Regras)
+>

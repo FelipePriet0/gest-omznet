@@ -1,0 +1,12 @@
+**Objetivo:** Permitir criar novas fichas (PF/PJ) via CTA **Nova Ficha**, com modais guiados, validações (CPF/CNPJ único) e integração direta com o Kanban (coluna **Feitas/Cadastrar no MK**).
+
+**Escopo:** fluxos e regras desde “Nova Ficha” → “Escolher Tipo” → “Dados Básicos” (PF/PJ) → abrir **Expanded** em outra aba.
+
+**Resultado esperado (DONE):**
+
+- [ ]  CTA **Nova Ficha** disponível em ambos Kanbans (Comercial e Análise).
+- [ ]  Modal **Escolher Tipo de Pessoa** abre (PF/PJ).
+- [ ]  Modal **Dados Básicos** (PF ou PJ) com **auto-save/realtime**.
+- [ ]  **Validação de duplicidade** (CPF/CNPJ) barra o “Continuar”.
+- [ ]  Ao **Continuar**, abre **Expanded** em outra aba e **cria/atualiza** card na coluna **Feitas/Cadastrar no MK**.
+- [ ]  Regras de RLS respeitadas (qualquer autenticado pode iniciar; movimentações conforme perfil).

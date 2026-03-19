@@ -1,0 +1,71 @@
+-- pf_fichas: Expanded Ficha PF
+
+create table if not exists public.pf_fichas (
+  id uuid primary key default gen_random_uuid(),
+  applicant_id uuid not null references public.applicants(id) on delete cascade,
+  birth_date date,
+  naturalidade text,
+  uf_naturalidade text,
+  do_ps text,
+  cond text,
+  tempo_endereco text,
+  tipo_moradia text,
+  tipo_moradia_obs text,
+  endereco_do_ps text,
+  unica_no_lote text,
+  unica_no_lote_obs text,
+  com_quem_reside text,
+  nas_outras text,
+  tem_contrato text,
+  enviou_contrato text,
+  nome_de text,
+  enviou_comprovante text,
+  tipo_comprovante text,
+  nome_comprovante text,
+  nome_locador text,
+  telefone_locador text,
+  tem_internet_fixa text,
+  empresa_internet text,
+  plano_internet text,
+  valor_internet text,
+  observacoes text,
+  profissao text,
+  empresa text,
+  vinculo text,
+  vinculo_obs text,
+  emprego_do_ps text,
+  estado_civil text,
+  conjuge_obs text,
+  conjuge_nome text,
+  conjuge_telefone text,
+  conjuge_whatsapp text,
+  conjuge_cpf text,
+  conjuge_naturalidade text,
+  conjuge_uf text,
+  conjuge_idade integer,
+  conjuge_do_ps text,
+  pai_nome text,
+  pai_reside text,
+  pai_telefone text,
+  mae_nome text,
+  mae_reside text,
+  mae_telefone text,
+  ref1_nome text,
+  ref1_parentesco text,
+  ref1_reside text,
+  ref1_telefone text,
+  ref2_nome text,
+  ref2_parentesco text,
+  ref2_reside text,
+  ref2_telefone text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_pf_fichas_set_updated_at on public.pf_fichas;
+create trigger trg_pf_fichas_set_updated_at
+before update on public.pf_fichas
+for each row execute function public.set_updated_at();
+
+alter table public.pf_fichas enable row level security;
+

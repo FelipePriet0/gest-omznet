@@ -1,0 +1,112 @@
+Aplique um design system moderno e elegante baseado no padrão MZNET com as seguintes especificações:
+
+### **1. PALETA DE CORES PRINCIPAL**
+
+- **Verde Primário**: #018942 (principal)
+- **Verde Secundário**: #016b35 (hover/transições)
+- **Verde Escuro**: #014d28 (gradientes)
+- **Verde Claro**: #10b981 (accent)
+- **Cinza Neutro**: #6b7280 (textos secundários)
+- **Cinza Claro**: #f9fafb (fundos de seção)
+
+### **3. SEÇÕES ORGANIZADAS COM INDICADORES**
+
+```tsx
+{/* Seção com Indicador Colorido */}
+<div className="bg-gray-50 rounded-xl p-4">
+  <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+    <div className="w-2 h-2 bg-[COR_INDICADOR] rounded-full"></div>
+    [NOME_DA_SEÇÃO]
+  </h3>
+  {/* Conteúdo da seção */}
+</div>
+
+{/* Cores dos indicadores por tipo: */}
+- 🔵 Azul (#3b82f6): Identificação/Dados Pessoais
+- 🟢 Verde (#10b981): Contatos/Comunicação
+- 🟣 Roxo (#8b5cf6): Naturalidade/Origem
+- 🟠 Laranja (#f59e0b): Empresa/Corporativo
+- 🔴 Vermelho (#ef4444): Ações/Alertas
+
+```
+
+### **4. INPUTS MODERNIZADOS**
+
+```tsx
+{/* Input com estilo MZNET */}
+<Input
+  className="mt-1 rounded-lg border-gray-300 focus:border-[#018942] focus:ring-[#018942] text-gray-900 placeholder-gray-500"
+  placeholder="[PLACEHOLDER_DESCRITIVO]"
+/>
+
+{/* Labels padronizados */}
+<Label className="text-sm font-medium text-gray-700">
+  [NOME_DO_CAMPO] *
+</Label>
+
+```
+
+### **5. BOTÕES COM GRADIENTE**
+
+```tsx
+{/* Botão Principal */}
+<Button className="bg-gradient-to-r from-[#018942] to-[#016b35] hover:from-[#016b35] hover:to-[#014d28] text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+  [TEXTO_DO_BOTÃO]
+</Button>
+
+{/* Botão Secundário */}
+<Button variant="outline" className="bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 rounded-lg transition-all duration-200">
+  [TEXTO_DO_BOTÃO]
+</Button>
+
+```
+
+### **6. CARDS INTERATIVOS**
+
+```tsx
+{/* Card de Seleção */}
+<button className="group relative rounded-xl border-2 border-gray-200 bg-white p-6 text-left transition-all duration-300 hover:border-[#018942] hover:-translate-y-1 hover:shadow-xl">
+  <div className="flex items-start gap-4 mb-4">
+    <div className="w-14 h-14 bg-[COR_FUNDO] rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110">
+      <[ÍCONE] className="h-7 w-7 text-[COR_ÍCONE]" />
+    </div>
+    <div className="flex-1">
+      <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-[#018942] transition-colors">
+        [TÍTULO_DO_CARD]
+      </h3>
+      <p className="text-sm text-gray-600">[DESCRIÇÃO]</p>
+    </div>
+    <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-[#018942] group-hover:translate-x-1 transition-all" />
+  </div>
+</button>
+
+```
+
+### **8. MICRO-INTERAÇÕES**
+
+- **Hover Effects**: `hover:scale-105`, `hover:-translate-y-1`, `hover:shadow-xl`
+- **Transições**: `transition-all duration-300 ease-out`
+- **Focus States**: `focus:border-[#018942] focus:ring-[#018942]`
+- **Loading States**: Spinners com `animate-spin`
+- **Disabled States**: `disabled:opacity-50 disabled:cursor-not-allowed`
+
+### **9. HIERARQUIA VISUAL**
+
+- **Títulos Principais**: `text-lg font-semibold text-white` (headers)
+- **Títulos de Seção**: `text-sm font-semibold text-gray-700` (seções)
+- **Labels**: `text-sm font-medium text-gray-700`
+- **Subtítulos**: `text-green-100 text-sm` (headers) / `text-gray-600 text-sm` (cards)
+- **Placeholders**: `placeholder-gray-500`
+
+### **10. ESPAÇAMENTO E LAYOUT**
+
+- **Padding Seções**: `p-4` ou `p-6`
+- **Gap entre elementos**: `gap-3` ou `gap-4`
+- **Border Radius**: `rounded-lg` (inputs), `rounded-xl` (cards/seções)
+- **Shadows**: `shadow-md` (botões), `shadow-xl` (cards hover)
+
+### **11. RESPONSIVIDADE**
+
+- **Grid Responsivo**: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
+- **Padding Responsivo**: `p-4 sm:p-6 md:p-8`
+- **Texto Responsivo**: `text-sm sm:text-base lg:text-lg`

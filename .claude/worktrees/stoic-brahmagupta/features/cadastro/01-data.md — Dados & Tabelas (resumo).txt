@@ -1,0 +1,12 @@
+**Tabelas chave:**
+
+- `public.applicants` → identificadores, contatos e campos comuns entre (PF/PJ): `primary_name`, `cpf_cnpj`, `email`, `phone`, `whatsapp`, `bairro`, etc. (Todos os campos da tabela).
+- `public.pf_fichas` → campos estendidos de PF (endereço detalhado, emprego/renda, cônjuge, filiação, referências, etc.) - Apenas para Expanded PF
+- `public.pj_fichas` → campos estendidos de PJ (dados cadastrais, endereço, contatos/documentos, sócios, solicitação) - Apenas para Expanded PJ
+- `public.kanban_cards` → integração com Kanban; ao avançar, posiciona card em **Feitas/Cadastrar no MK** (Comercial).
+
+**Regras de integridade essenciais:**
+
+- `applicants.cpf_cnpj` **único** (validação antes de “Continuar”).
+- PF/PJ “Expanded” referenciam o mesmo `applicant_id`.
+- Hooks de **auto-save/realtime** sempre que um campo é alterado

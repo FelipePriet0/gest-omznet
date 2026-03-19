@@ -1,0 +1,45 @@
+**Installation**
+
+```tsx
+npx shadcn@latest add button
+```
+
+---
+
+Código da instalação (React/shadcn/ui)
+
+Arquivo: components/ui/button.tsx
+
+```tsx
+import * as React from "react"
+
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
+  size?: "default" | "sm" | "lg" | "icon"
+}
+
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = "default", size = "default", ...props }, ref) => {
+    const base = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+    const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
+      default: "bg-emerald-600 text-white hover:bg-emerald-700",
+      destructive: "bg-red-600 text-white hover:bg-red-700",
+      outline: "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50",
+      secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
+      ghost: "bg-transparent text-gray-900 hover:bg-gray-100",
+      link: "bg-transparent text-emerald-700 underline-offset-4 hover:underline",
+    }
+    const sizes: Record<NonNullable<ButtonProps["size"]>, string> = {
+      default: "h-9 px-4 py-2",
+      sm: "h-8 px-3",
+      lg: "h-10 px-6",
+      icon: "h-9 w-9 p-0",
+    }
+    const classes = [base, variants[variant], sizes[size], className || ""].join(" ")
+    return <button ref={ref} className={classes} {...props} />
+  }
+)
+
+Button.displayName = "Button"
+```
+

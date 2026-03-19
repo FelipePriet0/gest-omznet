@@ -1,0 +1,22 @@
+## Kanban (Fluxo de cancelamento da coluna: Canceladas)
+
+**Primeira Etapa - Confirmação Inicial** 
+
+```tsx
+Modal: "Deletar Ficha" 
+├── Mostra dados do cliente (Nome + CPF)
+├── Aviso: "A ficha será movida para o histórico de fichas excluídas"
+├── Botão "Cancelar" (Button: **Secondary**)
+└── Botão "Sim, Deletar" (vermelho, corner radius 30px) (Button: Destructive)
+```
+
+ **Segunda Etapa - Confirmação Final**
+
+```tsx
+Modal: "Confirmação Final" 
+├── Aviso: "Tem certeza que deseja apagar esta ficha?" 
+├── Descrição: "Esta ação não pode ser desfeita..."
+├── Campo de motivo (opcional) - texto verde
+├── Botão "Cancelar" (cinza)  (Button: **Secondary**)
+└── Botão "Confirmar Exclusão" (vermelho) (Button: Destructive)
+```

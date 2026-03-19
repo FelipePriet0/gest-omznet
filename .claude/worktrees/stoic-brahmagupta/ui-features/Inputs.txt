@@ -1,0 +1,108 @@
+**Installation**
+
+```tsx
+npx shadcn-vue@latest add input
+```
+
+**Usage** 
+
+```tsx
+<script setup lang="ts">
+import { Input } from '@/components/ui/input'
+</script>
+
+<template>
+  <Input />
+</template>
+```
+
+**Default**
+
+```tsx
+<script setup lang="ts">
+import { Input } from "@/components/ui/input"
+</script>
+
+<template>
+  <Input type="email" placeholder="Email" />
+</template>
+```
+
+**Disabled** 
+
+```tsx
+<script setup lang="ts">
+import { Input } from "@/components/ui/input"
+</script>
+
+<template>
+  <Input disabled type="email" placeholder="Email" />
+</template>
+```
+
+**With Label**
+
+```tsx
+<script setup lang="ts">
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+</script>
+
+<template>
+  <div class="grid w-full max-w-sm items-center gap-1.5">
+    <Label for="email">Email</Label>
+    <Input id="email" type="email" placeholder="Email" />
+  </div>
+</template>
+```
+
+**With Icon**
+
+```tsx
+<script setup lang="ts">
+import { Search } from "lucide-vue-next"
+import { Input } from "@/components/ui/input"
+</script>
+
+<template>
+  <div class="relative w-full max-w-sm items-center">
+    <Input id="search" type="text" placeholder="Search..." class="pl-10" />
+    <span class="absolute start-0 inset-y-0 flex items-center justify-center px-2">
+      <Search class="size-6 text-muted-foreground" />
+    </span>
+  </div>
+</template>
+```
+
+
+---
+
+Código da instalação (React/shadcn/ui)
+
+Arquivo: components/ui/input.tsx
+
+```tsx
+import * as React from "react"
+
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type = "text", ...props }, ref) => {
+  return (
+    <input
+      ref={ref}
+      type={type}
+      className={[
+        "h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm",
+        "outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500",
+        "disabled:cursor-not-allowed disabled:opacity-60",
+        className || "",
+      ].join(" ")}
+      {...props}
+    />
+  )
+})
+
+Input.displayName = "Input"
+
+export { Input }
+```

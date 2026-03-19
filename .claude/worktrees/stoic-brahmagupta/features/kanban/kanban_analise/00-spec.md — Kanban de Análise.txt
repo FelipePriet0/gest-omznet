@@ -1,0 +1,142 @@
+### 🎯 Objetivo
+
+Orquestrar o fluxo de análise das fichas enviadas pelo Comercial, garantindo atribuição correta, controle de status, rastreabilidade e automações de notificação e histórico.
+
+---
+
+### ✅ Resultado Esperado (DONE = Verdadeiro quando…)
+
+- [ ]  Cards de **Concluídas (Comercial)** aparecem automaticamente em **Recebidos (Análise)**.
+- [ ]  O botão **Ingressar** atribui o Analista e move o card para **Em Análise**.
+- [ ]  Pareceres (Aprovado, Negado, Reanálise) funcionam conforme regras por coluna.
+- [ ]  Movimentos para **Canceladas** exigem motivo.
+- [ ]  Cards em **Finalizados** são enviados para **Histórico** após 5 minutos.
+- [ ]  Sidebar Superior: Filtros de topo (Setor, Responsável, Prazo, Atribuídas) retornam resultados corretos.
+
+### 🔁 Fluxo Simplificado
+
+1️⃣ Comercial conclui o card → Trigger envia para **Análise/Recebidos**.
+
+2️⃣ Analista clica **Ingressar** → vira responsável e o card vai para **Em Análise**.
+
+3️⃣ Analista aplica **Parecer (Aprovado, Negado, Reanálise)** → move de coluna conforme o status.
+
+4️⃣ Pode mover para **Ass App** → cria tarefa e agenda notificações.
+
+5️⃣ Mover para **Finalizados** → após 5min → vai para **Histórico**.
+
+6️⃣ Mover para **Canceladas** → abre modal → exige motivo → registra auditoria.
+
+### 🚫 Filtros avançados  (Side bar superior). 
+****
+
+| Filtros | Funcionalidade | O que é:  |
+| --- | --- | --- |
+| Busca | Buscar o nome do titular da ficha/cadastro | Barra de busca com Placeholder: ”Buscar Titular (Nome da ficha)” |
+| Setor | Segmentar o kanban por setores, podendo navegar por páginas diferentes e deixar o front organizado) | Dropdown com: 
+
+ - Comercial → Action: Vai para aba /kanban comercial
+- Analise → Action: Vai para aba /Analise Comercial |
+| Responsável |  Filtrar o Colaborador responsável por aquela ficha. 
+
+OBS: No kanban Análise, responsável são apenas os Analistas. 
+
+ | Dropdown com Hook em: 
+
+- [`Public.profiles.id](http://Public.profiles.id) e public.role.id`
+
+Todo id que a role for: “Analista” deve ter o public.profiles.Full_name no dropdown.  |
+| **Prazo** | **Filtrar as fichas do dia escolhido, fazendo a comparação com:** 
+
+`- public.kanban_cards.due_at`
+ | Dropdown com: 
+
+- **Todos 
+- Agendada para hoje 
+- Agendada para amanhã 
+- Atrasado 
+- Escolher data 
+
+OBS: Ao selecionar “Escolher Data” abre calendário na tela para escolha da “Data”: Dia / Mês / Ano.**  |
+| **Horário** | Escolher data de agendamento, baseado em: 
+
+`- public.kanban_cards.due_at
+ - public.kanban_cards.hora_at` | Dropdown com: 
+
+- 08:30
+- 10:30
+- 13:30
+- 15:30  |
+| **Atribuidas** | Filtrar os cards que tem “Menções” ou “Tarefas” (Depende da escolha) referentes ao ID. 
+ | Dropdown com: 
+
+- Todos
+- Minhas Menções
+- Minhas tarefas |
+
+### 🧱 Colunas do Kanban
+
+| Coluna | Descrição | Acesso |
+| --- | --- | --- |
+| **Recebidos** |  “porta de entrada” do Kanban de Análise. Aqui caem as fichas que foram enviadas pelo Comercial pela coluna: Concluídas.
+
+Também e a Coluna onde os cards ganham o CTA: “Ingressar” no canto inferior esquerdo, permitidindo os Analistas e Gestores ingressarem (O que gera um Hook com backend EM Assignee id e atrela a ficha/card para o analista) | analistas/gestores. O primeiro passo é “Ingressarr” na ficha (assumir responsabilidade), e assim, automaticamente é  movida  para coluna “Em Análise”
+
+OBS: Caso alguém queira mover uma ficha com analista já atribuido para essa coluna: 
+
+• Se a ficha já tiver responsável, abrir um Modal de aviso: Essa ficha possui responsável atribuido, movê-la para essa coluna irá desatribui-lo do card. Tem certeza que deseja mover?.
+CTA: Cancelar (Cinza) → Cancela, fecha o modal e mantêm a ficha na mesma coluna
+Sim, tenho certeza → Move para coluna: Recebidos. fecha o Modal, desatribui o colaborador antigo (Assigne), deixando o campo analista em branco.
+• Isso libera o CTA: “Ingressar” de aparecer e seguir o fluxo do mesmo, redatado abaixo: 
+
+**Botão “Ingressar” : Posicionado no canto inferior esquerdo do card:**
+• Para que serve: Colaborador assume a análise da ficha, automaticamente a ficha move para a coluna (3.2.2): “Em análise” ao lado, e o colaborador é relacionado como Analista daquela ficha, em “Editar Ficha”, campo: “Analista”.
+• Onde aparece:  Canto inferior esquerdo, dentro do cards na coluna: “Recebidos” (Kanban de Análise).
+• O que faz ao clicar:
+• Move a ficha para “Em Análise”.
+• Define você como responsável (assignee).
+• Registra a ação (quem/quando) para auditoria.
+• Observações:
+
+    ◦ Se você não tiver permissão (Auth), o sistema bloqueia e exibe aviso: “Você não tem permissão para essa ação”. |
+| **Em Análise** |  coluna onde ficam as fichas que já foram assumidas (via “Ingressar”) e estão sendo trabalhadas pelo analista. | analistas/gestores  podem movimentar para dentro fora desta coluna conforme o andamento do trabalho  |
+| **Reanálise** | O que é: coluna para fichas que precisam de nova avaliação após pendências, documentos adicionais ou mudanças de cenário. |  analista atribuido (Assignee) e gestores  pode movimentar para dentro fora desta coluna conforme o andamento do trabalho  
+
+Nessa coluna, a função /reanalise é desativada (Ficando em cor de desativada no dropdown), modele grandes softwares para fzer isso aqui, quando uma função está bloqueada eles a deixam meio que apagadas. 
+
+Aprovado e /Negado está ativado dentro do parecer e acionando o Card é movido para a respectiva coluna (/Aprovado → Coluna: “Aprovado” ; /Negado → Coluna: “Negado”).  |
+| **Aprovados** | coluna para fichas que passaram nos critérios da Análise e estão autorizadas a seguir (instalação/ativação/cadastro final, conforme o processo). | analista atribuido (Assignee) e gestores  podem movimentar para dentro fora desta coluna conforme o andamento do trabalho   |
+| **Negados** | coluna para fichas que foram negadas | analista atribuido (Assignee) e gestores  podem movimentar para dentro fora desta coluna conforme o andamento do trabalho    |
+| **Canceladas** | coluna onde ficam as fichas encerradas por desistência, erro definitivo ou inviabilidade comprovada.  | nalista atribuido (Assignee)  e Gestores  podem movimentar, apenas para dentro, desta coluna conforme o andamento  e quem movimenta precisa informar um motivo (obrigatório). O sistema registra quem cancelou (`public.kanban_card.cancelled_by`) e quando (`public.kanban_card.cancel_reason`).  
+
+**Modal “Cancelar Ficha”:**
+• Quando você arrasta uma ficha para a coluna “Canceladas”, o sistema abre um modal pedindo o motivo do cancelamento.
+    ◦ O motivo é obrigatório. Sem motivo, a ficha não é cancelada.
+<aside>
+💡
+Estrutura do Modal
+    ◦ Título: “Cancelar ficha”
+    ◦ Subtítulo: “Informe o motivo do cancelamento. Esta ação será registrada para análise.”
+    ◦ Campo “Motivo” (obrigatório):
+
+        ▪ Campo de texto curto (uma frase direta).
+        ▪ Placeholder: “Ex: Cliente desistiu / Dados inconsistentes”
+
+💡
+    ◦ Rodapé (botões/CTAs):
+
+        ▪ “Cancelar” (cinza): fecha o modal sem fazer nada; a ficha permanece como estava.
+        ▪ “Confirmar” (verde): confirma o cancelamento, move a ficha para “Canceladas” e salva o motivo.
+
+💡
+Regras e Comportamento
+    ◦ Motivo obrigatório: se o campo estiver vazio, aparece um aviso e o cancelamento não segue.
+    ◦ Registro (auditoria): o sistema grava quem cancelou, quando e qual motivo foi informado.
+    ◦ Efeito no Kanban: ao confirmar, a ficha vai para “Canceladas”. A lista atualiza automaticamente.
+    ◦ Sem “apagar”: cancelar não apaga a ficha; ela fica registrada no histórico para consultas futuras.
+ |
+| **Ass App** | Coluna cujo os Aprovados vão para que possamos gerenciar as ass App que estão PENDENTES.  | analista atribuido (Assignee) e gestores  podem movimentar para dentro ou fora (Dentro do prazo do trigger) desta coluna conforme o andamento do trabalho     
+ |
+| **Finalizados** |  Estado final do Kanban de Análise. A ficha concluiu o ciclo de análise (e, se aplicável, os passos seguintes) sem pendências. |  analista atribuido (Assignee) e gestores  pode movimentar para dentro ou fora (Dentro do prazo do trigger) desta coluna conforme o andamento do trabalho    
+
+Trigger da coluna: Após 5 minutos do card enviado para essa coluna, envia-o para Histórico.  |

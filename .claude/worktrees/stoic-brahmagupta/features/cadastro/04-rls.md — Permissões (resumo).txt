@@ -1,0 +1,13 @@
+| Papel | Pode |
+| --- | --- |
+| **Vendedor** | Iniciar **Nova Ficha**, preencher **Dados Básicos**, editar **Expanded** para seus clientes, mover entre colunas do Comercial. |
+| **Analista** | Também pode iniciar **Nova Ficha**, preencher/editar **Expanded**, e mover no Análise conforme regras. |
+| **Gestor** | Também pode iniciar **Nova Ficha**, preencher/editar **Expanded**, e mover no Análise conforme regras.
+
+Pode editar, excluir e cancelar qualquer ficha, mesmo as que não está atribuido |
+
+**Políticas essenciais (ideia):**
+
+- `SELECT applicants` → `auth.role() IN ('vendedor','analista','gestor')`.
+- `INSERT/UPDATE applicants` → usuários autenticados; escopos por ownership/assignee conforme Kanban.
+- **Storage** (anexos) e **DB** (metadados) separados; DELETE/UPDATE no anexo só pelo autor/gestor.

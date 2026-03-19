@@ -1,0 +1,120 @@
+- O que é: a aba onde você consulta fichas que foram enviadas para a coluna Finalizadas (Kanban Análise) e vieram para o Histórico
+- Para que serve: Buscar decisões passadas, resgatar informações do cliente e apoiar novos atendimentos sem“caçar” card por card no Kanban.
+
+## 4.1 Filtros:
+
+<aside>
+💡
+
+Esses são os filtros da aba que iremos utilizar. 
+
+</aside>
+
+1 - Busca por nome (Funcionalidade: Buscar o nome do titular da ficha/cadastro)
+2 -  Data inicial
+3 - Data final 
+(Aqui Data inicial e Data final são conectadas, podendo escolher um periodo de tempo. Ex: 05/10 até 10/10)
+4 -  Status da análise (Aprovado / Negados)
+5 - responsável por Análise: Dropdown com todos os colaboradores Analistas e Gestores).
+****
+
+## 4.2 Detalhes da ficha
+
+### **4.2.1 Fichas Finalizadas (Histórico completo de todas as análises finalizadas)**
+
+**Nome Cliente / Razão social  | CPF/CNPJ | Status (Aprovado ou Negado) | Vendedor (Assignee) | Analista (Assignee) | Data da decisão (Data e Hora) | Ações
+
+CTA: Ações
+
+O que faz: Abre modal de Detalhes da Ficha, com:** 
+
+# **1 - Resumo Completo:**
+
+### **1.1 Informações do Cliente**
+
+   - Nome OU Razão Social) 
+  - CPF ou CNPJ
+  - Status (Negado (vermelho com placeholder branco) ou Aprovado (verde placeholder branco) 
+****
+
+### **1.2 Pareceres:**
+
+****   - Decisão:  
+     (Campo para escrita)
+
+### **1.3 Equipe**
+
+****  Title: Equipe Responsável 
+  Subtitle: Colaboradores envolvidos no processo desta ficha 
+  
+  Mini campo interno: Vendedor ( Vendedor Assignee) 
+ Mini campo interno: Analista ( Analista Assignee)  
+
+### **1.4  Resgatar ficha**
+
+CTA: Resgatar Ficha → Function: Abrir expanded em outra aba com as informações realtime das colunas hookadas;  
+
+Cor do CTA: Verde
+Placeholder: Branco
+Onde fica: Canto superior direito. 
+
+**1.5 “X” - Fechar
+
+CTA: “X”  → Function: Fechar página
+Cor do CTA: Preto
+Onde fica: Canto superior direito** 
+
+## 4.3 Estrutura da Aba:  Detalhes da ficha
+———————————————————————————-
+
+> Detalhes da ficha - Nome OU razão Social (Realtime: Primary_name)     |Resgatar Ficha|  | “X”|
+> 
+
+> **Informações do cliente            |               Pareceres:                                                                              |
+                                                        |             _______________________________________                         |
+Nome OU Razão Social)           |             |__Pareceres registrados_____________|                         |
+CPF ou CNPJ                               |                                                                                                               |
+Status                                            |                                                                                                              |
+——————————————————————————————————-     
+                                                                                                                                                                      |
+                                       Equipe                                                                                                                   | 
+  Equipe Responsável                                                                                                                               | 
+  Colaboradores envolvidos no processo desta ficha                                                                    |
+                                                                                                                                                                       |
+   |__Vendedor Assignee___|     |__Analista Assignee___|                                                                   |
+                                                                                                                                                                       |
+____________________________________________________________________________________________**
+> 
+
+## 4.4 Resumo:
+
+Resumo: o Histórico é o “raio‑X” das fichas já encerradas — rápido de consultar, ótimo para reconectar contexto, e essencial para um atendimento profissional sem repetir passos.
+
+—
+
+Codex, quando chegarmos aqui, precisamos juntos fazer a: 
+
+API.MD (Os endpoints) assim como está feito nos outros. 
+
+## 04-rls.md — Permissões (resumo)
+
+| Papel | Pode |
+| --- | --- |
+| **Vendedor** | Pode:
+
+ - Abrir detalhes da ficha
+ - Baixar ficha |
+| **Analista** | Pode:
+
+ - Abrir detalhes da ficha
+ - Baixar ficha |
+| **Gestor** | Pode:
+
+ - Abrir detalhes da ficha
+ - Baixar ficha |
+
+### [05-acceptance.md](http://05-acceptance.md/) — Critérios de Aceite (Cadastro)
+
+- [ ]  Todas as fichas da coluna: “Finalizados” devem cair aqui.
+- [ ]  Herdando todas as informações listadas acima.
+- [ ]  Mesmo depois de finalizada, infs continuam nas tabelas que estão, como: Applicants; pf_fichas; pj_fichas; etc.

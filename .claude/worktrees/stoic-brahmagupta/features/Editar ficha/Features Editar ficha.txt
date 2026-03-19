@@ -1,0 +1,813 @@
+Essa aba fica conectado com Kanban, é ela que quando clicamos em cima de qualquer card, abre para que possamos ver as informações necesárias sem depender de abrir o Expand novamente. 
+
+Então, basicamente o encadeamento é esse: 
+
+kanban: Card (Ao clicar no Card) >> Abre editar ficha (Existirá um CTA: “Analisar” dentro de Editar ficha, que ao clicar, abre: Expanded Ficha PJ). 
+
+Tudo seguindo applicant.id
+
+Faremos FK do id para as tabelas dessas funções para que fique tudo conectado no banco. 
+
+## 5 Editar ficha:
+
+- O que é: a tela (modal) que abre ao clicar em cima de qualquer Card no Kanban para consultar e atualizar os dados essenciais de uma ficha sem sair do Kanban.
+    - Para que serve: corrigir/ajustar informações rápidas (contato, endereço, opções comerciais), registrar observações e gerenciar anexos.
+    - Anexar parecer
+    - Criar tarefas
+    - Criar conversas Threads
+    - Anexar Arquivos
+    - Acessar Expanded de ficha via CTA:  “Analisar”.
+    
+    ## 5.1 O Que Você Encontra
+    
+    ### Cabeçalho (topo):
+    
+    5.1.1 Título “Editar Ficha” + nome do cliente (Primary_Name)
+    
+    ### **Informações Pessoais:**
+    
+    **Campos:** 
+    
+    - Nome do Cliente ou Razão Social
+    - CPF ou CNPJ
+    
+    **Estrutura:** 
+    
+    Title: Informações Pessoais
+    
+    Nome do cliente ou Razão Social | CPF ou CNPJ 
+    
+    **Hooks (Realtime) / Tabela e Coluna:** 
+    
+    - Campo/Input: Nome do Cliente ou Razão Social —Hook—> Public.Applicants.primary_name
+    ****- Campo/Input: CPF ou CNPJ —Hook—> Public.Applicants.**cpf_cnpj**
+    
+    ### **Informações de contato:**
+    
+    **Campos:** 
+    
+    - Telefone
+    - Whatsapp
+    
+    **Estrutura:** 
+    
+    Title: Informações de contato: 
+    ****
+    Telefone | Whatsapp
+    
+    **Hooks (Realtime) / Tabela e Coluna:** 
+    
+    - Campo/Input: Telefone —Hook—> Public.Applicants.phone
+    ****- Campo/Input: Whatsapp —Hook—> Public.Applicants.whatsapp
+    
+    ### **E-mail**
+    
+    **Campos:** 
+    
+    - E-mail
+    
+    **Estrutura:** 
+    
+    Title: E-mail
+    
+    E-mail
+    
+    **Hooks (Realtime) / Tabela e Coluna:** 
+    
+    **-** Campo/Input: E-mail —Hook—> Public.Applicants.**email**
+    
+    ### **Endereço**
+    
+    **Campos:**
+    
+    Logradouro
+    Número
+    Complemento
+    Cep 
+    Bairro
+    
+    **Estrutura:** 
+    
+    Logradouro | Número
+    Complemento | CEP | Bairro
+    
+    **Hooks (Realtime) / Tabela e Coluna:** 
+    
+    - Campo/Input: Logradouro —Hook—> Public.Applicants.**address_line**
+    - Campo/Input: Número —Hook—> Public.Applicants.**address_number 
+    -** Campo/Input: Complemento —Hook—> Public.Applicants.**address_complement
+    -** Campo/Input: CEP —Hook—> Public.Applicants.**cep
+    -** Campo/Input: Bairro —Hook—> Public.Applicants.bairro
+    
+    ### **Preferências e serviços**
+    
+    **Campos:** 
+    
+    - Plano
+    - Dia do Vencimento
+    - Carnê Impresso
+    - SVA Avulso
+    
+    **Estrutura:** 
+    
+    - Plano | dia do vencimento
+    carnê impresso (sim/não) | SVA avulso
+    
+    Dropdowns de cada campo de Preferências e Serviços: 
+    
+    ***Planos***
+    
+    **🌐 Normais:**
+        1. 100 Mega por R$59,90
+        2. 250 Mega por R$69,90
+        3. 500 Mega por R$79,90
+        4. 1000 Mega (1Gb) por R$99,90
+        
+        **🔄 IP Dinâmico:** 
+        
+        1. 100 Mega + IP Dinâmico por R$74,90
+        2. 250 Mega + IP Dinâmico por R$89,90
+        3. 500 Mega + IP Dinâmico por R$94,90
+        4. 1000 Mega (1Gb) + IP Dinâmico por R$114,90
+        
+        **📌 IP Fixo:** 
+        
+        1. 100 Mega + IP Fixo por R$259,90
+        2. 250 Mega + IP Fixo por R$269,90
+        3. 500 Mega + IP Fixo por R$279,90
+        4. 1000 Mega (1Gb) + IP Fixo por R$299,90}
+        
+        ***Data de Venc:*** 
+        
+        5  / 10 / 15  / 20 /25
+        
+        ***SVA Avulso:*** 
+        
+        **🎬 Entretenimento & Streaming**
+        
+        1. **MZ TV+ (MZPLAY PLUS - ITTV)** - R$ 29,90 (01 TELA)
+        2. **DEZZER** - R$ 15,00
+        3. **MZ CINE-PLAY** - R$ 19,90
+        
+        ---
+        
+        **📦 Equipamentos**
+        
+        1. **SETUP BOX MZNET** - R$ 100,00 (Pagamento Único)
+        
+        ---
+        
+        **📶 Wi-Fi Extend (Sem Fio)**
+        
+        1. **01 WI-FI EXTEND (SEM FIO)** - R$ 25,90
+        2. **02 WI-FI EXTEND (SEM FIO)** - R$ 49,90
+        3. **03 WI-FI EXTEND (SEM FIO)** - R$ 74,90
+        
+        ---
+        
+        **🔌 Wi-Fi Extend (Cabeado)**
+        
+        1. **01 WI-FI EXTEND (CABEADO)** - R$ 35,90
+        2. **02 WI-FI EXTEND (CABEADO)** - R$ 69,90
+        3. **03 WI-FI EXTEND (CABEADO)** - R$ 100,00
+    
+    **Hooks (Realtime) / Tabela e Coluna:** 
+    
+    - Campo/Input: Plano —Hook—> Public.Applicants.**plano_acesso**
+    - Campo/Input: Dia do vencimento —Hook—> Public.Applicants.**venc
+    -** Campo/Input: Carnê impresso —Hook—> Public.Applicants.**carne_impresso
+    -** Campo/Input: SVA Avulso —Hook—> Public.Applicants.**sva_avulso**
+    
+    ## **Agendamento:**
+    
+    **Campos:**
+    
+    Feito em
+    Instação Agendada para
+    Horário
+    
+    **Estrutura:** 
+    
+    Feito em (Created at)  | Instalação agendada para (Calendário) |  Horário (08:30 / 10:30 / 13:30 / 15:30)  
+    
+    **Campo Horário**
+    
+    - **Dropdown:**  08:30 / 10:30 / 13:30 / 15:30
+    
+    - **Trigger no campo Horário:** **CNTRL + Selecionar = Mesclar horários. 
+      - Visual mesclado, No Frontend, em texto: Ex: 08:30 e 10:30
+      - Visual mesclado No backend, em texto. Ex: 08:30 e 10:30 
+    
+    **Hooks (Realtime) / Tabela e Coluna:** 
+    
+    - Campo/Input: Feito em —Hook—> Public.kanban_cards.received_at
+    
+    <aside>
+    💡
+    
+    No “Editar Ficha”: exibir como somente leitura (desabilitado), não editável. 
+    
+    </aside>
+    
+    - Campo/Input: Instalação Agendada para —Hook—> kanban_cards.due_at  
+    
+    <aside>
+    💡
+    
+    - Exibição no “Editar Ficha”: campo “Instalação agendada para” edita/salva due_at.
+    - No Kanban:
+        - O card mostra “Prazo” quando due_at existe; hasDueAt indica se veio desse campo.
+        - O filtro de “Prazo” (Hoje/Amanhã/Atrasados/Data) usa due_at para filtrar cards.
+    
+    Observações técnicas
+    
+    - No “Editar Ficha”, salvamos due_at como data UTC (meia‑noite) para evitar deriva de fuso.
+    - Ao limpar a data, due_at volta a null (card deixa de ter “Instalação agendada”).
+    </aside>
+    
+    **-** Campo/Input: Horário —-Hook—> Public.kanban_cards.horário
+    ****
+    
+    ### **Equipe Responsável:**
+    
+    **Campos:**
+    
+    - Vendedor
+    - Analista
+    
+    **Estrutura:**
+    
+    Vendedor (Crated By) | Analista (Assignee)  
+    
+    **Hooks (Realtime) / Tabela e Coluna:** 
+    
+    - Campo/Input: Vendedor —Hook—>  Public.kanban_cards.created_by ****(uuid de quem criou a ficha)
+    
+    <aside>
+    💡
+    
+    Exibição do nome no Campo: via join em profiles.full_name a partir de created_by  (Ou seja, no “Editar Ficha” o campo “Vendedor” mostra o nome do criador do card, resolvido por profiles.full_name, e o vínculo é o kanban_cards.created_by.) - Campo/Input: Vendedor —Hook—> Public.kanban_cards.created_by ****(uuid de quem criou a ficha)
+    
+    </aside>
+    
+    - Campo/Input: Analista —Hook—>  public.kanban_cards.assignee_id **(UUID do perfil responsável pela análise).** 
+    
+    <aside>
+    💡
+    
+    Exibição do nome: via join em profiles.full_name a partir de assignee_id.
+    
+    - Na tela “Editar Ficha”: exibir campo “Analista/Responsável” com o nome resolvido (ex.: card.responsavel), que vem desse vínculo assignee_id → profiles.full_name.
+    </aside>
+    
+    ### **Pareceres: 
+    
+    O que será:**
+    
+    Local em “Editar ficha” onde ao clicar no CTA: “+” que você verá descrito abaixo, abrirá um campo de digitação para que os Analistas ou Gestores possam escrever as Decisões de Análise daquela ficha. 
+    
+    Em quais abas estarão: 
+    
+    - Editar Ficha (Abaixo de: “Equipe Responsável”)
+    - Expanded Ficha: 
+        - PF: “Abaixo de Informações relevantes” E “**Informações relevantes do MK”**
+        - PJ: “**Informações relevantes do MK”** 
+    
+    Todos ficarão realtime, hookando direto do Backend, atualizando nas 3 pontas (Editar ficha / Expanded Ficha) conforme as últimas alterações na coluna respectiva do mesmo. 
+    
+    Ou seja, se eu alterar criar um novo parecer (Adição) em Expanded Ficha ele vai jogar esse Input na respectiva coluna (public.kanban_cards.reanalysis_notes (array/json)) e na outra ponta (Onde consta esse Campo: Editar ficha, na qual vai puxar AO VIVO a informação. Pois a tabela estará em Realtime.  
+    
+    **Estrutura:** 
+    
+    Pareceres  | CTA: “+” 
+    
+    **Function do CTA: “+”** 
+    
+    - Abre um campo de digitação abaixo de “Pareceres”
+    - Colaboradores (Analistas e Gestores) digitam o parecer dentro do campo
+    
+    - Ao confirmar (Entender): 
+    
+        - Salva no histórico de pareceres da ficha (com autor e horário). 
+       -  Atualiza em tempo real para quem estiver com a ficha aberta.  
+       - Se usar menções (@Nome), os mencionados recebem notificação (quando correspondem a um perfil).  
+            
+    
+    <aside>
+    💡
+    
+    Hook Realtime de salvamento: 
+     
+    Campo: Parecer —Hook—> public.kanban_cards.reanalysis_notes (array/json)
+    
+    Cada parecer é um item de uma lista no campo kanban_cards.reanalysis_notes (array/JSON). Não sobrescrevemos o anterior; o novo é acrescentado à lista.
+    
+    - O que fica salvo (por parecer):
+        - id: identificador único do parecer
+        - text: conteúdo do parecer
+        - author_id, author_name, author_role: autor
+        - created_at: data/hora de criação
+        - Edição (se houver): updated_by_id, updated_by_name, updated_at
+        - Encadeamento (se for resposta): parent_id, level, thread_id, is_thread_starter
+        - Soft‑delete (se usado): deleted (boolean)
+    - Resultado: quando há 2+ pareceres, todos os anteriores permanecem nessa lista com seus metadados; o sistema
+    apenas agrega o novo como mais um item (e, em caso de edição, atualiza os campos de “updated_*” daquele item)
+    </aside>
+    
+    <aside>
+    💡
+    
+    Funções (RPC) para manipular pareceres
+    
+    - Padrão do item (note) no array:
+        - id: uuid
+        - text: text
+        - author_id: uuid
+        - author_name: text
+        - author_role: text (opcional)
+        - created_at: timestamptz
+        - updated_by_id, updated_by_name, updated_at (opcionais, só quando editar)
+        - parent_id, level, thread_id, is_thread_starter (opcionais, quando encadeado)
+        - deleted (boolean, opcional)
+    
+    [SQLs para qualquer dúvida](https://www.notion.so/SQLs-para-qualquer-d-vida-299770a00d18814c9b21f33578629d34?pvs=21)
+    
+    </aside>
+    
+    **Funções Internas do campo:** 
+    
+    - /Aprovado → Ao confirmar com Enter: Envia card para coluna: “Aprovados”
+    - /Negado → Ao confirmar com Enter: Envia card para coluna: “Negados”
+    - /Reanalise → Ao confirmar com Enter: Envia card para coluna: “Reanalise”
+    - @ Para mencionar colaboradores. (Dispara notificação para colaborador Mencionado)
+    - CTA: “→” (Action: ação para responder diretamente a um parecer existente, criando uma conversa encadeada (thread) ligada àquele parecer.
+    
+    <aside>
+    💡
+    
+    O que acontece ao clicar
+    
+    - Abre um campo de texto logo abaixo do parecer selecionado. Podendo nele: @mencionar e Direcionar com CTAs em Barra.
+    - Você escreve a resposta e confirma.
+    - A resposta aparece “embaixo” do parecer original, com os metadados de um parecer normal.
+    - |_> Aparece uma seta que liga o parecer respondido e o novo parecer para deixar visualmente ligados, como se fosse uma resposta mesmo
+    
+    Assim como conversas co-relacionadas. Porém, no local de pareceres.
+    </aside>
+    
+    - 3 Pontinhos (Canto superior, com CTAs: “Editar” e “Excluir”)
+    
+    - Editar: Abre o campo de digitação cujo CTA está incluso, permitindo editar a escrita do Campo
+    - Excluir: 
+        1  - Abre modal de confirmação: 
+    
+              **Excluir Parecer
+              Tem certeza que deseja excluir este parecer? Esta ação não pode ser desfeita. 
+               CTA: “Cancelar”  (Cinza) | “Excluir” (Vermelho)
+    
+    Ao excluir:**
+    
+    **Como o Sistema Registra:** 
+    
+    - Armazena no campo de pareceres da ficha (lista de notas),  e na tabela.coluna: public.kanban_cards.reanalysis_notes (array/json) a ordem e a autoria.
+    - Adiciona metadados: autor, data/hora, nível/thread quando for uma resposta encadeada (se aplicável).
+    - Mantém os pareceres anteriores (nada é sobrescrito; é sempre “acréscimo”).
+    
+    **RLS:** 
+    
+    - Analistas e Gestores podem: Editar e deletar os próprios pareceres e responder pareceres de outros. 
+    - Vendedores: Apenas visualizam
+    
+    # **Conversa Co-relacionada (Trheads e Comentários):**
+    
+    ## **Conversa Co-relacionada:**
+    
+    - Uma **conversa co-relacionada** é um sistema de comentários organizados hierarquicamente, onde cada comentário pode ter respostas, e essas respostas podem ter outras respostas. É como uma conversa de WhatsApp em grupo, mas visualmente organizada para mostrar quem está respondendo quem
+    
+    ## **COMO FUNCIONA A HIERARQUIA?**
+    
+    **1. THREAD PAI (Comentário Principal)**
+    
+    É o comentário inicial que **inicia uma conversa**. Ele não responde ninguém, apenas abre um novo tópico de discussão dentro da ficha.
+    
+    **Exemplo:**
+    
+    > *"Precisa revisar os documentos antes de aprovar"*
+    
+    **Como é criado:** 
+    
+    Criaremos um campo de digitação abaixo de Parecer da análise, onde dentro desse campo os: Vendedores / Analistas e Gestores poderão digitar e ao clicar: “Enter” criarão a Trhead Pai. 
+    
+    No campo será possível ativaros seguintes  CTAs com barras: 
+    
+    /Tarefa
+    /Anexo
+    
+    Criar uma tarefa ou adicionar um anexo também cria uma trhead Pai, assim como a digitação dentro do campo. 
+    
+    - Também permitiremos a @menção de usuários dentro do campo. Basta digitar: @ e abrira o dropdown com os nomes (public.profiles.full_name) de todos os colaboradores. 
+    
+    **2. RESPOSTA**
+    
+    É um comentário que **responde diretamente** ao thread pai. Fica visualmente indentado (deslocado para a direita) para mostrar que é uma resposta.
+    
+    **Exemplo:**
+    
+    > *"Ok, vou revisar hoje mesmo"*
+    
+    **3. SUB-RESPOSTA** 
+    
+    É um comentário que **responde uma resposta**. Fica ainda mais indentado, mostrando que é uma continuação da conversa.
+    
+    **Exemplo:**
+    
+    > *"Ótimo! Me avise quando concluir"*
+    
+    Não tem limites de Sub-respostas, e toda resposta e sub resposta abre um campo de digitação que poderá ser usado as seguintes funções: 
+    
+    /tarefa
+    /anexo
+    @mencionar 
+    
+    ## **RESUMO EM 3 FRASES**
+    
+    1. **Thread Pai** = comentário inicial que abre um tópico
+    2. **Respostas** = comentários vinculados ao thread pai ou a outras respostas
+    3. **Co-relação** = todos ficam ligados pelo mesmo Thread ID, criando uma conversa organizada e rastreável
+    
+    ## **SISTEMA DE NOTIFICAÇÕES**
+    
+    **Quando são enviadas:**
+    
+    1. **Resposta direta**: Autor do comentário pai recebe notificação
+    2. **Menção @usuario**: Usuário mencionado recebe notificação
+    3. **Anexo adicionado**: Participantes da conversa são notificados
+    
+    # **Anexos:**
+    
+    O que será: CTA  que abrirá um modal para que Analistas, Gestores e Vendedores possam fazer upload de arquivos (PDFs, imagens, documentos, planilhas) relacionados ao campo cujo Action foi chamada. 
+    
+    Como chamar função: Digitar “/Anexo” nos campos de digitação cujo CTA está ativo.
+    - Campos nos quais colocaremos CTA para ser ativo (Ser chamado) : 
+    
+        - Aba “Editar Ficha”: Campos de parecer e Conversas co-relacionadas, seja o campo principal ou respostas e Sub-respostas dos mesmos
+        - **Expanded Ficha: Campo de parecer,** seja o campo principal ou respostas e Sub-respostas dos mesmos 
+    
+    ### **O que abre:**
+    
+    - Abre um **modal de upload** centralizado na tela
+        
+        ## Features para criar no Modal:
+        
+        ### **1. Upload de Arquivos**
+        
+        - ✅ Seleção de arquivos por **clique** no botão
+        - ✅ **Drag & Drop** (arrastar e soltar) diretamente na área
+        - ✅ Upload de **múltiplos arquivos** simultaneamente
+        - ✅ Adicionar mais arquivos após a seleção inicial
+        
+        ### **2. Validações Automáticas**
+        
+        - ✅ **Tamanho máximo**: 10MB por arquivo
+        - Rejeita arquivos maiores com alerta
+        - ✅ **Tipos permitidos**:
+        - Imagens: JPG, JPEG, PNG, GIF, WEBP, HEIC, HEIF
+        - Documentos: PDF
+        - Office: DOC, DOCX, XLS, XLSX
+        - Texto: TXT
+        - Compactados: ZIP, RAR
+        - ✅ **Duplicatas**: Detecta e impede upload de arquivo já selecionado
+        
+        ### **3. Personalização de Arquivos**
+        
+        - ✅ **Nome personalizado obrigatório** para cada arquivo
+        - Placeholder sugestivo: "Ex: CNH do titular, Comprovante de renda"
+        - ✅ **Descrição opcional** compartilhada para todos os arquivos
+        - Textarea com 3 linhas
+        - Placeholder com exemplo real de uso
+        - Aceita informações contextuais
+        
+        ### **4. Gerenciamento Visual**
+        
+        - ✅ **Ícones por tipo de arquivo**:
+        - 📄 PDF
+        - 🖼️ Imagens
+        - 📊 Excel
+        - 📝 Word
+        - 📦 Compactados
+        - ✅ **Tamanho formatado**: Exibe tamanho em MB/KB (ex: "2.5 MB")
+        - ✅ **Remover arquivos individuais**: Botão [X] em cada card
+        - ✅ **Lista organizada**: Cards empilhados verticalmente
+        
+        ### **5. Feedback Visual em Tempo Real**
+        
+        - ✅ **Indicador de Drag Over**: Borda verde e fundo claro quando arrasta arquivo
+        - ✅ **Alerta de validação**:
+        - ⚠️ Banner amarelo quando falta nome
+        - ✅ Banner verde quando tudo está OK
+        - ✅ **Loading State**: Spinner e texto "Enviando..." durante upload
+        - ✅ **Desabilita botões** durante processo de upload
+        
+        ### **6. Confirmação de Saída**
+        
+        - ✅ **Modal de confirmação** ao tentar fechar com alterações não salvas
+        - Opções: "Cancelar", "Sair sem Salvar", "Salvar e Sair"
+        - ✅ **Detecção automática** de mudanças (arquivo adicionado, nome alterado)
+        
+        ### **7. Upload Inteligente**
+        
+        - ✅ **Upload sequencial**: Processa arquivos um por um
+        - ✅ **Aguarda processamento**: Delay de 700ms antes de fechar o modal
+        - ✅ **Reset automático**: Limpa formulário após upload bem-sucedido
+        - ✅ **Fecha automaticamente** após conclusão
+        
+        ### **8. Organização no Storage**
+        
+        - ✅ **Path estruturado**: card_id/nome_arquivo_2025-01-15_abc123.pdf
+        - ✅ **Timestamp único**: Evita conflito de nomes
+        - ✅ **Sanitização**: Remove caracteres especiais do nome
+        - ✅ **Extensão preservada**: Mantém tipo original do arquivo
+        
+        ### **9. Metadados Salvos**
+        
+        - ✅ Salva automaticamente:
+        - Nome personalizado
+        - Descrição (se fornecida)
+        - Autor (ID, nome, função)
+        - Caminho no Storage
+        - Tamanho, tipo MIME, extensão
+        - Data/hora de criação
+        
+        ### **10. Acessibilidade**
+        
+        - ✅ **Input file oculto**: Interface customizada mais amigável
+        - ✅ **Tooltips descritivos** em todos os botões
+        - ✅ **ARIA labels** nos elementos principais
+        - ✅ **Múltiplas formas de seleção**: Clique, drag & drop, botão adicionar
+        
+    
+    <aside>
+    💡
+    
+    Estrutura do Modal: 
+    
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║  🔼 HEADER (Gradiente Verde #018942)                         [X] ║
+    ║  ┌────────────────────────────────────────────────────────────┐  ║
+    ║  │  [📤]  Anexar Arquivo                                      │  ║
+    ║  │        Envie documentos e imagens para a ficha             │  ║
+    ║  └────────────────────────────────────────────────────────────┘  ║
+    ╠══════════════════════════════════════════════════════════════════╣
+    ║                                                                   ║
+    ║  🔹 SEÇÃO 1: ARQUIVOS                                            ║
+    ║  ┌──────────────────────────────────────────────────────────┐   ║
+    ║  │ ┌────────────────────────────────────────────────────┐   │   ║
+    ║  │ │  [ÁREA DE DRAG & DROP - Borda Tracejada]          │   │   ║
+    ║  │ │                                                    │   │   ║
+    ║  │ │  ┌──────┐                                          │   │   ║
+    ║  │ │  │ 📤  │  (Ícone Grande de Upload)                │   │   ║
+    ║  │ │  └──────┘                                          │   │   ║
+    ║  │ │                                                    │   │   ║
+    ║  │ │  Arraste um arquivo aqui ou [clique para          │   │   ║
+    ║  │ │  selecionar]                                      │   │   ║
+    ║  │ │                                                    │   │   ║
+    ║  │ │  ● Máximo: 10MB por arquivo                       │   │   ║
+    ║  │ │  ● Tipos: Imagens, PDF, Documentos, Planilhas     │   │   ║
+    ║  │ └────────────────────────────────────────────────────┘   │   ║
+    ║  └──────────────────────────────────────────────────────────┘   ║
+    ║                                                                   ║
+    ║  ┌─── QUANDO ARQUIVO(S) SELECIONADO(S) ───────────────────┐     ║
+    ║  │                                                         │     ║
+    ║  │  ┌───────────────────────────────────────────────┐     │     ║
+    ║  │  │ [📄] contrato.pdf                        [X]  │     │     ║
+    ║  │  │      ● 2.5 MB                                 │     │     ║
+    ║  │  │                                               │     │     ║
+    ║  │  │  Nome do documento (obrigatório):            │     │     ║
+    ║  │  │  [Contrato de Adesão                    ]    │     │     ║
+    ║  │  │   └─> Input de texto                         │     │     ║
+    ║  │  └───────────────────────────────────────────────┘     │     ║
+    ║  │                                                         │     ║
+    ║  │  ┌───────────────────────────────────────────────┐     │     ║
+    ║  │  │ [🖼️] foto-rg.jpg                         [X]  │     │     ║
+    ║  │  │      ● 1.2 MB                                 │     │     ║
+    ║  │  │                                               │     │     ║
+    ║  │  │  Nome do documento (obrigatório):            │     │     ║
+    ║  │  │  [RG do Titular                         ]    │     │     ║
+    ║  │  └───────────────────────────────────────────────┘     │     ║
+    ║  │                                                         │     ║
+    ║  │  ┌─────────────────────────────────────────────┐       │     ║
+    ║  │  │  [📤] Adicionar Outro Arquivo               │       │     ║
+    ║  │  │  └─> Botão tracejado verde                  │       │     ║
+    ║  │  └─────────────────────────────────────────────┘       │     ║
+    ║  └─────────────────────────────────────────────────────────┘     ║
+    ║                                                                   ║
+    ║  🔹 SEÇÃO 2: DESCRIÇÃO                                           ║
+    ║  ┌──────────────────────────────────────────────────────────┐   ║
+    ║  │  Observações (opcional):                                 │   ║
+    ║  │  ┌────────────────────────────────────────────────────┐  │   ║
+    ║  │  │ Ex: Enviou CNH consta CPF + Comprovante...       │  │   ║
+    ║  │  │                                                  │  │   ║
+    ║  │  │                                                  │  │   ║
+    ║  │  └────────────────────────────────────────────────────┘  │   ║
+    ║  │  Adicione informações contextuais sobre os documentos    │   ║
+    ║  └──────────────────────────────────────────────────────────┘   ║
+    ║                                                                   ║
+    ║  🔹 VALIDAÇÃO (Condicional)                                      ║
+    ║  ┌──────────────────────────────────────────────────────────┐   ║
+    ║  │  ⚠️  Atenção!                                            │   ║
+    ║  │     Por favor, dê um nome para todos os arquivos         │   ║
+    ║  │     antes de enviar.                                     │   ║
+    ║  └──────────────────────────────────────────────────────────┘   ║
+    ║           OU (quando tudo OK)                                    ║
+    ║  ┌──────────────────────────────────────────────────────────┐   ║
+    ║  │  ✅  Tudo pronto!                                         │   ║
+    ║  │     Todos os arquivos têm nomes definidos e podem        │   ║
+    ║  │     ser enviados.                                        │   ║
+    ║  └──────────────────────────────────────────────────────────┘   ║
+    ║                                                                   ║
+    ║  ─────────────────────────────────────────────────────────────  ║
+    ║                                                                   ║
+    ║  AÇÕES (Rodapé)                                                  ║
+    ║  ┌─────────────┐  ┌──────────────────────────────┐             ║
+    ║  │  Cancelar   │  │  [📤] Enviar Arquivos        │             ║
+    ║  │  (Cinza)    │  │  (Verde com gradiente)       │             ║
+    ║  └─────────────┘  └──────────────────────────────┘             ║
+    ║                                                                   ║
+    ╚══════════════════════════════════════════════════════════════════╝
+    
+    </aside>
+    
+    **Ao confirmar (Upload):**
+    
+    - **Valida o arquivo:**
+    - Tamanho máximo: **10MB por arquivo**
+    - Tipos permitidos: **Imagens (JPG, PNG, GIF), PDF, Documentos (DOC, DOCX), Planilhas (XLS, XLSX), TXT, ZIP, RAR**
+    - **Exibe notificação de sucesso** ("Arquivo enviado com sucesso!")
+    - **Aparece na lista de anexos** com ícone do tipo de arquivo, nome, tamanho, autor e data
+    - **Faz upload para o Storage** (card-attachments/[card_id]/[arquivo])
+    - **Salva metadados no banco** (tabela card_attachments)
+    - **Atualiza em tempo real** para quem estiver com a ficha aberta
+    
+    <aside>
+    💡
+    
+    **Hook Realtime de salvamento:**
+    
+    **Arquivo Físico** —Hook—> **Supabase Storage** (card-attachments bucket)
+    
+    **Metadados** —Hook—> **public.card_attachments** (tabela)
+    
+    - **O que fica salvo (por anexo):**
+    - **id**: identificador único do anexo (UUID)
+    - **card_id**: ID da ficha vinculada
+    - **author_id, author_name, author_role**: quem enviou
+    - **file_name**: nome personalizado dado pelo usuário
+    - **file_path**: caminho no Storage (card_id/arquivo.pdf)
+    - **file_size**: tamanho em bytes
+    - **file_type**: tipo MIME (application/pdf, image/jpeg, etc.)
+    - **file_extension**: extensão (pdf, jpg, docx, etc.)
+    - **description**: descrição opcional
+    - **comment_id**: (opcional) vincula a um comentário/parecer específico
+    - **created_at**: data/hora de criação
+    - **updated_at**: data/hora da última atualização
+    - **Soft-delete** (se usado): deleted_at, deleted_by
+    - **Resultado:** Quando há 2+ anexos, todos permanecem na lista. O sistema apenas adiciona o novo como mais um item. Em caso de exclusão, marca como deletado (soft-delete) ou remove permanentemente dependendo da configuração.
+    </aside>
+    
+    # **Após: “Enviar arquivos” Como esse campo deve aparecer no Front (UI):**
+    
+    ## **1 - Features do Campo Visual**
+    
+    1.1 **Pré-visualização (Modal):** 
+    
+    - ✅ **Abertura por clique**: No botão de tipo
+    - ✅ **Modal fullscreen**: Largura máxima 4xl
+    - ✅ **Header informativo**: Nome do arquivo + ícone 👁️
+    - ✅ **Visualizador de PDF**: Embedded com <object>
+    - ✅ **Fallback para imagens**: Preview de imagens
+    - ✅ **Loading state**: Spinner durante carregamento
+    - ✅ **Mensagem de erro**: Se falhar o carregamento
+    - ✅ **Botão "Tentar novamente" (cor cinza)**: Em caso de erro
+    - ✅ **Altura controlada**: 70vh para o preview
+    - ✅ **Botão fechar**: [X] no header
+    - ✅ **Botão baixar**: No rodapé do modal
+    - ✅ **ESC para fechar**: Atalho de teclado
+    
+    ### **1.2 Download**
+    
+    - ✅ **Clique no botão ↗️**: Abre em nova aba
+    - ✅ **Busca recursiva**: Lista todos os arquivos do storage
+    - ✅ **Match por nome**: Compara nomes sanitizados
+    - ✅ **Mensagem de erro**: Toast se falhar
+    - ✅ **Log no console**: Para debug
+    
+    ### 1.3 **Exclusão:**
+    
+    - ✅ **Menu dropdown**: Clique nos três pontos
+    - ✅ **Opção vermelha**: "🗑️ Excluir anexo"
+    - ✅ **Modal de confirmação**: Antes de excluir
+    - ✅ **Título do modal**: "⚠️ Confirmar Exclusão"
+    - ✅ **Mensagem clara**: Mostra nome do arquivo
+    - ✅ **Aviso de irreversibilidade**: "Esta ação não pode ser desfeita"
+    - ✅ **Botão Cancelar**: Cinza, cancela a ação
+    - ✅ **Botão Excluir**: Vermelho, confirma exclusão
+    - ✅ **Loading state**: Spinner durante exclusão
+    - ✅ **Feedback visual**: Toast de sucesso/erro
+    
+    ## **2. Quando é chamado /Anexo dentro de um Campo de parecer:**
+    
+    **Visualização/Preview (Campo visual) dentro de um campo parecer, como se fosse criado uma resposta mesmo:** 
+    
+    **Desenho do Campo Visual:** 
+    
+    <aside>
+    💡
+    
+    ┌────────────────────────────────────────────────────────┐
+    │ [📄 PDF] [Nome do Arquivo]              [↗️] [Lixeira (Excluir]      │
+    │          [há X tempo]                                  │
+    └───────────────────────────────────────────────────────┘
+    
+    </aside>
+    
+    **LAYOUT GERAL:** 
+    
+    ┌──────────────────────────────────—                                                                                                                                                                                    | 
+    │ [Botão Tipo] [Nome + Info]                               [↗️]   [⋮]         │
+    └────────────────────────────────────
+    ▲                          ▲                                                      ▲    ▲
+    │                           │                                                       │    │
+    Ícone             Conteúdo                                 Baixar Menu
+    
+    Menu: 
+    
+    ┌────────────────────────────┐
+    │  🗑️ Excluir anexo          │  ← Opção vermelha   |
+    └────────────────────────────┘
+    
+    <aside>
+    💡
+    
+    Segue confirmação de exclusão descrita acima em Campo visual (Features) / Exclusão: 
+    
+    - ✅ **Modal de confirmação**: Antes de excluir
+    - ✅ **Título do modal**: "⚠️ Confirmar Exclusão"
+    - ✅ **Mensagem clara**: Mostra nome do arquivo
+    - ✅ **Aviso de irreversibilidade**: "Esta ação não pode ser desfeita"
+    - ✅ **Botão Cancelar**: Cinza, cancela a ação
+    - ✅ **Botão Excluir**: Vermelho, confirma exclusão
+    - ✅ **Loading state**: Spinner durante exclusão
+    - ✅ **Feedback visual**: Toast de sucesso/erro
+    </aside>
+    
+    ## **3. Quando chamado /Anexo dentro de um Campo de Conversa Co-relacionada (Trheads ou Comentário:**
+    
+    **Visualização/Preview (Campo visual) dentro de um campo de conversa co-relacionada, seja uma trhead ou um comentário (Resposta / Subresosta, como se fosse criado uma resposta mesmo:** 
+    
+    **Desenho do Campo Visual:** 
+    
+    <aside>
+    💡
+    
+    ┌────────────────────────────────────────────────────────┐
+    │ [📄 PDF] [Nome do Arquivo]              [↗️] [Lixeira (Excluir]      │
+    │          [há X tempo]                                  │
+    └───────────────────────────────────────────────────────┘
+    
+    </aside>
+    
+    **LAYOUT GERAL:** 
+    
+    ┌──────────────────────────────────—                                                                                                                                                                                   | 
+    │ [Botão Tipo] [Nome + Info]                               [↗️]   [⋮]         │
+    └────────────────────────────────────
+    ▲                          ▲                                                      ▲    ▲
+    │                           │                                                       │    │
+    Ícone             Conteúdo                                 Baixar Menu
+    
+    ┌────────────────────────────┐
+    │  🗑️ Excluir anexo          │  ← Opção vermelha
+    └────────────────────────────┘
+    
+    <aside>
+    💡
+    
+    Segue confirmação de exclusão descrita acima em Campo visual (Features) / Exclusão: 
+    
+    - ✅ **Modal de confirmação**: Antes de excluir
+    - ✅ **Título do modal**: "⚠️ Confirmar Exclusão"
+    - ✅ **Mensagem clara**: Mostra nome do arquivo
+    - ✅ **Aviso de irreversibilidade**: "Esta ação não pode ser desfeita"
+    - ✅ **Botão Cancelar**: Cinza, cancela a ação
+    - ✅ **Botão Excluir**: Vermelho, confirma exclusão
+    - ✅ **Loading state**: Spinner durante exclusão
+    - ✅ **Feedback visual**: Toast de sucesso/erro
+    </aside>
+
+
+
+
+
+-----
+
+Codex, precisamos fazer o mesmo com a API.MD (Endpoints) aqui, vamos fazer isso juntos. 

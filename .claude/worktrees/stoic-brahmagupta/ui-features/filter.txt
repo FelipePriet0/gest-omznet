@@ -1,0 +1,1540 @@
+Prompt de template: 
+
+```tsx
+You are given a task to integrate an existing React component in the codebase
+
+The codebase should support:
+- shadcn project structure  
+- Tailwind CSS
+- Typescript
+
+If it doesn't, provide instructions on how to setup project via shadcn CLI, install Tailwind or Typescript.
+
+Determine the default path for components and styles. 
+If default path for components is not /components/ui, provide instructions on why it's important to create this folder
+Copy-paste this component to /components/ui folder:
+tsx
+filters.tsx
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import {
+  Calendar,
+  CalendarPlus,
+  CalendarSync,
+  Check,
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  CircleDashed,
+  CircleDotDashed,
+  CircleEllipsis,
+  CircleX,
+  SignalHigh,
+  SignalLow,
+  SignalMedium,
+  Tag,
+  UserCircle,
+  X,
+} from "lucide-react";
+import { Dispatch, SetStateAction, useRef, useState, useEffect } from "react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { AnimatePresence, motion } from "motion/react";
+
+interface AnimateChangeInHeightProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const AnimateChangeInHeight: React.FC<AnimateChangeInHeightProps> = ({
+  children,
+  className,
+}) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [height, setHeight] = useState<number | "auto">("auto");
+
+  useEffect(() => {
+    if (containerRef.current) {
+      const resizeObserver = new ResizeObserver((entries) => {
+        // We only have one entry, so we can use entries[0].
+        const observedHeight = entries[0].contentRect.height;
+        setHeight(observedHeight);
+      });
+
+      resizeObserver.observe(containerRef.current);
+
+      return () => {
+        // Cleanup the observer when the component is unmounted
+        resizeObserver.disconnect();
+      };
+    }
+  }, []);
+
+  return (
+    <motion.div
+      className={cn(className, "overflow-hidden")}
+      style={{ height }}
+      animate={{ height }}
+      transition={{ duration: 0.1, dampping: 0.2, ease: "easeIn" }}
+    >
+      <div ref={containerRef}>{children}</div>
+    </motion.div>
+  );
+};
+
+export enum FilterType {
+  STATUS = "Status",
+  ASSIGNEE = "Assignee",
+  LABELS = "Labels",
+  PRIORITY = "Priority",
+  DUE_DATE = "Due date",
+  CREATED_DATE = "Created date",
+  UPDATED_DATE = "Updated date",
+}
+
+export enum FilterOperator {
+  IS = "is",
+  IS_NOT = "is not",
+  IS_ANY_OF = "is any of",
+  INCLUDE = "include",
+  DO_NOT_INCLUDE = "do not include",
+  INCLUDE_ALL_OF = "include all of",
+  INCLUDE_ANY_OF = "include any of",
+  EXCLUDE_ALL_OF = "exclude all of",
+  EXCLUDE_IF_ANY_OF = "exclude if any of",
+  BEFORE = "before",
+  AFTER = "after",
+}
+
+export enum Status {
+  BACKLOG = "Backlog",
+  TODO = "Todo",
+  IN_PROGRESS = "In Progress",
+  IN_REVIEW = "In Review",
+  DONE = "Done",
+  CANCELLED = "Cancelled",
+}
+
+export enum Assignee {
+  ANDREW_LUO = "Andrew Luo",
+  NO_ASSIGNEE = "No assignee",
+}
+
+export enum Labels {
+  BUG = "Bug",
+  FEATURE = "Feature",
+  HOTFIX = "Hotfix",
+  RELEASE = "Release",
+}
+
+export enum Priority {
+  URGENT = "Urgent",
+  HIGH = "High",
+  MEDIUM = "Medium",
+  LOW = "Low",
+}
+
+export enum DueDate {
+  IN_THE_PAST = "in the past",
+  IN_24_HOURS = "24 hours from now",
+  IN_3_DAYS = "3 days from now",
+  IN_1_WEEK = "1 week from now",
+  IN_1_MONTH = "1 month from now",
+  IN_3_MONTHS = "3 months from now",
+}
+
+export type FilterOption = {
+  name: FilterType | Status | Assignee | Labels | Priority | DueDate;
+  icon: React.ReactNode | undefined;
+  label?: string;
+};
+
+export type Filter = {
+  id: string;
+  type: FilterType;
+  operator: FilterOperator;
+  value: string[];
+};
+
+const FilterIcon = ({
+  type,
+}: {
+  type: FilterType | Status | Assignee | Labels | Priority;
+}) => {
+  switch (type) {
+    case Assignee.ANDREW_LUO:
+      return (
+        <Avatar className="size-3.5 rounded-full text-[9px] text-white">
+          <AvatarFallback className="bg-orange-300">AL</AvatarFallback>
+        </Avatar>
+      );
+    case Assignee.NO_ASSIGNEE:
+      return <UserCircle className="size-3.5" />;
+    case FilterType.STATUS:
+      return <CircleDashed className="size-3.5" />;
+    case FilterType.ASSIGNEE:
+      return <UserCircle className="size-3.5" />;
+    case FilterType.LABELS:
+      return <Tag className="size-3.5" />;
+    case FilterType.PRIORITY:
+      return <SignalHigh className="size-3.5" />;
+    case FilterType.DUE_DATE:
+      return <Calendar className="size-3.5" />;
+    case FilterType.CREATED_DATE:
+      return <CalendarPlus className="size-3.5" />;
+    case FilterType.UPDATED_DATE:
+      return <CalendarSync className="size-3.5" />;
+    case Status.BACKLOG:
+      return <CircleDashed className="size-3.5 text-muted-foreground" />;
+    case Status.TODO:
+      return <Circle className="size-3.5 text-primary" />;
+    case Status.IN_PROGRESS:
+      return <CircleDotDashed className="size-3.5 text-yellow-400" />;
+    case Status.IN_REVIEW:
+      return <CircleEllipsis className="size-3.5 text-green-400" />;
+    case Status.DONE:
+      return <CircleCheck className="size-3.5 text-blue-400" />;
+    case Status.CANCELLED:
+      return <CircleX className="size-3.5 text-muted-foreground" />;
+    case Priority.URGENT:
+      return <CircleAlert className="size-3.5" />;
+    case Priority.HIGH:
+      return <SignalHigh className="size-3.5" />;
+    case Priority.MEDIUM:
+      return <SignalMedium className="size-3.5" />;
+    case Priority.LOW:
+      return <SignalLow className="size-3.5" />;
+    case Labels.BUG:
+      return <div className="bg-red-400 rounded-full size-2.5" />;
+    case Labels.FEATURE:
+      return <div className="bg-blue-400 rounded-full size-2.5" />;
+    case Labels.HOTFIX:
+      return <div className="bg-amber-400 rounded-full size-2.5" />;
+    case Labels.RELEASE:
+      return <div className="bg-green-400 rounded-full size-2.5" />;
+  }
+};
+
+export const filterViewOptions: FilterOption[][] = [
+  [
+    {
+      name: FilterType.STATUS,
+      icon: <FilterIcon type={FilterType.STATUS} />,
+    },
+    {
+      name: FilterType.ASSIGNEE,
+      icon: <FilterIcon type={FilterType.ASSIGNEE} />,
+    },
+    {
+      name: FilterType.LABELS,
+      icon: <FilterIcon type={FilterType.LABELS} />,
+    },
+    {
+      name: FilterType.PRIORITY,
+      icon: <FilterIcon type={FilterType.PRIORITY} />,
+    },
+  ],
+  [
+    {
+      name: FilterType.DUE_DATE,
+      icon: <FilterIcon type={FilterType.DUE_DATE} />,
+    },
+    {
+      name: FilterType.CREATED_DATE,
+      icon: <FilterIcon type={FilterType.CREATED_DATE} />,
+    },
+    {
+      name: FilterType.UPDATED_DATE,
+      icon: <FilterIcon type={FilterType.UPDATED_DATE} />,
+    },
+  ],
+];
+
+export const statusFilterOptions: FilterOption[] = Object.values(Status).map(
+  (status) => ({
+    name: status,
+    icon: <FilterIcon type={status} />,
+  })
+);
+
+export const assigneeFilterOptions: FilterOption[] = Object.values(
+  Assignee
+).map((assignee) => ({
+  name: assignee,
+  icon: <FilterIcon type={assignee} />,
+}));
+
+export const labelFilterOptions: FilterOption[] = Object.values(Labels).map(
+  (label) => ({
+    name: label,
+    icon: <FilterIcon type={label} />,
+  })
+);
+
+export const priorityFilterOptions: FilterOption[] = Object.values(
+  Priority
+).map((priority) => ({
+  name: priority,
+  icon: <FilterIcon type={priority} />,
+}));
+
+export const dateFilterOptions: FilterOption[] = Object.values(DueDate).map(
+  (date) => ({
+    name: date,
+    icon: undefined,
+  })
+);
+
+export const filterViewToFilterOptions: Record<FilterType, FilterOption[]> = {
+  [FilterType.STATUS]: statusFilterOptions,
+  [FilterType.ASSIGNEE]: assigneeFilterOptions,
+  [FilterType.LABELS]: labelFilterOptions,
+  [FilterType.PRIORITY]: priorityFilterOptions,
+  [FilterType.DUE_DATE]: dateFilterOptions,
+  [FilterType.CREATED_DATE]: dateFilterOptions,
+  [FilterType.UPDATED_DATE]: dateFilterOptions,
+};
+
+const filterOperators = ({
+  filterType,
+  filterValues,
+}: {
+  filterType: FilterType;
+  filterValues: string[];
+}) => {
+  switch (filterType) {
+    case FilterType.STATUS:
+    case FilterType.ASSIGNEE:
+    case FilterType.PRIORITY:
+      if (Array.isArray(filterValues) && filterValues.length > 1) {
+        return [FilterOperator.IS_ANY_OF, FilterOperator.IS_NOT];
+      } else {
+        return [FilterOperator.IS, FilterOperator.IS_NOT];
+      }
+    case FilterType.LABELS:
+      if (Array.isArray(filterValues) && filterValues.length > 1) {
+        return [
+          FilterOperator.INCLUDE_ANY_OF,
+          FilterOperator.INCLUDE_ALL_OF,
+          FilterOperator.EXCLUDE_ALL_OF,
+          FilterOperator.EXCLUDE_IF_ANY_OF,
+        ];
+      } else {
+        return [FilterOperator.INCLUDE, FilterOperator.DO_NOT_INCLUDE];
+      }
+    case FilterType.DUE_DATE:
+    case FilterType.CREATED_DATE:
+    case FilterType.UPDATED_DATE:
+      if (filterValues?.includes(DueDate.IN_THE_PAST)) {
+        return [FilterOperator.IS, FilterOperator.IS_NOT];
+      } else {
+        return [FilterOperator.BEFORE, FilterOperator.AFTER];
+      }
+    default:
+      return [];
+  }
+};
+
+const FilterOperatorDropdown = ({
+  filterType,
+  operator,
+  filterValues,
+  setOperator,
+}: {
+  filterType: FilterType;
+  operator: FilterOperator;
+  filterValues: string[];
+  setOperator: (operator: FilterOperator) => void;
+}) => {
+  const operators = filterOperators({ filterType, filterValues });
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="bg-muted hover:bg-muted/50 px-1.5 py-1 text-muted-foreground hover:text-primary transition shrink-0">
+        {operator}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-fit min-w-fit">
+        {operators.map((operator) => (
+          <DropdownMenuItem
+            key={operator}
+            onClick={() => setOperator(operator)}
+          >
+            {operator}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const FilterValueCombobox = ({
+  filterType,
+  filterValues,
+  setFilterValues,
+}: {
+  filterType: FilterType;
+  filterValues: string[];
+  setFilterValues: (filterValues: string[]) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [commandInput, setCommandInput] = useState("");
+  const commandInputRef = useRef<HTMLInputElement>(null);
+  const nonSelectedFilterValues = filterViewToFilterOptions[filterType]?.filter(
+    (filter) => !filterValues.includes(filter.name)
+  );
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(open) => {
+        setOpen(open);
+        if (!open) {
+          setTimeout(() => {
+            setCommandInput("");
+          }, 200);
+        }
+      }}
+    >
+      <PopoverTrigger
+        className="rounded-none px-1.5 py-1 bg-muted hover:bg-muted/50 transition
+  text-muted-foreground hover:text-primary shrink-0"
+      >
+        <div className="flex gap-1.5 items-center">
+          {filterType !== FilterType.PRIORITY && (
+            <div
+              className={cn(
+                "flex items-center flex-row",
+                filterType === FilterType.LABELS ? "-space-x-1" : "-space-x-1.5"
+              )}
+            >
+              <AnimatePresence mode="popLayout">
+                {filterValues?.slice(0, 3).map((value) => (
+                  <motion.div
+                    key={value}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <FilterIcon type={value as FilterType} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+          {filterValues?.length === 1
+            ? filterValues?.[0]
+            : `${filterValues?.length} selected`}
+        </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0">
+        <AnimateChangeInHeight>
+          <Command>
+            <CommandInput
+              placeholder={filterType}
+              className="h-9"
+              value={commandInput}
+              onInputCapture={(e) => {
+                setCommandInput(e.currentTarget.value);
+              }}
+              ref={commandInputRef}
+            />
+            <CommandList>
+              <CommandEmpty>No results found.</CommandEmpty>
+              <CommandGroup>
+                {filterValues.map((value) => (
+                  <CommandItem
+                    key={value}
+                    className="group flex gap-2 items-center"
+                    onSelect={() => {
+                      setFilterValues(filterValues.filter((v) => v !== value));
+                      setTimeout(() => {
+                        setCommandInput("");
+                      }, 200);
+                      setOpen(false);
+                    }}
+                  >
+                    <Checkbox checked={true} />
+                    <FilterIcon type={value as FilterType} />
+                    {value}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              {nonSelectedFilterValues?.length > 0 && (
+                <>
+                  <CommandSeparator />
+                  <CommandGroup>
+                    {nonSelectedFilterValues.map((filter: FilterOption) => (
+                      <CommandItem
+                        className="group flex gap-2 items-center"
+                        key={filter.name}
+                        value={filter.name}
+                        onSelect={(currentValue: string) => {
+                          setFilterValues([...filterValues, currentValue]);
+                          setTimeout(() => {
+                            setCommandInput("");
+                          }, 200);
+                          setOpen(false);
+                        }}
+                      >
+                        <Checkbox
+                          checked={false}
+                          className="opacity-0 group-data-[selected=true]:opacity-100"
+                        />
+                        {filter.icon}
+                        <span className="text-accent-foreground">
+                          {filter.name}
+                        </span>
+                        {filter.label && (
+                          <span className="text-muted-foreground text-xs ml-auto">
+                            {filter.label}
+                          </span>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </>
+              )}
+            </CommandList>
+          </Command>
+        </AnimateChangeInHeight>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+const FilterValueDateCombobox = ({
+  filterType,
+  filterValues,
+  setFilterValues,
+}: {
+  filterType: FilterType;
+  filterValues: string[];
+  setFilterValues: (filterValues: string[]) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [commandInput, setCommandInput] = useState("");
+  const commandInputRef = useRef<HTMLInputElement>(null);
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(open) => {
+        setOpen(open);
+        if (!open) {
+          setTimeout(() => {
+            setCommandInput("");
+          }, 200);
+        }
+      }}
+    >
+      <PopoverTrigger
+        className="rounded-none px-1.5 py-1 bg-muted hover:bg-muted/50 transition
+  text-muted-foreground hover:text-primary shrink-0"
+      >
+        {filterValues?.[0]}
+      </PopoverTrigger>
+      <PopoverContent className="w-fit p-0">
+        <AnimateChangeInHeight>
+          <Command>
+            <CommandInput
+              placeholder={filterType}
+              className="h-9"
+              value={commandInput}
+              onInputCapture={(e) => {
+                setCommandInput(e.currentTarget.value);
+              }}
+              ref={commandInputRef}
+            />
+            <CommandList>
+              <CommandEmpty>No results found.</CommandEmpty>
+              <CommandGroup>
+                {filterViewToFilterOptions[filterType].map(
+                  (filter: FilterOption) => (
+                    <CommandItem
+                      className="group flex gap-2 items-center"
+                      key={filter.name}
+                      value={filter.name}
+                      onSelect={(currentValue: string) => {
+                        setFilterValues([currentValue]);
+                        setTimeout(() => {
+                          setCommandInput("");
+                        }, 200);
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="text-accent-foreground">
+                        {filter.name}
+                      </span>
+                      <Check
+                        className={cn(
+                          "ml-auto",
+                          filterValues.includes(filter.name)
+                            ? "opacity-100"
+                            : "opacity-0"
+                        )}
+                      />
+                    </CommandItem>
+                  )
+                )}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </AnimateChangeInHeight>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+export default function Filters({
+  filters,
+  setFilters,
+}: {
+  filters: Filter[];
+  setFilters: Dispatch<SetStateAction<Filter[]>>;
+}) {
+  return (
+    <div className="flex gap-2">
+      {filters
+        .filter((filter) => filter.value?.length > 0)
+        .map((filter) => (
+          <div key={filter.id} className="flex gap-[1px] items-center text-xs">
+            <div className="flex gap-1.5 shrink-0 rounded-l bg-muted px-1.5 py-1 items-center">
+              <FilterIcon type={filter.type} />
+              {filter.type}
+            </div>
+            <FilterOperatorDropdown
+              filterType={filter.type}
+              operator={filter.operator}
+              filterValues={filter.value}
+              setOperator={(operator) => {
+                setFilters((prev) =>
+                  prev.map((f) => (f.id === filter.id ? { ...f, operator } : f))
+                );
+              }}
+            />
+            {filter.type === FilterType.CREATED_DATE ||
+            filter.type === FilterType.UPDATED_DATE ||
+            filter.type === FilterType.DUE_DATE ? (
+              <FilterValueDateCombobox
+                filterType={filter.type}
+                filterValues={filter.value}
+                setFilterValues={(filterValues) => {
+                  setFilters((prev) =>
+                    prev.map((f) =>
+                      f.id === filter.id ? { ...f, value: filterValues } : f
+                    )
+                  );
+                }}
+              />
+            ) : (
+              <FilterValueCombobox
+                filterType={filter.type}
+                filterValues={filter.value}
+                setFilterValues={(filterValues) => {
+                  setFilters((prev) =>
+                    prev.map((f) =>
+                      f.id === filter.id ? { ...f, value: filterValues } : f
+                    )
+                  );
+                }}
+              />
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setFilters((prev) => prev.filter((f) => f.id !== filter.id));
+              }}
+              className="bg-muted rounded-l-none rounded-r-sm h-6 w-6 text-muted-foreground hover:text-primary hover:bg-muted/50 transition shrink-0"
+            >
+              <X className="size-3" />
+            </Button>
+          </div>
+        ))}
+    </div>
+  );
+}
+
+demo.tsx
+"use client";
+
+import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { ListFilter } from "lucide-react";
+import { nanoid } from "nanoid";
+import * as React from "react";
+import { AnimateChangeInHeight } from "@/components/ui/filters";
+import Filters from "@/components/ui/filters";
+import {
+  DueDate,
+  Filter,
+  FilterOperator,
+  FilterOption,
+  FilterType,
+  filterViewOptions,
+  filterViewToFilterOptions,
+} from "@/components/ui/filters";
+
+export function ComboboxDemo() {
+  const [open, setOpen] = React.useState(false);
+  const [selectedView, setSelectedView] = React.useState<FilterType | null>(
+    null
+  );
+  const [commandInput, setCommandInput] = React.useState("");
+  const commandInputRef = React.useRef<HTMLInputElement>(null);
+  const [filters, setFilters] = React.useState<Filter[]>([]);
+
+  return (
+    <div className="flex gap-2 flex-wrap">
+      <Filters filters={filters} setFilters={setFilters} />
+      {filters.filter((filter) => filter.value?.length > 0).length > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="transition group h-6 text-xs items-center rounded-sm"
+          onClick={() => setFilters([])}
+        >
+          Clear
+        </Button>
+      )}
+      <Popover
+        open={open}
+        onOpenChange={(open) => {
+          setOpen(open);
+          if (!open) {
+            setTimeout(() => {
+              setSelectedView(null);
+              setCommandInput("");
+            }, 200);
+          }
+        }}
+      >
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            role="combobox"
+            aria-expanded={open}
+            size="sm"
+            className={cn(
+              "transition group h-6 text-xs items-center rounded-sm flex gap-1.5 items-center",
+              filters.length > 0 && "w-6"
+            )}
+          >
+            <ListFilter className="size-3 shrink-0 transition-all text-muted-foreground group-hover:text-primary" />
+            {!filters.length && "Filter"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[200px] p-0">
+          <AnimateChangeInHeight>
+            <Command>
+              <CommandInput
+                placeholder={selectedView ? selectedView : "Filter..."}
+                className="h-9"
+                value={commandInput}
+                onInputCapture={(e) => {
+                  setCommandInput(e.currentTarget.value);
+                }}
+                ref={commandInputRef}
+              />
+              <CommandList>
+                <CommandEmpty>No results found.</CommandEmpty>
+                {selectedView ? (
+                  <CommandGroup>
+                    {filterViewToFilterOptions[selectedView].map(
+                      (filter: FilterOption) => (
+                        <CommandItem
+                          className="group text-muted-foreground flex gap-2 items-center"
+                          key={filter.name}
+                          value={filter.name}
+                          onSelect={(currentValue) => {
+                            setFilters((prev) => [
+                              ...prev,
+                              {
+                                id: nanoid(),
+                                type: selectedView,
+                                operator:
+                                  selectedView === FilterType.DUE_DATE &&
+                                  currentValue !== DueDate.IN_THE_PAST
+                                    ? FilterOperator.BEFORE
+                                    : FilterOperator.IS,
+                                value: [currentValue],
+                              },
+                            ]);
+                            setTimeout(() => {
+                              setSelectedView(null);
+                              setCommandInput("");
+                            }, 200);
+                            setOpen(false);
+                          }}
+                        >
+                          {filter.icon}
+                          <span className="text-accent-foreground">
+                            {filter.name}
+                          </span>
+                          {filter.label && (
+                            <span className="text-muted-foreground text-xs ml-auto">
+                              {filter.label}
+                            </span>
+                          )}
+                        </CommandItem>
+                      )
+                    )}
+                  </CommandGroup>
+                ) : (
+                  filterViewOptions.map(
+                    (group: FilterOption[], index: number) => (
+                      <React.Fragment key={index}>
+                        <CommandGroup>
+                          {group.map((filter: FilterOption) => (
+                            <CommandItem
+                              className="group text-muted-foreground flex gap-2 items-center"
+                              key={filter.name}
+                              value={filter.name}
+                              onSelect={(currentValue) => {
+                                setSelectedView(currentValue as FilterType);
+                                setCommandInput("");
+                                commandInputRef.current?.focus();
+                              }}
+                            >
+                              {filter.icon}
+                              <span className="text-accent-foreground">
+                                {filter.name}
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                        {index < filterViewOptions.length - 1 && (
+                          <CommandSeparator />
+                        )}
+                      </React.Fragment>
+                    )
+                  )
+                )}
+              </CommandList>
+            </Command>
+          </AnimateChangeInHeight>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+Copy-paste these files for dependencies:
+tsx
+shadcn/checkbox
+"use client"
+
+import * as React from "react"
+import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
+import { Check } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+const Checkbox = React.forwardRef<
+  React.ElementRef<typeof CheckboxPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
+>(({ className, ...props }, ref) => (
+  <CheckboxPrimitive.Root
+    ref={ref}
+    className={cn(
+      "peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
+      className,
+    )}
+    {...props}
+  >
+    <CheckboxPrimitive.Indicator
+      className={cn("flex items-center justify-center text-current")}
+    >
+      <Check className="h-4 w-4" />
+    </CheckboxPrimitive.Indicator>
+  </CheckboxPrimitive.Root>
+))
+Checkbox.displayName = CheckboxPrimitive.Root.displayName
+
+export { Checkbox }
+
+tsx
+shadcn/command
+"use client"
+
+import * as React from "react"
+import { type DialogProps } from "@radix-ui/react-dialog"
+import { Command as CommandPrimitive } from "cmdk"
+import { Search } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+
+const Command = React.forwardRef<
+  React.ElementRef<typeof CommandPrimitive>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive>
+>(({ className, ...props }, ref) => (
+  <CommandPrimitive
+    ref={ref}
+    className={cn(
+      "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
+      className,
+    )}
+    {...props}
+  />
+))
+Command.displayName = CommandPrimitive.displayName
+
+interface CommandDialogProps extends DialogProps {}
+
+const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
+  return (
+    <Dialog {...props}>
+      <DialogContent className="overflow-hidden p-0 shadow-lg">
+        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+          {children}
+        </Command>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+const CommandInput = React.forwardRef<
+  React.ElementRef<typeof CommandPrimitive.Input>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
+>(({ className, ...props }, ref) => (
+  <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
+    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+    <CommandPrimitive.Input
+      ref={ref}
+      className={cn(
+        "flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        className,
+      )}
+      {...props}
+    />
+  </div>
+))
+
+CommandInput.displayName = CommandPrimitive.Input.displayName
+
+const CommandList = React.forwardRef<
+  React.ElementRef<typeof CommandPrimitive.List>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
+>(({ className, ...props }, ref) => (
+  <CommandPrimitive.List
+    ref={ref}
+    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
+    {...props}
+  />
+))
+
+CommandList.displayName = CommandPrimitive.List.displayName
+
+const CommandEmpty = React.forwardRef<
+  React.ElementRef<typeof CommandPrimitive.Empty>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Empty>
+>((props, ref) => (
+  <CommandPrimitive.Empty
+    ref={ref}
+    className="py-6 text-center text-sm"
+    {...props}
+  />
+))
+
+CommandEmpty.displayName = CommandPrimitive.Empty.displayName
+
+const CommandGroup = React.forwardRef<
+  React.ElementRef<typeof CommandPrimitive.Group>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Group>
+>(({ className, ...props }, ref) => (
+  <CommandPrimitive.Group
+    ref={ref}
+    className={cn(
+      "overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
+      className,
+    )}
+    {...props}
+  />
+))
+
+CommandGroup.displayName = CommandPrimitive.Group.displayName
+
+const CommandSeparator = React.forwardRef<
+  React.ElementRef<typeof CommandPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Separator>
+>(({ className, ...props }, ref) => (
+  <CommandPrimitive.Separator
+    ref={ref}
+    className={cn("-mx-1 h-px bg-border", className)}
+    {...props}
+  />
+))
+CommandSeparator.displayName = CommandPrimitive.Separator.displayName
+
+const CommandItem = React.forwardRef<
+  React.ElementRef<typeof CommandPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Item>
+>(({ className, ...props }, ref) => (
+  <CommandPrimitive.Item
+    ref={ref}
+    className={cn(
+      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50",
+      className,
+    )}
+    {...props}
+  />
+))
+
+CommandItem.displayName = CommandPrimitive.Item.displayName
+
+const CommandShortcut = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLSpanElement>) => {
+  return (
+    <span
+      className={cn(
+        "ml-auto text-xs tracking-widest text-muted-foreground",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+CommandShortcut.displayName = "CommandShortcut"
+
+export {
+  Command,
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandShortcut,
+  CommandSeparator,
+}
+
+tsx
+shadcn/dialog
+'use client';
+
+import * as React from 'react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { X } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
+
+const Dialog = DialogPrimitive.Root;
+
+const DialogTrigger = DialogPrimitive.Trigger;
+
+const DialogPortal = DialogPrimitive.Portal;
+
+const DialogClose = DialogPrimitive.Close;
+
+const DialogOverlay = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Overlay
+    ref={ref}
+    className={cn(
+      'fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      className
+    )}
+    {...props}
+  />
+));
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
+
+const DialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay />
+    <DialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg',
+        className
+      )}
+      {...props}
+    >
+      {children}
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPortal>
+));
+DialogContent.displayName = DialogPrimitive.Content.displayName;
+
+const DialogHeader = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn(
+      'flex flex-col space-y-1.5 text-center sm:text-left',
+      className
+    )}
+    {...props}
+  />
+);
+DialogHeader.displayName = 'DialogHeader';
+
+const DialogFooter = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn(
+      'flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2',
+      className
+    )}
+    {...props}
+  />
+);
+DialogFooter.displayName = 'DialogFooter';
+
+const DialogTitle = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Title
+    ref={ref}
+    className={cn(
+      'text-lg font-semibold leading-none tracking-tight',
+      className
+    )}
+    {...props}
+  />
+));
+DialogTitle.displayName = DialogPrimitive.Title.displayName;
+
+const DialogDescription = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn('text-sm text-muted-foreground', className)}
+    {...props}
+  />
+));
+DialogDescription.displayName = DialogPrimitive.Description.displayName;
+
+export {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogClose,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+};
+
+tsx
+shadcn/dropdown-menu
+"use client"
+
+import * as React from "react"
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
+import { Check, ChevronRight, Circle } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+const DropdownMenu = DropdownMenuPrimitive.Root
+
+const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
+
+const DropdownMenuGroup = DropdownMenuPrimitive.Group
+
+const DropdownMenuPortal = DropdownMenuPrimitive.Portal
+
+const DropdownMenuSub = DropdownMenuPrimitive.Sub
+
+const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
+
+const DropdownMenuSubTrigger = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
+    inset?: boolean
+  }
+>(({ className, inset, children, ...props }, ref) => (
+  <DropdownMenuPrimitive.SubTrigger
+    ref={ref}
+    className={cn(
+      "flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent",
+      inset && "pl-8",
+      className,
+    )}
+    {...props}
+  >
+    {children}
+    <ChevronRight className="ml-auto h-4 w-4" />
+  </DropdownMenuPrimitive.SubTrigger>
+))
+DropdownMenuSubTrigger.displayName =
+  DropdownMenuPrimitive.SubTrigger.displayName
+
+const DropdownMenuSubContent = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
+>(({ className, ...props }, ref) => (
+  <DropdownMenuPrimitive.SubContent
+    ref={ref}
+    className={cn(
+      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+      className,
+    )}
+    {...props}
+  />
+))
+DropdownMenuSubContent.displayName =
+  DropdownMenuPrimitive.SubContent.displayName
+
+const DropdownMenuContent = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
+>(({ className, sideOffset = 4, ...props }, ref) => (
+  <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Content
+      ref={ref}
+      sideOffset={sideOffset}
+      className={cn(
+        "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        className,
+      )}
+      {...props}
+    />
+  </DropdownMenuPrimitive.Portal>
+))
+DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
+
+const DropdownMenuItem = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
+    inset?: boolean
+  }
+>(({ className, inset, ...props }, ref) => (
+  <DropdownMenuPrimitive.Item
+    ref={ref}
+    className={cn(
+      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      inset && "pl-8",
+      className,
+    )}
+    {...props}
+  />
+))
+DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
+
+const DropdownMenuCheckboxItem = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
+>(({ className, children, checked, ...props }, ref) => (
+  <DropdownMenuPrimitive.CheckboxItem
+    ref={ref}
+    className={cn(
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      className,
+    )}
+    checked={checked}
+    {...props}
+  >
+    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+      <DropdownMenuPrimitive.ItemIndicator>
+        <Check className="h-4 w-4" />
+      </DropdownMenuPrimitive.ItemIndicator>
+    </span>
+    {children}
+  </DropdownMenuPrimitive.CheckboxItem>
+))
+DropdownMenuCheckboxItem.displayName =
+  DropdownMenuPrimitive.CheckboxItem.displayName
+
+const DropdownMenuRadioItem = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
+>(({ className, children, ...props }, ref) => (
+  <DropdownMenuPrimitive.RadioItem
+    ref={ref}
+    className={cn(
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      className,
+    )}
+    {...props}
+  >
+    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+      <DropdownMenuPrimitive.ItemIndicator>
+        <Circle className="h-2 w-2 fill-current" />
+      </DropdownMenuPrimitive.ItemIndicator>
+    </span>
+    {children}
+  </DropdownMenuPrimitive.RadioItem>
+))
+DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName
+
+const DropdownMenuLabel = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.Label>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label> & {
+    inset?: boolean
+  }
+>(({ className, inset, ...props }, ref) => (
+  <DropdownMenuPrimitive.Label
+    ref={ref}
+    className={cn(
+      "px-2 py-1.5 text-sm font-semibold",
+      inset && "pl-8",
+      className,
+    )}
+    {...props}
+  />
+))
+DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName
+
+const DropdownMenuSeparator = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
+>(({ className, ...props }, ref) => (
+  <DropdownMenuPrimitive.Separator
+    ref={ref}
+    className={cn("-mx-1 my-1 h-px bg-muted", className)}
+    {...props}
+  />
+))
+DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName
+
+const DropdownMenuShortcut = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLSpanElement>) => {
+  return (
+    <span
+      className={cn("ml-auto text-xs tracking-widest opacity-60", className)}
+      {...props}
+    />
+  )
+}
+DropdownMenuShortcut.displayName = "DropdownMenuShortcut"
+
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuGroup,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuRadioGroup,
+}
+
+tsx
+shadcn/button
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline:
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3",
+        lg: "h-11 rounded-md px-8",
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  },
+)
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean
+}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button"
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      />
+    )
+  },
+)
+Button.displayName = "Button"
+
+export { Button, buttonVariants }
+
+tsx
+shadcn/popover
+"use client"
+
+import * as React from "react"
+import * as PopoverPrimitive from "@radix-ui/react-popover"
+
+import { cn } from "@/lib/utils"
+
+const Popover = PopoverPrimitive.Root
+
+const PopoverTrigger = PopoverPrimitive.Trigger
+
+const PopoverContent = React.forwardRef<
+  React.ElementRef<typeof PopoverPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
+>(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
+  <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Content
+      ref={ref}
+      align={align}
+      sideOffset={sideOffset}
+      className={cn(
+        "z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        className
+      )}
+      {...props}
+    />
+  </PopoverPrimitive.Portal>
+))
+PopoverContent.displayName = PopoverPrimitive.Content.displayName
+
+export { Popover, PopoverTrigger, PopoverContent }
+
+tsx
+shadcn/avatar
+"use client"
+
+import * as React from "react"
+import * as AvatarPrimitive from "@radix-ui/react-avatar"
+
+import { cn } from "@/lib/utils"
+
+const Avatar = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
+>(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Root
+    ref={ref}
+    className={cn(
+      "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
+      className,
+    )}
+    {...props}
+  />
+))
+Avatar.displayName = AvatarPrimitive.Root.displayName
+
+const AvatarImage = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Image>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
+>(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Image
+    ref={ref}
+    className={cn("aspect-square h-full w-full", className)}
+    {...props}
+  />
+))
+AvatarImage.displayName = AvatarPrimitive.Image.displayName
+
+const AvatarFallback = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Fallback>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
+>(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Fallback
+    ref={ref}
+    className={cn(
+      "flex h-full w-full items-center justify-center rounded-full bg-muted",
+      className,
+    )}
+    {...props}
+  />
+))
+AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
+
+export { Avatar, AvatarImage, AvatarFallback }
+
+Install NPM dependencies:
+bash
+motion, lucide-react, @radix-ui/react-checkbox, cmdk, @radix-ui/react-dialog, @radix-ui/react-dropdown-menu, @radix-ui/react-slot, class-variance-authority, @radix-ui/react-popover, @radix-ui/react-avatar
+
+Implementation Guidelines
+ 1. Analyze the component structure and identify all required dependencies
+ 2. Review the component's argumens and state
+ 3. Identify any required context providers or hooks and install them
+ 4. Questions to Ask
+ - What data/props will be passed to this component?
+ - Are there any specific state management requirements?
+ - Are there any required assets (images, icons, etc.)?
+ - What is the expected responsive behavior?
+ - What is the best place to use this component in the app?
+
+Steps to integrate
+ 0. Copy paste all the code above in the correct directories
+ 1. Install external dependencies
+ 2. Fill image assets with Unsplash stock images you know exist
+ 3. Use lucide-react icons for svgs or logos if component requires them
+```

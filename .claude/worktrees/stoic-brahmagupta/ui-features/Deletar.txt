@@ -1,0 +1,37 @@
+Kanban: FLuxo de confirmação de Delete. 
+
+- Deletar Cards
+
+**Primeira Etapa - Confirmação**
+
+<aside>
+💡
+
+Modal: "Deletar Ficha"
+├── Mostra dados do cliente (Nome, CPF) 
+├── Aviso: "A ficha será movida para o histórico de exclusões"
+├── Botão "Cancelar" (Button: Secondary) 
+└── Botão "Sim, Deletar" (Button: Destructive) 
+
+</aside>
+
+**3️⃣ Segunda Etapa - Motivo** 
+
+<aside>
+💡
+
+Modal: "Confirmação Final"
+├── Aviso: "Esta ação não pode ser desfeita"
+├── Campo de motivo (opcional)
+├── Botão "Cancelar" (Button: Secondary) 
+└── Botão "Confirmar Exclusão" (Button: Destructive) 
+
+</aside>
+
+Inspire-se nos campos de delete do Claude**
+
+Outros fluxos de delete: 
+
+- Cta de deletar/excluir/confirmar exclusão, sempre usar Button: Destructive 
+
+- Cta de Cancelar, Sair, Voltar sempre usar Button: Secondary

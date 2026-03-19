@@ -1,0 +1,745 @@
+**Instalação** 
+
+```tsx
+npx shadcn-vue@latest add sidebar
+```
+
+**Adicione as seguintes cores ao seu arquivo CSS.**
+
+```tsx
+@layer base {
+  :root {
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+ }
+
+  .dark {
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+```
+
+# **Estrutura**
+
+Um `Sidebar`componente é composto pelas seguintes partes:
+
+- `SidebarProvider`
+    - Lida com estados recolhíveis.
+- `Sidebar`
+    - O contêiner da barra lateral.
+- `SidebarHeader`
+    
+    e rodapé da barra lateral - Fixo na parte superior e inferior da barra lateral
+    
+- `SidebarContent`
+    - Conteúdo com rolagem.
+- `SidebarGroup`
+    - Seção dentro do conteúdo da barra lateral.
+- `SidebarTrigger`
+    - Gatilho para a barra lateral
+
+![Estrutura da barra lateral](https://www.shadcn-vue.com/images/sidebar-structure.png)
+
+**Uso** 
+
+**App.vue**
+
+```tsx
+<script setup lang="ts">
+import AppSidebar from '@/components/AppSidebar.vue'
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+</script>
+
+<template>
+  <SidebarProvider>
+    <AppSidebar />
+    <main>
+      <SidebarTrigger />
+      <RouterView />
+    </main>
+  </SidebarProvider>
+</template>
+```
+
+**@/components/AppSidebar.vue**
+
+```tsx
+<script setup lang="ts">
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+} from '@/components/ui/sidebar'
+</script>
+
+<template>
+  <Sidebar>
+    <SidebarHeader />
+    <SidebarContent>
+      <SidebarGroup />
+      <SidebarGroup />
+    </SidebarContent>
+    <SidebarFooter />
+  </Sidebar>
+</template>
+```
+
+**Sua primeira barra lateral**
+
+Vamos começar com a barra lateral mais básica: uma barra lateral recolhível com um menu.
+
+### **Adicione um `<script> `SidebarProvider`` e um `SidebarTrigger``<script>` na raiz do seu aplicativo.**
+
+**src/pages/index.vue**
+
+```tsx
+<script setup lang="ts">
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import AppSidebar from "@/components/AppSidebar.vue";
+</script>
+
+<template>
+  <SidebarProvider>
+    <AppSidebar />
+    <main>
+      <SidebarTrigger />
+      <slot />
+    </main>
+  </SidebarProvider>
+</template>
+```
+
+### **Crie um novo componente de barra lateral em `@/components/AppSidebar.vue`.**
+
+**@/components/AppSidebar.vue**
+
+```tsx
+<script setup lang="ts">
+import { Sidebar, SidebarContent } from "@/components/ui/sidebar";
+</script>
+
+<template>
+  <Sidebar>
+    <SidebarContent />
+  </Sidebar>
+</template>
+```
+
+### **Agora, vamos adicionar um `SidebarMenu`à barra lateral.**
+
+Usaremos o `SidebarMenu`componente em um `SidebarGroup`.
+
+**@/components/AppSidebar.vue**
+
+```tsx
+<script setup lang="ts">
+import { Calendar, Home, Inbox, Search, Settings } from "lucide-vue-next"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar"
+
+// Menu items.
+const items = [
+  {
+    title: "Home",
+    url: "#",
+    icon: Home,
+  },
+  {
+    title: "Inbox",
+    url: "#",
+    icon: Inbox,
+  },
+  {
+    title: "Calendar",
+    url: "#",
+    icon: Calendar,
+  },
+  {
+    title: "Search",
+    url: "#",
+    icon: Search,
+  },
+  {
+    title: "Settings",
+    url: "#",
+    icon: Settings,
+  },
+];
+</script>
+
+<template>
+  <Sidebar>
+    <SidebarContent>
+      <SidebarGroup>
+        <SidebarGroupLabel>Application</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+              <SidebarMenuItem v-for="item in items" :key="item.title">
+                <SidebarMenuButton asChild>
+                    <a :href="item.url">
+                      <component :is="item.icon" />
+                      <span>{{item.title}}</span>
+                    </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </SidebarContent>
+  </Sidebar>
+</template>
+```
+
+**Você criou sua primeira barra lateral.**
+
+O componente principal `Sidebar`usado para renderizar uma barra lateral recolhível.
+
+```tsx
+<script setup lang="ts">
+import { Sidebar } from "@/components/ui/sidebar";
+</script>
+
+<template>
+  <Sidebar />
+</template>
+```
+
+### **Adereços**
+
+| **Propriedade** | **Tipo** | **Descrição** |
+| --- | --- | --- |
+| `side` | `left`ou`right` | A lateral da barra lateral |
+| `variant` | `sidebar`, `floating`, ou`inset` | A variante da barra lateral |
+| `collapsible` | `offcanvas`, `icon`, ou`none` | Estado recolhível da barra lateral |
+
+### **lado**
+
+Use a `side`propriedade para alterar o lado da barra lateral.
+
+As opções disponíveis são `left`e `right`.
+
+```tsx
+<Sidebar side="left | right" />
+```
+
+### **lado**
+
+Use a `side`propriedade para alterar o lado da barra lateral.
+
+As opções disponíveis são `left`e `right`.
+
+```tsx
+<Sidebar side="left | right" />
+```
+
+### **variante**
+
+Use a `variant`propriedade para alterar a variante da barra lateral.
+
+As opções disponíveis são `sidebar`, `floating`e `inset`.
+
+```tsx
+<Sidebar variant="sidebar | floating | inset" />
+```
+
+**Observação:** Se você usar a `inset`variante, lembre-se de envolver seu conteúdo principal em um `SidebarInset`componente.
+
+```tsx
+<template>
+  <SidebarProvider>
+    <Sidebar variant="inset">
+      <SidebarInset>
+        <main>
+          <slot />
+        </main>
+      </SidebarInset>
+    </Sidebar>
+  </SidebarProvider>
+</template>
+```
+
+### **dobrável**
+
+Use o `collapsible`acessório para tornar a barra lateral recolhível.
+
+As opções disponíveis são `offcanvas`, `icon`e `none`.
+
+```tsx
+<Sidebar collapsible="offcanvas | icon | none" />
+```
+
+| **Adereço** | **Descrição** |
+| --- | --- |
+| `offcanvas` | Uma barra lateral recolhível que desliza da esquerda ou da direita. |
+| `icon` | Uma barra lateral que se recolhe em ícones. |
+| `none` | Uma barra lateral não recolhível |
+
+# **useSidebar**
+
+O `useSidebar`elemento composable é usado para controlar a barra lateral.
+
+```tsx
+<script setup lang="ts">
+import { useSidebar } from "@/components/ui/sidebar";
+
+const {
+  state,
+  open,
+  setOpen,
+  openMobile,
+  setOpenMobile,
+  isMobile,
+  toggleSidebar,
+} = useSidebar()
+</script>
+```
+
+| **Propriedade** | **Tipo** | **Descrição** |
+| --- | --- | --- |
+| `state` | `expanded`ou`collapsed` | Estado atual da barra lateral. |
+| `open` | `boolean` | Se a barra lateral está aberta. |
+| `setOpen` | `(open: boolean) => void` | Define o estado de abertura da barra lateral. |
+| `openMobile` | `boolean` | Se a barra lateral está aberta em dispositivos móveis. |
+| `setOpenMobile` | `(open: boolean) => void` | Define o estado de abertura da barra lateral em dispositivos móveis. |
+| `isMobile` | `boolean` | Se a barra lateral estiver visível em dispositivos móveis. |
+| `toggleSidebar` | `() => void` | Alterna a barra lateral. Disponível para computador e dispositivos móveis. |
+
+# **Rodapé da barra lateral**
+
+Use o `SidebarFooter`componente para adicionar um rodapé fixo à barra lateral.
+
+O exemplo a seguir adiciona um `<DropdownMenu>`ao `SidebarFooter`.
+
+**@/components/AppSidebar.vue**
+
+```tsx
+<template>
+  <SidebarProvider>
+    <Sidebar>
+      <SidebarHeader />
+      <SidebarContent />
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton>
+                  <User2 /> Username
+                  <ChevronUp class="ml-auto" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                class="w-[--reka-popper-anchor-width]"
+              >
+                <DropdownMenuItem>
+                  <span>Account</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Billing</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Sign out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
+  </SidebarProvider>
+</template>
+```
+
+## Template terceiro para a Sidebar:
+
+```tsx
+You are given a task to integrate an existing React component in the codebase
+
+The codebase should support:
+- shadcn project structure  
+- Tailwind CSS
+- Typescript
+
+If it doesn't, provide instructions on how to setup project via shadcn CLI, install Tailwind or Typescript.
+
+Determine the default path for components and styles. 
+If default path for components is not /components/ui, provide instructions on why it's important to create this folder
+Copy-paste this component to /components/ui folder:
+```tsx
+sidebar.tsx
+"use client";
+
+import { cn } from "@/lib/utils";
+import Link, { LinkProps } from "next/link";
+import React, { useState, createContext, useContext } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Menu, X } from "lucide-react";
+
+interface Links {
+  label: string;
+  href: string;
+  icon: React.JSX.Element | React.ReactNode;
+}
+
+interface SidebarContextProps {
+  open: boolean;
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  animate: boolean;
+}
+
+const SidebarContext = createContext<SidebarContextProps | undefined>(
+  undefined
+);
+
+export const useSidebar = () => {
+  const context = useContext(SidebarContext);
+  if (!context) {
+    throw new Error("useSidebar must be used within a SidebarProvider");
+  }
+  return context;
+};
+
+export const SidebarProvider = ({
+  children,
+  open: openProp,
+  setOpen: setOpenProp,
+  animate = true,
+}: {
+  children: React.ReactNode;
+  open?: boolean;
+  setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+  animate?: boolean;
+}) => {
+  const [openState, setOpenState] = useState(false);
+
+  const open = openProp !== undefined ? openProp : openState;
+  const setOpen = setOpenProp !== undefined ? setOpenProp : setOpenState;
+
+  return (
+    <SidebarContext.Provider value={{ open, setOpen, animate }}>
+      {children}
+    </SidebarContext.Provider>
+  );
+};
+
+export const Sidebar = ({
+  children,
+  open,
+  setOpen,
+  animate,
+}: {
+  children: React.ReactNode;
+  open?: boolean;
+  setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+  animate?: boolean;
+}) => {
+  return (
+    <SidebarProvider open={open} setOpen={setOpen} animate={animate}>
+      {children}
+    </SidebarProvider>
+  );
+};
+
+export const SidebarBody = (props: React.ComponentProps<typeof motion.div>) => {
+  return (
+    <>
+      <DesktopSidebar {...props} />
+      <MobileSidebar {...(props as React.ComponentProps<"div">)} />
+    </>
+  );
+};
+
+export const DesktopSidebar = ({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof motion.div>) => {
+  const { open, setOpen, animate } = useSidebar();
+  return (
+    <motion.div
+      className={cn(
+        "h-full px-4 py-4 hidden md:flex md:flex-col bg-neutral-100 dark:bg-neutral-800 w-[300px] flex-shrink-0",
+        className
+      )}
+      animate={{
+        width: animate ? (open ? "300px" : "60px") : "300px",
+      }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      {...props}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
+export const MobileSidebar = ({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<"div">) => {
+  const { open, setOpen } = useSidebar();
+  return (
+    <>
+      <div
+        className={cn(
+          "h-10 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-neutral-100 dark:bg-neutral-800 w-full"
+        )}
+        {...props}
+      >
+        <div className="flex justify-end z-20 w-full">
+          <Menu
+            className="text-neutral-800 dark:text-neutral-200 cursor-pointer"
+            onClick={() => setOpen(!open)}
+          />
+        </div>
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ x: "-100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "-100%", opacity: 0 }}
+              transition={{
+                duration: 0.3,
+                ease: "easeInOut",
+              }}
+              className={cn(
+                "fixed h-full w-full inset-0 bg-white dark:bg-neutral-900 p-10 z-[100] flex flex-col justify-between",
+                className
+              )}
+            >
+              <div
+                className="absolute right-10 top-10 z-50 text-neutral-800 dark:text-neutral-200 cursor-pointer"
+                onClick={() => setOpen(!open)}
+              >
+                <X />
+              </div>
+              {children}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
+  );
+};
+
+export const SidebarLink = ({
+  link,
+  className,
+  ...props
+}: {
+  link: Links;
+  className?: string;
+  props?: LinkProps;
+}) => {
+  const { open, animate } = useSidebar();
+  return (
+    <Link
+      href={link.href}
+      className={cn(
+        "flex items-center justify-start gap-2 group/sidebar py-2",
+        className
+      )}
+      {...props}
+    >
+      {link.icon}
+      <motion.span
+        animate={{
+          display: animate ? (open ? "inline-block" : "none") : "inline-block",
+          opacity: animate ? (open ? 1 : 0) : 1,
+        }}
+        className="text-neutral-700 dark:text-neutral-200 text-sm group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre inline-block !p-0 !m-0"
+      >
+        {link.label}
+      </motion.span>
+    </Link>
+  );
+};
+
+demo.tsx
+"use client";
+import React, { useState } from "react";
+import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
+import { LayoutDashboard, UserCog, Settings, LogOut } from "lucide-react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
+
+export function SidebarDemo() {
+  const links = [
+    {
+      label: "Dashboard",
+      href: "#",
+      icon: (
+        <LayoutDashboard className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" />
+      ),
+    },
+    {
+      label: "Profile",
+      href: "#",
+      icon: (
+        <UserCog className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" />
+      ),
+    },
+    {
+      label: "Settings",
+      href: "#",
+      icon: (
+        <Settings className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" />
+      ),
+    },
+    {
+      label: "Logout",
+      href: "#",
+      icon: (
+        <LogOut className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" />
+      ),
+    },
+  ];
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className={cn(
+        "rounded-md flex flex-col md:flex-row bg-gray-100 dark:bg-neutral-800 w-full flex-1 max-w-7xl mx-auto border border-neutral-200 dark:border-neutral-700 overflow-hidden",
+        "h-[60vh]" // for your use case, use `h-screen` instead of `h-[60vh]`
+      )}
+    >
+      <Sidebar open={open} setOpen={setOpen}>
+        <SidebarBody className="justify-between gap-10">
+          <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+            {open ? <Logo /> : <LogoIcon />}
+            <div className="mt-8 flex flex-col gap-2">
+              {links.map((link, idx) => (
+                <SidebarLink key={idx} link={link} />
+              ))}
+            </div>
+          </div>
+          <div>
+            <SidebarLink
+              link={{
+                label: "Manu Arora",
+                href: "#",
+                icon: (
+                  <Image
+                    src="https://assets.aceternity.com/manu.png"
+                    className="h-7 w-7 flex-shrink-0 rounded-full"
+                    width={50}
+                    height={50}
+                    alt="Avatar"
+                  />
+                ),
+              }}
+            />
+          </div>
+        </SidebarBody>
+      </Sidebar>
+      <Dashboard />
+    </div>
+  );
+}
+
+export const Logo = () => {
+  return (
+    <Link
+      href="#"
+      className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20"
+    >
+      <div className="h-5 w-6 bg-black dark:bg-white rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
+      <motion.span
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="font-medium text-black dark:text-white whitespace-pre"
+      >
+        Acet Labs
+      </motion.span>
+    </Link>
+  );
+};
+
+export const LogoIcon = () => {
+  return (
+    <Link
+      href="#"
+      className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20"
+    >
+      <div className="h-5 w-6 bg-black dark:bg-white rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
+    </Link>
+  );
+};
+
+// Dummy dashboard component with content
+const Dashboard = () => {
+  return (
+    <div className="flex flex-1">
+      <div className="p-2 md:p-10 rounded-tl-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex flex-col gap-2 flex-1 w-full h-full">
+        <div className="flex gap-2">
+          {[...new Array(4)].map((i) => (
+            <div
+              key={"first-array" + i}
+              className="h-20 w-full rounded-lg  bg-gray-100 dark:bg-neutral-800 animate-pulse"
+            ></div>
+          ))}
+        </div>
+        <div className="flex gap-2 flex-1">
+          {[...new Array(2)].map((i) => (
+            <div
+              key={"second-array" + i}
+              className="h-full w-full rounded-lg  bg-gray-100 dark:bg-neutral-800 animate-pulse"
+            ></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+```
+
+Install NPM dependencies:
+```bash
+framer-motion
+```
+
+Implementation Guidelines
+ 1. Analyze the component structure and identify all required dependencies
+ 2. Review the component's argumens and state
+ 3. Identify any required context providers or hooks and install them
+ 4. Questions to Ask
+ - What data/props will be passed to this component?
+ - Are there any specific state management requirements?
+ - Are there any required assets (images, icons, etc.)?
+ - What is the expected responsive behavior?
+ - What is the best place to use this component in the app?
+
+Steps to integrate
+ 0. Copy paste all the code above in the correct directories
+ 1. Install external dependencies
+ 2. Fill image assets with Unsplash stock images you know exist
+ 3. Use lucide-react icons for svgs or logos if component requires them
+
+```

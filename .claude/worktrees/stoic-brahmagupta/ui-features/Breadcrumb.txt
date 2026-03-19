@@ -1,0 +1,74 @@
+Instalation
+
+```tsx
+npx shadcn-vue@latest add breadcrumb
+
+```
+
+**Usage** 
+
+```tsx
+<script setup lang="ts">
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
+</script>
+
+<template>
+  <Breadcrumb>
+    <BreadcrumbList>
+      <BreadcrumbItem>
+        <BreadcrumbLink href="/">
+          Home
+        </BreadcrumbLink>
+      </BreadcrumbItem>
+      <BreadcrumbSeparator />
+      <BreadcrumbItem>
+        <BreadcrumbLink href="/components">
+          Components
+        </BreadcrumbLink>
+      </BreadcrumbItem>
+      <BreadcrumbSeparator />
+      <BreadcrumbItem>
+        <BreadcrumbPage>Breadcrumb</BreadcrumbPage>
+      </BreadcrumbItem>
+    </BreadcrumbList>
+  </Breadcrumb>
+</template>
+```
+
+### **Link component**
+
+To use a custom link component from your routing library, you can use the `asChild` prop on `<BreadcrumbLink />`.
+
+```tsx
+<script setup lang="ts">
+import { RouterLink } from 'vue-router'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+} from '@/components/ui/breadcrumb'
+</script>
+
+<template>
+  <Breadcrumb>
+    <BreadcrumbList>
+      <BreadcrumbItem>
+        <BreadcrumbLink as-child>
+          <RouterLink to="/">
+            Home
+          </RouterLink>
+        </BreadcrumbLink>
+      </BreadcrumbItem>
+      <!--  -->
+    </BreadcrumbList>
+  </Breadcrumb>
+</template>
+```

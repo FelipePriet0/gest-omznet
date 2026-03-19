@@ -36,7 +36,7 @@ export function KanbanColumn({ title, cards, color, icon, count, droppableId }: 
             <span className="rounded-full bg-white px-2 py-1 text-xs text-emerald-700 shadow-sm font-medium">{count}</span>
           </div>
         </div>
-        <div className="p-4 bg-gray-50/50 overflow-y-auto max-h-[calc(100vh-220px)]">
+        <div className="p-4 bg-gray-50/50">
           <div className={`min-h-[140px] space-y-3 ${isOver ? "ring-2 ring-emerald-400 ring-offset-2 ring-offset-gray-50 rounded-lg" : ""}`}>
             {cards.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-gray-400">

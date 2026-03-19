@@ -1,0 +1,191 @@
+### Inbox:
+
+### Funcionalidade: Caixa de Entrada (Painel de Notificações)
+
+🎯 **Objetivo**
+
+Centralizar todas as notificações operacionais do sistema — tarefas, conversas, menções e fichas — em um único local intuitivo e funcional, para que o colaborador saiba **exatamente o que precisa fazer** e **mantenha o fluxo de trabalho em dia**.
+
+💬 “Aqui você encontra tudo o que precisa fazer no seu dia!!
+
+Mantenha a caixa vazia ao final do expediente — isso é sinal de produtividade!”
+
+Para deixar tudo mais organizado e objetivo, separamos em dois tipos de notificações: 
+
+- As Permanentes (Tarefas, Menções, Anexos)
+- As de Aviso (Desaparecem) (Prazos, etc)
+
+---
+
+### 🧱 **Estrutura da Interface**
+
+A Caixa de Entrada será uma **aba lateral retrátil**, acessada pelo ícone de 🔔 no canto superior direito da tela.
+
+Ao clicar, abrirá um **painel lateral fixo** (tipo *drawer*), dividido em três seções principais:
+
+---
+
+### **1. Cabeçalho**
+
+| Elemento | Função |
+| --- | --- |
+| **Título:** Caixa de Entrada (🔔) -Em flutter (Quero deixar o UI bem bonito).  | Nome da funcionalidade |
+| **Contador:** `(7)` | Exibe o número de notificações  |
+| CTA: Ao clicar em cima da notificação direciona para o evento de criação da mesma.   | Controle de organização e objetividade |
+
+---
+
+### 🧩 **Eventos que Geram Notificações**
+
+- 📋 Tarefas cujo colaborador foi mencionado.
+- 💬 Conversas e threads com menções diretas.
+- 📣 Qualquer menção usando `@usuario`.
+- ⏰ Tarefas próximas do vencimento (“Eiii! A tarefa *X* está agendada para *XX/XX às 00:00*! Corre pra não atrasar!”). (Mensagem informativa, some depois de algum tempo).
+- 🔥 Fichas atrasadas (“Você tem X fichas pendentes 🔥 — priorize-as.”).  (4 em 4 horas gera 1 notificação e Para as que tem foguinho na coluna “Ass App” geram apenas 1 notificação).  - OBS: Notificação gerada apenas para: “Analistas” e “Gestores” cujo ficha está atribuida (Assignee id)
+
+---
+
+### 🎨 Estrutura de mensagem de cada evento que gera notifcação
+
+| Tipo | Ícone | Estrutura da Mensagem |
+| --- | --- | --- |
+| 💬 Conversa | 💬 | “@MarceloAnálise mencionou você no Card João Soares, veja agora”  |
+| 📋 Tarefa | 📋 | “Você tem uma tarefa agendada para hoje às 16h: Reagendar Instalação.” |
+| 🚀 Nova Ficha | 🚀 | “Nova ficha disponível: Felipe Gonçalves Prieto.” |
+| 🔥 Atraso | 🔥 | “Você possui 3 fichas pendentes 🔥 Priorize-as.” |
+| 😅 Disputa | 😅 | “Poooxa, o colaborador Pedro foi mais rápido!” |
+| Resposta  |↩️ |  | “Nome do colaborado”r
+                      ”Respondeu você - Nome da ficha”
+                          ”Descrição da resposta”
+
+---
+
+### 🧩 Priorização das mensagens
+
+---
+
+### 🧭 **Integrações com Outras Áreas do Sistema**
+
+| Origem | Interação |
+| --- | --- |
+| **Tarefas** | Vincula o item da notificação à tabela de tarefas |
+| **Conversas** | Integra diretamente com a thread/comentário onde houve a menção. |
+| **Fichas** | Referência  e status do cadastro (entrada, atraso, disputa). |
+| **Supabase Realtime** | Atualiza notificações em tempo real (novas menções, novas fichas, mudanças de status). |
+
+---
+
+### 🧩 **Futuras Evoluções**
+
+- Filtro “Somente não vistas hoje”.
+- Pesquisa por nome de tarefa, card ou ficha dentro da caixa.
+- Atalho de teclado (ex: `Alt + N`) para abrir a aba lateral rapidamente.
+- Indicador de prioridade flutuante (badge colorido ao lado do sino).
+- Opção “Lembrar mais tarde” para reagendar notificações.
+
+---
+
+🗄️ Backend - Estrutura do Banco
+
+### 📊 Tabela Principal: `inbox_notifications`
+
+## **Colunas Específicos e Seus Usos**
+
+**📋 Campos de Identificação**
+
+| Campo | Tipo | Nullable | Descrição |
+| --- | --- | --- | --- |
+| id | uuid | ❌ | Identificador único da notificação |
+| user_id | uuid | ❌ | Usuário destinatário (FK) |
+| applicant_id | uuid | ✅ | Cliente relacionado (FK) |
+
+**📝 Campos de Conteúdo**
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| title | text | Título da notificação |
+| body | text | Corpo/descrição da notificação |
+| meta | jsonb | Metadados extras (dados flexíveis) |
+
+**🔗 Campos de Relacionamento**
+
+| Campo | Tipo | Nullable | Relaciona com |
+| --- | --- | --- | --- |
+| task_id | uuid | ✅ | Tabela de tarefas |
+| card_id | uuid | ✅ | public.kanban_cards(id) |
+| comment_id | uuid | ✅ | Comentário relacionado |
+
+**⚙️ Campos de Controle**
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| type | enum | Tipo da notificação |
+| priority | enum | Prioridade (high/medium/low) |
+| transient | boolean | Se é temporária |
+| expires_at | timestamptz | Data de expiração |
+| read_at | timestamptz | Quando foi lida |
+| link_url | text | URL opcional |
+
+**🕒 Campos de Timestamp**
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| created_at | timestamptz | Data de criação |
+| updated_at | timestamptz | Data de última atualização |
+
+🔗 Relacionamentos (Foreign Keys)
+
+| Campo | Referência | Tabela | Descrição |
+| --- | --- | --- | --- |
+| `user_id` | `profiles.id` | `public.profiles` | Usuário destinatário |
+| `applicant_id` | `applicants.id` | `public.applicants` | Cliente relacionado |
+
+**🔗 Relacionamentos Detalhados**
+
+**1️⃣ user_id → public.profiles(id)**
+
+<aside>
+💡
+
+user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE
+
+</aside>
+
+- **O que é:** ID do usuário destinatário da notificação
+- **Relacionamento:** 1 para muitos (1 usuário pode ter várias notificações)
+- **Ação:** CASCADE (se usuário for deletado, suas notificações são removidas)
+- **Uso:** Determina quem recebe a notificação
+
+**2️⃣ card_id → public.kanban_cards(id)**
+
+<aside>
+💡
+
+card_id uuid NULL REFERENCES public.kanban_cards(id) ON DELETE SET NULL
+
+</aside>
+
+- **O que é:** ID do card do Kanban relacionado
+- **Relacionamento:** 1 para muitos (1 card pode gerar várias notificações)
+- **Ação:** SET NULL (se card for deletado, card_id fica NULL)
+- **Uso:** Notificações sobre fichas específicas
+
+**3️⃣ applicant_id → public.applicants(id)**
+
+<aside>
+💡
+
+applicant_id uuid NULL REFERENCES publ
+
+</aside>
+
+- **O que é:** ID do cliente/solicitante relacionado
+- **Relacionamento:** 1 para muitos (1 cliente pode ter várias notificações)
+- **Ação:** Sem ação específica (nullable)
+- **Uso:** Notificações sobre clientes específicos
+
+🔒 Políticas RLS (Row Level Security)
+
+ - Usuário só vê suas próprias notificações 
+ - Usuário só pode atualizar suas notificações 
+ - Usuário só pode deletar suas notificações

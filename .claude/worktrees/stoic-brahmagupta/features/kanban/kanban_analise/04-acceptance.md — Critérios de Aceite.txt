@@ -1,0 +1,21 @@
+### 🔹 Ingresso
+
+- [ ]  Card do Comercial aparece em **Recebidos**.
+- [ ]  Botão **Ingressar** atribui analista e move card.
+
+### 🔹 Parecer
+
+- [ ]  Em **Em Análise**, CTAs funcionam corretamente.
+- [ ]  Em **Reanálise**, botão Reanálise desativado.
+
+### 🔹 Cancelamento
+
+- [ ]  Modal abre e exige motivo antes de concluir.
+
+### 🔹 Finalização
+
+- [ ]  “Finalizados” envia automaticamente a “Histórico” após 5 min.
+
+### 🔹 Filtros
+
+- [ ]  Filtros de topo operam conforme colunas e prazos.
