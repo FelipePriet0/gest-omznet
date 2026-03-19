@@ -751,8 +751,8 @@ export default function CadastroPJPage() {
             <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
           )}
 
-      {/* Seção 1: Dados da Empresa */}
-      <Card title="Dados da Empresa">
+      {/* Ficha completa (dados, endereço, contatos, sócios, etc.) */}
+      <Card title="Ficha">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <Field label="Razão Social" value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave('app','primary_name',v); }} className="lg:col-span-2" status={getFieldStatus('primary_name')} />
           <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queueSave('app','cpf_cnpj',m); }} inputMode="numeric" maxLength={18} status={getFieldStatus('cpf_cnpj')} />
@@ -761,10 +761,7 @@ export default function CadastroPJPage() {
           <Field label="Nome de Fachada" value={pj.nome_fachada||''} onChange={(v)=>{ setPj({...pj, nome_fachada:v}); queueSave('pj','nome_fachada', v); }} status={getFieldStatus('nome_fachada')} />
           <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} className="md:col-span-3 xl:col-span-4" status={getFieldStatus('area_atuacao')} />
         </div>
-      </Card>
-
       {/* Seção 2: Endereço */}
-      <Card title="Endereço">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {/* Linha 1: Endereço | Número */}
           <Field label="Endereço" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave('app','address_line', v); }} className="md:col-span-2" status={getFieldStatus('address_line')} />
@@ -831,10 +828,7 @@ export default function CadastroPJPage() {
           <Field label="Obs Estabelecimento" value={pj.obs_estabelecimento||''} onChange={(v)=>{ setPj({...pj, obs_estabelecimento:v}); queueSave('pj','obs_estabelecimento', v); }} status={getFieldStatus('obs_estabelecimento')} />
           <Field label="Endereço do PS" value={pj.end_ps||''} onChange={(v)=>{ setPj({...pj, end_ps:v}); queueSave('pj','end_ps', v); }} red className="md:col-span-3" status={getFieldStatus('end_ps')} />
         </div>
-      </Card>
-
       {/* Seção 3: Contatos e Documentos */}
-      <Card title="Contatos e Documentos">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave('app','phone', m); }} status={getFieldStatus('phone')} />
           <Field label="WhatsApp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave('app','whatsapp', m); }} status={getFieldStatus('whatsapp')} />
@@ -892,8 +886,6 @@ export default function CadastroPJPage() {
           </div>
           <Field label="Observações" value={pj.obs_contrato_social||''} onChange={(v)=>{ setPj({...pj, obs_contrato_social:v}); queueSave('pj','obs_contrato_social', v); }} status={getFieldStatus('obs_contrato_social')} />
         </div>
-      </Card>
-
       {/* Seção 4: Sócios */}
       <TaskDrawer
         open={taskOpen.open}
@@ -923,7 +915,7 @@ export default function CadastroPJPage() {
         onChange={handleAttachmentInputChange}
         accept={ATTACHMENT_ALLOWED_TYPES.join(",")}
       />
-      <Card title="Sócios">
+      {/* Sócios */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="Sócio 1 - Nome" value={pj.socio1_nome||''} onChange={(v)=>{ setPj({...pj, socio1_nome:v}); queueSave('pj','socio1_nome', v); }} status={getFieldStatus('socio1_nome')} />
           <Field label="Sócio 1 - CPF" value={pj.socio1_cpf||''} onChange={(v)=>{ setPj({...pj, socio1_cpf:v}); queueSave('pj','socio1_cpf', v); }} status={getFieldStatus('socio1_cpf')} />
@@ -935,10 +927,7 @@ export default function CadastroPJPage() {
           <Field label="Sócio 3 - CPF" value={pj.socio3_cpf||''} onChange={(v)=>{ setPj({...pj, socio3_cpf:v}); queueSave('pj','socio3_cpf', v); }} status={getFieldStatus('socio3_cpf')} />
           <Field label="Sócio 3 - Tel" value={pj.socio3_telefone||''} onChange={(v)=>{ setPj({...pj, socio3_telefone:v}); queueSave('pj','socio3_telefone', v); }} status={getFieldStatus('socio3_telefone')} />
         </div>
-      </Card>
-
       {/* Seção 5: Solicitação */}
-      <Card title="Solicitação">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Field label="Quem Solicitou" value={app.quem_solicitou||''} onChange={(v)=>{ setApp({...app, quem_solicitou:v}); queueSave('app','quem_solicitou', v); }} status={getFieldStatus('quem_solicitou')} />
           <div>
@@ -999,33 +988,22 @@ export default function CadastroPJPage() {
             />
           </div>
         </div>
-      </Card>
-
-      
-
       {/* Seção 6: Informações Relevantes da Solicitação */}
-      <Card title="Informações Relevantes da Solicitação">
         <div className="grid grid-cols-1 gap-4">
           <Textarea label="Informações relevantes da solicitação" value={app.info_relevantes||''} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave('app','info_relevantes', v); }} status={getFieldStatus('info_relevantes')} />
         </div>
-      </Card>
 
       {/* Seção 7: Consulta SPC/SERASA */}
-      <Card title="Consulta SPC/Serasa">
         <div className="grid grid-cols-1 gap-4">
           <Textarea label="Consulta SPC/Serasa" value={app.info_spc||''} onChange={(v)=>{ setApp({...app, info_spc:v}); queueSave('app','info_spc', v); }} red status={getFieldStatus('info_spc')} />
         </div>
-      </Card>
 
       {/* Seção 8: Outras Informações Relevantes do PS */}
-      <Card title="Outras Informações Relevantes do PS">
         <div className="grid grid-cols-1 gap-4">
           <Textarea label="Outras informações relevantes do PS" value={app.info_pesquisador||''} onChange={(v)=>{ setApp({...app, info_pesquisador:v}); queueSave('app','info_pesquisador', v); }} red status={getFieldStatus('info_pesquisador')} />
         </div>
-      </Card>
 
       {/* Seção 9: Informações Relevantes do MK */}
-      <Card title="Informações Relevantes do MK">
         <div className="grid grid-cols-1 gap-4">
           <Textarea label="Informações Relevantes do MK" value={app.info_mk||''} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave('app','info_mk', v); }} red status={getFieldStatus('info_mk')} />
         </div>

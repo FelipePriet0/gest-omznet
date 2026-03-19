@@ -871,8 +871,8 @@ export default function CadastroPFPage() {
             <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
           )}
 
-      {/* Seção 1: Dados do Cliente */}
-      <Card title="Dados do Cliente">
+      {/* Ficha completa (dados, endereço, residência, etc.) */}
+      <Card title="Ficha">
         {/* Linha 1: Nome | CPF | Data de Nascimento | Idade */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Field label="Nome do Cliente" value={app.primary_name || ""} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave("app","primary_name", v); }} status={getFieldStatus('primary_name')} />
@@ -892,10 +892,7 @@ export default function CadastroPFPage() {
           <Field label="UF" value={pf.uf_naturalidade || ""} onChange={(v)=>{ setPf({...pf, uf_naturalidade:v}); queueSave("pf","uf_naturalidade", v); }} status={getFieldStatus('uf_naturalidade')} />
           <Field label="E-mail" value={app.email || ""} onChange={(v)=>{ setApp({...app, email:v}); queueSave("app","email", v); }} status={getFieldStatus('email')} />
         </div>
-      </Card>
-
       {/* Seção 2: Endereço */}
-      <Card title="Endereço">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <Field label="Endereço" value={app.address_line || ""} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave("app","address_line", v); }} className="col-span-2" status={getFieldStatus('address_line')} />
           <Field label="Número" value={app.address_number || ""} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave("app","address_number", v); }} status={getFieldStatus('address_number')} />
@@ -923,10 +920,8 @@ export default function CadastroPFPage() {
           <Field label="Endereço Do PS" value={pf.endereco_do_ps || ""} onChange={(v)=>{ setPf({...pf, endereco_do_ps:v}); queueSave("pf","endereco_do_ps", v); }} red className="md:col-span-4" status={getFieldStatus('endereco_do_ps')} />
         </div>
         {/* Checklist removido: agora marcamos no label dos campos obrigatórios */}
-      </Card>
 
       {/* Seção 3: Relações de Residência */}
-      <Card title="Relações de Residência">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Linha 1 */}
           <div>
@@ -1112,10 +1107,8 @@ export default function CadastroPFPage() {
           <Textarea label="Observações" value={pf.observacoes || ""} onChange={(v)=>{ setPf({...pf, observacoes:v}); queueSave("pf","observacoes", v); }} className="md:col-span-3" status={getFieldStatus('observacoes')} />
         </div>
         {/* Checklist removido: agora marcamos no label dos campos obrigatórios */}
-      </Card>
 
       {/* Seções complementares resumidas (Emprego/Renda, Cônjuge, Filiação, Referências, Outras Inf, MK, Parecer) */}
-      <Card title="Emprego e Renda">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Field label="Profissão" value={pf.profissao || ""} onChange={(v)=>{ setPf({...pf, profissao:v}); queueSave("pf","profissao", v); }} status={getFieldStatus('profissao')} />
           <Field label="Empresa" value={pf.empresa || ""} onChange={(v)=>{ setPf({...pf, empresa:v}); queueSave("pf","empresa", v); }} status={getFieldStatus('empresa')} />
@@ -1135,9 +1128,8 @@ export default function CadastroPFPage() {
           <Field label="Vínculo (Obs)" value={pf.vinculo_obs || ""} onChange={(v)=>{ setPf({...pf, vinculo_obs:v}); queueSave("pf","vinculo_obs", v); }} error={errs.vinculo_obs} requiredMark={reqVinculoObs} status={getFieldStatus('vinculo_obs')} />
           <Field label="Emprego do PS" value={pf.emprego_do_ps || ""} onChange={(v)=>{ setPf({...pf, emprego_do_ps:v}); queueSave("pf","emprego_do_ps", v); }} red className="lg:col-span-4" status={getFieldStatus('emprego_do_ps')} />
         </div>
-        </Card>
 
-      <Card title="Cônjuge">
+      {/* Cônjuge */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Linha 1 */}
           <div>
@@ -1166,9 +1158,8 @@ export default function CadastroPFPage() {
           {/* Linha 4 */}
           <Field label="Do PS" value={pf.conjuge_do_ps || ""} onChange={(v)=>{ setPf({...pf, conjuge_do_ps:v}); queueSave("pf","conjuge_do_ps", v); }} red className="lg:col-span-4" status={getFieldStatus('conjuge_do_ps')} />
         </div>
-      </Card>
 
-      <Card title="Filiação">
+      {/* Filiação */}
         <Grid cols={3}>
           <Field label="Pai — Nome" value={pf.pai_nome || ""} onChange={(v)=>{ setPf({...pf, pai_nome:v}); queueSave("pf","pai_nome", v); }} status={getFieldStatus('pai_nome')} />
           <Field label="Pai — Reside" value={pf.pai_reside || ""} onChange={(v)=>{ setPf({...pf, pai_reside:v}); queueSave("pf","pai_reside", v); }} status={getFieldStatus('pai_reside')} />
@@ -1177,9 +1168,7 @@ export default function CadastroPFPage() {
           <Field label="Mãe — Reside" value={pf.mae_reside || ""} onChange={(v)=>{ setPf({...pf, mae_reside:v}); queueSave("pf","mae_reside", v); }} status={getFieldStatus('mae_reside')} />
           <Field label="Mãe — Telefone" value={pf.mae_telefone || ""} onChange={(v)=>{ setPf({...pf, mae_telefone:v}); queueSave("pf","mae_telefone", v); }} status={getFieldStatus('mae_telefone')} />
         </Grid>
-      </Card>
-
-      <Card title="Referências Pessoais">
+      {/* Referências Pessoais */}
         <Grid cols={4}>
           <Field label="Ref1 — Nome" value={pf.ref1_nome || ""} onChange={(v)=>{ setPf({...pf, ref1_nome:v}); queueSave("pf","ref1_nome", v); }} status={getFieldStatus('ref1_nome')} />
           <Field label="Parentesco" value={pf.ref1_parentesco || ""} onChange={(v)=>{ setPf({...pf, ref1_parentesco:v}); queueSave("pf","ref1_parentesco", v); }} status={getFieldStatus('ref1_parentesco')} />
@@ -1190,16 +1179,12 @@ export default function CadastroPFPage() {
           <Field label="Reside" value={pf.ref2_reside || ""} onChange={(v)=>{ setPf({...pf, ref2_reside:v}); queueSave("pf","ref2_reside", v); }} status={getFieldStatus('ref2_reside')} />
           <Field label="Telefone" value={pf.ref2_telefone || ""} onChange={(v)=>{ setPf({...pf, ref2_telefone:v}); queueSave("pf","ref2_telefone", v); }} status={getFieldStatus('ref2_telefone')} />
         </Grid>
-      </Card>
-
-      <Card title="Informações SPC / Pesquisador">
+      {/* Informações SPC / Pesquisador */}
         <div className="grid grid-cols-1 gap-4">
           <Textarea label="Informações SPC" value={app.info_spc || ""} onChange={(v)=>{ setApp({...app, info_spc:v}); queueSave("app","info_spc", v); }} red />
           <Textarea label="Informações do Pesquisador" value={app.info_pesquisador || ""} onChange={(v)=>{ setApp({...app, info_pesquisador:v}); queueSave("app","info_pesquisador", v); }} red />
         </div>
-      </Card>
-
-      <Card title="Outras Informações / MK">
+      {/* Outras Informações / MK */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="col-span-2">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Plano escolhido</label>
