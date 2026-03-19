@@ -373,7 +373,14 @@ export default function CadastroPJPage() {
 
   // Carregar rotas (bairros) do banco
   useEffect(() => {
-    listRoutes().then((r) => setRoutes(r.filter((x) => x.active))).catch(console.error);
+    (async () => {
+      try {
+        const r = await listRoutes();
+        setRoutes(r.filter((x) => x.active));
+      } catch (err) {
+        console.error(err);
+      }
+    })();
   }, []);
 
   useEffect(() => {

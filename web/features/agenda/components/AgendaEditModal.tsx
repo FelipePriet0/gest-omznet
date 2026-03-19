@@ -91,9 +91,14 @@ export function AgendaEditModal({
   // ── Routes for bairro dropdown ─────────────────────────────────────────────
   const [routes, setRoutes] = useState<Route[]>([]);
   useEffect(() => {
-    listRoutes()
-      .then((r) => setRoutes(r.filter((x) => x.active)))
-      .catch(console.error);
+    (async () => {
+      try {
+        const r = await listRoutes();
+        setRoutes(r.filter((x) => x.active));
+      } catch (err) {
+        console.error(err);
+      }
+    })();
   }, []);
   const routeOptions = useMemo<SelectOption[]>(
     () => routes.map((r) => ({ label: r.name, value: r.name })),
@@ -111,12 +116,15 @@ export function AgendaEditModal({
 
     // Fetch extra applicant fields
     if (card?.applicant_id) {
-      supabase
-        .from("applicants")
-        .select("address_line, address_number, address_complement, cep, plano_acesso, venc, sva_avulso, carne_impresso")
-        .eq("id", card.applicant_id)
-        .single()
-        .then(({ data }) => {
+      (async () => {
+        try {
+          const { data } = await supabase
+            .from("applicants")
+            .select(
+              "address_line, address_number, address_complement, cep, plano_acesso, venc, sva_avulso, carne_impresso"
+            )
+            .eq("id", card.applicant_id)
+            .single();
           if (!data) return;
           const d = data as any;
           setLogradouro(d.address_line || "");
@@ -127,8 +135,10 @@ export function AgendaEditModal({
           setVenc(d.venc ? String(d.venc) : "");
           setSvaAvulso(d.sva_avulso || "");
           setCarneImpresso(!!d.carne_impresso);
-        })
-        .catch(console.error);
+        } catch (err) {
+          console.error(err);
+        }
+      })();
     } else {
       setLogradouro("");
       setNumero("");

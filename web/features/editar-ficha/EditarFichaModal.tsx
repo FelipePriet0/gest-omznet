@@ -89,9 +89,14 @@ export function EditarFichaModal({
 
   // Carregar bairros (rotas) do banco uma única vez
   useEffect(() => {
-    listRoutes()
-      .then((r) => setRoutes(r.filter((x) => x.active)))
-      .catch(console.error);
+    (async () => {
+      try {
+        const r = await listRoutes();
+        setRoutes(r.filter((x) => x.active));
+      } catch (err) {
+        console.error(err);
+      }
+    })();
   }, []);
 
   // Backdrop deve cobrir a viewport inteira no modal de ficha
