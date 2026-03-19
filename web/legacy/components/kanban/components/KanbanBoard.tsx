@@ -119,6 +119,13 @@ export function KanbanBoard({
     reload();
   }, [reload]);
 
+  // Quando uma nova ficha é criada, refaz o fetch dos cards
+  useEffect(() => {
+    const handleCardCreated = () => { reload(); };
+    window.addEventListener('mz-card-created', handleCardCreated);
+    return () => window.removeEventListener('mz-card-created', handleCardCreated);
+  }, [reload]);
+
   useEffect(() => {
     onCardsChange?.(cards);
   }, [cards, onCardsChange]);
