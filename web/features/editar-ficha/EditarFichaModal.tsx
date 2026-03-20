@@ -859,7 +859,7 @@ export function EditarFichaModal({
                     richText
                     onAcceptMention={(query) => {
                       if (!canWriteParecer) return false;
-                      const list = (profiles || []).filter((p) => p.id !== currentUserId && (p.full_name || '').toLowerCase().includes((query||'').toLowerCase()))
+                      const list = (profiles || []).filter((p) => (p.full_name || '').toLowerCase().includes((query||'').toLowerCase()))
                       if (list.length === 1) {
                         composerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
                         setMentionOpenParecer(false);
