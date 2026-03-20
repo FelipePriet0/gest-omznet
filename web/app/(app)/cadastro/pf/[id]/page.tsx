@@ -241,6 +241,8 @@ export default function CadastroPFPage() {
   const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
+  const [mentionAnchorParecer, setMentionAnchorParecer] = useState<{ top: number; left: number; height?: number } | null>(null);
+  const parecerContainerRef = useRef<HTMLDivElement | null>(null);
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
   const parecerComposerRef = useRef<UnifiedComposerHandle | null>(null);
@@ -1306,7 +1308,7 @@ export default function CadastroPFPage() {
       {(
         <Card title="Parecer">
           <div className="space-y-4">
-            <div className="relative">
+            <div className="relative" ref={parecerContainerRef}>
               <UnifiedComposer
                 ref={parecerComposerRef}
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
@@ -1318,8 +1320,14 @@ export default function CadastroPFPage() {
                   setCmdOpenParecer(false);
                   setMentionOpenParecer(false);
                 }}
-                onMentionTrigger={(query)=> {
-                  setMentionFilterParecer(query.trim());
+                onMentionTrigger={(query, rect)=> {
+                  setMentionFilterParecer((query||'').trim());
+                  if (rect && parecerContainerRef.current) {
+                    const host = parecerContainerRef.current.getBoundingClientRect();
+                    const top = (rect.bottom ?? (rect.top + (rect.height||0))) - host.top;
+                    const left = (rect.left ?? host.left) - host.left;
+                    setMentionAnchorParecer({ top, left, height: rect.height });
+                  }
                   setMentionOpenParecer(true);
                 }}
                 onMentionClose={()=> setMentionOpenParecer(false)}
@@ -1333,9 +1341,9 @@ export default function CadastroPFPage() {
                 }}
               />
               {mentionOpenParecer && (
-                <div className="absolute z-50 left-0 bottom-full mb-2">
+                <div className="absolute z-50" style={{ left: Math.max(0, (mentionAnchorParecer?.left||0)), top: Math.max(0, (mentionAnchorParecer?.top||0)) }}>
                   <MentionDropdownParecer
-                    items={profiles}
+                    items={profiles.filter((p)=> p.id !== currentUserId && (p.full_name||'').toLowerCase().includes(mentionFilterParecer.toLowerCase()))}
                     onPick={(p)=> {
                       parecerComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
                       setMentionOpenParecer(false);
