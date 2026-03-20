@@ -2226,3 +2226,18 @@ textarea[placeholder="Analisar"]::placeholder {
 .form-zoom-controls .btn-zoom-reset:hover { background: #f8fafc; }
 .form-zoom-controls .zoom-label { font-size: 12px; color: #475569; min-width: 34px; text-align: center; }
 .emoji-cursor-active, .emoji-cursor-active * { cursor: none !important; }
+
+/* Print-friendly export for Expanded Ficha (PF/PJ) */
+@media print {
+  html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body * { visibility: hidden !important; }
+  #mz-print-root, #mz-print-root * { visibility: visible !important; }
+  #mz-print-root { position: absolute; top: 0; left: 0; width: 100/* Print-friendly export for Expanded Ficha (PF/PJ) */
+@media print {
+  html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body * { visibility: hidden !important; }
+  #mz-print-root, #mz-print-root * { visibility: visible !important; }
+  #mz-print-root { position: absolute; top: 0; left: 0; width: 100%; }
+  .form-zoom-controls, .btn-zoom, .btn-zoom-reset { display: none !important; visibility: hidden !important; }
+}
+@page { size: A4; margin: 12mm; }

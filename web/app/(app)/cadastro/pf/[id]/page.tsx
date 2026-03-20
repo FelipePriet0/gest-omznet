@@ -884,7 +884,7 @@ export default function CadastroPFPage() {
         </div>
       </div>
       <div className="form-zoom-scaler" style={{ zoom: zoom, margin: '12px auto 0 auto', minHeight: 'fit-content', width: '100%' }}>
-        <div className="mz-form ficha-pf px-3 md:px-4 py-6 expanded-portrait">
+        <div id="mz-print-root" className="mz-form ficha-pf px-3 md:px-4 py-6 expanded-portrait">
           {statusText && (
             <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
           )}
