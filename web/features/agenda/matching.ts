@@ -17,22 +17,22 @@ export function normalize(s?: string | null): string {
   return (s || "").toString().trim().toLowerCase();
 }
 
-function buildAdjacency(edges: CanvasEdge[]) {
-  const map = new Map<string, Set<string>>();
+// Directed adjacency: respect the arrow direction in the canvas (from -> to).
+function buildAdjacencyOut(edges: CanvasEdge[]) {
+  const out = new Map<string, Set<string>>();
   for (const e of edges || []) {
-    if (!map.has(e.from.nodeId)) map.set(e.from.nodeId, new Set());
-    if (!map.has(e.to.nodeId)) map.set(e.to.nodeId, new Set());
-    map.get(e.from.nodeId)!.add(e.to.nodeId);
-    map.get(e.to.nodeId)!.add(e.from.nodeId);
+    if (!out.has(e.from.nodeId)) out.set(e.from.nodeId, new Set());
+    out.get(e.from.nodeId)!.add(e.to.nodeId);
+    // NOTE: we intentionally do NOT add the reverse edge; arrows encode precedence
   }
-  return map;
+  return out;
 }
 
 function findCandidates(params: { wf: CanvasWorkflowState; bairro?: string | null; tipo?: string | null }): string[] {
   const { wf, bairro, tipo } = params;
   const nodes = wf.nodes || [];
   const edges = wf.edges || [];
-  const adj = buildAdjacency(edges);
+  const adjOut = buildAdjacencyOut(edges);
   const bairroNorm = normalize(bairro);
   const tipoNorm = normalize(tipo);
 
@@ -72,24 +72,34 @@ function findCandidates(params: { wf: CanvasWorkflowState; bairro?: string | nul
   for (const t of techNodes) {
     const ids = new Set<string>(((t as any).data?.technicianIds || []) as string[]);
     if (ids.size === 0) continue;
-    // BFS limited depth
-    const q: string[] = [t.id];
+    // Directed BFS from technician node following arrow direction
+    const q: string[] = Array.from(adjOut.get(t.id) || []);
     const seen = new Set<string>([t.id]);
-    let okRoute = routeNodes.length === 0; // if no routes configured, accept
-    let okPriority = priorityNodes.length === 0; // if no priorities configured, accept
+    let reachableRoute = false;
+    let reachablePriority = false;
+    let okRoute = false;     // becomes true if any reachable route node matches
+    let okPriority = false;  // becomes true if any reachable priority node matches
     while (q.length) {
       const cur = q.shift()!;
-      const neigh = Array.from(adj.get(cur) || []);
-      for (const nb of neigh) {
-        if (seen.has(nb)) continue;
-        seen.add(nb);
-        const node = byId.get(nb);
-        if (!node) continue;
-        if (node.type === "route" && routeMatches(node)) okRoute = true;
-        if (node.type === "priority" && priorityMatches(node)) okPriority = true;
-        q.push(nb);
+      if (seen.has(cur)) continue;
+      seen.add(cur);
+      const node = byId.get(cur);
+      if (!node) continue;
+      if (node.type === "route") {
+        reachableRoute = true;
+        if (routeMatches(node)) okRoute = true;
       }
+      if (node.type === "priority") {
+        reachablePriority = true;
+        if (priorityMatches(node)) okPriority = true;
+      }
+      // Continue traversal along direction
+      const next = Array.from(adjOut.get(cur) || []);
+      for (const nb of next) if (!seen.has(nb)) q.push(nb);
     }
+    // If there were no reachable constraints for this tech, treat as satisfied
+    if (!reachableRoute) okRoute = true;
+    if (!reachablePriority) okPriority = true;
     if (okRoute && okPriority) {
       for (const id of ids) candidates.add(id);
     }
@@ -103,6 +113,35 @@ export function earliestFreeSlotFor(techId: string, dateISO: string, cards: Sche
   return null;
 }
 
+function bestPriorityRankForTech(wf: CanvasWorkflowState, techNode: CanvasNode, tipo?: string | null): number {
+  const tipoNorm = normalize(tipo);
+  const byId = new Map<string, CanvasNode>();
+  for (const n of (wf.nodes || [])) byId.set(n.id, n);
+  const adjOut = buildAdjacencyOut(wf.edges || []);
+  const q: string[] = Array.from(adjOut.get(techNode.id) || []);
+  const seen = new Set<string>([techNode.id]);
+  let best = Number.POSITIVE_INFINITY;
+  while (q.length) {
+    const cur = q.shift()!;
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    const node = byId.get(cur);
+    if (!node) continue;
+    if (node.type === 'priority') {
+      try {
+        const labels = ((node as any).data?.priorities || []) as string[];
+        for (let i = 0; i < labels.length; i++) {
+          const ln = normalize(labels[i]);
+          if (!tipoNorm || !ln) continue;
+          if (ln.includes(tipoNorm)) { best = Math.min(best, i); break; }
+        }
+      } catch {}
+    }
+    for (const nb of Array.from(adjOut.get(cur) || [])) if (!seen.has(nb)) q.push(nb);
+  }
+  return best;
+}
+
 export function suggestAssignment({ workflow, technicians, dateISO, cards, applicantBairro, tipoInstalacao, timeSlots }: SuggestParams): { technician_id: string | null; time_slot: string | null } {
   const activeTechIds = new Set(technicians.filter((t) => t.active).map((t) => t.id));
   // 1) From workflow
@@ -113,7 +152,26 @@ export function suggestAssignment({ workflow, technicians, dateISO, cards, appli
   // Fallback: take all active techs if no specific candidates
   if (!pool.length) pool = Array.from(activeTechIds);
 
-  // 2) Choose tech with earliest availability
+  // 2) Order pool by per-tech priority rank derived from the workflow inspector ordering
+  if (workflow && workflow.nodes?.length) {
+    // Map technician nodes by contained technicianIds for rank lookup
+    const techNodes = (workflow.nodes || []).filter((n) => n.type === 'technician');
+    const techNodeByTechId = new Map<string, CanvasNode>();
+    for (const n of techNodes) {
+      const ids = new Set<string>(((n as any).data?.technicianIds || []) as string[]);
+      for (const id of ids) techNodeByTechId.set(id, n);
+    }
+    pool = pool
+      .map((id) => {
+        const node = techNodeByTechId.get(id);
+        const rank = node ? bestPriorityRankForTech(workflow!, node, tipoInstalacao) : Number.POSITIVE_INFINITY;
+        return { id, rank };
+      })
+      .sort((a, b) => a.rank - b.rank)
+      .map((x) => x.id);
+  }
+
+  // 3) Choose tech with earliest availability
   let chosenTech: string | null = null;
   let chosenSlot: string | null = null;
   for (const techId of pool) {
@@ -125,4 +183,3 @@ export function suggestAssignment({ workflow, technicians, dateISO, cards, appli
   if (!chosenSlot) chosenSlot = timeSlots[0] || null;
   return { technician_id: chosenTech, time_slot: chosenSlot };
 }
-

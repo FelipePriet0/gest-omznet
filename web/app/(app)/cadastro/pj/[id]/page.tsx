@@ -20,6 +20,9 @@ import {
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { renderTextWithChips } from "@/utils/richText";
 import { listRoutes, type Route } from "@/features/builder/services";
+import { DateSingleKanbanPopover } from "@/components/ui/date-single-kanban-popover";
+import { TimeMultiSelect } from "@/components/ui/time-multi-select";
+import { TIME_SLOTS } from "@/features/agenda/mock";
 //
 
 function digitsOnly(value: string) {
@@ -240,6 +243,8 @@ export default function CadastroPJPage() {
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
   const [cardIdEff, setCardIdEff] = useState<string>('');
   const [tipoInstalacao, setTipoInstalacao] = useState<string>('');
+  const [dueAt, setDueAt] = useState<string>('');
+  const [horaAt, setHoraAt] = useState<string[]>([]);
   // Draft de parecer (consistente com o modal)
   const draftKey = useMemo(() => `parecer:${cardIdEff || ''}:${currentUserId ?? 'self'}`, [cardIdEff, currentUserId]);
   const [parecerDraft, setParecerDraft, clearParecerDraft, draftLoaded] = useIndexedDraft<{ text: string; decision: ComposerDecision | null }>(draftKey, { text: '', decision: null });
@@ -535,7 +540,7 @@ export default function CadastroPJPage() {
         // Triangulação: pegar card por applicant_id e carregar pareceres
         const { data: cardRow } = await supabase
           .from('kanban_cards')
-          .select('id, reanalysis_notes, tipo_instalacao')
+          .select('id, reanalysis_notes, tipo_instalacao, due_at, hora_at')
           .eq('applicant_id', applicantId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false })
@@ -550,6 +555,16 @@ export default function CadastroPJPage() {
             const mapBack: any = { casa:'Casa', predio_com_prumada:'Prédio com Prumada', predio_sem_prumada:'Prédio sem Prumada', 'wifi_extend':'Wi-Fi Extend' };
             setTipoInstalacao(can ? (mapBack[can] || '') : '');
           } catch {}
+          // Carregar agendamento
+          if ((cardRow as any)?.due_at) {
+            const d = new Date((cardRow as any).due_at);
+            setDueAt(d.toISOString().slice(0, 10));
+          }
+          if ((cardRow as any)?.hora_at) {
+            const raw = (cardRow as any).hora_at;
+            const arr = Array.isArray(raw) ? raw.map((h: string) => String(h).slice(0, 5)) : [String(raw).slice(0, 5)];
+            setHoraAt(arr);
+          }
         }
         try { setProfiles(await listProfiles()); } catch {}
       } finally {
@@ -735,9 +750,9 @@ export default function CadastroPJPage() {
   // Wrapper receives .expanded-portrait para layout compacto
   // Aplica zoom escalável tipo Adobe: controles acima do primeiro card e scaler centralizado
   return (
-    <div className="form-zoom-wrap">
+    <div className="form-zoom-wrap" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflowX: 'hidden' }}>
       {/* Controles inline, acima do primeiro card (Dados da Empresa), não escalam */}
-      <div className="form-fixed-width px-3 md:px-4 expanded-portrait" style={{ paddingTop: 0 }}>
+      <div className="form-fixed-width px-3 md:px-4 expanded-portrait" style={{ paddingTop: 0, flexShrink: 0 }}>
         <div className="form-zoom-controls form-zoom-controls--inline">
           <button className="btn-zoom" onClick={() => setZoom(z => Math.max(0.75, +(z - 0.05).toFixed(2)))}>−</button>
           <span className="zoom-label">{Math.round(zoom * 100)}%</span>
@@ -745,7 +760,10 @@ export default function CadastroPJPage() {
           <button className="btn-zoom-reset" onClick={() => setZoom(1)}>Reset</button>
         </div>
       </div>
-      <div className="form-zoom-scaler" style={{ transform: `scale(${zoom})`, margin: '12px auto 0 auto' }}>
+      <div
+        className="form-zoom-scaler"
+        style={{ zoom: zoom as any, margin: '12px auto 0 auto', minHeight: 'fit-content', width: '100%' }}
+      >
         <div className="pj-form ficha-pj px-3 md:px-4 py-6 expanded-portrait">
           {statusText && (
             <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
@@ -759,15 +777,15 @@ export default function CadastroPJPage() {
           <Field label="Data de Abertura" value={pj.data_abertura||''} onChange={(v)=>{ const m=formatDateBR(v); setPj({...pj, data_abertura:m}); queueSave('pj','data_abertura', m); }} inputMode="numeric" maxLength={10} status={getFieldStatus('data_abertura')} />
           <Field label="Nome Fantasia" value={pj.nome_fantasia||''} onChange={(v)=>{ setPj({...pj, nome_fantasia:v}); queueSave('pj','nome_fantasia', v); }} status={getFieldStatus('nome_fantasia')} />
           <Field label="Nome de Fachada" value={pj.nome_fachada||''} onChange={(v)=>{ setPj({...pj, nome_fachada:v}); queueSave('pj','nome_fachada', v); }} status={getFieldStatus('nome_fachada')} />
-          <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} className="md:col-span-3 xl:col-span-4" status={getFieldStatus('area_atuacao')} />
+          <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} className="lg:col-span-3 xl:col-span-4" status={getFieldStatus('area_atuacao')} />
         </div>
       {/* Seção 2: Endereço */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Linha 1: Endereço | Número */}
-          <Field label="Endereço" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave('app','address_line', v); }} className="md:col-span-2" status={getFieldStatus('address_line')} />
+          <Field label="Endereço" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave('app','address_line', v); }} className="sm:col-span-2" status={getFieldStatus('address_line')} />
           <Field label="Número" value={app.address_number||''} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave('app','address_number', v); }} status={getFieldStatus('address_number')} />
           {/* Linha 2: Complemento (linha inteira) */}
-          <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave('app','address_complement', v); }} className="md:col-span-3" status={getFieldStatus('address_complement')} />
+          <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave('app','address_complement', v); }} className="sm:col-span-3" status={getFieldStatus('address_complement')} />
           {/* Linha 3: Tipo (md:col-span-2) | Observações */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Imóvel</label>
@@ -810,11 +828,12 @@ export default function CadastroPJPage() {
               className="mt-0"
               triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
               contentClassName="rounded-lg shadow-lg border-0"
+              contentStyle={{ zIndex: 9999 }}
             />
           </div>
           <Field label="Tempo no Endereço" value={pj.tempo_endereco||''} onChange={(v)=>{ setPj({...pj, tempo_endereco:v}); queueSave('pj','tempo_endereco', v); }} status={getFieldStatus('tempo_endereco')} />
           {/* Linha 5: Estabelecimento (md:col-span-2) | Observações */}
-          <div className="md:col-span-2">
+          <div className="sm:col-span-2">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Estabelecimento</label>
             <SimpleSelect
               value={pj.tipo_estabelecimento||''}
@@ -826,14 +845,14 @@ export default function CadastroPJPage() {
             />
           </div>
           <Field label="Obs Estabelecimento" value={pj.obs_estabelecimento||''} onChange={(v)=>{ setPj({...pj, obs_estabelecimento:v}); queueSave('pj','obs_estabelecimento', v); }} status={getFieldStatus('obs_estabelecimento')} />
-          <Field label="Endereço do PS" value={pj.end_ps||''} onChange={(v)=>{ setPj({...pj, end_ps:v}); queueSave('pj','end_ps', v); }} red className="md:col-span-3" status={getFieldStatus('end_ps')} />
+          <Field label="Endereço do PS" value={pj.end_ps||''} onChange={(v)=>{ setPj({...pj, end_ps:v}); queueSave('pj','end_ps', v); }} red className="sm:col-span-3" status={getFieldStatus('end_ps')} />
         </div>
       {/* Seção 3: Contatos e Documentos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave('app','phone', m); }} status={getFieldStatus('phone')} />
           <Field label="WhatsApp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave('app','whatsapp', m); }} status={getFieldStatus('whatsapp')} />
           <Field label="Fones no PS" value={pj.fones_ps||''} onChange={(v)=>{ setPj({...pj, fones_ps:v}); queueSave('pj','fones_ps', v); }} red status={getFieldStatus('fones_ps')} />
-          <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queueSave('app','email', v); }} className="md:col-span-4" status={getFieldStatus('email')} />
+          <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queueSave('app','email', v); }} className="sm:col-span-4" status={getFieldStatus('email')} />
 
           {/* Linha: Possui Internet | Operadora | Plano | Valor */}
           <div>
@@ -873,7 +892,7 @@ export default function CadastroPJPage() {
             />
           </div>
           <Field label="Em nome de" value={pj.nome_comprovante||''} onChange={(v)=>{ setPj({...pj, nome_comprovante:v}); queueSave('pj','nome_comprovante', v); }} disabled={!reqComprov} requiredMark={reqComprov} status={getFieldStatus('nome_comprovante')} />
-          <div className="md:col-span-2">
+          <div className="sm:col-span-2">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Contrato Social</label>
             <SimpleSelect
               value={(pj.contrato_social as any) || ''}
@@ -916,7 +935,7 @@ export default function CadastroPJPage() {
         accept={ATTACHMENT_ALLOWED_TYPES.join(",")}
       />
       {/* Sócios */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Field label="Sócio 1 - Nome" value={pj.socio1_nome||''} onChange={(v)=>{ setPj({...pj, socio1_nome:v}); queueSave('pj','socio1_nome', v); }} status={getFieldStatus('socio1_nome')} />
           <Field label="Sócio 1 - CPF" value={pj.socio1_cpf||''} onChange={(v)=>{ setPj({...pj, socio1_cpf:v}); queueSave('pj','socio1_cpf', v); }} status={getFieldStatus('socio1_cpf')} />
           <Field label="Sócio 1 - Tel" value={pj.socio1_telefone||''} onChange={(v)=>{ setPj({...pj, socio1_telefone:v}); queueSave('pj','socio1_telefone', v); }} status={getFieldStatus('socio1_telefone')} />
@@ -985,6 +1004,39 @@ export default function CadastroPJPage() {
               className="mt-0"
               triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
               contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+          {/* Agendamento: Instalação agendada para + Horário */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Instalação agendada para</label>
+            <DateSingleKanbanPopover
+              value={dueAt}
+              onChange={(v) => {
+                setDueAt(v || '');
+                if (cardIdEff) {
+                  const dueAtIso = v ? new Date(v + 'T12:00:00').toISOString() : null;
+                  supabase.from('kanban_cards').update({ due_at: dueAtIso }).eq('id', cardIdEff).then(() => {});
+                }
+              }}
+              disablePast
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Horário</label>
+            <TimeMultiSelect
+              label=""
+              times={TIME_SLOTS}
+              value={horaAt}
+              onApply={(v) => {
+                setHoraAt(v);
+                if (cardIdEff) {
+                  const horaAtDb = v.length > 0 ? v.map((s) => s + ':00') : null;
+                  supabase.from('kanban_cards').update({ hora_at: horaAtDb }).eq('id', cardIdEff).then(() => {});
+                }
+              }}
+              allowedPairs={[["08:30", "10:30"], ["13:30", "15:30"]]}
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
             />
           </div>
         </div>

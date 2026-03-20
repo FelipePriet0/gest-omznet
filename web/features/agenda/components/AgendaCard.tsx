@@ -16,6 +16,7 @@ function getStageMeta(card: ScheduleCard): StageMeta {
   if (stage === "negados")           return { label: "Negado",      bg: "bg-red-100",     text: "text-red-700",     border: "border-l-red-500"     };
   if (stage === "reanalise")         return { label: "Reanálise",   bg: "bg-orange-100",  text: "text-orange-700",  border: "border-l-orange-500"  };
   if (stage === "em_analise")        return { label: "Em Análise",  bg: "bg-amber-100",   text: "text-amber-700",   border: "border-l-amber-500"   };
+  if (stage === "ass_app")           return { label: "Ass App",     bg: "bg-indigo-100",  text: "text-indigo-700",  border: "border-l-indigo-500"  };
   return                                     { label: "Em Análise", bg: "bg-amber-100",   text: "text-amber-700",   border: "border-l-amber-500"   };
 }
 
@@ -48,7 +49,7 @@ export function AgendaCard({
     <div
       ref={setNodeRef}
       {...(!disableDrag ? { ...listeners, ...attributes } : {})}
-      style={style}
+      style={{ ...style, width: 316, height: 70 }}
       onClick={() => { if (canEdit && !overlay) onEdit(card.id); }}
       className={[
         "group relative rounded-md border-l-4 bg-white shadow-sm overflow-hidden transition",
@@ -59,7 +60,7 @@ export function AgendaCard({
         overlay ? "shadow-xl ring-2 ring-white/30 rotate-1 scale-105" : "",
       ].join(" ")}
     >
-      <div className="px-2.5 py-1 flex flex-col gap-0.5">
+      <div className="px-2.5 py-1.5 flex flex-col justify-center gap-0.5 h-full">
         {/* Label: nome do cliente */}
         <span className="block text-[11px] font-semibold text-zinc-800 truncate leading-snug" title={card.cliente}>
           {card.cliente || "—"}

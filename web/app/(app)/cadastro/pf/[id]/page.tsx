@@ -21,6 +21,9 @@ import {
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import { renderTextWithChips } from "@/utils/richText";
 import { listRoutes, type Route } from "@/features/builder/services";
+import { DateSingleKanbanPopover } from "@/components/ui/date-single-kanban-popover";
+import { TimeMultiSelect } from "@/components/ui/time-multi-select";
+import { TIME_SLOTS } from "@/features/agenda/mock";
 //
 
 const DECISION_META: Record<string, { label: string; className: string }> = {
@@ -226,6 +229,8 @@ export default function CadastroPFPage() {
   const from = (search?.get('from') || '').toLowerCase();
   const [cardIdEff, setCardIdEff] = useState<string>('');
   const [tipoInstalacao, setTipoInstalacao] = useState<string>('');
+  const [dueAt, setDueAt] = useState<string>('');
+  const [horaAt, setHoraAt] = useState<string[]>([]);
   const [valorInternetWarn, setValorInternetWarn] = useState(false);
   const showAnalyzeCrumb = from === 'analisar';
   // Parecer states
@@ -573,7 +578,7 @@ export default function CadastroPFPage() {
         // Efetivar card pelo applicantId (triangulação)
         const { data: cardRow } = await supabase
           .from('kanban_cards')
-          .select('id, reanalysis_notes, tipo_instalacao')
+          .select('id, reanalysis_notes, tipo_instalacao, due_at, hora_at')
           .eq('applicant_id', applicantId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false })
@@ -584,6 +589,16 @@ export default function CadastroPFPage() {
           setCardIdEff(useCardId);
           if (Array.isArray((cardRow as any).reanalysis_notes)) setPareceres((cardRow as any).reanalysis_notes);
           setTipoInstalacao(tipoInstToUI((cardRow as any)?.tipo_instalacao ?? null));
+          // Carregar agendamento
+          if ((cardRow as any)?.due_at) {
+            const d = new Date((cardRow as any).due_at);
+            setDueAt(d.toISOString().slice(0, 10));
+          }
+          if ((cardRow as any)?.hora_at) {
+            const raw = (cardRow as any).hora_at;
+            const arr = Array.isArray(raw) ? raw.map((h: string) => String(h).slice(0, 5)) : [String(raw).slice(0, 5)];
+            setHoraAt(arr);
+          }
         }
         try { setProfiles(await listProfiles()); } catch {}
       } finally {
@@ -1231,6 +1246,40 @@ export default function CadastroPFPage() {
               className="mt-0"
               triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
               contentClassName="rounded-lg shadow-lg border-0"
+            />
+          </div>
+
+          {/* Agendamento: Instalação agendada para + Horário */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Instalação agendada para</label>
+            <DateSingleKanbanPopover
+              value={dueAt}
+              onChange={(v) => {
+                setDueAt(v || '');
+                if (cardIdEff) {
+                  const dueAtIso = v ? new Date(v + 'T12:00:00').toISOString() : null;
+                  supabase.from('kanban_cards').update({ due_at: dueAtIso }).eq('id', cardIdEff).then(() => {});
+                }
+              }}
+              disablePast
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">Horário</label>
+            <TimeMultiSelect
+              label=""
+              times={TIME_SLOTS}
+              value={horaAt}
+              onApply={(v) => {
+                setHoraAt(v);
+                if (cardIdEff) {
+                  const horaAtDb = v.length > 0 ? v.map((s) => s + ':00') : null;
+                  supabase.from('kanban_cards').update({ hora_at: horaAtDb }).eq('id', cardIdEff).then(() => {});
+                }
+              }}
+              allowedPairs={[["08:30", "10:30"], ["13:30", "15:30"]]}
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
             />
           </div>
 

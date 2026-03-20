@@ -3,16 +3,16 @@
 import { supabase } from "@/lib/supabaseClient";
 import { startOfDayUtcISO, endOfDayUtcISO, localDateTimeToUtcISO, DEFAULT_TIMEZONE } from "@/lib/datetime";
 
-export type AgendaTechnician = { id: string; name: string; active: boolean };
+export type AgendaTechnician = { id: string; name: string; active: boolean; activity?: string | null };
 export async function fetchAgendaTechnicians(): Promise<AgendaTechnician[]> {
   const { data, error } = await supabase
     .from("technicians")
-    .select("id, name, active")
+    .select("id, name, active, activity")
     .is("deleted_at", null)
     .eq("active", true)
     .order("name", { ascending: true });
   if (error) throw error;
-  return (data || []).map((t: any) => ({ id: t.id, name: t.name || "—", active: !!t.active }));
+  return (data || []).map((t: any) => ({ id: t.id, name: t.name || "—", active: !!t.active, activity: t.activity ?? null }));
 }
 
 export type AgendaDBCard = {
@@ -82,6 +82,57 @@ export async function fetchAgendaCardsByDate(dateISO: string): Promise<AgendaUIC
   });
 }
 
+/** Busca cards agendados globalmente (sem filtro de data) por nome do cliente */
+export async function searchAgendaCardsGlobal(searchTerm: string): Promise<AgendaUICard[]> {
+  // Buscar applicants que contêm o termo
+  const { data: matchedApps, error: appErr } = await supabase
+    .from("applicants")
+    .select("id, primary_name, bairro, plano_acesso")
+    .ilike("primary_name", `%${searchTerm}%`)
+    .limit(100);
+  if (appErr) throw appErr;
+  if (!matchedApps || matchedApps.length === 0) return [];
+
+  const appIds = matchedApps.map((a: any) => a.id);
+  const apps = new Map<string, any>();
+  matchedApps.forEach((a: any) => apps.set(a.id, a));
+
+  // Buscar kanban_cards desses applicants que têm due_at (estão agendados)
+  const { data: cards, error } = await supabase
+    .from("kanban_cards")
+    .select("id, applicant_id, technician_id, free_row_id, due_at, hora_at, tipo_instalacao, area, stage")
+    .in("applicant_id", appIds)
+    .not("due_at", "is", null)
+    .is("deleted_at", null)
+    .order("due_at", { ascending: true });
+  if (error) throw error;
+
+  return (cards || []).map((c: any) => {
+    const timeArr = Array.isArray(c.hora_at)
+      ? (c.hora_at as any[]).map((h) => String(h).slice(0, 5))
+      : (c.hora_at ? [String(c.hora_at).slice(0, 5)] : []);
+    const time = timeArr[0] || "";
+    const app = apps.get(c.applicant_id) || {};
+    // Extrair data local do due_at
+    const dueDate = c.due_at ? c.due_at.slice(0, 10) : "";
+    return {
+      id: c.id,
+      applicant_id: c.applicant_id,
+      date: dueDate,
+      technician_id: c.technician_id || "",
+      free_row_id: c.free_row_id ?? null,
+      time_slot: time,
+      time_slots: timeArr,
+      cliente: app.primary_name || "",
+      plano: app.plano_acesso || null,
+      bairro: app.bairro || null,
+      tipo_instalacao: c.tipo_instalacao ?? null,
+      area: c.area ?? null,
+      stage: c.stage ?? null,
+    } as AgendaUICard;
+  });
+}
+
 export async function updateScheduleCard(params: {
   id: string;
   dateISO?: string;
@@ -104,6 +155,10 @@ export async function updateScheduleCard(params: {
   if (typeof params.technician_id !== "undefined") patch.technician_id = params.technician_id || null;
   if (typeof params.free_row_id    !== "undefined") patch.free_row_id   = params.free_row_id   ?? null;
   if (typeof params.time_slot !== "undefined") patch.hora_at = params.time_slot ? [params.time_slot + ":00"] : null;
+  // Marca origem manual quando a UI altera técnico/slot
+  if (typeof params.technician_id !== 'undefined' || typeof params.time_slot !== 'undefined') {
+    patch.assign_origin = 'manual';
+  }
 
   if (hasAll && USE_RPC) {
     const rpc = await supabase.rpc('move_schedule', { p_card_id: params.id, p_date: params.dateISO, p_time_slot: params.time_slot, p_technician_id: params.technician_id });
@@ -162,6 +217,7 @@ export async function createScheduleCard(payload: {
     person_type,
     area: 'analise',
     stage: 'em_analise',
+    assign_origin: 'manual',
     created_by,
     technician_id: payload.technician_id || null,
     due_at,

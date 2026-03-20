@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { Search, Filter as FilterIcon, PlusCircle } from "lucide-react";
+import { Search, ListFilter, PlusCircle, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import {
   DndContext,
   DragEndEvent,
@@ -17,9 +19,11 @@ import { AgendaCard } from "./components/AgendaCard";
 import { DateNavigator } from "./components/DateNavigator";
 import { Legend } from "./components/Legend";
 import { TIME_SLOTS } from "./mock";
+import { supabase } from "@/lib/supabaseClient";
 import {
   fetchAgendaTechnicians,
   fetchAgendaCardsByDate,
+  searchAgendaCardsGlobal,
   fetchFreeRows,
   addFreeRow,
   deleteFreeRow,
@@ -28,6 +32,17 @@ import {
   updateApplicant,
 } from "./services";
 import type { ScheduleCard, Technician, FreeRow } from "./types";
+
+// ── Opções de filtro (stage) ──────────────────────────────────────────────────
+const STAGE_FILTERS = [
+  { key: null,           label: "Todos"       },
+  { key: "comercial",    label: "Comercial"   },
+  { key: "em_analise",   label: "Em Análise"  },
+  { key: "ass_app",      label: "Ass App"     },
+  { key: "aprovados",    label: "Aprovado"    },
+  { key: "negados",      label: "Negado"      },
+  { key: "reanalise",    label: "Reanálise"   },
+] as const;
 
 export function AgendaPage() {
   const canEdit = true;
@@ -38,9 +53,34 @@ export function AgendaPage() {
   const [freeRows, setFreeRows]         = useState<FreeRow[]>([]);
   const [loading, setLoading]           = useState(false);
   const [addingRow, setAddingRow]       = useState(false);
-  const [stageFilter, setStageFilter]   = useState<string | null>(null);
+  const [stageFilters, setStageFilters] = useState<string[]>([]);
   const [stagePopoverOpen, setStagePopoverOpen] = useState(false);
   const [query, setQuery]               = useState<string>("");
+  const [globalSearchCards, setGlobalSearchCards] = useState<ScheduleCard[]>([]);
+  const [isSearching, setIsSearching]   = useState(false);
+
+  // Busca global debounced quando query muda
+  useEffect(() => {
+    const term = (query || "").trim();
+    if (!term) {
+      setGlobalSearchCards([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchAgendaCardsGlobal(term);
+        setGlobalSearchCards(results as any);
+      } catch (e) {
+        console.error("Busca global falhou", e);
+        setGlobalSearchCards([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   // DnD: rastrear card sendo arrastado para o DragOverlay
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -76,6 +116,34 @@ export function AgendaPage() {
     reload(dateISO).catch((e) => console.error("Falha ao carregar agenda", e));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Recarregar quando o Workflow publicado mudar (gestor 24/7)
+  useEffect(() => {
+    const channel = supabase
+      .channel('rt-builder-workflows')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'builder_workflows' }, (payload) => {
+        try {
+          const row: any = payload.new || payload.old || {};
+          // Reagir apenas quando houver publish (published_at setado)
+          if (row && row.published_at) {
+            reload(dateISO).catch(() => {});
+          }
+        } catch {}
+      })
+      .subscribe();
+    return () => { try { supabase.removeChannel(channel); } catch {} };
+  }, [dateISO]);
+
+  // Recarregar quando houver mudanças em kanban_cards (reassignments server-side)
+  useEffect(() => {
+    const ch = supabase
+      .channel('rt-kanban-cards')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kanban_cards' }, () => {
+        reload(dateISO).catch(() => {});
+      })
+      .subscribe();
+    return () => { try { supabase.removeChannel(ch); } catch {} };
+  }, [dateISO]);
 
   const handleChangeDay = (delta: number) => {
     const d = new Date(dateISO + "T00:00:00");
@@ -204,90 +272,148 @@ export function AgendaPage() {
   const onDragCancel = () => setActiveDragId(null);
 
   // ── Filtros ──────────────────────────────────────────────────────────────
+  const isGlobalSearch = (query || "").trim().length > 0;
   const filteredCards = useMemo(() => {
-    let list = cards as any[];
-    const term = (query || "").toLowerCase();
-    if (term) list = list.filter((c) => (c.cliente || "").toLowerCase().includes(term));
-    if (stageFilter) {
-      if (stageFilter === "comercial") list = list.filter((c) => ((c as any).area || "") === "comercial");
-      else list = list.filter((c) => (((c as any).stage || "") as string).toLowerCase() === stageFilter);
+    // Se há busca ativa, usar resultados globais (todas as datas)
+    let list = isGlobalSearch ? (globalSearchCards as any[]) : (cards as any[]);
+    if (stageFilters.length > 0) {
+      list = list.filter((c) => {
+        const area = String(((c as any).area  || '')).toLowerCase();
+        const st   = String(((c as any).stage || '')).toLowerCase();
+        for (const f of stageFilters) {
+          if (f === 'comercial' && area === 'comercial') return true;
+          if (f === 'em_analise' && (st === 'em_analise' || st === 'recebidos')) return true;
+          if (f === 'ass_app' && st === 'ass_app') return true;
+          if (st === f) return true;
+        }
+        return false;
+      });
     }
     return list as ScheduleCard[];
-  }, [cards, query, stageFilter]);
+  }, [cards, globalSearchCards, isGlobalSearch, stageFilters]);
+
+  // Label do filtro ativo (para o chip)
+  const activeFilterLabels = useMemo(() => {
+    if (stageFilters.length === 0) return [] as string[];
+    const labels = new Map<string, string>();
+    for (const f of STAGE_FILTERS) if (f.key) labels.set(f.key, f.label);
+    return stageFilters.map((k) => labels.get(k) || k);
+  }, [stageFilters]);
 
   return (
     <div className="flex flex-col gap-4">
       {/* ── Toolbar ── */}
       <div className="border-b border-white/40 bg-[var(--neutro)] px-3 pb-4 pt-3 md:px-6">
         <div className="flex items-center justify-between gap-3">
-          {/* Esquerda: data + filtros */}
-          <div className="flex items-center gap-2">
+          {/* Esquerda: Busca por nome — texto digitado em cor primária */}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--verde-primario)]" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Pesquisar nome..."
+              aria-label="Pesquisar agendamento por nome do cliente"
+              className="h-9 w-56 rounded-md border border-[var(--verde-primario)] bg-white/10 pl-8 pr-3 text-sm placeholder:text-[var(--verde-primario)] focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              style={{ color: 'var(--verde-primario)' }}
+            />
+          </div>
+
+          {/* Direita: Filtros + chip | < data > | Adicionar Linhas */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* CTA Filtros — estilo igual Kanban/Tarefas/Caixa de entrada */}
+            <Popover open={stagePopoverOpen} onOpenChange={setStagePopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="secondary"
+                  className="transition-all duration-200 group h-9 text-sm items-center flex gap-1.5 filter-cta-hover"
+                  style={{ paddingLeft: "18px", paddingRight: "18px", borderRadius: "10px" }}
+                >
+                  <ListFilter className="size-6 shrink-0 transition-all text-muted-foreground filter-icon" />
+                  {stageFilters.length === 0 && "Filtros"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-0 bg-white border-0 shadow-lg rounded-lg" align="start" sideOffset={8}>
+                <Command className="rounded-lg">
+                  <CommandList className="p-1">
+                    <CommandGroup className="p-0">
+                      {STAGE_FILTERS.map((f) => {
+                        const isActive = !!(f.key && stageFilters.includes(f.key));
+                        return (
+                          <CommandItem
+                            key={String(f.key)}
+                            value={f.label}
+                            onSelect={() => {
+                              if (!f.key) { setStageFilters([]); setStagePopoverOpen(false); return; }
+                              setStageFilters((prev) => {
+                                const exists = prev.includes(f.key!);
+                                return exists ? prev.filter((x) => x !== f.key) : [...prev, f.key!];
+                              });
+                            }}
+                            className={`mx-1 flex cursor-pointer items-center gap-3 rounded-sm px-2 py-2 text-sm font-medium transition-all duration-150 ${
+                              isActive
+                                ? "bg-neutral-100 text-neutral-900"
+                                : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                            }`}
+                          >
+                            {f.label}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            {/* Chip de filtro ativo — estilo idêntico /kanban, /tarefas, /caixa-de-entrada */}
+            {activeFilterLabels.length > 0 && (
+              <div
+                className="inline-flex items-center gap-2 rounded-none px-3 py-1 text-white shadow-sm text-xs"
+                style={{
+                  backgroundColor: "var(--color-primary)",
+                  border: "1px solid var(--color-primary)",
+                }}
+              >
+                <span className="font-semibold">Estágios</span>
+                <span className="font-medium">{activeFilterLabels.join(', ')}</span>
+                <button
+                  type="button"
+                  onClick={() => setStageFilters([])}
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-none text-white transition"
+                  style={{
+                    backgroundColor: "var(--color-primary)",
+                    border: "1px solid transparent",
+                  }}
+                  aria-label="Remover filtro"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
             <DateNavigator
               dateISO={dateISO}
               onPrev={() => handleChangeDay(-1)}
               onNext={() => handleChangeDay(1)}
               onPick={(v) => { setDateISO(v); reload(v); }}
             />
-            <Popover open={stagePopoverOpen} onOpenChange={setStagePopoverOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold bg-white text-[var(--verde-primario)] border-[var(--verde-primario)] hover:bg-emerald-50"
-                  aria-label="Filtrar por estágio/área"
-                >
-                  <FilterIcon className="h-4 w-4" />
-                  Filtros
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[220px] p-1 bg-white border border-zinc-200 rounded-lg" align="start" sideOffset={8}>
-                {[
-                  { key: null,           label: "Todos"       },
-                  { key: "comercial",    label: "Comercial"   },
-                  { key: "em_analise",   label: "Em Análise"  },
-                  { key: "aprovados",    label: "Aprovado"    },
-                  { key: "negados",      label: "Negado"      },
-                  { key: "reanalise",    label: "Reanálise"   },
-                ].map((f) => (
-                  <button
-                    key={String(f.key)}
-                    type="button"
-                    className={`w-full text-left px-3 py-2 text-sm rounded-md transition ${stageFilter === f.key ? "bg-emerald-50 text-emerald-700" : "hover:bg-zinc-100 text-zinc-800"}`}
-                    onClick={() => { setStageFilter(f.key as any); setStagePopoverOpen(false); }}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </PopoverContent>
-            </Popover>
-          </div>
 
-          {/* Direita: Adicionar linha + busca */}
-          <div className="flex items-center gap-3">
-            <button
+            {/* CTA Adicionar linha — estilo igual "Nova ficha" em /kanban */}
+            <Button
               type="button"
               disabled={addingRow}
               onClick={handleAddFreeRow}
-              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-emerald-400 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50 transition"
+              className="h-9 shrink-0 bg-emerald-600 text-sm text-white hover:bg-emerald-700 disabled:opacity-50"
+              style={{ paddingLeft: '18px', paddingRight: '18px', borderRadius: '10px' }}
             >
-              <PlusCircle className="h-3.5 w-3.5" />
+              <PlusCircle className="mr-2 size-5" />
               Adicionar linha
-            </button>
-
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--verde-primario)]" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Pesquisar nome do cliente..."
-                aria-label="Pesquisar agendamento por nome do cliente"
-                className="h-9 w-56 rounded-md border border-[var(--verde-primario)] bg-white/10 pl-8 pr-3 text-sm text-white placeholder:text-[var(--verde-primario)] focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              />
-            </div>
+            </Button>
           </div>
         </div>
 
-        {/* Legenda */}
+        {/* Legenda — alinhada à direita */}
         <div className="mt-3 flex justify-end">
           <Legend />
         </div>

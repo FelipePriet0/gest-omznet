@@ -297,8 +297,22 @@ export function CanvasSurface({
         }}
       >
         <svg className="absolute inset-0 overflow-visible" aria-hidden="true">
+          <defs>
+            <marker
+              id="mz-arrow-end"
+              viewBox="0 0 10 10"
+              refX="10"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+              markerUnits="strokeWidth"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--verde-primario)" />
+            </marker>
+          </defs>
           {edgePaths.map((p) => (
-            <path key={p.id} d={p.d} fill="none" stroke="var(--verde-primario)" strokeWidth={3} opacity={0.9} />
+            <path key={p.id} d={p.d} fill="none" stroke="var(--verde-primario)" strokeWidth={3} opacity={0.9} markerEnd="url(#mz-arrow-end)" />
           ))}
           {connectingPath && (
             <path
@@ -308,6 +322,7 @@ export function CanvasSurface({
               strokeWidth={2}
               opacity={0.6}
               strokeDasharray="6 6"
+              markerEnd="url(#mz-arrow-end)"
             />
           )}
         </svg>

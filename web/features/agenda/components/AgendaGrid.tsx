@@ -19,7 +19,7 @@ function CellDroppable({ id, children }: { id: string; children: React.ReactNode
     <div
       ref={setNodeRef}
       className={[
-        "min-h-[64px] rounded-lg p-1 transition-all duration-150",
+        "min-h-[78px] rounded-lg p-1 transition-all duration-150",
         isOver ? "bg-emerald-500/20 ring-2 ring-emerald-400/60 ring-inset" : "",
       ].join(" ")}
     >
@@ -146,11 +146,15 @@ export function AgendaGrid({
       if (hasSpanCard && nextSlot) consumedSlots.add(nextSlot);
       const colSpan = hasSpanCard ? 2 : 1;
 
+      const slotIdx = slots.indexOf(slot);
       return (
         <td
           key={slot}
           colSpan={colSpan}
-          className="align-top px-2 py-1.5 border-t border-white/10"
+          className={[
+            "align-top px-2 py-1.5 border-t border-zinc-800",
+            slotIdx > 0 && colSpan === 1 ? "border-l border-l-zinc-800" : "",
+          ].join(" ")}
         >
           <CellDroppable id={getCellId(slot)}>
             <div className="flex flex-col gap-1">
@@ -245,22 +249,22 @@ export function AgendaGrid({
           }}
         />
 
-        <table className="min-w-[900px] w-full border-separate border-spacing-0">
+        <table className="min-w-[1508px] w-full border-separate border-spacing-0">
           <colgroup>
             <col style={{ width: 180 }} />
-            {slots.map((_, idx) => <col key={idx} style={{ width: 180 }} />)}
+            {slots.map((_, idx) => <col key={idx} style={{ width: 332 }} />)}
           </colgroup>
 
           {/* ── Header ───────────────────────────────────────────────── */}
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 px-4 py-3 text-left text-xs font-semibold text-white backdrop-blur rounded-tl-2xl border-b border-white/20 bg-[var(--verde-primario)] w-[180px] min-w-[180px] max-w-[180px]">
+              <th className="sticky left-0 z-10 px-4 py-3 text-left text-xs font-semibold text-white backdrop-blur rounded-tl-2xl border-b border-transparent bg-[var(--verde-primario)] w-[180px] min-w-[180px] max-w-[180px]">
                 Técnico
               </th>
               {slots.map((s, i) => (
                 <th
                   key={s}
-                  className={`px-4 py-3 text-left text-xs font-semibold text-white border-b border-white/20 bg-[var(--verde-primario)] ${i === slots.length - 1 ? "rounded-tr-2xl" : ""}`}
+                  className={`px-4 py-3 text-left text-xs font-semibold text-white border-b border-transparent bg-[var(--verde-primario)] ${i > 0 ? "border-l border-l-transparent" : ""} ${i === slots.length - 1 ? "rounded-tr-2xl" : ""}`}
                 >
                   {s}
                 </th>
@@ -272,7 +276,10 @@ export function AgendaGrid({
             {/* ── Linhas de técnicos ───────────────────────────────── */}
             {technicians.filter((t) => t.active).map((tech, rowIdx) => (
               <tr key={tech.id}>
-                <td className={`sticky left-0 z-10 px-4 py-3 text-sm text-white font-medium backdrop-blur border-t bg-[var(--verde-primario)] w-[180px] min-w-[180px] max-w-[180px] ${rowIdx === 0 ? "border-transparent" : "border-white/20"}`}>
+                <td
+                  className={`sticky left-0 z-10 px-4 py-3 text-sm text-white font-medium backdrop-blur border-t w-[180px] min-w-[180px] max-w-[180px] ${rowIdx === 0 ? "border-transparent" : "border-transparent"}`}
+                  style={{ backgroundColor: (tech.activity || '').toLowerCase().includes('mud') ? '#1d4ed8' : 'var(--verde-primario)' }}
+                >
                   <span className="block overflow-hidden text-ellipsis whitespace-nowrap">{tech.name}</span>
                 </td>
                 {renderCells(
@@ -287,7 +294,7 @@ export function AgendaGrid({
               <tr key={row.id}>
                 {/* Label — right-click abre o context menu */}
                 <td
-                  className="sticky left-0 z-10 px-4 py-3 backdrop-blur border-t border-dashed border-white/20 bg-[var(--verde-primario)] w-[180px] min-w-[180px] max-w-[180px] cursor-context-menu select-none"
+                  className="sticky left-0 z-10 px-4 py-3 backdrop-blur border-t border-transparent bg-[var(--verde-primario)] w-[180px] min-w-[180px] max-w-[180px] cursor-context-menu select-none"
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setCtxMenu({ rowId: row.id, x: e.clientX, y: e.clientY, confirming: false });
@@ -314,7 +321,7 @@ export function AgendaGrid({
             {/* ── Placeholder ──────────────────────────────────────── */}
             {technicians.filter((t) => t.active).length === 0 && freeRows.length === 0 && (
               <tr>
-                <td colSpan={slots.length + 1} className="px-6 py-8 text-center text-sm text-white/40 border-t border-white/10">
+                <td colSpan={slots.length + 1} className="px-6 py-8 text-center text-sm text-white/40 border-t border-transparent">
                   Nenhum técnico ou linha livre. Use "Adicionar linha" para começar.
                 </td>
               </tr>

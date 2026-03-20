@@ -2,6 +2,7 @@ export type Technician = {
   id: string;
   name: string;
   active: boolean;
+  activity?: string | null; // ex.: 'Mudança de Endereço'
 };
 
 export type FreeRow = {
