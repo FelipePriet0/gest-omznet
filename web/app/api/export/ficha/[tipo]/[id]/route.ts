@@ -38,16 +38,32 @@ export async function GET(req: NextRequest, ctx: { params: { tipo: string; id: s
     });
     try {
       const page = await browser.newPage();
+      const cookie = req.headers.get('cookie') || '';
+      if (cookie) await page.setExtraHTTPHeaders({ Cookie: cookie });
       await page.goto(target, { waitUntil: "networkidle0", timeout: 90_000 });
       // Ensure body ready
       await page.waitForSelector("#mz-print-root", { timeout: 30_000 });
-      const displayName = await page.$eval('#mz-print-root', el => (el.getAttribute('data-name')||'').toString());
-      const pdf = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        margin: { top: "12mm", right: "12mm", bottom: "12mm", left: "12mm" },
-        preferCSSPageSize: true,
+      await page.emulateMediaType('screen');
+      // Measure content to generate single-page PDF height
+      const metrics = await page.evaluate(() => {
+        const el = document.getElementById('mz-print-root');
+        const pxPerInch = 96; // CSS reference pixel
+        const pxHeight = el ? Math.max(el.scrollHeight, el.offsetHeight) : document.body.scrollHeight;
+        const pxWidth = el ? Math.max(el.scrollWidth, el.offsetWidth) : document.body.scrollWidth;
+        const mmPerPx = 25.4 / pxPerInch;
+        return {
+          heightMM: Math.ceil(pxHeight * mmPerPx),
+          widthMM: Math.ceil(pxWidth * mmPerPx),
+        };
       });
+      const widthMM = Math.max(210, metrics.widthMM);
+      const pdf = await page.pdf({
+        printBackground: true,
+        width: `${widthMM}mm`,
+        height: `${metrics.heightMM}mm`,
+        margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
+      });
+      const displayName = await page.$eval('#mz-print-root', el => (el.getAttribute('data-name')||'').toString());
       const base = displayName ? `Ficha-${t.toUpperCase()}-${displayName}-${id}.pdf` : `Ficha-${t.toUpperCase()}-${id}.pdf`;
       const fileName = sanitizeFilename(base);
       return new Response(pdf, {
@@ -72,12 +88,26 @@ export async function GET(req: NextRequest, ctx: { params: { tipo: string; id: s
       const page = await browser.newPage();
       await page.goto(target, { waitUntil: "networkidle" });
       await page.waitForSelector("#mz-print-root", { timeout: 30_000 });
-      const displayName = await page.$eval('#mz-print-root', el => (el.getAttribute('data-name')||'').toString());
-      const pdf = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        margin: { top: "12mm", right: "12mm", bottom: "12mm", left: "12mm" },
+      await (page as any).emulateMedia({ media: 'screen' });
+      const metrics = await page.evaluate(() => {
+        const el = document.getElementById('mz-print-root');
+        const pxPerInch = 96;
+        const pxHeight = el ? Math.max(el.scrollHeight, el.offsetHeight) : document.body.scrollHeight;
+        const pxWidth = el ? Math.max(el.scrollWidth, el.offsetWidth) : document.body.scrollWidth;
+        const mmPerPx = 25.4 / pxPerInch;
+        return {
+          heightMM: Math.ceil(pxHeight * mmPerPx),
+          widthMM: Math.ceil(pxWidth * mmPerPx),
+        };
       });
+      const widthMM = Math.max(210, metrics.widthMM);
+      const pdf = await page.pdf({
+        printBackground: true,
+        width: `${widthMM}mm`,
+        height: `${metrics.heightMM}mm`,
+        margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
+      });
+      const displayName = await page.$eval('#mz-print-root', el => (el.getAttribute('data-name')||'').toString());
       const base = displayName ? `Ficha-${t.toUpperCase()}-${displayName}-${id}.pdf` : `Ficha-${t.toUpperCase()}-${id}.pdf`;
       const fileName = sanitizeFilename(base);
       return new Response(pdf, {
