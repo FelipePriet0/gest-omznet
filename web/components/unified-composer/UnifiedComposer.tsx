@@ -142,8 +142,9 @@ function renderTextWithMentions(text: string, mentions?: ComposerMention[]): str
       html += escapeHTML(before).replace(/\n/g, "<br/>");
     }
     const labelAttr = escapeHTML(label);
-    // Renderiza menção como texto puro (sem wrapper/estilização)
-    html += `@${labelAttr}`;
+    const idAttr = mention.id ? ` data-id="${escapeHTML(mention.id)}"` : "";
+    // Renderiza menção com wrapper para permitir hover/estilo e detecção
+    html += `<span class="mention-chip" data-role="mention-chip" data-label="@${labelAttr}"${idAttr}>@${labelAttr}</span>`;
     cursor = index + token.length;
   });
   const rest = safeText.slice(cursor);
@@ -181,6 +182,8 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       onMentionClose,
       onCommandTrigger,
       onCommandClose,
+      onAcceptCommand,
+      onAcceptMention,
     },
     ref
   ) => {
@@ -189,6 +192,11 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       normalizeValue(defaultValue ?? DEFAULT_VALUE)
     );
     const mentionLockRef = useRef(false);
+    // Track last queries and open states to allow Enter-accept fallback
+    const lastMentionQueryRef = useRef<string>("");
+    const lastCommandQueryRef = useRef<string>("");
+    const mentionOpenRef = useRef<boolean>(false);
+    const commandOpenRef = useRef<boolean>(false);
     // Stabilize onChange to avoid effect loop when parent recreates the callback
     type OnChangeHandler = (value: ComposerValue) => void;
     const onChangeRef = useRef<OnChangeHandler | null>(null);
@@ -464,20 +472,29 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
           if (!skipMentionDetection) {
             if (hasCompletedMention) {
               onMentionClose?.();
+              mentionOpenRef.current = false;
             } else {
               onMentionTrigger?.(rawQuery, rect);
+              lastMentionQueryRef.current = rawQuery;
+              mentionOpenRef.current = true;
             }
           }
         } else {
           onMentionClose?.();
+          mentionOpenRef.current = false;
         }
       }
 
       const commandMatch = preceding.match(/\/([\w]*)$/);
       if (commandMatch) {
-        onCommandTrigger?.(commandMatch[1] || "", rect);
+        const q = commandMatch[1] || "";
+        lastCommandQueryRef.current = q;
+        commandOpenRef.current = true;
+        onCommandTrigger?.(q, rect);
       } else {
         onCommandClose?.();
+        lastCommandQueryRef.current = "";
+        commandOpenRef.current = false;
       }
     }
 
@@ -486,6 +503,15 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
 
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
+        // Prefer accepting current open popovers based on last tracked queries
+        if (mentionOpenRef.current && onAcceptMention) {
+          const accepted = await onAcceptMention((lastMentionQueryRef.current || '').trim());
+          if (accepted) return;
+        }
+        if (commandOpenRef.current && onAcceptCommand) {
+          const accepted = await onAcceptCommand((lastCommandQueryRef.current || '').trim().toLowerCase());
+          if (accepted) return;
+        }
         // 1) Se há query de menção ativa e o pai aceitar, não submeter
         const root = rootRef.current;
         if (root) {
@@ -557,7 +583,8 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
 
     function handleClick(e: React.MouseEvent<HTMLDivElement>) {
       const target = e.target as HTMLElement;
-      if (target?.dataset?.role === "decision-remove") {
+      const closeBtn = target?.closest?.('[data-role="decision-remove"]') as HTMLElement | null;
+      if (closeBtn) {
         e.preventDefault();
         const next = { ...valueState, decision: null };
         setValueState(next);

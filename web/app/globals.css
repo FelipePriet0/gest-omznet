@@ -1374,16 +1374,24 @@ body {
 
 .mention-chip {
   display: inline;
-  padding: 0;
-  border-radius: 0;
+  padding: 0 1px;
+  border-radius: 4px;
   background: transparent;
-  color: inherit;
+  color: var(--verde-primario);
   font-size: inherit;
-  font-weight: inherit;
+  font-weight: 600;
   line-height: inherit;
   user-select: text;
   pointer-events: auto;
   white-space: normal;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, background-color 120ms ease, opacity 120ms ease;
+}
+.mention-chip:hover {
+  text-decoration: none;
+  /* realce sutil na cor principal */
+  box-shadow: 0 0 0 2px currentColor inset;
+  background-color: rgba(1, 137, 66, 0.08); /* fallback próximo ao brand */
 }
 
 .mention-chip-inline {
