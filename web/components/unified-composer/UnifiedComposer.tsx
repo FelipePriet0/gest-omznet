@@ -311,33 +311,15 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       if (!richText) return;
       function updateStates() {
         try {
-          // Detecta bold/italic apenas se houver marcação inline (<b>/<strong>, <i>/<em>),
-          // ignorando o peso de fonte herdado por headings (H1..H4)
-          const sel = window.getSelection();
-          let hasInlineBold = false;
-          let hasInlineItalic = false;
-          if (sel && sel.anchorNode) {
-            let el: HTMLElement | null = (sel.anchorNode as any).nodeType === Node.ELEMENT_NODE
-              ? (sel.anchorNode as HTMLElement)
-              : ((sel.anchorNode as Node).parentElement as HTMLElement | null);
-            while (el) {
-              const tag = (el.tagName || '').toUpperCase();
-              if (tag === 'B' || tag === 'STRONG') { hasInlineBold = true; break; }
-              el = el.parentElement as HTMLElement | null;
-            }
-            el = ((sel.anchorNode as Node).parentElement as HTMLElement | null);
-            while (el) {
-              const tag = (el.tagName || '').toUpperCase();
-              if (tag === 'I' || tag === 'EM') { hasInlineItalic = true; break; }
-              el = el.parentElement as HTMLElement | null;
-            }
-          }
+          // Usa queryCommandState para refletir toggles mesmo sem seleção
+          const bold = document.queryCommandState('bold');
+          const italic = document.queryCommandState('italic');
           const ul = document.queryCommandState('insertUnorderedList');
           const ol = document.queryCommandState('insertOrderedList');
           let block = document.queryCommandValue('formatBlock') as string;
           if (!block || block === 'undefined') block = 'P';
-          setFmtBold(!!hasInlineBold);
-          setFmtItalic(!!hasInlineItalic);
+          setFmtBold(!!bold);
+          setFmtItalic(!!italic);
           setFmtUL(!!ul);
           setFmtOL(!!ol);
           setFmtBlock((block || 'P').toUpperCase());
@@ -376,6 +358,14 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       const textHTML = renderTextWithMentions(val.text, val.mentions);
       if (textHTML.length > 0) {
         parts.push(richText ? textHTML : `<span class="composer-text">${textHTML}</span>`);
+      }
+      // Se há chip de decisão + texto, insere 2 quebras de linha entre eles
+      if (val.decision && parts.length > 1) {
+        return parts.join("<br><br>");
+      }
+      // Se há chip de decisão sem texto, adiciona 2 quebras para cursor ficar abaixo
+      if (val.decision && parts.length === 1) {
+        return parts[0] + "<br><br>";
       }
       return parts.join(" ");
     }
@@ -706,7 +696,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
               {/* Grupo: B I */}
               <button
                 type="button"
-                onClick={() => { try { document.execCommand('bold'); } catch (e) {}; rootRef.current?.focus(); }}
+                onClick={() => { try { document.execCommand('bold'); setFmtBold(!!document.queryCommandState('bold')); } catch (e) {}; rootRef.current?.focus(); }}
                 className={clsx('rt-btn', fmtBold ? 'is-active' : '')}
                 aria-pressed={fmtBold}
                 aria-label="Negrito"
@@ -715,7 +705,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
               </button>
               <button
                 type="button"
-                onClick={() => { try { document.execCommand('italic'); } catch (e) {}; rootRef.current?.focus(); }}
+                onClick={() => { try { document.execCommand('italic'); setFmtItalic(!!document.queryCommandState('italic')); } catch (e) {}; rootRef.current?.focus(); }}
                 className={clsx('rt-btn rt-btn--italic', fmtItalic ? 'is-active' : '')}
                 aria-pressed={fmtItalic}
                 aria-label="Itálico"
