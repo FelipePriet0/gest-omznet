@@ -176,7 +176,7 @@ function KanbanPageInner() {
   return (
     <>
       <div id="kanban-page-root" className="flex flex-1 min-h-0 flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+        <div className="flex-1 min-h-0 overflow-x-hidden overscroll-contain flex flex-col">
           <div className="border-b border-white/40 bg-[var(--neutro)] px-3 pb-4 pt-3 md:px-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <FilterCTA area="comercial" onFiltersChange={handleFiltersChange} />
@@ -196,7 +196,7 @@ function KanbanPageInner() {
               <DashboardCard title="Atrasadas" value={dashboard.atrasadas} icon={<Clock className="h-4 w-4 text-white" />} />
             </div>
           </div>
-          <div className="px-1 pb-6 pt-4 md:px-3 relative">
+          <div className="flex-1 min-h-0 overflow-y-auto px-1 pb-6 pt-4 md:px-3 relative">
             <KanbanBoard
               hora={filtersSummary.hora}
               dateStart={filtersSummary.prazo?.start}

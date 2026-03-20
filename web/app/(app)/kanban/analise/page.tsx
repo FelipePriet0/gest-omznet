@@ -177,17 +177,19 @@ function KanbanAnalisePageInner() {
             <DashboardCard title="Canceladas" value={dashboard.canceladas} icon={<XCircle className="w-4 h-4 text-white" />} />
           </div>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-1 pb-6 pt-4 md:px-3 relative">
-          <KanbanBoardAnalise
-            hora={filtersSummary.hora}
-            dateStart={filtersSummary.prazo?.start}
-            dateEnd={filtersSummary.prazo?.end}
-            responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
-            searchTerm={filtersSummary.searchTerm}
-            openCardId={openCardId}
-            onCardsChange={setCardsSnapshot}
-            onCardModalClose={handleCardModalClose}
-          />
+        <div className="flex-1 min-h-0 overflow-x-hidden overscroll-contain relative">
+          <div className="h-full overflow-y-auto px-1 pb-6 pt-4 md:px-3">
+            <KanbanBoardAnalise
+              hora={filtersSummary.hora}
+              dateStart={filtersSummary.prazo?.start}
+              dateEnd={filtersSummary.prazo?.end}
+              responsaveis={filtersSummary.responsaveis.length > 0 ? filtersSummary.responsaveis : undefined}
+              searchTerm={filtersSummary.searchTerm}
+              openCardId={openCardId}
+              onCardsChange={setCardsSnapshot}
+              onCardModalClose={handleCardModalClose}
+            />
+          </div>
         </div>
         {/* Barra horizontal fixa sobreposta ao rodapé do viewport (sempre visível) */}
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-[var(--neutro)]/90" style={{ height: 14 }}>
