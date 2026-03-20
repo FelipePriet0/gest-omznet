@@ -1315,6 +1315,25 @@ export default function CadastroPFPage() {
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
                 disabled={currentUserRole === 'vendedor'}
                 richText
+                onAcceptMention={(query) => {
+                  const list = (profiles||[]).filter(p => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
+                  if (list.length === 1) {
+                    parecerComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
+                    setMentionOpenParecer(false);
+                    setMentionFilterParecer('');
+                    return true;
+                  }
+                  return false;
+                }}
+                onAcceptCommand={(query) => {
+                  const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
+                  if (opts.length === 1) {
+                    parecerComposerRef.current?.setDecision(opts[0] as any);
+                    setCmdOpenParecer(false); setCmdQueryParecer('');
+                    return true;
+                  }
+                  return false;
+                }}
                 onChange={(val)=> { setNovoParecer(val); try { setParecerDraft({ text: val.text ?? '', decision: val.decision ?? null }); } catch {} }}
                 onSubmit={currentUserRole === 'vendedor' ? undefined : handleSubmitParecer}
                 onCancel={()=> {
@@ -1879,6 +1898,25 @@ function PareceresList({
                 ref={editComposerRef}
                 defaultValue={editValue}
                 richText
+                onAcceptMention={(query) => {
+                  const list = (profiles||[]).filter(p => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
+                  if (list.length === 1) {
+                    editComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
+                    setEditMentionOpen(false);
+                    setEditMentionFilter('');
+                    return true;
+                  }
+                  return false;
+                }}
+                onAcceptCommand={(query) => {
+                  const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
+                  if (opts.length === 1) {
+                    editComposerRef.current?.setDecision(opts[0] as any);
+                    setEditCmdOpen(false); setEditCmdQuery('');
+                    return true;
+                  }
+                  return false;
+                }}
                 onChange={(val) => setEditValue(val)}
                 onSubmit={async (val) => {
                   if (!onEdit) return;
@@ -1948,6 +1986,25 @@ function PareceresList({
                 defaultValue={replyValue}
                 placeholder="Responder... (/aprovado, /negado, /reanalise)"
                 richText
+                onAcceptMention={(query) => {
+                  const list = (profiles||[]).filter(p => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
+                  if (list.length === 1) {
+                    replyComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
+                    setReplyMentionOpen(false);
+                    setReplyMentionFilter('');
+                    return true;
+                  }
+                  return false;
+                }}
+                onAcceptCommand={(query) => {
+                  const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
+                  if (opts.length === 1) {
+                    replyComposerRef.current?.setDecision(opts[0] as any);
+                    setCmdOpen(false); setCmdQuery('');
+                    return true;
+                  }
+                  return false;
+                }}
                 onChange={(val) => setReplyValue(val)}
                 onSubmit={async (val) => {
                   if (!onReply) return;

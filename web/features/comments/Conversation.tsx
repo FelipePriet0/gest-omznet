@@ -848,6 +848,28 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               defaultValue={{ decision: null, text: text }}
               placeholder="Edite o comentário… (@mencionar, /tarefa, /anexo)"
               richText
+              onAcceptMention={(query) => {
+                const list = profiles.filter((p) => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
+                if (list.length === 1) {
+                  editComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
+                  setEditMentionOpen(false);
+                  setEditMentionFilter('');
+                  return true;
+                }
+                return false;
+              }}
+              onAcceptCommand={(query) => {
+                const q = (query||'').toLowerCase();
+                const candidates = ['tarefa','anexo'].filter(k => k.includes(q));
+                if (candidates.length === 1) {
+                  const key = candidates[0];
+                  if (key === 'tarefa') onOpenTask();
+                  if (key === 'anexo') onOpenAttach();
+                  setEditCmdOpen(false); setEditCmdQuery('');
+                  return true;
+                }
+                return false;
+              }}
               onChange={(val)=> setText(val.text || "")}
               onSubmit={async (val)=>{
                 const newText = (val.text||'').trim();
@@ -1006,6 +1028,28 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               defaultValue={{ decision: null, text: reply }}
               placeholder="Responder... (/tarefa, /anexo, @mencionar)"
               richText
+              onAcceptMention={(query) => {
+                const list = profiles.filter((p) => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
+                if (list.length === 1) {
+                  replyComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
+                  setMentionOpen2(false);
+                  setMentionFilter2('');
+                  return true;
+                }
+                return false;
+              }}
+              onAcceptCommand={(query) => {
+                const q = (query||'').toLowerCase();
+                const candidates = ['tarefa','anexo'].filter(k => k.includes(q));
+                if (candidates.length === 1) {
+                  const key = candidates[0];
+                  if (key === 'tarefa') onOpenTask();
+                  if (key === 'anexo') onOpenAttach();
+                  setCmdOpen2(false); setCmdQuery2('');
+                  return true;
+                }
+                return false;
+              }}
               onChange={(val)=> setReply(val.text || "")}
               onSubmit={async (val)=>{
                 await onSubmitComment(node.id, val);
@@ -1474,6 +1518,29 @@ function AttachmentMessage({ att, authorName, authorRole, ensureThread, onReply,
             ref={replyRef}
             placeholder="Responder... (/tarefa, /anexo, @mencionar)"
             defaultValue={replyValue}
+            richText
+            onAcceptMention={(query) => {
+              const list = profiles.filter((p) => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
+              if (list.length === 1) {
+                replyRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
+                setMentionOpen(false);
+                setMentionFilter('');
+                return true;
+              }
+              return false;
+            }}
+            onAcceptCommand={(query) => {
+              const q = (query||'').toLowerCase();
+              const candidates = ['tarefa','anexo'].filter(k => k.includes(q));
+              if (candidates.length === 1) {
+                const key = candidates[0];
+                if (key === 'tarefa') onOpenTask();
+                if (key === 'anexo') onOpenAttach();
+                setCmdOpen(false); setCmdQuery('');
+                return true;
+              }
+              return false;
+            }}
             onChange={(val) => setReplyValue(val)}
             onSubmit={handleSubmit}
             onCancel={() => {
