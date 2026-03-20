@@ -18,7 +18,7 @@ export function renderTextWithChips(text?: string | null) {
         nodes.push(line.slice(lastIndex, match.index));
       }
       const label = match[1]?.replace(/\u00A0/g, " ") || "";
-      nodes.push(<Fragment key={`mention-${lineIdx}-${match.index}`}>@{label}</Fragment>);
+      nodes.push(<span key={`mention-${lineIdx}-${match.index}`} className="mention-chip">@{label}</span>);
       lastIndex = match.index + match[0].length;
     }
     if (lastIndex < line.length) {

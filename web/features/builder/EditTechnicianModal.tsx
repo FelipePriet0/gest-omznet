@@ -140,7 +140,11 @@ export function EditTechnicianModal({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) reset(); }}>
-      <DialogContent className="max-w-[560px] rounded-2xl bg-white">
+      <DialogContent
+        className="max-w-[560px] rounded-2xl bg-white"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader className="space-y-1">
           <DialogTitle className="text-[var(--verde-primario)]">Editar técnico</DialogTitle>
           <DialogDescription>Atualize os dados do técnico.</DialogDescription>

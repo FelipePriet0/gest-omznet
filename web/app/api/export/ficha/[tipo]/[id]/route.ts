@@ -21,7 +21,44 @@ export async function GET(req: NextRequest, ctx: { params: { tipo: string; id: s
   const origin = `${url.protocol}//${url.host}`;
   const target = `${origin}/cadastro/${t}/${id}?print=1&from=export`;
 
+
+  const preferPlaywright = !process.env.VERCEL && process.platform === 'win32';
+
+  // Prefer Playwright on local Windows (dev) for smoother DX
+  if (preferPlaywright) try {
+    // @ts-ignore
+    const { chromium } = await import("playwright");
+    const browser = await (chromium as any).launch({ headless: true });
+    try {
+      const page = await browser.newPage();
+      const cookie = req.headers.get('cookie') || '';
+      await page.goto(target, { waitUntil: "networkidle" });
+      await page.waitForSelector("#mz-print-root", { timeout: 30_000 });
+      await (page as any).emulateMedia({ media: 'screen' });
+      const metrics = await page.evaluate(() => {
+        const el = document.getElementById('mz-print-root');
+        const pxPerInch = 96;
+        const pxHeight = el ? Math.max(el.scrollHeight, el.offsetHeight) : document.body.scrollHeight;
+        const pxWidth = el ? Math.max(el.scrollWidth, el.offsetWidth) : document.body.scrollWidth;
+        const mmPerPx = 25.4 / pxPerInch;
+        return { heightMM: Math.ceil(pxHeight * mmPerPx), widthMM: Math.ceil(pxWidth * mmPerPx) };
+      });
+      const widthMM = Math.max(210, metrics.widthMM);
+      const pdf = await page.pdf({
+        printBackground: true,
+        width: f"{widthMM}mm",
+        height: f"{metrics.heightMM}mm",
+        margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
+      });
+      const displayName = await page.$eval('#mz-print-root', el => (el.getAttribute('data-name')||'').toString());
+      const base = displayName ? `Ficha-${t.toUpperCase()}-${displayName}-${id}.pdf` : `Ficha-${t.toUpperCase()}-${id}.pdf`;
+      const fileName = sanitizeFilename(base);
+      return new Response(pdf, { status: 200, headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="${fileName}"`, "cache-control": "no-store" } });
+    } finally { try { await browser.close(); } catch {} }
+  } catch {}
+
   // Try Puppeteer Core + @sparticuz/chromium (serverless-friendly)
+
   try {
     // Dynamic imports so build doesn't fail when packages are not installed in some envs
     // @ts-ignore

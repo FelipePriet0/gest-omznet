@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { MoreHorizontal } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import {
   listWorkflows, saveWorkflow, duplicateWorkflow, toggleWorkflowActive, deleteWorkflow,
   type BuilderWorkflow,
@@ -39,7 +39,7 @@ function Switch({
       onClick={() => onCheckedChange(!checked)}
       className={cn(
         "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none disabled:opacity-40",
-        checked ? "bg-emerald-500" : "bg-white/25",
+        checked ? "bg-emerald-500" : "bg-zinc-300",
       )}
     >
       <span
@@ -141,19 +141,19 @@ function WorkflowsTab() {
 
       <div className="mt-2 w-full max-w-6xl">
         {loading ? (
-          <div className="text-sm text-white/80">Carregando…</div>
+          <div className="text-sm text-zinc-500">Carregando…</div>
         ) : items.length === 0 ? (
-          <div className="text-sm text-white/60">Nenhum workflow ainda.</div>
+          <div className="text-sm text-zinc-400">Nenhum workflow ainda.</div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3 xl:grid-cols-4">
             {items.map((wf) => (
               <div
                 key={wf.id}
                 className={cn(
-                  "relative rounded-2xl border p-4 shadow-sm flex flex-col gap-3 cursor-pointer transition hover:brightness-110 select-none",
+                  "relative rounded-2xl border p-4 shadow-sm flex flex-col gap-3 cursor-pointer transition hover:shadow-md select-none",
                   wf.active
-                    ? "bg-white/10 border-emerald-500/40 text-white/90"
-                    : "bg-white/5 border-white/15 text-white/50",
+                    ? "bg-white border-emerald-500/40 text-zinc-900"
+                    : "bg-white border-zinc-200 text-zinc-500",
                 )}
                 onClick={() => router.push(`/builder/canvas?id=${wf.id}`)}
               >
@@ -164,7 +164,7 @@ function WorkflowsTab() {
                       {wf.name}
                     </span>
                     {wf.published_at && (
-                      <span className="w-fit rounded-full border border-emerald-500/30 bg-emerald-600/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-100">
+                      <span className="w-fit rounded-full border border-emerald-500/30 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                         Publicado
                       </span>
                     )}
@@ -183,7 +183,7 @@ function WorkflowsTab() {
                 <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
                   <span className={cn(
                     "text-[11px] font-medium",
-                    wf.active ? "text-emerald-300" : "text-white/30",
+                    wf.active ? "text-emerald-600" : "text-zinc-400",
                   )}>
                     {wf.active ? "Ativo" : "Inativo"}
                   </span>
@@ -191,13 +191,13 @@ function WorkflowsTab() {
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="rounded p-1 hover:bg-white/10 transition"
+                        className="rounded p-1 hover:bg-zinc-100 transition"
                         aria-label="Opções do workflow"
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-[140px]">
+                    <DropdownMenuContent align="end" className="min-w-[140px] bg-white border border-zinc-200 shadow-lg">
                       <DropdownMenuItem onClick={() => handleDuplicate(wf)}>
                         Duplicar
                       </DropdownMenuItem>
@@ -314,7 +314,7 @@ function TechniciansTab() {
         Adicionar Técnico
       </button>
       {!canManage && (
-        <div className="text-[13px] text-white/70">Apenas gestores de rota (role Instalação) podem criar técnicos.</div>
+        <div className="text-[13px] text-zinc-500">Apenas gestores de rota (role Instalação) podem criar técnicos.</div>
       )}
 
       <AddTechnicianModal open={openAdd} onOpenChange={setOpenAdd} onSave={handleAddTechnician} />
@@ -330,30 +330,37 @@ function TechniciansTab() {
           <div
             key={t.id}
             className={cn(
-              "relative rounded-2xl border p-4 shadow-sm flex flex-col gap-3 transition",
+              "relative rounded-2xl border p-4 shadow-sm flex flex-col gap-3 transition cursor-pointer",
               t.active
-                ? "bg-white/10 border-emerald-500/40 text-white/90"
-                : "bg-white/5 border-white/15 text-white/50",
+                ? "bg-white border-emerald-500/40 text-zinc-900"
+                : "bg-white border-zinc-200 text-zinc-500",
             )}
+            onClick={() => setEditTech(t)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditTech(t); } }}
+            aria-label={`Abrir edição do técnico ${t.name}`}
           >
             {/* Linha 1: nome + toggle */}
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold leading-snug truncate">{t.name}</div>
-                <div className={cn("text-xs mt-0.5", t.active ? "text-white/60" : "text-white/30")}>
+                <div className={cn("text-xs mt-0.5", t.active ? "text-zinc-500" : "text-zinc-400")}>
                   {t.activity || "—"}
                 </div>
               </div>
-              <Switch
-                checked={t.active}
-                onCheckedChange={(v) => handleToggleActive(t, v)}
-                disabled={savingId === t.id}
-              />
+              <div onClick={(e) => e.stopPropagation()}>
+                <Switch
+                  checked={t.active}
+                  onCheckedChange={(v) => handleToggleActive(t, v)}
+                  disabled={savingId === t.id}
+                />
+              </div>
             </div>
 
             {/* Linha 2: prazo (se definido) */}
             {t.available_start && t.available_end && (
-              <div className={cn("text-[11px]", t.active ? "text-white/50" : "text-white/25")}>
+              <div className={cn("text-[11px]", t.active ? "text-zinc-400" : "text-zinc-300")}>
                 {formatDateLabel(t.available_start)} – {formatDateLabel(t.available_end)}
               </div>
             )}
@@ -362,32 +369,18 @@ function TechniciansTab() {
             <div className="flex items-center justify-between">
               <span className={cn(
                 "text-[11px] font-medium",
-                t.active ? "text-emerald-300" : "text-white/30",
+                t.active ? "text-emerald-600" : "text-zinc-400",
               )}>
                 {t.active ? "Ativo" : "Inativo"}
               </span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="rounded p-1 hover:bg-white/10 transition"
-                    aria-label="Opções do técnico"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[140px]">
-                  <DropdownMenuItem onClick={() => setEditTech(t)}>
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-red-500 focus:text-red-500"
-                    onClick={() => setConfirmDeleteTech(t)}
-                  >
-                    Excluir
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <button
+                type="button"
+                className="rounded-md p-2 hover:bg-red-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
+                aria-label={`Excluir técnico ${t.name}`}
+                onClick={(e) => { e.stopPropagation(); setConfirmDeleteTech(t); }}
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </button>
             </div>
           </div>
         ))}

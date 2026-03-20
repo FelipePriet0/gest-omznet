@@ -157,6 +157,37 @@ export function AgendaEditModal({
   const handleSave = async () => {
     const tech = technicians.find((t) => t.name === techName);
 
+    // Validação: impedir dois cards no mesmo técnico/dia/horário
+    try {
+      const selectedDate = dueAt || card.date;
+      const selectedSlots = slotArr.length > 0 ? [...slotArr] : (card.time_slots?.length ? [...card.time_slots] : (card.time_slot ? [card.time_slot] : []));
+      const techId = tech ? tech.id : card.technician_id;
+      if (selectedDate && techId && selectedSlots.length > 0) {
+        const start = new Date(selectedDate + "T00:00:00").toISOString();
+        const end   = new Date(selectedDate + "T23:59:59").toISOString();
+        const { data: conflicts } = await supabase
+          .from("kanban_cards")
+          .select("id, hora_at, technician_id, due_at")
+          .gte("due_at", start)
+          .lte("due_at", end)
+          .eq("technician_id", techId)
+          .is("deleted_at", null);
+        const hasConflict = (conflicts || []).some((row: any) => {
+          if (row.id === card.id) return false;
+          const h = Array.isArray(row.hora_at) ? row.hora_at : (row.hora_at ? [row.hora_at] : []);
+          const norm = h.map((x: string) => String(x).slice(0,5));
+          return selectedSlots.some((s) => norm.includes(s));
+        });
+        if (hasConflict) {
+          alert("Este horário já está ocupado para o técnico selecionado.");
+          return;
+        }
+      }
+    } catch (e) {
+      console.error("Falha ao validar conflito de horário", e);
+      // Em caso de erro de validação, prosseguir para não travar fluxo
+    }
+
     // 1. Save applicant fields (bairro, address, plano, venc, sva, carnê)
     if (card.applicant_id) {
       const vencNum = venc ? parseInt(venc, 10) : null;

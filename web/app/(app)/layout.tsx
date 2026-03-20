@@ -152,6 +152,7 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   const parts = pathname.split("/").filter(Boolean);
   const isCanvas = pathname.startsWith('/builder/canvas');
   const isExpandedCadastro = parts[0] === 'cadastro' && (parts[1] === 'pf' || parts[1] === 'pj') && parts.length >= 3;
+  const exportMode = (search?.get('from') || '').toLowerCase() === 'export';
   const activePanel = (search?.get('panel') || '').toLowerCase();
   const isTasksPanel = activePanel === 'tarefas';
   const isInboxPanel = activePanel === 'inbox';
@@ -162,6 +163,28 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   // Do not force open the sidebar automatically when opening the Tasks drawer
 
   function onDownloadPdf() { try { window.print(); } catch {} }
+  function onExportPdf(parts: string[]) {
+    try {
+      let tipo = '';
+      let id = '';
+      const root = document.getElementById('mz-print-root');
+      if (root) {
+        tipo = (root.getAttribute('data-tipo') || '').toLowerCase();
+        id = root.getAttribute('data-id') || '';
+      }
+      if (!tipo || !id) {
+        if (!Array.isArray(parts) || parts.length < 3) return;
+        tipo = parts[1];
+        id = parts[2];
+      }
+      const url = `/api/export/ficha?tipo=${encodeURIComponent(tipo)}&id=${encodeURIComponent(id)}`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.rel = 'noopener noreferrer';
+      a.target = '_blank';
+      a.click();
+    } catch {}
+  }
 
   const closePanel = () => {
     const params = new URLSearchParams(search?.toString() || '');
@@ -215,6 +238,15 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
     };
   }, [isResizingPanel]);
 
+  // Export mode (from=export): render only the page content (children), no sidebar/header/ctas
+  if (exportMode && isExpandedCadastro) {
+    return (
+      <main className="w-full min-h-screen">
+        {children}
+      </main>
+    );
+  }
+
   return (
     <RouteBg>
       <SidebarProvider open={open} setOpen={setOpen}>
@@ -249,7 +281,8 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                     </div>
                     {isExpandedCadastro && (
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Baixar PDF</button>
+                        <button onClick={() => onExportPdf(parts)} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Exportar PDF</button>
+                        <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Imprimir/Salvar</button>
                       </div>
                     )}
                   </div>

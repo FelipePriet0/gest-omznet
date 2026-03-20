@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { addComment } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
-import { CalendarReady } from "@/components/ui/calendar-ready";
-import { Search } from "lucide-react";
+import { DateSingleKanbanPopover } from "@/components/ui/date-single-kanban-popover";
+import { Search, Clock } from "lucide-react";
 import { TABLE_PROFILES, TABLE_CARD_COMMENTS } from "@/lib/constants";
 import {
   DEFAULT_TIMEZONE,
@@ -26,6 +26,73 @@ function clampWidth(value: number) {
 }
 
 type ProfileLite = { id: string; full_name: string; role?: string | null };
+
+// ── Styled time popover para tarefas ──────────────────────────────────────
+const TASK_TIME_OPTIONS = [
+  "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
+  "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
+  "17:00", "17:30", "18:00",
+];
+
+function TaskTimePopover({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <label className="mb-1 block text-xs text-zinc-600">Horário (08:00–18:00)</label>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((v) => !v)}
+        className={`flex w-full items-center justify-between border border-zinc-300 bg-white text-left text-sm text-zinc-900 shadow-sm outline-none transition h-10 rounded-lg px-3 py-2 focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 ${disabled ? "cursor-not-allowed opacity-60 bg-zinc-100 text-zinc-400" : ""}`}
+      >
+        <span className="truncate">{value || "Selecionar horário"}</span>
+        <Clock className="h-4 w-4 text-zinc-500" />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full max-h-52 overflow-auto rounded-xl border border-zinc-200 bg-white shadow-lg p-1">
+          {TASK_TIME_OPTIONS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {
+                const normalized = clampToBusinessWindow(t);
+                onChange(normalized);
+                setOpen(false);
+              }}
+              className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors ${
+                value === t
+                  ? "bg-emerald-50 text-emerald-700 font-medium"
+                  : "text-zinc-700 hover:bg-zinc-50"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export type TaskDrawerProps = {
   open: boolean;
@@ -460,9 +527,9 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
             <textarea value={desc} onChange={(e)=> setDesc(e.target.value)} rows={4} placeholder="Ex.: Reagendar instalação para o dia 12/10 às 14h." className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500" />
           </section>
           <section className="rounded-lg bg-white p-4">
-            <div className="text-sm font-semibold text-zinc-800 mb-2">Prazo</div>
+            <div className="text-sm font-semibold text-zinc-800 mb-2">Prazo da Tarefa</div>
             <div className="space-y-3">
-              <CalendarReady
+              <DateSingleKanbanPopover
                 label="Data"
                 value={deadlineDate || undefined}
                 onChange={(value) => {
@@ -473,28 +540,13 @@ export function TaskDrawer({ open, onClose, cardId, commentId, taskId, source = 
                   }
                 }}
                 disablePast
+                triggerClassName="h-10 rounded-lg px-3 py-2"
               />
-              <div>
-                <label className="mb-1 block text-xs text-zinc-600">Horário (08:00–18:00)</label>
-                <input
-                  type="time"
-                  value={deadlineTime}
-                  min="08:00"
-                  max="18:00"
-                  step={1800}
-                  disabled={!deadlineDate}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    if (!raw) {
-                      setDeadlineTime("");
-                      return;
-                    }
-                    const normalized = clampToBusinessWindow(raw);
-                    setDeadlineTime(normalized);
-                  }}
-                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-zinc-100 disabled:text-zinc-400"
-                />
-              </div>
+              <TaskTimePopover
+                value={deadlineTime}
+                onChange={(v) => setDeadlineTime(v)}
+                disabled={!deadlineDate}
+              />
             </div>
           </section>
         </div>

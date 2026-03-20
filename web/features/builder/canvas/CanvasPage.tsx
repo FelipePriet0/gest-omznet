@@ -98,6 +98,34 @@ export function CanvasPage() {
   const state = history.present;
   const savingRef = useRef(false);
 
+  // Helper: robust error logger to avoid printing empty objects
+  function logError(prefix: string, err: any) {
+    try {
+      const e: any = err;
+      const base = {
+        message: e?.message ?? undefined,
+        code: e?.code ?? undefined,
+        details: e?.details ?? undefined,
+        hint: e?.hint ?? undefined,
+        status: e?.status ?? undefined,
+      } as Record<string, any>;
+      // Also include own non-enumerable props from Error
+      try {
+        const own: Record<string, any> = {};
+        for (const k of Object.getOwnPropertyNames(e || {})) {
+          if (typeof own[k] === 'undefined') own[k] = e[k];
+        }
+        Object.assign(base, own);
+      } catch {}
+      const summary = (() => {
+        try { return JSON.stringify(base, (_k, v) => (v instanceof Error ? (v.message || String(v)) : v)); } catch { return String(e); }
+      })();
+      console.error(`${prefix} ${summary}`);
+    } catch {
+      try { console.error(prefix, String(err)); } catch { console.error(prefix); }
+    }
+  }
+
   const selectedNode = state.selectedNodeId ? state.nodes.find((n) => n.id === state.selectedNodeId) ?? null : null;
   const routeRankForSelected = useMemo(() => {
     if (!selectedNode || selectedNode.type !== 'route') return null;
@@ -160,7 +188,7 @@ export function CanvasPage() {
           try { router.replace(`/builder/canvas?id=${wf.id}`); } catch {}
         }
       } catch (err) {
-        console.error('[Canvas] saveNow: saveWorkflow failed', err);
+        logError('[Canvas] saveNow: saveWorkflow failed', err);
       } finally {
         savingRef.current = false;
       }

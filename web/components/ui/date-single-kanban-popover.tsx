@@ -16,9 +16,10 @@ type DateSingleKanbanPopoverProps = {
   placeholder?: string;
   disabled?: boolean;
   disablePast?: boolean;
+  triggerClassName?: string;
 };
 
-export function DateSingleKanbanPopover({ label, value, onChange, placeholder, disabled, disablePast }: DateSingleKanbanPopoverProps) {
+export function DateSingleKanbanPopover({ label, value, onChange, placeholder, disabled, disablePast, triggerClassName }: DateSingleKanbanPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const selectedDate = React.useMemo(() => parseDateOnly(value), [value]);
   const formatted = React.useMemo(() => (selectedDate ? format(selectedDate, "dd/MM/yyyy") : (placeholder || "Selecionar data")), [selectedDate, placeholder]);
@@ -32,9 +33,10 @@ export function DateSingleKanbanPopover({ label, value, onChange, placeholder, d
             type="button"
             disabled={disabled}
             className={cn(
-              "mt-1 flex h-12 w-full items-center justify-between rounded-lg border border-zinc-300 bg-white px-5 py-3 text-left text-sm text-zinc-900 shadow-sm outline-none transition",
+              "mt-1 flex w-full items-center justify-between border border-zinc-300 bg-white text-left text-sm text-zinc-900 shadow-sm outline-none transition",
               "focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20",
-              disabled && "cursor-not-allowed opacity-60"
+              disabled && "cursor-not-allowed opacity-60",
+              triggerClassName || "h-12 rounded-lg px-5 py-3"
             )}
           >
             <span className="truncate">{formatted}</span>

@@ -5,7 +5,7 @@ import { ptBR } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { KanbanSingleCalendar } from "@/components/app/kanban-single-calendar";
 
-export function DateNavigator({ dateISO, onPrev, onNext, onPick }: { dateISO: string; onPrev: () => void; onNext: () => void; onPick: (value: string) => void }) {
+export function DateNavigator({ dateISO, onPrev, onNext, onPick, highlight = false }: { dateISO: string; onPrev: () => void; onNext: () => void; onPick: (value: string) => void; highlight?: boolean }) {
   const date = new Date(dateISO + "T00:00:00");
   const label = format(date, "EEEE, dd 'de' MMMM yyyy", { locale: ptBR });
   return (
@@ -15,7 +15,10 @@ export function DateNavigator({ dateISO, onPrev, onNext, onPick }: { dateISO: st
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="px-2 py-1 text-[var(--verde-primario)] text-sm font-bold rounded-md select-none transition hover:bg-[var(--verde-primario)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+            className={[
+              "px-2 py-1 text-sm font-bold rounded-md select-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400",
+              highlight ? "animate-pulse bg-[var(--verde-primario)] text-white" : "text-[var(--verde-primario)] hover:bg-[var(--verde-primario)] hover:text-white",
+            ].join(" ")}
           >
             {label}
           </button>

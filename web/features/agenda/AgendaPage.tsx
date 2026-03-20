@@ -58,6 +58,7 @@ export function AgendaPage() {
   const [query, setQuery]               = useState<string>("");
   const [globalSearchCards, setGlobalSearchCards] = useState<ScheduleCard[]>([]);
   const [isSearching, setIsSearching]   = useState(false);
+  const [highlightDate, setHighlightDate] = useState(false);
 
   // Busca global debounced quando query muda
   useEffect(() => {
@@ -72,6 +73,15 @@ export function AgendaPage() {
       try {
         const results = await searchAgendaCardsGlobal(term);
         setGlobalSearchCards(results as any);
+        // Se houver resultados, navegar para a data do primeiro item
+        const first = (results || [])[0];
+        if (first && first.date && first.date !== dateISO) {
+          setDateISO(first.date);
+          await reload(first.date);
+          // pulso visual na data para indicar mudança
+          setHighlightDate(true);
+          setTimeout(() => setHighlightDate(false), 1200);
+        }
       } catch (e) {
         console.error("Busca global falhou", e);
         setGlobalSearchCards([]);
@@ -274,8 +284,8 @@ export function AgendaPage() {
   // ── Filtros ──────────────────────────────────────────────────────────────
   const isGlobalSearch = (query || "").trim().length > 0;
   const filteredCards = useMemo(() => {
-    // Se há busca ativa, usar resultados globais (todas as datas)
-    let list = isGlobalSearch ? (globalSearchCards as any[]) : (cards as any[]);
+    // Sempre mostrar os cards do dia carregado; busca global só navega de data
+    let list = cards as any[];
     if (stageFilters.length > 0) {
       list = list.filter((c) => {
         const area = String(((c as any).area  || '')).toLowerCase();
@@ -290,7 +300,7 @@ export function AgendaPage() {
       });
     }
     return list as ScheduleCard[];
-  }, [cards, globalSearchCards, isGlobalSearch, stageFilters]);
+  }, [cards, stageFilters]);
 
   // Label do filtro ativo (para o chip)
   const activeFilterLabels = useMemo(() => {
@@ -397,6 +407,7 @@ export function AgendaPage() {
               onPrev={() => handleChangeDay(-1)}
               onNext={() => handleChangeDay(1)}
               onPick={(v) => { setDateISO(v); reload(v); }}
+              highlight={highlightDate}
             />
 
             {/* CTA Adicionar linha — estilo igual "Nova ficha" em /kanban */}
@@ -435,7 +446,8 @@ export function AgendaPage() {
             slots={slots}
             cards={filteredCards}
             freeRows={freeRows}
-            canEdit={canEdit}
+            // Desabilita edição durante busca global para evitar mover entre datas
+            canEdit={canEdit && !isGlobalSearch}
             onDeleteFreeRow={handleDeleteFreeRow}
             onUpdate={async (id, patch) => {
               try {

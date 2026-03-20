@@ -47,7 +47,7 @@ function distributeNullCards(
 
     const key = `${targetRowId}::${card.time_slot}`;
     const arr = map.get(key) || [];
-    arr.push(card);
+    if (arr.length === 0) arr.push(card);
     map.set(key, arr);
   }
   return map;
@@ -107,7 +107,8 @@ export function AgendaGrid({
       if (!c.technician_id) continue;
       const key = `${c.technician_id}::${c.time_slot}`;
       const arr = map.get(key) || [];
-      arr.push(c);
+      // Garante apenas 1 card por slot
+      if (arr.length === 0) arr.push(c);
       map.set(key, arr);
     }
     return map;
@@ -158,7 +159,8 @@ export function AgendaGrid({
         >
           <CellDroppable id={getCellId(slot)}>
             <div className="flex flex-col gap-1">
-              {items.map((c) => (
+              {/* Renderiza no máximo 1 card por slot */}
+              {items.slice(0, 1).map((c) => (
                 <AgendaCard
                   key={c.id}
                   card={c}
