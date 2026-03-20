@@ -251,12 +251,12 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
     <RouteBg>
       <SidebarProvider open={open} setOpen={setOpen}>
         <InboxProvider panelOpen={isInboxPanel}>
-          <div className="text-zinc-900 min-h-screen" style={{ backgroundColor: '#000000' }}>
+          <div className="text-zinc-900 min-h-screen h-screen overflow-hidden" style={{ backgroundColor: '#000000' }}>
             <Sidebar open={open} setOpen={setOpen}>
               <AppSidebar />
             </Sidebar>
             <div
-              className="flex flex-1 flex-col gap-3 transition-all duration-300 ease-in-out md:flex-row"
+              className="flex flex-1 flex-col gap-3 transition-all duration-300 ease-in-out md:flex-row min-h-0 overflow-hidden"
               style={{
                 marginLeft: isDesktop ? `${open ? 300 : 60}px` : "0px",
                 paddingTop: pageGutter,
