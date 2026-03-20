@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import { MoreHorizontal, User as UserIcon } from "lucide-react";
+import { MoreHorizontal, User as UserIcon, Search } from "lucide-react";
 import clsx from "clsx";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
+import MentionDropdown from "@/components/mentions/MentionDropdown";
 import { TaskCard } from "@/features/tasks/TaskCard";
 import type { CardTask } from "@/features/tasks/services";
 import type { ProfileLite } from "@/features/comments/services";
@@ -211,6 +212,14 @@ function NoteItem({
   const [editValue, setEditValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [editCmdOpen, setEditCmdOpen] = useState(false);
   const [editCmdQuery, setEditCmdQuery] = useState("");
+  // Mention state for reply composer
+  const [replyMentionOpen, setReplyMentionOpen] = useState(false);
+  const [replyMentionFilter, setReplyMentionFilter] = useState("");
+  const [replyMentionAnchor, setReplyMentionAnchor] = useState<{top:number;left:number;height:number}|null>(null);
+  // Mention state for edit composer
+  const [editMentionOpen, setEditMentionOpen] = useState(false);
+  const [editMentionFilter, setEditMentionFilter] = useState("");
+  const [editMentionAnchor, setEditMentionAnchor] = useState<{top:number;left:number;height:number}|null>(null);
   const canReply = !!canWrite;
   const canEdit = !!canWrite && currentUserId && node.author_id && currentUserId === node.author_id;
   const canDelete = !!currentUserId && node.author_id && currentUserId === node.author_id;
@@ -372,6 +381,25 @@ function NoteItem({
               disabled={!canEdit}
               placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
               richText
+              onAcceptMention={(query) => {
+                const list = profiles.filter((p) => p.id !== currentUserId && (p.full_name || '').toLowerCase().includes((query || '').toLowerCase()));
+                if (list.length === 1) {
+                  editComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
+                  setEditMentionOpen(false);
+                  setEditMentionFilter('');
+                  return true;
+                }
+                return false;
+              }}
+              onAcceptCommand={(query) => {
+                const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
+                if (opts.length === 1) {
+                  editComposerRef.current?.setDecision(opts[0] as any);
+                  setEditCmdOpen(false); setEditCmdQuery('');
+                  return true;
+                }
+                return false;
+              }}
               onChange={(val) => { setEditValue(val); onTypingChange?.(true); }}
               onSubmit={
                 !canEdit
@@ -407,11 +435,34 @@ function NoteItem({
                       setEditCmdOpen(true);
                     }
               }
+              onMentionTrigger={(query, rect) => {
+                setEditMentionFilter((query || '').trim());
+                if (rect && editRef.current) {
+                  const host = editRef.current.getBoundingClientRect();
+                  const top = (rect.bottom ?? (rect.top + (rect.height||0))) - host.top;
+                  const left = (rect.left ?? host.left) - host.left;
+                  setEditMentionAnchor({ top, left, height: rect.height });
+                }
+                setEditMentionOpen(true);
+              }}
+              onMentionClose={() => setEditMentionOpen(false)}
               onCommandClose={() => {
                 setEditCmdOpen(false);
                 setEditCmdQuery("");
               }}
             />
+            {editMentionOpen && (
+              <div className="absolute z-50" style={{ left: Math.max(0, (editMentionAnchor?.left||0)), top: Math.max(0, (editMentionAnchor?.top||0)) }}>
+                <MentionDropdown
+                  items={profiles.filter((p) => p.id !== currentUserId && p.full_name.toLowerCase().includes(editMentionFilter.toLowerCase()))}
+                  onPick={(p) => {
+                    editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
+                    setEditMentionOpen(false);
+                    setEditMentionFilter("");
+                  }}
+                />
+              </div>
+            )}
             {canEdit && editCmdOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <CmdDropdown
@@ -463,6 +514,25 @@ function NoteItem({
               ref={replyComposerRef}
               placeholder="Responder… Use @ para mencionar e / para decisões"
               richText
+              onAcceptMention={(query) => {
+                const list = profiles.filter((p) => p.id !== currentUserId && (p.full_name || '').toLowerCase().includes((query || '').toLowerCase()));
+                if (list.length === 1) {
+                  replyComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
+                  setReplyMentionOpen(false);
+                  setReplyMentionFilter('');
+                  return true;
+                }
+                return false;
+              }}
+              onAcceptCommand={(query) => {
+                const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
+                if (opts.length === 1) {
+                  replyComposerRef.current?.setDecision(opts[0] as any);
+                  setCmdOpen(false); setCmdQuery('');
+                  return true;
+                }
+                return false;
+              }}
               onChange={(val) => { setReplyValue(val); onTypingChange?.(true); }}
               onSubmit={async (val) => {
                 const txt = (val.text || "").trim();
@@ -493,11 +563,34 @@ function NoteItem({
                 setCmdQuery(query.toLowerCase());
                 setCmdOpen(true);
               }}
+              onMentionTrigger={(query, rect) => {
+                setReplyMentionFilter((query || '').trim());
+                if (rect && replyRef.current) {
+                  const host = replyRef.current.getBoundingClientRect();
+                  const top = (rect.bottom ?? (rect.top + (rect.height||0))) - host.top;
+                  const left = (rect.left ?? host.left) - host.left;
+                  setReplyMentionAnchor({ top, left, height: rect.height });
+                }
+                setReplyMentionOpen(true);
+              }}
+              onMentionClose={() => setReplyMentionOpen(false)}
               onCommandClose={() => {
                 setCmdOpen(false);
                 setCmdQuery("");
               }}
             />
+            {replyMentionOpen && (
+              <div className="absolute z-50" style={{ left: Math.max(0, (replyMentionAnchor?.left||0)), top: Math.max(0, (replyMentionAnchor?.top||0)) }}>
+                <MentionDropdown
+                  items={profiles.filter((p) => p.id !== currentUserId && p.full_name.toLowerCase().includes(replyMentionFilter.toLowerCase()))}
+                  onPick={(p) => {
+                    replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
+                    setReplyMentionOpen(false);
+                    setReplyMentionFilter("");
+                  }}
+                />
+              </div>
+            )}
             {cmdOpen && (
               <div className="absolute z-50 left-0 bottom-full mb-2">
                 <CmdDropdown
@@ -549,6 +642,8 @@ function NoteItem({
     </div>
   );
 }
+
+// MentionDropdown now shared in @/components/mentions/MentionDropdown
 
 function ParecerMenu({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () => void | Promise<void> }) {
   if (!onEdit && !onDelete) return null;

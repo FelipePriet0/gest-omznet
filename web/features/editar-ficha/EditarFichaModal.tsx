@@ -14,6 +14,7 @@ import Attach from "@/features/attachments/upload";
 import { DateSingleKanbanPopover } from "@/components/ui/date-single-kanban-popover";
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
+import MentionDropdown from "@/components/mentions/MentionDropdown";
 import { type ProfileLite } from "@/features/comments/services";
 import { useSidebar } from "@/components/ui/sidebar";
 import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts, localDateTimeToUtcISO } from "@/lib/datetime";
@@ -115,6 +116,11 @@ export function EditarFichaModal({
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
   const composerRef = useRef<UnifiedComposerHandle | null>(null);
+  // Menções no Parecer (composer principal)
+  const parecerComposerContainerRef = useRef<HTMLDivElement | null>(null);
+  const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
+  const [mentionFilterParecer, setMentionFilterParecer] = useState("");
+  const [mentionAnchorParecer, setMentionAnchorParecer] = useState<{ top: number; left: number; height?: number }>({ top: 0, left: 0, height: 0 });
   // KISS: notas otimistas simples (somente criação), limpas ao sincronizar com backend
   const [optimisticNotes, setOptimisticNotes] = useState<any[]>([]);
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
@@ -461,6 +467,11 @@ export function EditarFichaModal({
     })();
     return () => { active = false; };
   }, [open, applicantId, cardId, applyAppSnapshot, applyCardSnapshot]);
+
+  // Mantém os perfis sincronizados com o hook (corrige lista vazia em @menções)
+  useEffect(() => {
+    setProfiles(data.profiles || []);
+  }, [data.profiles]);
 
   // Ao fechar (ou trocar de ficha), permite nova inicialização na próxima abertura
   useEffect(() => {
@@ -840,17 +851,49 @@ export function EditarFichaModal({
               
               {/* Content Area - Yellow Box */}
               <div className="section-content">
-                <div className="mb-3 relative">
+                <div className="mb-3 relative" ref={parecerComposerContainerRef}>
                   <UnifiedComposer
                     ref={composerRef}
                     disabled={!canWriteParecer}
                     placeholder="Escreva um novo parecer… Use @ para mencionar"
                     richText
+                    onAcceptMention={(query) => {
+                      if (!canWriteParecer) return false;
+                      const list = (profiles || []).filter((p) => p.id !== currentUserId && (p.full_name || '').toLowerCase().includes((query||'').toLowerCase()))
+                      if (list.length === 1) {
+                        composerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
+                        setMentionOpenParecer(false);
+                        setMentionFilterParecer('');
+                        return true;
+                      }
+                      return false;
+                    }}
+                    onAcceptCommand={(query) => {
+                      if (!canWriteParecer) return false;
+                      const items = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
+                      if (items.length === 1) {
+                        composerRef.current?.setDecision(items[0] as any);
+                        setCmdOpenParecer(false); setCmdQueryParecer('');
+                        return true;
+                      }
+                      return false;
+                    }}
                     onChange={(val)=> {
                       setNovoParecer(val);
                       // Persist only the minimal draft payload
                       setParecerDraft({ text: val.text ?? "", decision: val.decision ?? null });
                     }}
+                    onMentionTrigger={!canWriteParecer ? undefined : (query, rect) => {
+                      setMentionFilterParecer((query || '').trim());
+                      if (rect && parecerComposerContainerRef.current) {
+                        const host = parecerComposerContainerRef.current.getBoundingClientRect();
+                        const top = (rect.bottom ?? (rect.top + (rect.height || 0))) - host.top;
+                        const left = (rect.left ?? host.left) - host.left;
+                        setMentionAnchorParecer({ top, left, height: rect.height });
+                      }
+                      setMentionOpenParecer(true);
+                    }}
+                    onMentionClose={() => setMentionOpenParecer(false)}
                     onSubmit={!canWriteParecer ? undefined : async (val)=> {
                       const txt = (val.text || '').trim();
                       const hasDecision = !!val.decision;
@@ -913,7 +956,19 @@ export function EditarFichaModal({
                       setCmdQueryParecer("");
                     }}
                   />
-                  {/* Menções desativadas em Parecer */}
+                  {/* Menções no Parecer */}
+                  {canWriteParecer && mentionOpenParecer && (
+                    <div className="absolute z-50" style={{ left: Math.max(0, (mentionAnchorParecer?.left || 0)), top: Math.max(0, (mentionAnchorParecer?.top || 0)) }}>
+                      <MentionDropdown
+                        items={(profiles || []).filter((p) => p.id !== currentUserId && (p.full_name || '').toLowerCase().includes(mentionFilterParecer.toLowerCase()))}
+                        onPick={(p) => {
+                          composerRef.current?.insertMention({ id: p.id, label: p.full_name });
+                          setMentionOpenParecer(false);
+                          setMentionFilterParecer("");
+                        }}
+                      />
+                    </div>
+                  )}
                   {canWriteParecer && cmdOpenParecer && (
                     <div className="absolute z-50 left-0 bottom-full mb-2">
                       <CmdDropdown
@@ -1476,3 +1531,5 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
 // Utilitário local para obter a posição do caret no textarea
 // MentionDropdownParecer removido: menções desativadas no Parecer
 */
+
+// MentionDropdown now shared in @/components/mentions/MentionDropdown

@@ -9,6 +9,7 @@ import { Textarea as UITTextarea } from "@/components/ui/textarea";
 import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { listProfiles, type ProfileLite } from "@/features/comments/services";
+import MentionDropdown from "@/components/mentions/MentionDropdown";
 import { useIndexedDraft } from "@/hooks/useIndexedDraft";
 import { saveDraft, getDraft, deleteDraft } from "@/lib/drafts";
 import { getAttachmentUrl, publicUrl } from "@/features/attachments/services";
@@ -1342,7 +1343,7 @@ export default function CadastroPFPage() {
               />
               {mentionOpenParecer && (
                 <div className="absolute z-50" style={{ left: Math.max(0, (mentionAnchorParecer?.left||0)), top: Math.max(0, (mentionAnchorParecer?.top||0)) }}>
-                  <MentionDropdownParecer
+                  <MentionDropdown
                     items={profiles.filter((p)=> p.id !== currentUserId && (p.full_name||'').toLowerCase().includes(mentionFilterParecer.toLowerCase()))}
                     onPick={(p)=> {
                       parecerComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
@@ -1629,29 +1630,7 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
   );
 }
 
-function MentionDropdownParecer({ items, onPick }: { items: ProfileLite[]; onPick: (p: ProfileLite) => void }) {
-  const [q, setQ] = useState("");
-  const filtered = items.filter((p) => (p.full_name||'').toLowerCase().includes(q.toLowerCase()));
-  return (
-    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
-        <Search className="w-4 h-4 text-zinc-500" />
-        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar pessoas…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
-      </div>
-      {filtered.length === 0 ? (
-        <div className="px-3 py-2 text-zinc-500">Sem resultados</div>
-      ) : (
-        <div className="py-1">
-          {filtered.map((p) => (
-            <button key={p.id} onClick={()=> onPick(p)} className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-zinc-50">
-              <span>{p.full_name}{p.role ? ` (${p.role})` : ''}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+// MentionDropdownParecer consolidated into shared MentionDropdown
 
 type Note = { id: string; text: string; decision?: ComposerDecision | string | null; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
 function buildTree(notes: Note[]): Note[] {
@@ -1932,7 +1911,7 @@ function PareceresList({
               />
               {editMentionOpen && (
                 <div className="absolute z-50 left-0 bottom-full mb-2">
-                <MentionDropdownParecer
+                <MentionDropdown
                   items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(editMentionFilter.toLowerCase()))}
                   onPick={(p) => {
                       editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
@@ -2010,7 +1989,7 @@ function PareceresList({
               />
               {mentionOpenReply && (
                 <div className="absolute z-50 left-0 bottom-full mb-2">
-                <MentionDropdownParecer
+                <MentionDropdown
                   items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(mentionFilterReply.toLowerCase()))}
                   onPick={(p) => {
                       replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });

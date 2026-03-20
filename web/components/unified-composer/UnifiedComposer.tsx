@@ -41,6 +41,9 @@ type UnifiedComposerProps = {
   onMentionClose?: () => void;
   onCommandTrigger?: (query: string, rect: DOMRect | null) => void;
   onCommandClose?: () => void;
+  // When user presses Enter with an open popover, allow parent to accept the unique item
+  onAcceptCommand?: (query: string) => boolean | Promise<boolean>;
+  onAcceptMention?: (query: string) => boolean | Promise<boolean>;
 };
 
 const DEFAULT_VALUE: ComposerValue = {
@@ -478,11 +481,47 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       }
     }
 
-    function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    async function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
       if (disabled) return;
 
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
+        // 1) Se há query de menção ativa e o pai aceitar, não submeter
+        const root = rootRef.current;
+        if (root) {
+          const preceding = getPrecedingText(root);
+          // Fallback interno: aceitar decisões comuns quando único match (/apro, /nega, /rean)
+          try {
+            const cmd = preceding.match(/\/([\w]*)$/);
+            if (cmd) {
+              const q = (cmd[1] || '').toLowerCase();
+              const DECISIONS = ['aprovado','negado','reanalise'];
+              const found = DECISIONS.filter(k => k.includes(q));
+              if (found.length === 1) {
+                const decision = found[0] as ComposerDecision;
+                // Limpa o sufixo '/...'
+                let cleanText = valueState.text.replace(/\s*\/[\w]*$/, '').trimEnd();
+                const next: ComposerValue = { decision, text: cleanText, mentions: cloneMentions(valueState.mentions) };
+                setValueState(next);
+                applyStateToDOM(next);
+                onCommandClose?.();
+                return; // Não submete
+              }
+            }
+          } catch {}
+          const mentionMatch = preceding.match(/@([\w\s]*)$/);
+          if (mentionMatch && onAcceptMention) {
+            const accepted = await onAcceptMention((mentionMatch[1] || '').trim());
+            if (accepted) return; // Inseriu chip de menção; não submete
+          }
+          // 2) Se há query de comando ativa e o pai aceitar, não submeter
+          const commandMatch = preceding.match(/\/([\w]*)$/);
+          if (commandMatch && onAcceptCommand) {
+            const accepted = await onAcceptCommand((commandMatch[1] || '').trim().toLowerCase());
+            if (accepted) return; // Aplicou comando; não submete
+          }
+        }
+        // 3) Sem popovers aceitos: submeter normalmente
         const val = getCurrentValue();
         const hasDecision = !!val.decision;
         const hasText = val.text.trim().length > 0;

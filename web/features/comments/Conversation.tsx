@@ -9,6 +9,7 @@ import { TaskCard } from "@/features/tasks/TaskCard";
 import { listAttachments, removeAttachment, getAttachmentUrl, type CardAttachment } from "@/features/attachments/services";
 import { TABLE_CARD_ATTACHMENTS } from "@/lib/constants";
 import { UnifiedComposer, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
+import MentionDropdown from "@/components/mentions/MentionDropdown";
 import { renderTextWithChips } from "@/utils/richText";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ModalPreview, type PreviewTarget } from "@/components/ui/modal-preview";
@@ -448,6 +449,28 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                 ref={inputRef}
                 placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
                 richText
+                onAcceptMention={(query) => {
+                  const list = profiles.filter((p) => p.id !== currentUserId && (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
+                  if (list.length === 1) {
+                    inputRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
+                    setMentionOpen(false);
+                    setMentionFilter('');
+                    return true;
+                  }
+                  return false;
+                }}
+                onAcceptCommand={(query) => {
+                  const q = (query||'').toLowerCase();
+                  const candidates = ['tarefa','anexo'].filter(k => k.includes(q));
+                  if (candidates.length === 1) {
+                    const key = candidates[0];
+                    if (key === 'tarefa') onOpenTask();
+                    if (key === 'anexo') onOpenAttach();
+                    setCmdOpen(false); setCmdQuery('');
+                    return true;
+                  }
+                  return false;
+                }}
                 onChange={(val)=> setInput(val.text || "")}
                 onSubmit={async (val: ComposerValue)=>{
                   try {
@@ -668,47 +691,7 @@ function buildTree(notes: Comment[]): any[] {
   return roots as any;
 }
 
-function MentionDropdown({ items, onPick }: { items: ProfileLite[]; onPick: (p: ProfileLite) => void }) {
-  const [q, setQ] = useState("");
-  const filtered = items.filter((p) => p.full_name.toLowerCase().includes(q.toLowerCase()));
-  const order: Array<{key: string; label: string}> = [
-    { key: 'vendedor', label: 'Vendedor' },
-    { key: 'analista', label: 'Analista' },
-    { key: 'gestor',   label: 'Gestor' },
-  ];
-  const byRole = (role: string) => filtered.filter((p) => (p.role || '').toLowerCase() === role);
-  const hasAny = order.some(({key}) => byRole(key).length > 0);
-  return (
-    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
-        <Search className="w-4 h-4 text-zinc-500" />
-        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar pessoas…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
-      </div>
-      {!hasAny ? (
-        <div className="px-3 py-2 text-zinc-500">Sem resultados</div>
-      ) : (
-        order.map(({key,label}) => {
-          const list = byRole(key);
-          if (list.length === 0) return null;
-          return (
-            <div key={key} className="py-1">
-              <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">{label}</div>
-              {list.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => onPick(p)}
-                  className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left"
-                >
-                  <span>{p.full_name}{p.role ? ` (${p.role})` : ''}</span>
-                </button>
-              ))}
-            </div>
-          );
-        })
-      )}
-    </div>
-  );
-}
+// MentionDropdown now shared in @/components/mentions/MentionDropdown
 
 function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void; initialQuery?: string }) {
   const [q, setQ] = useState(initialQuery || "");
