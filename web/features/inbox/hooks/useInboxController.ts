@@ -5,237 +5,219 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { listInbox } from "@/features/inbox/services";
 import type { InboxItem, NotificationType } from "@/features/inbox/types";
 
+const HIDDEN_TYPES: NotificationType[] = ["ass_app", "fichas_atrasadas"];
+
+// ── Polling intervals ──────────────────────────────────────────────────────
+const POLL_ACTIVE = 3_000; // 3s quando drawer aberto
+const POLL_BG = 6_000; // 6s quando drawer fechado
+const RT_DEBOUNCE = 400; // debounce para eventos do realtime
+
 export function useInboxController(panelOpen: boolean) {
   const [items, setItems] = useState<InboxItem[]>([]);
-  const [uid, setUid] = useState<string | null>(null);
   const mountedRef = useRef(true);
-  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastRefreshRef = useRef<number>(0);
-  const HIDDEN_TYPES: NotificationType[] = ["ass_app", "fichas_atrasadas"];
+  const rtDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const unread = useMemo(
-    () => items.filter((i) => !i.read_at && !HIDDEN_TYPES.includes(i.type as NotificationType)).length,
-    [items]
-  );
+  // Helper: apply realtime payload immediately for instant UX feedback
+  const mergeRealtime = useCallback((payload: any) => {
+    try {
+      const type = payload?.eventType;
+      const row = payload?.new ?? null;
+      const oldRow = payload?.old ?? null;
+      if (!type) return;
 
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
-      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-    };
+      setItems((prev) => {
+        if (type === 'INSERT' && row) {
+          // Prepend if not already present
+          if (prev.some((i) => i.id === row.id)) return prev;
+          const nextItem = {
+            id: row.id,
+            user_id: row.user_id,
+            type: row.type,
+            priority: row.priority ?? null,
+            author_name: row.author_name ?? null,
+            primary_name: row.primary_name ?? null,
+            content: row.content ?? null,
+            title: row.title ?? null,
+            body: row.body ?? null,
+            meta: row.meta ?? null,
+            card_id: row.card_id ?? null,
+            comment_id: row.comment_id ?? null,
+            link_url: row.link_url ?? null,
+            expires_at: row.expires_at ?? null,
+            read_at: row.read_at ?? null,
+            created_at: row.created_at ?? null,
+            applicant_id: row.applicant_id ?? null,
+          } as any;
+          return [nextItem, ...prev];
+        }
+        if (type === 'UPDATE' && row) {
+          return prev.map((i) => (i.id === row.id ? { ...i, ...row } : i));
+        }
+        if (type === 'DELETE' && oldRow) {
+          return prev.filter((i) => i.id !== oldRow.id);
+        }
+        return prev;
+      });
+    } catch {}
   }, []);
 
-  const refreshRef = useRef<((force?: boolean) => Promise<void>) | null>(null);
-  const panelOpenRef = useRef(panelOpen);
-  
-  // Atualizar ref sempre que panelOpen mudar
-  useEffect(() => {
-    panelOpenRef.current = panelOpen;
-  }, [panelOpen]);
-  
-  const refresh = useCallback(async (force = false) => {
-    if (!mountedRef.current) return;
-    
-    // Throttle: não refresh mais de uma vez a cada Xms (exceto se forçado)
-    // Quando drawer está aberto, throttle reduzido para 200ms
-    const throttleMs = panelOpenRef.current ? 200 : 500;
-    const now = Date.now();
-    if (!force && now - lastRefreshRef.current < throttleMs) {
-      return;
-    }
-    lastRefreshRef.current = now;
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
+  const unread = useMemo(
+    () =>
+      items.filter(
+        (i) =>
+          !i.read_at &&
+          !HIDDEN_TYPES.includes(i.type as NotificationType),
+      ).length,
+    [items],
+  );
+
+  // ── Core refresh ───────────────────────────────────────────────────────
+  // Não depende de uid — o RPC usa auth.uid() server-side.
+  // Se não há sessão ativa, o RPC retorna vazio (sem erro).
+  const refresh = useCallback(async () => {
+    if (!mountedRef.current || !isSupabaseConfigured) return;
     try {
       const next = await listInbox();
-      if (mountedRef.current) {
-        setItems(next);
-      }
-    } catch (err) {
-      console.error('Failed to refresh inbox:', err);
+      if (mountedRef.current) setItems(next);
+    } catch {
+      // listInbox já loga o warning internamente
     }
-  }, []); // Sem dependências - usa refs para valores atuais
+  }, []);
 
-  // Atualizar ref sempre que refresh mudar
+  // ── Fetch inicial ────────────────────────────────────────────────────
   useEffect(() => {
-    refreshRef.current = refresh;
-  }, [refresh]);
-
-  // Carregamento inicial
-  useEffect(() => {
-    let active = true;
+    let removed = false;
     (async () => {
       try {
-        if (!isSupabaseConfigured || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-          if (!active) return;
-          setUid(null);
-          setItems([]);
-          return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (removed) return;
+        if (session?.user?.id) {
+          void refresh();
         }
-        const { data } = await supabase.auth.getUser();
-        if (!active) return;
-        const userId = data.user?.id ?? null;
-        setUid(userId);
-        if (userId && refreshRef.current) {
-          await refreshRef.current(true); // Força refresh inicial
-        } else {
-          setItems([]);
-        }
-      } catch (err) {
-        console.error('Failed to initialize inbox:', err);
-      }
+      } catch {}
     })();
-    return () => {
-      active = false;
-    };
-  }, []); // Executar apenas uma vez no mount
 
-  // Realtime subscription com debounce
-  useEffect(() => {
-    if (!uid) return;
-    if (!isSupabaseConfigured || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
-    
-    let channelRemoved = false;
-    const channelName = `inbox-${uid}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        { 
-          event: "*", 
-          schema: "public", 
-          table: "inbox_notifications", 
-          filter: `user_id=eq.${uid}` 
-        },
-        (payload) => {
-          if (channelRemoved) return;
-          // Debounce: aguarda 200ms antes de refresh para evitar múltiplos refreshes
-          if (refreshTimeoutRef.current) {
-            clearTimeout(refreshTimeoutRef.current);
-          }
-          refreshTimeoutRef.current = setTimeout(() => {
-            if (refreshRef.current && !channelRemoved) {
-              void refreshRef.current(true); // Força refresh quando realtime dispara
-            }
-          }, 200);
-        }
-      );
-    
-    channel.subscribe((status) => {
-      if (channelRemoved) return;
-      if (status === "SUBSCRIBED") {
-        console.log('[Inbox] Realtime subscribed');
-        // Refresh imediato ao conectar para garantir sincronização
-        if (refreshRef.current) {
-          setTimeout(() => {
-            void refreshRef.current?.(true);
-          }, 300);
-        }
-      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        console.warn('[Inbox] Realtime channel error:', status);
-        // Tentar refresh via polling como fallback
-        if (refreshRef.current) {
-          setTimeout(() => {
-            void refreshRef.current?.(true);
-          }, 1000);
-        }
+    // Refrescar também nos eventos de auth (inclui INITIAL_SESSION em supabase-js v2)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (removed) return;
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user?.id) {
+        void refresh();
       }
-      // CLOSED não precisa de tratamento - é normal no cleanup
+      if (event === 'SIGNED_OUT') {
+        setItems([]);
+      }
     });
-    
-    return () => {
-      channelRemoved = true;
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-        refreshTimeoutRef.current = null;
-      }
-      // Cleanup: remover canal apenas no unmount
-      // Usar setTimeout para evitar chamar durante o callback de subscribe
-      setTimeout(() => {
-        try { 
+    return () => { removed = true; subscription.unsubscribe(); };
+  }, [refresh]);
+
+  // ── Polling (principal mecanismo — SEMPRE roda) ─────────────────────
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const ms = panelOpen ? POLL_ACTIVE : POLL_BG;
+    const timer = setInterval(() => {
+      if (mountedRef.current) void refresh();
+    }, ms);
+    return () => clearInterval(timer);
+  }, [panelOpen, refresh]);
+
+  // ── Realtime (bônus — acelera detecção, mas não é necessário) ───────
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    let removed = false;
+    let cleanupChannel: (() => void) | null = null;
+
+    const setupChannel = (uid: string) => {
+      if (removed) return;
+      const channel = supabase
+        .channel(`inbox-rt-${uid}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "inbox_notifications",
+            filter: `user_id=eq.${uid}`,
+          },
+          (payload) => {
+            if (removed) return;
+            // Merge immediately for snappy UI
+            mergeRealtime(payload);
+            // Then debounce a full refresh to hydrate computed fields
+            if (rtDebounceRef.current) clearTimeout(rtDebounceRef.current);
+            rtDebounceRef.current = setTimeout(() => {
+              if (mountedRef.current) void refresh();
+            }, RT_DEBOUNCE);
+          },
+        )
+        .subscribe((status) => {
+          if (removed) return;
+          if (status === "SUBSCRIBED") void refresh();
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn("[Inbox] Realtime channel issue:", status);
+          }
+        });
+
+      cleanupChannel = () => {
+        try {
           supabase.removeChannel(channel);
-        } catch (err) {
-          // Ignorar erros no cleanup
+        } catch {}
+      };
+    };
+
+    // Tentar pegar uid da sessão atual (pode não estar pronta ainda)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const uid = session?.user?.id;
+      if (uid && !removed) setupChannel(uid);
+    });
+
+    // Escutar mudanças de auth para recriar o channel se necessário
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (removed) return;
+        const uid = session?.user?.id;
+        // Limpar channel anterior
+        if (cleanupChannel) {
+          cleanupChannel();
+          cleanupChannel = null;
         }
-      }, 0);
-    };
-  }, [uid]); // Removido refresh das dependências
-
-  // Polling: agressivo quando drawer aberto (1s), leve quando fechado (5s)
-  useEffect(() => {
-    if (!uid) {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      return;
-    }
-    if (!isSupabaseConfigured || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      return;
-    }
-
-    // Limpar intervalo anterior se existir
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-
-    // Polling mais agressivo: 1 segundo quando drawer está aberto, 5 segundos quando fechado
-    const interval = panelOpen ? 1000 : 5000;
-    pollingIntervalRef.current = setInterval(() => {
-      // SEMPRE forçar refresh no polling quando drawer está aberto
-      if (refreshRef.current) {
-        void refreshRef.current(panelOpenRef.current); // Força quando aberto
-      }
-    }, interval);
+        if (uid) setupChannel(uid);
+      },
+    );
 
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
+      removed = true;
+      if (rtDebounceRef.current) {
+        clearTimeout(rtDebounceRef.current);
+        rtDebounceRef.current = null;
       }
+      if (cleanupChannel) cleanupChannel();
+      subscription.unsubscribe();
     };
-  }, [uid, panelOpen]); // Removido refresh das dependências para evitar recriação
+  }, [refresh]);
 
-  // Refresh imediato quando o drawer abre
+  // ── Refresh quando drawer abre ────────────────────────────────────────
   useEffect(() => {
-    if (panelOpen && uid) {
-      // Refresh imediato ao abrir o drawer
-      if (refreshRef.current) {
-        void refreshRef.current(true);
-      }
-    }
-  }, [panelOpen, uid]);
+    if (panelOpen) void refresh();
+  }, [panelOpen, refresh]);
 
-  // Refresh quando a janela ganha foco (usuário volta para a aba)
+  // ── Refresh ao voltar para a aba ──────────────────────────────────────
   useEffect(() => {
-    if (!uid) return;
-    
+    const handleVisibility = () => {
+      if (!document.hidden && mountedRef.current) void refresh();
+    };
     const handleFocus = () => {
-      if (refreshRef.current) {
-        void refreshRef.current(true);
-      }
+      if (mountedRef.current) void refresh();
     };
-    
-    const handleVisibilityChange = () => {
-      if (!document.hidden && refreshRef.current) {
-        void refreshRef.current(true);
-      }
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
     return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
     };
-  }, [uid]);
+  }, [refresh]);
 
   return { items, unread, refresh } as const;
 }

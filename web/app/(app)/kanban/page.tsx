@@ -132,6 +132,7 @@ function KanbanPageInner() {
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const bottomInnerRef = useRef<HTMLDivElement | null>(null);
+  const vScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const main = document.querySelector('[data-kanban-hscroll="comercial"]') as HTMLDivElement | null;
@@ -196,7 +197,7 @@ function KanbanPageInner() {
               <DashboardCard title="Atrasadas" value={dashboard.atrasadas} icon={<Clock className="h-4 w-4 text-white" />} />
             </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto px-1 pb-6 pt-4 md:px-3 relative">
+          <div ref={vScrollRef} className="flex-1 min-h-0 px-1 pb-6 pt-4 md:px-3 relative" aria-label="Kanban content" data-kanban-vscroll>
             <KanbanBoard
               hora={filtersSummary.hora}
               dateStart={filtersSummary.prazo?.start}

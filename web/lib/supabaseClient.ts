@@ -4,8 +4,8 @@ export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 // Heurística leve para saber se as ENV estão razoavelmente configuradas
-export const isSupabaseConfigured =
-  Boolean(supabaseUrl && supabaseAnonKey) && /https?:\/\/[a-z0-9-]+\.supabase\.co/.test(supabaseUrl);
+// Considera configurado se as ENV existem (evita falsos negativos por domínios customizados)
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 // Wrap de fetch para evitar "TypeError: Failed to fetch" espamar no console em DNS/offline.
 const safeFetch: typeof fetch = async (input, init) => {
@@ -20,9 +20,9 @@ const safeFetch: typeof fetch = async (input, init) => {
 
 export const supabase = createClient(supabaseUrl || "http://localhost", supabaseAnonKey || "anon", {
   auth: {
-    // Se não estiver configurado, não tentar persistir/auto-refresh para não gerar logs
-    persistSession: isSupabaseConfigured,
-    autoRefreshToken: isSupabaseConfigured,
+    // Persistir/auto-refresh ajuda a garantir sessão disponível no primeiro render do cliente
+    persistSession: true,
+    autoRefreshToken: true,
     detectSessionInUrl: true,
   },
   global: {

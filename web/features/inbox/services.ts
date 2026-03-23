@@ -44,8 +44,8 @@ export async function notifyMention(params: {
 export type { InboxItem, NotificationType };
 
 export async function listInbox(): Promise<InboxItem[]> {
-  // Evita poluir console quando sem configuração ou offline
-  if (!isSupabaseConfigured || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+  // Evita chamadas quando a configuração não existe
+  if (!isSupabaseConfigured) {
     return [];
   }
   try {

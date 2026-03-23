@@ -132,18 +132,9 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
     () => (typeof window === "undefined" ? true : window.innerWidth >= 768),
     () => true
   );
-  const [panelWidth, setPanelWidth] = useState(() => {
-    if (typeof window === "undefined") return PANEL_DEFAULT_WIDTH;
-    try {
-      const stored = window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY);
-      if (!stored) return PANEL_DEFAULT_WIDTH;
-      const parsed = Number.parseInt(stored, 10);
-      if (Number.isNaN(parsed)) return PANEL_DEFAULT_WIDTH;
-      return clamp(parsed, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH);
-    } catch {
-      return PANEL_DEFAULT_WIDTH;
-    }
-  });
+  // Initialize with a stable SSR-safe value to avoid hydration mismatch.
+  // Load the persisted value after mount.
+  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
   const [isResizingPanel, setIsResizingPanel] = useState(false);
   const resizeOriginRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: PANEL_DEFAULT_WIDTH });
   const pathname = usePathname() || "/";
@@ -208,6 +199,19 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   );
 
   useEffect(() => {
+    // Load persisted panel width after mount to keep SSR/CSR initial render in sync
+    try {
+      const stored = typeof window !== 'undefined' ? window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY) : null;
+      if (stored) {
+        const parsed = Number.parseInt(stored, 10);
+        if (!Number.isNaN(parsed)) {
+          setPanelWidth(clamp(parsed, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH));
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     if (!isPanelOpen) return;
     if (typeof window === "undefined") return;
     try {
@@ -250,7 +254,6 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <RouteBg>
       <SidebarProvider open={open} setOpen={setOpen}>
-        <InboxProvider panelOpen={isInboxPanel}>
           <div className="text-zinc-900 min-h-screen h-screen overflow-hidden" style={{ backgroundColor: '#000000' }}>
             <Sidebar open={open} setOpen={setOpen}>
               <AppSidebar />
@@ -269,9 +272,9 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                 className={
                   isCanvas
                     ? "flex flex-1 w-full flex-col gap-0 md:min-w-0 md:p-0"
-                    : "flex flex-1 w-full flex-col gap-3 rounded-3xl border border-neutral-200 bg-[var(--neutro)] p-3 text-zinc-900 shadow-xl shadow-emerald-900/15 md:min-w-0 md:p-6 dark:border-neutral-700 dark:bg-neutral-900 dark:text-zinc-100 overflow-hidden"
+                    : "flex flex-1 w-full flex-col gap-3 rounded-3xl border border-neutral-200 bg-[var(--neutro)] p-3 text-zinc-900 shadow-xl shadow-emerald-900/15 md:min-w-0 md:p-6 dark:border-neutral-700 dark:bg-neutral-900 dark:text-zinc-100 overflow-y-auto overscroll-contain app-scroll"
                 }
-                style={{ minHeight: `calc(100vh - ${pageGutter * 2}px)` }}
+                style={{ height: `calc(100vh - ${pageGutter * 2}px)` }}
               >
                 {!isCanvas && (
                   <div className="mb-2 flex items-center justify-between gap-3">
@@ -329,7 +332,6 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
               )}
             </div>
           </div>
-        </InboxProvider>
       </SidebarProvider>
     </RouteBg>
   );

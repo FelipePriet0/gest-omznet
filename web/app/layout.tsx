@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
+import { InboxProvider } from "@/features/inbox/InboxDrawer";
 import "react-day-picker/dist/style.css";
 
 const poppins = Poppins({
@@ -21,7 +22,10 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning className={`${poppins.variable} dark`}>
       <body className={`${poppins.className} antialiased text-zinc-900 dark:text-zinc-100`} suppressHydrationWarning>
-        {children}
+        {/* Provider global para Inbox + Toasts (realtime), disponível em todas as rotas */}
+        <InboxProvider>
+          {children}
+        </InboxProvider>
       </body>
     </html>
   );

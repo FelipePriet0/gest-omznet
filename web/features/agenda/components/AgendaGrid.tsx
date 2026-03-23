@@ -153,8 +153,8 @@ export function AgendaGrid({
           key={slot}
           colSpan={colSpan}
           className={[
-            "align-top px-2 py-1.5 border-t border-zinc-800",
-            slotIdx > 0 && colSpan === 1 ? "border-l border-l-zinc-800" : "",
+            // Removido grid de linhas pretas na Agenda
+            "align-top px-2 py-1.5",
           ].join(" ")}
         >
           <CellDroppable id={getCellId(slot)}>

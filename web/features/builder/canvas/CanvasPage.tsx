@@ -251,11 +251,8 @@ export function CanvasPage() {
     <div
       className="relative flex-1 w-full h-full rounded-3xl overflow-hidden"
       style={{
+        // Fundo liso, removendo linhas de grade
         backgroundColor: "#bdbdbd",
-        backgroundImage:
-          "linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px)",
-        backgroundSize: "20px 20px, 20px 20px",
-        backgroundPosition: "-1px -1px",
       }}
       >
       {/* Top right: publish controls */}

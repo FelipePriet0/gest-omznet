@@ -23,36 +23,42 @@ type InboxContextValue = {
 
 const InboxContext = createContext<InboxContextValue | null>(null);
 
-export function InboxProvider({ children, panelOpen }: { children: ReactNode; panelOpen: boolean }) {
-  const value = useInboxController(panelOpen);
+export function InboxProvider({ children, panelOpen }: { children: ReactNode; panelOpen?: boolean }) {
+  const search = useSearchParams();
+  const inferredOpen = (search?.get('panel') || '').toLowerCase() === 'inbox';
+  const { items, unread, refresh } = useInboxController(typeof panelOpen === 'boolean' ? panelOpen : inferredOpen);
   const [loginAt, setLoginAt] = useState<Date | null>(null);
 
-  // Detectar quando usuário loga
+  // Memoizar valor do contexto para evitar re-renders desnecessários dos consumers
+  const contextValue = useMemo<InboxContextValue>(
+    () => ({ items, unread, refresh }),
+    [items, unread, refresh],
+  );
+
+  // Detectar quando usuário loga (para filtrar toasts)
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        if (session?.user && !loginAt) {
-          setLoginAt(new Date());
-        }
-      } else if (event === 'SIGNED_OUT') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setLoginAt((prev) => prev ?? new Date());
+      } else {
         setLoginAt(null);
       }
     });
-    
+
     // Verificar se já está logado no mount
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user && !loginAt) {
-        setLoginAt(new Date());
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setLoginAt((prev) => prev ?? new Date());
       }
     });
-    
+
     return () => {
       subscription.unsubscribe();
     };
-  }, [loginAt]);
+  }, []);
 
   return (
-    <InboxContext.Provider value={value}>
+    <InboxContext.Provider value={contextValue}>
       {children}
       <ToastContainer loginAt={loginAt} />
     </InboxContext.Provider>
@@ -100,7 +106,11 @@ export function InboxSidebarEntry() {
       >
         <div className="relative">
           <InboxIcon className={cn("h-5 w-5", isActive ? "text-[var(--color-primary)]" : "text-white")} />
-          {!sidebarOpen && unread > 0 && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500" />}
+          {!sidebarOpen && unread > 0 && (
+            <span className="absolute -right-2 -top-2 min-w-[18px] h-[18px] rounded-full bg-red-600 text-white text-[10px] leading-[18px] text-center px-1 font-bold shadow">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
         </div>
         {sidebarOpen && (
           <span

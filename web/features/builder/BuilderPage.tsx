@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Trash2, MoreHorizontal } from "lucide-react";
 import {
   listWorkflows, saveWorkflow, duplicateWorkflow, toggleWorkflowActive, deleteWorkflow,
   type BuilderWorkflow,

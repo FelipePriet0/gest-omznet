@@ -178,7 +178,7 @@ function KanbanAnalisePageInner() {
           </div>
         </div>
         <div className="flex-1 min-h-0 overflow-x-hidden overscroll-contain relative">
-          <div className="h-full overflow-y-auto px-1 pb-6 pt-4 md:px-3">
+          <div className="h-full overflow-y-auto app-scroll px-1 pb-6 pt-4 md:px-3">
             <KanbanBoardAnalise
               hora={filtersSummary.hora}
               dateStart={filtersSummary.prazo?.start}
