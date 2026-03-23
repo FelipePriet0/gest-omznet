@@ -72,6 +72,7 @@ export function AgendaGrid({
   onDeleteFreeRow,
   onUpdate,
   onDelete,
+  highlightedIds,
 }: {
   dateISO: string;
   technicians: Technician[];
@@ -82,6 +83,7 @@ export function AgendaGrid({
   onDeleteFreeRow: (id: string) => void;
   onUpdate: (id: string, patch: Partial<ScheduleCard>) => void;
   onDelete: (id: string) => void;
+  highlightedIds?: Set<string>;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [ctxMenu, setCtxMenu]     = useState<CtxMenu | null>(null);
@@ -168,6 +170,7 @@ export function AgendaGrid({
                   onEdit={(id) => setEditingId(id)}
                   onDelete={onDelete}
                   multiSlot={hasSpanCard}
+                  isHighlighted={highlightedIds?.has(c.id) || false}
                 />
               ))}
             </div>

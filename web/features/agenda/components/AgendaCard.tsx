@@ -27,6 +27,7 @@ export function AgendaCard({
   onEdit,
   overlay = false,
   multiSlot = false,
+  isHighlighted = false,
 }: {
   card: ScheduleCard;
   canEdit: boolean;
@@ -34,6 +35,7 @@ export function AgendaCard({
   onDelete?: (id: string) => void; // mantido para compatibilidade, não exibido aqui
   overlay?: boolean;
   multiSlot?: boolean;
+  isHighlighted?: boolean;
 }) {
   const disableDrag = !canEdit || card.id.startsWith("tmp-") || overlay;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -41,7 +43,7 @@ export function AgendaCard({
     disabled: disableDrag,
   });
 
-  const style: CSSProperties | undefined = transform
+  const baseTransform: CSSProperties | undefined = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
 
@@ -53,7 +55,13 @@ export function AgendaCard({
     <div
       ref={setNodeRef}
       {...(!disableDrag ? { ...listeners, ...attributes } : {})}
-      style={{ ...style, width: cardWidth, height: 70 }}
+      style={{
+        ...baseTransform,
+        width: cardWidth,
+        ...(isHighlighted && !overlay
+          ? { boxShadow: '0 0 0 2px var(--verde-primario), 0 6px 16px rgba(30,41,59,0.12)' }
+          : {}),
+      }}
       onClick={() => { if (canEdit && !overlay) onEdit(card.id); }}
       className={[
         "group relative rounded-md border-l-4 bg-white shadow-sm overflow-hidden transition",
@@ -62,23 +70,24 @@ export function AgendaCard({
         isDragging ? "opacity-50 ring-2 ring-white/40" : "",
         !overlay && canEdit ? "cursor-grab active:cursor-grabbing hover:shadow-md" : "",
         overlay ? "shadow-xl ring-2 ring-white/30 rotate-1 scale-105" : "",
+        // highlight visual definido no style para usar cor primária
       ].join(" ")}
     >
-      <div className="px-2.5 py-1.5 flex flex-col justify-center gap-0.5 h-full">
+      <div className="px-2.5 py-1.5 flex flex-col justify-start gap-0.5">
         {/* Label: nome do cliente */}
-        <span className="block text-[11px] font-semibold text-zinc-800 truncate leading-snug" title={card.cliente}>
+        <span className="block text-[14px] font-semibold text-zinc-800 leading-snug" title={card.cliente}>
           {card.cliente || "—"}
         </span>
 
         {/* Descrição: plano · bairro · SVA */}
         {(card.plano || card.bairro || card.sva) && (
-          <span className="block text-[10px] text-zinc-500 truncate leading-tight">
+          <span className="block text-[13px] text-zinc-500 leading-tight">
             {[card.plano, card.bairro, card.sva].filter(Boolean).join(" · ")}
           </span>
         )}
 
         {/* Chip de situação */}
-        <span className={`inline-flex w-fit items-center rounded-full px-1.5 py-px text-[9px] font-semibold leading-none ${meta.bg} ${meta.text}`}>
+        <span className={`inline-flex w-fit items-center rounded-full px-1.5 py-px text-[11px] font-semibold leading-none ${meta.bg} ${meta.text}`}>
           {meta.label}
         </span>
       </div>

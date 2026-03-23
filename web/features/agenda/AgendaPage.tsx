@@ -269,6 +269,15 @@ export function AgendaPage() {
 
     const card = cards.find((c) => c.id === cardId);
 
+    // Bloqueio: técnico em Mudança de Endereço não recebe agendamento
+    try {
+      const tech = technicians.find((t) => t.id === techId);
+      if (tech && String(tech.activity || '').toLowerCase().includes('mud')) {
+        alert('Técnico indisponível (Mudança de Endereço)');
+        return;
+      }
+    } catch {}
+
     // Preservar span: se o card tinha 2 slots e o destino é início de par válido, manter os 2
     const SPAN_NEXT_DND: Record<string, string> = { "08:30": "10:30", "13:30": "15:30" };
     const wasSpan = !!(card?.time_slots && card.time_slots.length > 1);
@@ -326,6 +335,18 @@ export function AgendaPage() {
     }
     return list as ScheduleCard[];
   }, [cards, stageFilters]);
+
+  // IDs destacados: apenas os que batem com a busca por nome (cor primária)
+  const highlightedIds = useMemo(() => {
+    const term = (query || '').trim().toLowerCase();
+    if (!term) return new Set<string>();
+    const set = new Set<string>();
+    for (const c of filteredCards) {
+      const name = String((c as any).cliente || '').toLowerCase();
+      if (name.includes(term)) set.add(c.id);
+    }
+    return set;
+  }, [filteredCards, query]);
 
   // Label do filtro ativo (para o chip)
   const activeFilterLabels = useMemo(() => {
@@ -473,6 +494,7 @@ export function AgendaPage() {
             freeRows={freeRows}
             // Desabilita edição durante busca global para evitar mover entre datas
             canEdit={canEdit && !isGlobalSearch}
+            highlightedIds={highlightedIds}
             onDeleteFreeRow={handleDeleteFreeRow}
             onUpdate={async (id, patch) => {
               try {

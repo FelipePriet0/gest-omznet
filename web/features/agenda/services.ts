@@ -146,6 +146,20 @@ export async function updateScheduleCard(params: {
 }) {
   const USE_RPC = process.env.NEXT_PUBLIC_USE_MOVE_SCHEDULE_RPC === 'true';
 
+  // Regra de negócio: impedir atribuição quando técnico está em Mudança de Endereço
+  if (typeof params.technician_id !== 'undefined' && params.technician_id) {
+    try {
+      const { data: tech } = await supabase.from('technicians').select('id, activity').eq('id', params.technician_id).single();
+      const activity = String((tech as any)?.activity || '').toLowerCase();
+      if (activity.includes('mud')) {
+        throw new Error('Técnico indisponível (Mudança de Endereço)');
+      }
+    } catch (e) {
+      // Se fetch falhar, segue para evitar travar, a menos que tenhamos detectado indisponibilidade
+      if (e instanceof Error && e.message.includes('Técnico indisponível')) throw e;
+    }
+  }
+
   // optional meta update
   if (typeof params.tipo_instalacao !== "undefined") {
     const meta = await supabase.rpc('update_schedule_meta', { p_card_id: params.id, p_tipo_instalacao: params.tipo_instalacao });

@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DateRangePopover, type DateRangeValue } from "@/components/ui/date-range-popover";
-import { toDateOnlyISO } from "@/lib/datetime";
+import { toDateOnlyISO, startOfDayUtcISO, endOfDayUtcISO } from "@/lib/datetime";
+import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
 import type { TechnicianRow } from "@/features/technicians/services";
 
@@ -122,6 +123,55 @@ export function EditTechnicianModal({
     if (!canSave || !technician) return;
     setSaving(true);
     try {
+      // Regra: ao definir "Mud Endereço", bloquear se houver agendamentos no período
+      const isMudanca = (activity || "").toLowerCase().includes("mud");
+      if (isMudanca) {
+        // Determinar janela: se não houver período, usar o dia atual
+        const todayISO = toDateOnlyISO(new Date());
+        const startLocal = deadline.start || todayISO;
+        const endLocal = deadline.end || startLocal;
+        const startUTC = String(startOfDayUtcISO(startLocal));
+        const endUTC = String(endOfDayUtcISO(endLocal));
+
+        // Buscar cards agendados para este técnico na janela
+        const { data: rows, error } = await supabase
+          .from('kanban_cards')
+          .select('id, due_at, stage, archived_at')
+          .eq('technician_id', technician.id)
+          .gte('due_at', startUTC)
+          .lte('due_at', endUTC)
+          .is('deleted_at', null);
+        if (error) throw error;
+        const items = (rows || []).filter((r: any) => {
+          const st = String(r?.stage || '').toLowerCase();
+          const archived = !!r?.archived_at;
+          // Ignorar cancelados/arquivados
+          if (st === 'canceladas' || archived) return false;
+          return true;
+        });
+        const count = items.length;
+        if (count > 0) {
+          // Quebra por dia local (yyyy-MM-dd de due_at)
+          const byDay = new Map<string, number>();
+          for (const it of items) {
+            const d = String(it.due_at || '').slice(0,10);
+            byDay.set(d, (byDay.get(d) || 0) + 1);
+          }
+          const parts: string[] = [];
+          for (const [d, c] of Array.from(byDay.entries()).sort()) {
+            parts.push(`${d}: ${c}`);
+          }
+          const breakdown = parts.join('\n');
+          alert(
+            `AVISO\n\nEste técnico possui ${count} instalação(ões) agendada(s) no período selecionado.\n` +
+            (breakdown ? `\nDetalhe por dia:\n${breakdown}\n\n` : '\n') +
+            `Você não pode aplicar "Mudança de Endereço" a menos que reagende todas para outro técnico na Agenda.`
+          );
+          setSaving(false);
+          return;
+        }
+      }
+
       const start = deadline.start ? String(deadline.start) : null;
       const end = deadline.end ? String(deadline.end) : null;
       await onSave(technician.id, {
