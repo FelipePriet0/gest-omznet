@@ -275,7 +275,10 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
             if (!rootRef.current) return;
             focusAfterMention(rootRef.current, mention);
           });
-        mentionLockRef.current = true;
+          // Após inserir por clique ou Enter, fechamos e limpamos estado de menção
+          mentionLockRef.current = true;
+          mentionOpenRef.current = false;
+          lastMentionQueryRef.current = "";
           onMentionClose?.();
         },
         reset: () => {
@@ -441,6 +444,8 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
           mentionLockRef.current = false;
         } else {
           skipMentionDetection = true;
+          // Garante que o estado interno reflita o popover fechado
+          mentionOpenRef.current = false;
           onMentionClose?.();
         }
       }
@@ -506,7 +511,13 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
         // Prefer accepting current open popovers based on last tracked queries
         if (mentionOpenRef.current && onAcceptMention) {
           const accepted = await onAcceptMention((lastMentionQueryRef.current || '').trim());
-          if (accepted) return;
+          if (accepted) {
+            // Limpamos estado para não reaceitar no próximo Enter
+            mentionOpenRef.current = false;
+            lastMentionQueryRef.current = "";
+            onMentionClose?.();
+            return;
+          }
         }
         if (commandOpenRef.current && onAcceptCommand) {
           const accepted = await onAcceptCommand((lastCommandQueryRef.current || '').trim().toLowerCase());
@@ -537,8 +548,27 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
           } catch {}
           const mentionMatch = preceding.match(/@([\w\s]*)$/);
           if (mentionMatch && onAcceptMention) {
-            const accepted = await onAcceptMention((mentionMatch[1] || '').trim());
-            if (accepted) return; // Inseriu chip de menção; não submete
+            const rawQuery = mentionMatch[1] ?? "";
+            const trimmedQuery = rawQuery.trim();
+            // Evita reaceitar uma menção já concluída (chip + espaço)
+            const mentions = valueState.mentions ?? [];
+            const matchedMention = mentions.find((m) =>
+              trimmedQuery.toLowerCase().startsWith((m.label || '').toLowerCase())
+            );
+            const hasCompletedMention =
+              !!matchedMention &&
+              (preceding.endsWith(`@${matchedMention.label} `) ||
+                preceding.endsWith(`@${matchedMention.label}`));
+            if (!hasCompletedMention) {
+              const accepted = await onAcceptMention(trimmedQuery);
+              if (accepted) {
+                // Evita aceitar novamente e limpa estado
+                mentionOpenRef.current = false;
+                lastMentionQueryRef.current = "";
+                onMentionClose?.();
+                return; // Inseriu chip de menção; não submete
+              }
+            }
           }
           // 2) Se há query de comando ativa e o pai aceitar, não submeter
           const commandMatch = preceding.match(/\/([\w]*)$/);
