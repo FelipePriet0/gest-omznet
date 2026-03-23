@@ -87,6 +87,7 @@ export function AgendaEditModal({
   const [svaAvulso, setSvaAvulso] = useState("");
   const [carneImpresso, setCarneImpresso] = useState(false);
   const [dueAt, setDueAt] = useState<string>(card?.date || "");
+  const [conflictError, setConflictError] = useState<string | null>(null);
 
   // ── Routes for bairro dropdown ─────────────────────────────────────────────
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -156,6 +157,7 @@ export function AgendaEditModal({
 
   const handleSave = async () => {
     const tech = technicians.find((t) => t.name === techName);
+    setConflictError(null);
 
     // Validação: impedir dois cards no mesmo técnico/dia/horário
     try {
@@ -179,7 +181,7 @@ export function AgendaEditModal({
           return selectedSlots.some((s) => norm.includes(s));
         });
         if (hasConflict) {
-          alert("Este horário já está ocupado para o técnico selecionado.");
+          setConflictError("Este horário já está ocupado para o técnico selecionado.");
           return;
         }
       }
@@ -337,9 +339,10 @@ export function AgendaEditModal({
                 label="Horário"
                 times={slots}
                 value={slotArr}
-                onApply={(v) => setSlotArr(v)}
+                onApply={(v) => { setSlotArr(v); setConflictError(null); }}
                 allowedPairs={[["08:30", "10:30"], ["13:30", "15:30"]]}
                 triggerClassName={TRIGGER_CLS}
+                date={dueAt || card?.date}
               />
             </FieldRow>
           </div>
@@ -348,11 +351,18 @@ export function AgendaEditModal({
           <FieldRow label="Técnico">
             <SimpleSelect
               value={techName}
-              onChange={(v) => setTechName(v)}
+              onChange={(v) => { setTechName(v); setConflictError(null); }}
               options={techOptions}
               triggerClassName={TRIGGER_CLS}
             />
           </FieldRow>
+
+          {/* Erro de conflito de horário */}
+          {conflictError && (
+            <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-600 border border-red-200">
+              {conflictError}
+            </p>
+          )}
         </div>
 
         <DialogFooter className="pt-2 flex items-center justify-between">

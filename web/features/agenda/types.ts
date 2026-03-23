@@ -23,6 +23,7 @@ export type ScheduleCard = {
   cliente: string;
   plano?: string | null;
   bairro?: string | null;
+  sva?: string | null;
   tipo_instalacao?: string | null;
   status: ScheduleStatus;
   // Campos de estágio/área vindos do kanban_cards

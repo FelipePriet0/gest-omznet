@@ -167,6 +167,7 @@ export function AgendaGrid({
                   canEdit={canEdit}
                   onEdit={(id) => setEditingId(id)}
                   onDelete={onDelete}
+                  multiSlot={hasSpanCard}
                 />
               ))}
             </div>

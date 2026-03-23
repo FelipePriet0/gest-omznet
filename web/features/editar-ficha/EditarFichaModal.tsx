@@ -834,6 +834,7 @@ export function EditarFichaModal({
                     emitCardUpdate({ horaAt: horaLabel });
                   }}
                   allowedPairs={[['08:30','10:30'],['13:30','15:30']]}
+                  date={dueAt}
                 />
               </Grid>
             </Section>

@@ -54,7 +54,7 @@ export async function fetchAgendaCardsByDate(dateISO: string): Promise<AgendaUIC
   const appIds = Array.from(new Set((cards || []).map((c: any) => c.applicant_id).filter(Boolean)));
   const { data: applicants } = await supabase
     .from("applicants")
-    .select("id, primary_name, bairro, plano_acesso")
+    .select("id, primary_name, bairro, plano_acesso, sva_avulso")
     .in("id", appIds);
   const apps = new Map<string, any>();
   (applicants || []).forEach((a: any) => apps.set(a.id, a));
@@ -75,6 +75,7 @@ export async function fetchAgendaCardsByDate(dateISO: string): Promise<AgendaUIC
       cliente: app.primary_name || "",
       plano: app.plano_acesso || null,
       bairro: app.bairro || null,
+      sva: app.sva_avulso || null,
       tipo_instalacao: c.tipo_instalacao ?? null,
       area: c.area ?? null,
       stage: c.stage ?? null,
@@ -87,7 +88,7 @@ export async function searchAgendaCardsGlobal(searchTerm: string): Promise<Agend
   // Buscar applicants que contêm o termo
   const { data: matchedApps, error: appErr } = await supabase
     .from("applicants")
-    .select("id, primary_name, bairro, plano_acesso")
+    .select("id, primary_name, bairro, plano_acesso, sva_avulso")
     .ilike("primary_name", `%${searchTerm}%`)
     .limit(100);
   if (appErr) throw appErr;
@@ -126,6 +127,7 @@ export async function searchAgendaCardsGlobal(searchTerm: string): Promise<Agend
       cliente: app.primary_name || "",
       plano: app.plano_acesso || null,
       bairro: app.bairro || null,
+      sva: app.sva_avulso || null,
       tipo_instalacao: c.tipo_instalacao ?? null,
       area: c.area ?? null,
       stage: c.stage ?? null,
@@ -139,6 +141,7 @@ export async function updateScheduleCard(params: {
   technician_id?: string | null;
   free_row_id?: string | null;
   time_slot?: string | null;
+  time_slots?: string[] | null; // todos os slots (ex: ["08:30","10:30"])
   tipo_instalacao?: string | null;
 }) {
   const USE_RPC = process.env.NEXT_PUBLIC_USE_MOVE_SCHEDULE_RPC === 'true';
@@ -150,17 +153,24 @@ export async function updateScheduleCard(params: {
   }
 
   const hasAll = Boolean(params.dateISO) && typeof params.technician_id !== 'undefined' && typeof params.time_slot !== 'undefined';
+  const isMultiSlot = params.time_slots && params.time_slots.length > 1;
   const patch: any = {};
   if (params.dateISO) patch.due_at = localDateTimeToUtcISO(params.dateISO, "12:00", DEFAULT_TIMEZONE);
   if (typeof params.technician_id !== "undefined") patch.technician_id = params.technician_id || null;
   if (typeof params.free_row_id    !== "undefined") patch.free_row_id   = params.free_row_id   ?? null;
-  if (typeof params.time_slot !== "undefined") patch.hora_at = params.time_slot ? [params.time_slot + ":00"] : null;
+  if (typeof params.time_slot !== "undefined") {
+    // Usar time_slots se fornecido (card span), senão usar time_slot único
+    patch.hora_at = isMultiSlot
+      ? (params.time_slots as string[]).map((s) => s + ":00")
+      : params.time_slot ? [params.time_slot + ":00"] : null;
+  }
   // Marca origem manual quando a UI altera técnico/slot
   if (typeof params.technician_id !== 'undefined' || typeof params.time_slot !== 'undefined') {
     patch.assign_origin = 'manual';
   }
 
-  if (hasAll && USE_RPC) {
+  // RPC move_schedule só suporta 1 slot — ignorar quando card é span (2 slots)
+  if (hasAll && USE_RPC && !isMultiSlot) {
     const rpc = await supabase.rpc('move_schedule', { p_card_id: params.id, p_date: params.dateISO, p_time_slot: params.time_slot, p_technician_id: params.technician_id });
     if (!rpc?.error) return;
     console.warn('move_schedule indisponível; aplicando fallback update', rpc.error);

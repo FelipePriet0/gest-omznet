@@ -1294,6 +1294,7 @@ export default function CadastroPFPage() {
               }}
               allowedPairs={[["08:30", "10:30"], ["13:30", "15:30"]]}
               triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              date={dueAt}
             />
           </div>
 

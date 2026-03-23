@@ -26,12 +26,14 @@ export function AgendaCard({
   canEdit,
   onEdit,
   overlay = false,
+  multiSlot = false,
 }: {
   card: ScheduleCard;
   canEdit: boolean;
   onEdit: (id: string) => void;
   onDelete?: (id: string) => void; // mantido para compatibilidade, não exibido aqui
   overlay?: boolean;
+  multiSlot?: boolean;
 }) {
   const disableDrag = !canEdit || card.id.startsWith("tmp-") || overlay;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -44,12 +46,14 @@ export function AgendaCard({
     : undefined;
 
   const meta = getStageMeta(card);
+  // Span card: preencher 100% das 2 colunas; overlay/single: largura fixa
+  const cardWidth: CSSProperties["width"] = multiSlot && !overlay ? "100%" : 316;
 
   return (
     <div
       ref={setNodeRef}
       {...(!disableDrag ? { ...listeners, ...attributes } : {})}
-      style={{ ...style, width: 316, height: 70 }}
+      style={{ ...style, width: cardWidth, height: 70 }}
       onClick={() => { if (canEdit && !overlay) onEdit(card.id); }}
       className={[
         "group relative rounded-md border-l-4 bg-white shadow-sm overflow-hidden transition",
@@ -66,10 +70,10 @@ export function AgendaCard({
           {card.cliente || "—"}
         </span>
 
-        {/* Descrição: plano · bairro */}
-        {(card.plano || card.bairro) && (
+        {/* Descrição: plano · bairro · SVA */}
+        {(card.plano || card.bairro || card.sva) && (
           <span className="block text-[10px] text-zinc-500 truncate leading-tight">
-            {[card.plano, card.bairro].filter(Boolean).join(" · ")}
+            {[card.plano, card.bairro, card.sva].filter(Boolean).join(" · ")}
           </span>
         )}
 

@@ -6,7 +6,7 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@
 import { Phone, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { KanbanColumn } from "@/legacy/components/kanban/components/KanbanColumn";
 import { KanbanCard } from "@/features/kanban/types";
-import { listCards, changeStage } from "@/features/kanban/services";
+import { listCards, changeStage, archiveCardNow, autoArchiveFinalizados } from "@/features/kanban/services";
 import { supabase } from "@/lib/supabaseClient";
 import { MoveModal } from "@/legacy/components/kanban/components/MoveModal";
 import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
@@ -53,6 +53,7 @@ export function KanbanBoardAnalise({
   const [edit, setEdit] = useState<{ cardId: string; applicantId?: string }|null>(null);
   const lastClosedCardIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string|null>(null);
+  const [nowTick, setNowTick] = useState<number>(() => Date.now());
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
@@ -110,6 +111,12 @@ export function KanbanBoardAnalise({
     reload();
   }, [reload]);
 
+  // Tick por segundo para atualizar countdowns
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     let active = true;
     (async () => {
@@ -129,6 +136,16 @@ export function KanbanBoardAnalise({
   useEffect(() => {
     onCardsChange?.(cards);
   }, [cards, onCardsChange]);
+
+  // Arquivamento automático em cliente (fallback enquanto não houver job no banco)
+  useEffect(() => {
+    const ttl = Number(process.env.NEXT_PUBLIC_FINALIZADOS_TTL_SEC || 60);
+    const ttlSec = Number.isFinite(ttl) && ttl > 0 ? Math.floor(ttl) : 60;
+    const id = setInterval(() => {
+      void autoArchiveFinalizados(ttlSec).then(() => reload());
+    }, 20000);
+    return () => clearInterval(id);
+  }, [reload]);
 
   useEffect(() => {
     const channelKey = `kanban-analise-${hora || "_"}-${dateStart || "_"}-${dateEnd || "_"}-${responsavelIds.join("|") || "_"}-${searchTerm || "_"}`;
@@ -251,6 +268,38 @@ export function KanbanBoardAnalise({
     );
   }
 
+  function formatCountdown(totalSec: number): string {
+    const s = Math.max(0, Math.floor(totalSec));
+    const mm = Math.floor(s / 60);
+    const ss = s % 60;
+    return `${String(mm)}:${String(ss).padStart(2, '0')}`;
+  }
+
+  function extraForFinalizados(c: KanbanCard) {
+    const ttl = Number(process.env.NEXT_PUBLIC_FINALIZADOS_TTL_SEC || 60);
+    const ttlSec = Number.isFinite(ttl) && ttl > 0 ? Math.floor(ttl) : 60;
+    const finalizedAtMs = c.finalizedAt ? Date.parse(c.finalizedAt) : NaN;
+    const elapsedSec = Number.isFinite(finalizedAtMs) ? (nowTick - finalizedAtMs) / 1000 : 0;
+    const leftSec = Math.max(0, ttlSec - elapsedSec);
+    const showCountdown = Number.isFinite(finalizedAtMs) && finalizedAtMs > 0;
+    return (
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-zinc-500">
+          {showCountdown ? `Arquiva em ${formatCountdown(leftSec)}` : `Arquiva em ${ttlSec}s`}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => { try { await archiveCardNow(c.id); await reload(); } catch (e:any) { alert(e?.message || 'Falha ao arquivar'); } }}
+            className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+            title="Arquivar agora"
+          >
+            Arquivar agora
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <DndContext
@@ -274,7 +323,12 @@ export function KanbanBoardAnalise({
                 ...card,
                 onOpen: () => setEdit({ cardId: card.id, applicantId: card.applicantId }),
                 onMenu: () => setMove({ id: card.id, area: 'analise', stage: card.stage ?? null }),
-                extraAction: c.key === "recebidos" ? extraForRecebidos(card) : undefined,
+                extraAction:
+                  c.key === "recebidos"
+                    ? extraForRecebidos(card)
+                    : c.key === "finalizados"
+                    ? extraForFinalizados(card)
+                    : undefined,
               }))}
             />
           ))}

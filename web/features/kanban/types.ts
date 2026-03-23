@@ -22,6 +22,8 @@ export interface KanbanCard {
   bairro?: string;
   dueAt?: string;
   horaAt?: string;
+  finalizedAt?: string;
+  archivedAt?: string;
   area?: 'comercial' | 'analise';
   stage?: string;
   onOpen?: () => void;

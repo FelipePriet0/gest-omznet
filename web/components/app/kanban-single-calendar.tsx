@@ -25,11 +25,13 @@ type KanbanSingleCalendarProps = {
   value?: string; // yyyy-MM-dd
   onChange: (value?: string) => void;
   disablePast?: boolean;
+  fullDays?: Set<string>;           // dias sem vagas (yyyy-MM-dd)
+  onMonthChange?: (month: Date) => void; // disparado ao navegar entre meses
 };
 
 const WEEKDAY_LABELS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
-export function KanbanSingleCalendar({ value, onChange, disablePast }: KanbanSingleCalendarProps) {
+export function KanbanSingleCalendar({ value, onChange, disablePast, fullDays, onMonthChange }: KanbanSingleCalendarProps) {
   const today = React.useMemo(() => startOfDay(new Date()), []);
   const selected = React.useMemo(() => parseDateOnly(value), [value]);
 
@@ -52,6 +54,18 @@ export function KanbanSingleCalendar({ value, onChange, disablePast }: KanbanSin
     return label.charAt(0).toUpperCase() + label.slice(1);
   }, [month]);
 
+  const handlePrev = () => {
+    const next = subMonths(month, 1);
+    setMonth(next);
+    onMonthChange?.(next);
+  };
+
+  const handleNext = () => {
+    const next = addMonths(month, 1);
+    setMonth(next);
+    onMonthChange?.(next);
+  };
+
   const handleDayClick = (day: Date) => {
     if (disablePast && isBefore(day, today)) return;
     onChange(toDateOnlyISO(day));
@@ -65,7 +79,7 @@ export function KanbanSingleCalendar({ value, onChange, disablePast }: KanbanSin
         <button
           type="button"
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1"
-          onClick={() => setMonth((prev) => subMonths(prev, 1))}
+          onClick={handlePrev}
           aria-label="Mês anterior"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -76,7 +90,7 @@ export function KanbanSingleCalendar({ value, onChange, disablePast }: KanbanSin
         <button
           type="button"
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1"
-          onClick={() => setMonth((prev) => addMonths(prev, 1))}
+          onClick={handleNext}
           aria-label="Próximo mês"
         >
           <ChevronRight className="h-4 w-4" />
@@ -94,21 +108,27 @@ export function KanbanSingleCalendar({ value, onChange, disablePast }: KanbanSin
       <div className="grid grid-cols-7 gap-2 text-sm">
         {days.map((day) => {
           const iso = toDateOnlyISO(day);
-          const disabled = disablePast && isBefore(day, today);
+          const isPast = disablePast && isBefore(day, today);
           const outside = !isSameMonth(day, month);
           const isSelected = selected && isSameDay(day, selected);
           const isToday = isSameDay(day, today);
+          const isFull = !!(fullDays?.has(iso));
+          const disabled = isPast || isFull;
+          const fullLabel = isFull
+            ? `Não há mais vagas para ${format(day, "dd/MM/yyyy", { locale: ptBR })}`
+            : undefined;
 
           return (
-            <div key={iso} className="relative flex items-center justify-center">
+            <div key={iso} className={cn("relative flex items-center justify-center", isFull && "group/fullday")}>
               <button
                 type="button"
-                onClick={() => handleDayClick(day)}
+                onClick={() => !disabled && handleDayClick(day)}
                 disabled={disabled}
                 className={cn(
                   "relative z-10 flex h-10 w-10 items-center justify-center rounded-full border border-transparent text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2",
                   outside && !isSelected && "text-zinc-300",
-                  disabled && "cursor-not-allowed opacity-40",
+                  isPast && "cursor-not-allowed opacity-40",
+                  isFull && !isSelected && "cursor-not-allowed bg-zinc-100 text-zinc-400 opacity-60",
                   !disabled && !outside && "cursor-pointer",
                   isSelected && "bg-emerald-600 text-white shadow-[0_4px_12px_-6px_rgba(16,185,129,0.9)] font-semibold hover:bg-emerald-600 hover:text-white focus-visible:text-white",
                   !disabled && !isSelected && !outside && "hover:bg-emerald-50 hover:text-emerald-700",
@@ -117,6 +137,11 @@ export function KanbanSingleCalendar({ value, onChange, disablePast }: KanbanSin
               >
                 <span>{format(day, "d", { locale: ptBR })}</span>
               </button>
+              {isFull && (
+                <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 z-50 hidden group-hover/fullday:block w-max max-w-[180px] rounded-md bg-white border border-zinc-200 px-2.5 py-1.5 text-center text-xs leading-snug text-zinc-700 shadow-lg">
+                  {fullLabel}
+                </span>
+              )}
             </div>
           );
         })}

@@ -145,15 +145,21 @@ export function AgendaPage() {
   }, [dateISO]);
 
   // Recarregar quando houver mudanças em kanban_cards (reassignments server-side)
+  // Evita flicker: suprime o próximo reload quando a própria UI acabou de atualizar otimisticamente
+  const suppressNextReloadRef = useMemo(() => ({ current: false }), []);
   useEffect(() => {
     const ch = supabase
       .channel('rt-kanban-cards')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'kanban_cards' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kanban_cards' }, (_payload) => {
+        if (suppressNextReloadRef.current) {
+          suppressNextReloadRef.current = false;
+          return;
+        }
         reload(dateISO).catch(() => {});
       })
       .subscribe();
     return () => { try { supabase.removeChannel(ch); } catch {} };
-  }, [dateISO]);
+  }, [dateISO, suppressNextReloadRef]);
 
   const handleChangeDay = (delta: number) => {
     const d = new Date(dateISO + "T00:00:00");
@@ -208,25 +214,33 @@ export function AgendaPage() {
       if (!d || !rowId || !time) return;
 
       const card = cards.find((c) => c.id === cardId);
-      // Já está nesta mesma linha livre e slot → não fazer nada
-      if (card && !card.technician_id && card.free_row_id === rowId && card.time_slot === time && card.date === d) return;
 
-      // Slot já ocupado por outro card → bloquear
+      // Preservar span nas linhas livres também
+      const SPAN_NEXT_FREE: Record<string, string> = { "08:30": "10:30", "13:30": "15:30" };
+      const wasSpanFree = !!(card?.time_slots && card.time_slots.length > 1);
+      const nextSlotFree = SPAN_NEXT_FREE[time];
+      const newTimeSlotsFree = wasSpanFree && nextSlotFree ? [time, nextSlotFree] : [time];
+
+      // Já está nesta mesma linha livre e slot → não fazer nada
+      if (card && !card.technician_id && card.free_row_id === rowId && card.time_slot === time && card.date === d &&
+          JSON.stringify(card.time_slots) === JSON.stringify(newTimeSlotsFree)) return;
+
+      // Verificar conflito para TODOS os slots (linha livre)
       const freeConflict = cards.some(
         (c) =>
           c.id !== cardId &&
           !c.technician_id &&
           c.free_row_id === rowId &&
           c.date === d &&
-          (c.time_slots?.includes(time) || c.time_slot === time),
+          newTimeSlotsFree.some((slot) => c.time_slots?.includes(slot) || c.time_slot === slot),
       );
       if (freeConflict) return;
 
-      // Otimista: limpar technician_id, setar free_row_id correto, resetar time_slots
+      // Otimista: limpar technician_id, setar free_row_id correto, preservar time_slots
       setCards((prev) =>
         prev.map((c) =>
           c.id === cardId
-            ? { ...c, technician_id: "", free_row_id: rowId, time_slot: time, time_slots: [time], date: d }
+            ? { ...c, technician_id: "", free_row_id: rowId, time_slot: time, time_slots: newTimeSlotsFree, date: d }
             : c,
         ),
       );
@@ -238,7 +252,9 @@ export function AgendaPage() {
           technician_id: null,
           free_row_id: rowId,
           time_slot: time,
+          time_slots: newTimeSlotsFree,
         });
+        suppressNextReloadRef.current = true;
       } catch (e) {
         console.error("Falha ao mover para linha livre", e);
         await reload(dateISO);
@@ -252,27 +268,36 @@ export function AgendaPage() {
     if (!d || !techId || !time) return;
 
     const card = cards.find((c) => c.id === cardId);
-    if (card && card.technician_id === techId && card.time_slot === time && card.date === d) return;
 
-    // Slot já ocupado por outro card do mesmo técnico → bloquear
+    // Preservar span: se o card tinha 2 slots e o destino é início de par válido, manter os 2
+    const SPAN_NEXT_DND: Record<string, string> = { "08:30": "10:30", "13:30": "15:30" };
+    const wasSpan = !!(card?.time_slots && card.time_slots.length > 1);
+    const nextSlotForDest = SPAN_NEXT_DND[time];
+    const newTimeSlots = wasSpan && nextSlotForDest ? [time, nextSlotForDest] : [time];
+
+    if (card && card.technician_id === techId && card.time_slot === time && card.date === d &&
+        JSON.stringify(card.time_slots) === JSON.stringify(newTimeSlots)) return;
+
+    // Verificar conflito para TODOS os slots que o card vai ocupar
     const cellConflict = cards.some(
       (c) =>
         c.id !== cardId &&
         c.technician_id === techId &&
         c.date === d &&
-        (c.time_slots?.includes(time) || c.time_slot === time),
+        newTimeSlots.some((slot) => c.time_slots?.includes(slot) || c.time_slot === slot),
     );
     if (cellConflict) return;
 
-    // Otimista: atribuir técnico + limpar free_row_id + resetar time_slots
+    // Otimista: atribuir técnico + limpar free_row_id + preservar time_slots correto
     setCards((prev) =>
       prev.map((c) =>
-        c.id === cardId ? { ...c, technician_id: techId, free_row_id: null, time_slot: time, time_slots: [time], date: d } : c,
+        c.id === cardId ? { ...c, technician_id: techId, free_row_id: null, time_slot: time, time_slots: newTimeSlots, date: d } : c,
       ),
     );
 
     try {
-      await updateScheduleCard({ id: cardId, dateISO: d, technician_id: techId, free_row_id: null, time_slot: time });
+      await updateScheduleCard({ id: cardId, dateISO: d, technician_id: techId, free_row_id: null, time_slot: time, time_slots: newTimeSlots });
+      suppressNextReloadRef.current = true;
     } catch (e) {
       console.error("Falha ao mover agendamento", e);
       await reload(dateISO);
@@ -463,6 +488,7 @@ export function AgendaPage() {
                 const schedPatch: any = {};
                 if (typeof (patch as any).technician_id !== "undefined") schedPatch.technician_id = (patch as any).technician_id;
                 if (typeof (patch as any).time_slot     !== "undefined") schedPatch.time_slot     = (patch as any).time_slot;
+                if (typeof (patch as any).time_slots    !== "undefined") schedPatch.time_slots    = (patch as any).time_slots;
                 if (typeof (patch as any).tipo_instalacao !== "undefined") schedPatch.tipo_instalacao = (patch as any).tipo_instalacao;
                 if (Object.keys(schedPatch).length > 0) promises.push(updateScheduleCard({ id, ...schedPatch }));
                 await Promise.all(promises);

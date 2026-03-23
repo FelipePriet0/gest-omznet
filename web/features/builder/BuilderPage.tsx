@@ -262,9 +262,16 @@ function TechniciansTab() {
     reload().catch(() => {});
     (async () => {
       try {
-        const { data } = await (await import("@/lib/supabaseClient")).supabase.rpc("is_installer");
-        setCanManage(Boolean(data));
-      } catch { setCanManage(true); }
+        const { supabase } = await import("@/lib/supabaseClient");
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setCanManage(false); return; }
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        setCanManage(["instalador", "gestor"].includes((profile as any)?.role ?? ""));
+      } catch { setCanManage(false); }
     })();
   }, []);
 
@@ -353,7 +360,7 @@ function TechniciansTab() {
                 <Switch
                   checked={t.active}
                   onCheckedChange={(v) => handleToggleActive(t, v)}
-                  disabled={savingId === t.id}
+                  disabled={savingId === t.id || !canManage}
                 />
               </div>
             </div>
@@ -373,14 +380,16 @@ function TechniciansTab() {
               )}>
                 {t.active ? "Ativo" : "Inativo"}
               </span>
-              <button
-                type="button"
-                className="rounded-md p-2 hover:bg-red-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
-                aria-label={`Excluir técnico ${t.name}`}
-                onClick={(e) => { e.stopPropagation(); setConfirmDeleteTech(t); }}
-              >
-                <Trash2 className="h-4 w-4 text-red-500" />
-              </button>
+              {canManage && (
+                <button
+                  type="button"
+                  className="rounded-md p-2 hover:bg-red-50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
+                  aria-label={`Excluir técnico ${t.name}`}
+                  onClick={(e) => { e.stopPropagation(); setConfirmDeleteTech(t); }}
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </button>
+              )}
             </div>
           </div>
         ))}

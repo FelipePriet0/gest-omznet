@@ -1,3 +1,10 @@
 [mcp_servers.vercel]
 type = "http"
 url = "https://mcp.vercel.com"
+
+[mcp_servers.supabase]
+type = "http"
+url = "https://mcp.supabase.com/mcp?project_ref=dlamovqrabpqdqotodep"
+# Auth headers via env var (do not commit secrets):
+headers.Authorization = "Bearer ${SUPABASE_SERVICE_ROLE_KEY}"
+headers.apikey = "${SUPABASE_SERVICE_ROLE_KEY}"

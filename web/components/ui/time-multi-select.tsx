@@ -3,6 +3,25 @@
 import * as React from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
+async function loadFullSlots(dateISO: string): Promise<Set<string>> {
+  try {
+    const { supabase } = await import("@/lib/supabaseClient");
+    const { data } = await supabase.rpc("get_agenda_availability", {
+      p_date_from: dateISO,
+      p_date_to: dateISO,
+    });
+    const full = new Set<string>();
+    for (const row of (data as any[]) || []) {
+      if (Number(row.tech_count) > 0 && Number(row.booked_count) >= Number(row.tech_count)) {
+        full.add(row.slot as string);
+      }
+    }
+    return full;
+  } catch {
+    return new Set();
+  }
+}
+
 export function TimeMultiSelect({
   label,
   times,
@@ -11,6 +30,7 @@ export function TimeMultiSelect({
   className,
   triggerClassName,
   allowedPairs,
+  date,
 }: {
   label: string;
   times: readonly string[]; // 'HH:MM'
@@ -19,10 +39,19 @@ export function TimeMultiSelect({
   className?: string;
   triggerClassName?: string;
   allowedPairs?: [string, string][]; // ex: [["08:30","10:30"],["13:30","15:30"]]
+  date?: string; // yyyy-MM-dd — usado para buscar slots cheios
 }) {
   const [open, setOpen] = React.useState(false);
   const [sel, setSel] = React.useState<string[]>([]);
+  const [fullSlots, setFullSlots] = React.useState<Set<string>>(new Set());
+
   React.useEffect(() => { setSel(value ?? []); }, [value, open]);
+
+  // Buscar slots cheios quando o popover abre
+  React.useEffect(() => {
+    if (!open || !date) { setFullSlots(new Set()); return; }
+    loadFullSlots(date).then(setFullSlots);
+  }, [open, date]);
 
   function isStart(v: string) {
     return (allowedPairs || []).some(p => p[0] === v);
@@ -45,26 +74,19 @@ export function TimeMultiSelect({
     setSel((prev) => {
       const has = prev.includes(v);
       if (has) return prev.filter((x) => x !== v);
-      // regras de mesclagem
-      if (prev.length === 0) {
-        // primeiro clique só permite começar por inícios válidos, mas permitimos também escolha única de qualquer horário
-        // porém, para permitir mesclar depois, apenas inícios (start) destravam um segundo valor
-        return [v];
-      }
+      if (prev.length === 0) return [v];
       if (prev.length === 1) {
         const first = prev[0];
-        // se o primeiro é um fim de par, não permite adicionar outro (ordem importa)
         if (isEnd(first)) return prev;
         const pair = pairForStart(first);
-        if (!pair) return prev; // não há par permitido para esse primeiro
-        // só permite o segundo se for o fim correspondente
+        if (!pair) return prev;
         if (v === pair[1]) return normalizeSelection([first, v]);
         return prev;
       }
-      // já temos 2
       return prev;
     });
   }
+
   const labelText = sel.length === 0 ? "Selecionar horário"
     : sel.length === 1 ? sel[0]
     : normalizeSelection(sel)[0] + " e " + normalizeSelection(sel)[1];
@@ -91,12 +113,16 @@ export function TimeMultiSelect({
             <div className="space-y-1">
               {times.map((t) => {
                 const active = sel.includes(t);
-                let disabled = false;
-                if (!active) {
+                const isFull = fullSlots.has(t) && !active;
+                const fullTitle = isFull
+                  ? `Não há mais vagas para esse horário no dia ${date ? date.split("-").reverse().join("/") : ""}`
+                  : undefined;
+
+                let disabled = isFull;
+                if (!active && !isFull) {
                   if (sel.length >= 2) disabled = true;
                   else if (sel.length === 1) {
                     const first = sel[0];
-                    // se o primeiro é fim de par, não pode adicionar outro
                     if (isEnd(first)) disabled = true;
                     else {
                       const pair = pairForStart(first);
@@ -104,15 +130,17 @@ export function TimeMultiSelect({
                     }
                   }
                 }
-                return (
+
+                const btn = (
                   <button
                     key={t}
-                    onClick={() => toggle(t)}
+                    onClick={() => !disabled && toggle(t)}
                     disabled={disabled}
                     className={[
                       "group w-full flex items-center justify-between rounded-sm px-2 py-2 text-sm mz-time-item",
                       disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
                       active ? "bg-[var(--verde-primario)] text-white mz-time-item--active" : "text-zinc-800 hover:bg-[var(--verde-primario)] hover:text-white",
+                      isFull ? "bg-zinc-100 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-400" : "",
                     ].join(" ")}
                   >
                     <span className="group-hover:text-white mz-time-label">{t}</span>
@@ -121,7 +149,7 @@ export function TimeMultiSelect({
                         "ml-auto inline-flex items-center justify-center w-3.5 h-3.5 rounded-sm border mz-time-checkbox",
                         "group-hover:border-white",
                       ].join(" ")}
-                      style={{ borderColor: active ? 'white' : 'var(--verde-primario)' }}
+                      style={{ borderColor: active ? 'white' : isFull ? '#d4d4d8' : 'var(--verde-primario)' }}
                     >
                       {active && (
                         <svg viewBox="0 0 24 24" width="14" height="14" className="group-hover:text-white" style={{ color: 'white' }}>
@@ -131,6 +159,16 @@ export function TimeMultiSelect({
                     </span>
                   </button>
                 );
+
+                // Botões disabled não disparam hover — envolver num span com tooltip customizado
+                return isFull ? (
+                  <span key={t} className="relative block w-full cursor-not-allowed group/full">
+                    {btn}
+                    <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 z-50 hidden group-hover/full:block w-max max-w-[220px] rounded-md bg-white border border-zinc-200 px-2.5 py-1.5 text-center text-xs leading-snug text-zinc-700 shadow-lg">
+                      {fullTitle}
+                    </span>
+                  </span>
+                ) : btn;
               })}
             </div>
             <div className="mt-2 flex items-center justify-between gap-2">

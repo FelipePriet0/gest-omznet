@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { DateRangePopover, type DateRangeValue } from "@/components/ui/date-range-popover";
 import { endOfDayUtcISO, startOfDayUtcISO } from "@/lib/datetime";
+import { restoreCard } from "@/features/kanban/services";
 
 type Row = {
   id: string;
@@ -70,6 +71,11 @@ export default function HistoricoPage() {
     })();
   }, []);
 
+  // Recarrega automaticamente quando Status ou Responsáveis mudam
+  useEffect(() => {
+    void load();
+  }, [status, resp]);
+
   async function load() {
     const params: any = { p_search: q || null };
     if (dateRange.start) {
@@ -77,9 +83,58 @@ export default function HistoricoPage() {
       params.p_date_end = endOfDayUtcISO(dateRange.end ?? dateRange.start);
     }
     params.p_status = status || null;
-    params.p_responsavel = resp || null;
+    if (resp) {
+      const prof = profiles.find((p) => p.id === resp);
+      params.p_responsavel = prof?.full_name || null;
+    } else {
+      params.p_responsavel = null;
+    }
     const { data, error } = await supabase.rpc('list_historico', params);
-    if (!error) setRows((data as any) || []);
+    if (!error) {
+      const base = (data as any) || [];
+      setRows(base);
+      // Enriquecer: analista_name (autor do último parecer) e decision_status (se vier indefinido)
+      try {
+        const validStatuses = new Set(['aprovado','aprovados','negado','negados','reanalise','reanálise','cancelada','canceladas']);
+        const needs = base.filter((r: any) => {
+          if (!r?.id) return false;
+          const s = String(r?.decision_status || '').toLowerCase();
+          // processa quando analista vazio ou status não é um dos esperados
+          return !r?.analista_name || !validStatuses.has(s);
+        });
+        const batchSize = 6;
+        for (let i = 0; i < needs.length; i += batchSize) {
+          const slice = needs.slice(i, i + batchSize);
+          const tasks = slice.map(async (r: any) => {
+            const { data } = await supabase.rpc('get_historico_details', { p_card_id: r.id });
+            const card = (data as any)?.card || {};
+            const pareceres: any[] = Array.isArray((data as any)?.pareceres) ? (data as any).pareceres : [];
+            // Último parecer com decisão
+            let lastDecision: string | null = null;
+            for (let j = pareceres.length - 1; j >= 0; j--) {
+              const d = String(pareceres[j]?.decision || '').toLowerCase();
+              if (d && (d === 'aprovado' || d === 'negado' || d === 'reanalise' || d === 'reanálise')) { lastDecision = d; break; }
+            }
+            const author = pareceres.length > 0 ? (pareceres[pareceres.length - 1]?.author_name || null) : null;
+            // Derivar status: prioriza último parecer; senão usa final_decision; senão inferência de cancelada
+            let status: string | null = lastDecision;
+            if (!status) status = card.final_decision || card.decision_status || null;
+            const isCanceled = !!(r.archived_at && !r.finalized_at);
+            if (!status && isCanceled) status = 'cancelada';
+            if (author || status) {
+              setRows((prev) => prev.map((row) => {
+                if (row.id !== r.id) return row;
+                const next: any = { ...row };
+                if (!row.analista_name && author) next.analista_name = author;
+                if (status) next.decision_status = status;
+                return next;
+              }));
+            }
+          });
+          await Promise.allSettled(tasks);
+        }
+      } catch {}
+    }
   }
 
   async function openDetails(cardId: string) {
@@ -99,9 +154,40 @@ export default function HistoricoPage() {
 
   const filteredRows = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter((row) => (row.applicant_name || "").toLowerCase().includes(term));
-  }, [rows, q]);
+    const selStatus = (status || '').toLowerCase();
+    const norm = (v?: string | null) => (v || '').toLowerCase();
+    const matchStatus = (r: any) => {
+      if (!selStatus) return true;
+      const v = norm(r.decision_status) || norm(r.final_decision);
+      if (!v && r.archived_at && !r.finalized_at) return selStatus === 'canceladas' || selStatus === 'cancelada';
+      if (selStatus === 'aprovados') return v === 'aprovado' || v === 'aprovados';
+      if (selStatus === 'negados') return v === 'negado' || v === 'negados';
+      if (selStatus === 'canceladas') return v === 'cancelada' || v === 'canceladas';
+      return true;
+    };
+    const matchResp = (r: any) => {
+      if (!resp) return true;
+      return r.vendedor_id === resp || r.analista_id === resp;
+    };
+    return rows
+      .filter((row) => (row.applicant_name || "").toLowerCase().includes(term))
+      .filter(matchStatus)
+      .filter(matchResp);
+  }, [rows, q, status, resp]);
+
+  const dashboard = useMemo(() => {
+    const lc = (s:string|undefined|null)=> (s||'').toLowerCase();
+    let total = 0, aprovadas = 0, negadas = 0, canceladas = 0;
+    for (const r of filteredRows) {
+      total += 1;
+      const v = lc((r as any).decision_status || (r as any).final_decision);
+      if (v === 'aprovado' || v === 'aprovados') aprovadas += 1;
+      else if (v === 'negado' || v === 'negados') negadas += 1;
+      else if (v === 'cancelada' || v === 'canceladas') canceladas += 1;
+      else if (!v && r.archived_at && !r.finalized_at) canceladas += 1; // fallback
+    }
+    return { total, aprovadas, negadas, canceladas };
+  }, [filteredRows]);
  
   return (
     <>
@@ -122,6 +208,13 @@ export default function HistoricoPage() {
             load();
           }}
         />
+        {/* Dashboard */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 w-full">
+          <DashboardCard title="Qtd de fichas" value={dashboard.total} />
+          <DashboardCard title="Aprovadas" value={dashboard.aprovadas} />
+          <DashboardCard title="Negadas" value={dashboard.negadas} />
+          <DashboardCard title="Canceladas" value={dashboard.canceladas} />
+        </div>
         <HistoricoList rows={filteredRows} onOpenDetails={openDetails} />
       </div>
 
@@ -219,20 +312,36 @@ function Filters({
             label="Período"
             value={dateRange}
             onChange={onDateRange}
+            variant="kanban"
           />
         </div>
 
         {/* Status */}
-        <div className="w-[140px]">
-          <StatusFilterPopover value={status} onChange={onStatus} />
+        <div className="w-[160px]">
+          <div className="text-xs text-gray-500 mb-1.5 font-medium">Status</div>
+          <StatusFilterPopover value={status} onChange={onStatus} onApply={onApply} />
         </div>
 
         {/* Responsável */}
-        <div className="w-[180px]">
-          <ResponsavelFilterPopover value={resp} onChange={onResp} options={respOptions} />
+        <div className="w-[220px]">
+          <div className="text-xs text-gray-500 mb-1.5 font-medium">Responsáveis</div>
+          <ResponsavelFilterPopover value={resp} onChange={onResp} options={respOptions} onApply={onApply} />
         </div>
 
         {/* Botão Aplicar (se necessário) */}
+      </div>
+    </div>
+  );
+}
+
+function DashboardCard({ title, value }: { title: string; value?: number | null }) {
+  return (
+    <div className="h-[120px] w-full rounded-[12px] border bg-white border-zinc-200 shadow-sm overflow-hidden flex flex-col">
+      <div className="bg-[#000000] px-4 py-3 flex items-center justify-between">
+        <div className="text-sm font-medium text-white">{title}</div>
+      </div>
+      <div className="flex-1 flex items-center justify-center px-4">
+        <div className="text-3xl font-bold text-[var(--verde-primario)]">{typeof value === 'number' ? value : '—'}</div>
       </div>
     </div>
   );
@@ -304,7 +413,7 @@ function HistoricoList({ rows, onOpenDetails }: { rows: Row[]; onOpenDetails: (c
 
               {/* Status */}
               <div className="col-span-2 flex items-center">
-                <StatusBadge value={r.decision_status} />
+                <StatusBadge value={r.decision_status} canceled={Boolean(r.archived_at && !r.finalized_at)} />
               </div>
 
               {/* Comercial */}
@@ -344,23 +453,84 @@ function HistoricoList({ rows, onOpenDetails }: { rows: Row[]; onOpenDetails: (c
                 )}
               </div>
 
-              {/* Ações - Ícone de Olho */}
-              <div className="col-span-1 flex items-center justify-center">
-                <button 
-                  onClick={() => onOpenDetails(r.id)} 
-                  className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-150"
-                  title="Ver detalhes da ficha"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </button>
-              </div>
+              {/* Ações: Detalhes + Restaurar */}
+              <ActionsCell cardId={r.id} onOpenDetails={() => onOpenDetails(r.id)} />
             </div>
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+function ActionsCell({ cardId, onOpenDetails }: { cardId: string; onOpenDetails: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const stageOptions = [
+    { value: 'em_analise', label: 'Em Análise' },
+    { value: 'reanalise', label: 'Reanálise' },
+    { value: 'recebidos', label: 'Recebidos' },
+    { value: 'ass_app', label: 'Ass APP' },
+  ];
+
+  async function handleRestore(targetStage: string) {
+    try {
+      setRestoring(targetStage);
+      await restoreCard(cardId, 'analise', targetStage);
+      // abre o kanban com o card reaberto
+      const url = `/kanban/analise?card=${cardId}`;
+      window.open(url, '_blank');
+    } catch (e:any) {
+      alert(e?.message || 'Falha ao restaurar');
+    } finally {
+      setRestoring(null);
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div className="col-span-1 flex items-center justify-center gap-1">
+      <button 
+        onClick={onOpenDetails} 
+        className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-150"
+        title="Ver detalhes da ficha"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+      </button>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            className="p-2 text-emerald-600 hover:text-white hover:bg-emerald-600 rounded-lg transition-all duration-150"
+            title="Restaurar ficha"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[180px] p-0 bg-white border-0 shadow-lg rounded-lg">
+          <Command className="rounded-lg">
+            <CommandList className="p-1">
+              <CommandEmpty>Nenhuma opção</CommandEmpty>
+              <CommandGroup className="p-0">
+                {stageOptions.map((opt) => (
+                  <CommandItem
+                    key={opt.value}
+                    value={opt.label}
+                    onSelect={() => handleRestore(opt.value)}
+                    className="flex items-center gap-2 px-2 py-2 text-sm cursor-pointer rounded-sm mx-1 transition-all duration-150 text-emerald-600 hover:bg-emerald-600 hover:text-white"
+                  >
+                    {restoring === opt.value ? '…' : opt.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
@@ -371,9 +541,19 @@ function DetailsModal({ data, onClose }: { data: any; onClose: () => void }) {
   const vendedor = data?.vendedor || {};
   const analista = data?.analista || {};
   const pareceres: any[] = Array.isArray(data?.pareceres) ? data.pareceres : [];
-
   function openResgatar() {
-    const url = `/kanban/analise?card=${card.id}`;
+    const applicantId = app?.id || card?.applicant_id;
+    if (!applicantId) {
+      // Fallback: abre no kanban para não quebrar o fluxo
+      const fallback = `/kanban/analise?card=${card.id}`;
+      window.open(fallback, '_blank');
+      return;
+    }
+    const digits = String(app?.cpf_cnpj || '').replace(/\D/g, '');
+    const personType = (app as any)?.person_type || (digits.length > 11 ? 'pj' : 'pf');
+    const url = personType === 'pj'
+      ? `/cadastro/pj/${applicantId}?card=${card.id}&from=historico`
+      : `/cadastro/pf/${applicantId}?card=${card.id}&from=historico`;
     window.open(url, '_blank');
   }
 
@@ -487,7 +667,9 @@ function DetailsModal({ data, onClose }: { data: any; onClose: () => void }) {
                             {p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : ''}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                        {/* Chip de decisão do parecer */}
+                        <DecisionChip value={p.decision} />
+                        <div className="mt-1.5 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
                           {p.text}
                         </div>
                       </div>
@@ -503,8 +685,18 @@ function DetailsModal({ data, onClose }: { data: any; onClose: () => void }) {
   );
 }
 
-function StatusBadge({ value }: { value: string | null }) {
+function StatusBadge({ value, canceled }: { value: string | null; canceled?: boolean }) {
   const v = (value || '').toLowerCase();
+  if (canceled) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-100 text-red-700 text-xs font-semibold shadow-sm">
+        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Cancelada
+      </span>
+    );
+  }
   if (v === 'aprovados' || v === 'aprovado') {
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-semibold shadow-sm">
@@ -535,6 +727,16 @@ function StatusBadge({ value }: { value: string | null }) {
       </span>
     );
   }
+  if (v === 'canceladas' || v === 'cancelada') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-100 text-red-700 text-xs font-semibold shadow-sm">
+        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Cancelada
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-semibold shadow-sm">
       <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -545,6 +747,42 @@ function StatusBadge({ value }: { value: string | null }) {
   );
 }
 
+function DecisionChip({ value }: { value?: string | null }) {
+  const v = (value || '').toLowerCase();
+  if (!v) return null;
+  if (v === 'aprovado' || v === 'aprovados') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-[11px] font-semibold shadow-sm">
+        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Aprovado
+      </span>
+    );
+  }
+  if (v === 'negado' || v === 'negados') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-100 text-red-700 text-[11px] font-semibold shadow-sm">
+        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Negado
+      </span>
+    );
+  }
+  if (v === 'reanalise' || v === 'reanálise') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-700 text-[11px] font-semibold shadow-sm">
+        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Reanálise
+      </span>
+    );
+  }
+  return null;
+}
+
 async function listProfiles(): Promise<ProfileLite[]> {
   const { data, error } = await supabase.from('profiles').select('id, full_name, role').order('full_name');
   if (error) return [];
@@ -553,14 +791,14 @@ async function listProfiles(): Promise<ProfileLite[]> {
 
 
 // Componente de filtro Status com Popover
-function StatusFilterPopover({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+function StatusFilterPopover({ value, onChange, onApply }: { value: string; onChange: (val: string) => void; onApply?: () => void }) {
   const [open, setOpen] = useState(false);
 
   const statusOptions = [
     { value: "", label: "Todos" },
-    { value: "aprovado", label: "Aprovado" },
-    { value: "negado", label: "Negado" },
-    { value: "reanalise", label: "Reanálise" },
+    { value: "aprovados", label: "Aprovados" },
+    { value: "negados", label: "Negados" },
+    { value: "canceladas", label: "Canceladas" },
   ];
 
   const currentLabel = statusOptions.find(opt => opt.value === value)?.label || "Status";
@@ -592,6 +830,7 @@ function StatusFilterPopover({ value, onChange }: { value: string; onChange: (va
                   onSelect={() => {
                     onChange(option.value);
                     setOpen(false);
+                    onApply?.();
                   }}
                   className={cn(
                     "flex items-center gap-2 px-2 py-2 text-sm cursor-pointer rounded-sm mx-1 transition-all duration-150",
@@ -616,7 +855,7 @@ function StatusFilterPopover({ value, onChange }: { value: string; onChange: (va
 }
 
 // Componente de filtro Responsável com Popover
-function ResponsavelFilterPopover({ value, onChange, options }: { value: string; onChange: (val: string) => void; options: ProfileLite[] }) {
+function ResponsavelFilterPopover({ value, onChange, options, onApply }: { value: string; onChange: (val: string) => void; options: ProfileLite[]; onApply?: () => void }) {
   const [open, setOpen] = useState(false);
 
   const allOptions = [
@@ -653,6 +892,7 @@ function ResponsavelFilterPopover({ value, onChange, options }: { value: string;
                   onSelect={() => {
                     onChange(option.id);
                     setOpen(false);
+                    onApply?.();
                   }}
                   className={cn(
                     "flex items-center gap-2 px-2 py-2 text-sm cursor-pointer rounded-sm mx-1 transition-all duration-150",

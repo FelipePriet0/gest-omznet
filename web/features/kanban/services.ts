@@ -54,13 +54,14 @@ export async function listCards(
   area: 'comercial' | 'analise',
   opts?: { hora?: string; dateStart?: string; dateEnd?: string; responsaveis?: string[]; searchTerm?: string }
 ): Promise<KanbanCard[]> {
-  const baseSelect = 'id, stage, area, applicant_id, due_at, hora_at, applicants:applicants!inner(id, primary_name, cpf_cnpj, phone, whatsapp, bairro)';
+  const baseSelect = 'id, stage, area, applicant_id, due_at, hora_at, finalized_at, archived_at, applicants:applicants!inner(id, primary_name, cpf_cnpj, phone, whatsapp, bairro)';
 
   let q = supabase
     .from(TABLE_KANBAN_CARDS)
     .select(baseSelect)
     .eq('area', area)
     .is('deleted_at', null)
+    .is('archived_at', null)
     .order('created_at', { ascending: true });
 
   if (opts?.hora) {
@@ -142,6 +143,8 @@ export async function listCards(
       bairro: row.applicants?.bairro ?? undefined,
       dueAt: row.due_at ?? undefined,
       horaAt: horaLabel,
+      finalizedAt: row.finalized_at ?? undefined,
+      archivedAt: row.archived_at ?? undefined,
       area: row.area,
       stage: row.stage,
     } as KanbanCard;
@@ -154,6 +157,7 @@ export async function listHours(area: 'comercial' | 'analise'): Promise<string[]
     .select('hora_at')
     .eq('area', area)
     .is('deleted_at', null)
+    .is('archived_at', null)
     .not('hora_at', 'is', null);
   if (error) return [];
   const set = new Set<string>();
@@ -167,6 +171,49 @@ export async function listHours(area: 'comercial' | 'analise'): Promise<string[]
   const values = Array.from(set);
   if (values.length === 0) return ['08:30','10:30','13:30','15:30'];
   return values;
+}
+
+export async function archiveCardNow(cardId: string) {
+  try {
+    const { error } = await supabase
+      .from(TABLE_KANBAN_CARDS)
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', cardId);
+    if (error) throw error;
+  } catch (err) {
+    throw err;
+  }
+}
+
+export async function autoArchiveFinalizados(ttlSeconds: number) {
+  try {
+    const cutoff = new Date(Date.now() - Math.max(0, ttlSeconds) * 1000).toISOString();
+    // Arquiva todos finalizados com finalized_at anterior ao cutoff e ainda sem archived_at
+    const { error } = await supabase
+      .from(TABLE_KANBAN_CARDS)
+      .update({ archived_at: new Date().toISOString() })
+      .eq('stage', 'finalizados')
+      .is('archived_at', null)
+      .lt('finalized_at', cutoff);
+    if (error) throw error;
+  } catch (err) {
+    // silencioso para evitar poluir a UI; consumidor decide se loga
+  }
+}
+
+export async function restoreCard(cardId: string, area: 'comercial' | 'analise', targetStage: string, assigneeId?: string | null) {
+  // 1) Limpa archived_at
+  try {
+    const { error } = await supabase
+      .from(TABLE_KANBAN_CARDS)
+      .update({ archived_at: null })
+      .eq('id', cardId);
+    if (error) throw error;
+  } catch (err) {
+    throw err;
+  }
+  // 2) Usa changeStage para aplicar regras de decisão/assignee
+  await changeStage(cardId, area, targetStage, undefined, assigneeId);
 }
 
 export type KanbanDashboard = {
