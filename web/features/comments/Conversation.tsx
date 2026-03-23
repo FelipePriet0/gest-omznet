@@ -13,6 +13,7 @@ import MentionDropdown from "@/components/mentions/MentionDropdown";
 import { renderTextWithChips } from "@/utils/richText";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ModalPreview, type PreviewTarget } from "@/components/ui/modal-preview";
+import { uploadAttachmentBatch } from "@/features/attachments/upload";
 
 type CardAttachmentWithMeta = CardAttachment & { isCardRoot?: boolean };
 
@@ -36,6 +37,7 @@ function ComposerHeader({ name }: { name: string }) {
 export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, onEditTask }: { cardId: string; applicantName?: string | null; onOpenTask: TaskTrigger["openTask"]; onOpenAttach: AttachTrigger["openAttach"]; onEditTask?: (taskId: string) => void; }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [input, setInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
@@ -47,6 +49,7 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
   const [mentionAnchor, setMentionAnchor] = useState<{top:number;left:number;height?:number}>({ top: 0, left: 0, height: 0 });
   const composerContainerRef = useRef<HTMLDivElement|null>(null);
   const inputRef = useRef<UnifiedComposerHandle|null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<CardTask[]>([]);
   const [attachments, setAttachments] = useState<CardAttachmentWithMeta[]>([]);
@@ -65,6 +68,21 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
       }
     })();
   }, [profiles]);
+
+  // Recebe seleção de arquivos do picker global (fluxo /anexo) e estagia no composer principal
+  useEffect(() => {
+    function onStageFiles(e: Event) {
+      const detail = (e as CustomEvent<{ files: File[]; parentId?: string | null }>).detail;
+      if (!detail) return;
+      const { files, parentId } = detail;
+      // Por ora estagia apenas no composer principal (parentId null)
+      if (parentId) return;
+      setPendingFiles((prev) => [...prev, ...Array.from(files || [])]);
+      try { inputRef.current?.insertText(' '); } catch {}
+    }
+    window.addEventListener('mz-conversation-stage-files', onStageFiles as any);
+    return () => window.removeEventListener('mz-conversation-stage-files', onStageFiles as any);
+  }, []);
 
   const profilesById = useMemo(() => {
     const map = new Map<string, ProfileLite>();
@@ -448,7 +466,14 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
               <UnifiedComposer
                 ref={inputRef}
                 placeholder="Escreva um comentário (/tarefa, /anexo, @mencionar)"
+                ariaLabel="Escrever comentário"
+                disabled={submitting}
                 richText
+                enablePasteAttachment
+                enableDropAttachment
+                onRequestAttachment={() => onOpenAttach()}
+                onFilesDropped={(files)=> { setPendingFiles(prev => [...prev, ...files]); try { inputRef.current?.insertText(' '); } catch {} }}
+                onFilesPasted={(files)=> { setPendingFiles(prev => [...prev, ...files]); try { inputRef.current?.insertText(' '); } catch {} }}
                 onAcceptMention={(query) => {
                   const list = profiles.filter((p) => p.id !== currentUserId && (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
                   if (list.length === 1) {
@@ -473,16 +498,26 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                 }}
                 onChange={(val)=> setInput(val.text || "")}
                 onSubmit={async (val: ComposerValue)=>{
+                  if (submitting) return;
+                  setSubmitting(true);
                   try {
-                    await addComment(cardId, (val.text||'').trim());
+                    const text = (val.text||'').trim();
+                    const newCommentId = await addComment(cardId, text);
+                    if (pendingFiles.length > 0) {
+                      try {
+                        await uploadAttachmentBatch({ cardId, commentId: newCommentId, files: pendingFiles.map(f => ({ file: f })) });
+                      } catch (e:any) { alert(e?.message || 'Falha ao anexar arquivos'); }
+                    }
                     // Limpa o campo visualmente e o estado após envio
                     setInput("");
+                    setPendingFiles([]);
                     requestAnimationFrame(() => inputRef.current?.setValue({ decision: null, text: "", mentions: [] }));
+                    try { await refreshAll(); } catch {}
                   } catch(e:any){
                     alert(e?.message||'Falha ao enviar comentário');
-                  }
+                  } finally { setSubmitting(false); }
                 }}
-                onCancel={()=> { setInput(""); setCmdOpen(false); setMentionOpen(false); }}
+                onCancel={()=> { setInput(""); setCmdOpen(false); setMentionOpen(false); setPendingFiles([]); }}
                 onMentionTrigger={(query, rect)=> {
                   setMentionFilter((query||'').trim());
                   if (rect && composerContainerRef.current) {
@@ -517,6 +552,19 @@ export function Conversation({ cardId, applicantName, onOpenTask, onOpenAttach, 
                   }}
                   initialQuery={cmdQuery}
                 />
+              </div>
+            )}
+            {pendingFiles.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {pendingFiles.map((f, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <span className="max-w-[200px] truncate" title={f.name}>{f.name}</span>
+                    <button type="button" onClick={()=> setPendingFiles(prev => prev.filter((_,i)=> i!==idx))} className="text-zinc-500 hover:text-zinc-700" aria-label="Remover arquivo">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                  </span>
+                ))}
               </div>
             )}
             {mentionOpen && (
@@ -696,17 +744,21 @@ function buildTree(notes: Comment[]): any[] {
 function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void; initialQuery?: string }) {
   const [q, setQ] = useState(initialQuery || "");
   useEffect(()=> setQ(initialQuery||""), [initialQuery]);
+  const listboxId = useMemo(()=> `cmd-list-${Math.random().toString(36).slice(2)}`, []);
   const filtered = items.filter(i => i.key.includes(q) || i.label.toLowerCase().includes(q.toLowerCase()));
+  const firstId = filtered[0]?.key ? `cmd-opt-${filtered[0].key}` : undefined;
+  const srOnly = { position:'absolute', width:'1px', height:'1px', padding:0, margin:'-1px', overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 } as React.CSSProperties;
   const iconFor = (key: string) => {
     if (key === 'tarefa') return <ClipboardList className="w-4 h-4" />;
     if (key === 'anexo') return <Paperclip className="w-4 h-4" />;
     return null;
   };
   return (
-    <div className="cmd-menu-dropdown mt-2 max-h-48 w-56 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
+    <div className="cmd-menu-dropdown mt-2 max-h-48 w-56 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow" role="listbox" aria-label="Sugestões de comando" id={listboxId} aria-activedescendant={firstId}>
       <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
         <Search className="w-4 h-4 text-zinc-500" />
-        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar comando…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+        <input role="combobox" aria-autocomplete="list" aria-controls={listboxId} aria-expanded={true} aria-activedescendant={firstId} value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar comando…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+        <div style={srOnly} aria-live="polite">{filtered.length} resultado{filtered.length===1?'':'s'}</div>
       </div>
       {filtered.length === 0 ? (
         <div className="px-3 py-2 text-zinc-500">Sem comandos</div>
@@ -716,6 +768,8 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
             key={i.key}
             onClick={() => onPick(i.key)}
             className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left"
+            role="option"
+            id={`cmd-opt-${i.key}`}
           >
             {iconFor(i.key)}
             <span>{i.label}</span>
@@ -734,6 +788,7 @@ const AUTO_TASK_COMMENT_RE = /^📋\s*Tarefa criada\s*:\s*/i;
 function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onOpenTask, tasks, attachments, onToggleTask, profiles, currentUserName, currentUserId, onEditTask, onSubmitComment, onPreview, applicantName, comments, onDeleteAttachment }: { node: any; depth: number; onReply: (parentId: string, text: string) => Promise<any>; onEdit: (id: string, text: string) => Promise<any>; onDelete: (id: string) => Promise<any>; onOpenAttach: (parentId?: string, options?: { inPlace?: boolean }) => void; onOpenTask: (parentId?: string, options?: { inPlace?: boolean }) => void; tasks: CardTask[]; attachments: CardAttachment[]; onToggleTask: (id: string, done: boolean) => Promise<any>; profiles: ProfileLite[]; currentUserName: string; currentUserId?: string | null; onEditTask?: (taskId: string) => void; onSubmitComment: (parentId: string | null, value: ComposerValue) => Promise<void>; onPreview: (payload: PreviewTarget) => void; applicantName?: string | null; comments: Comment[]; onDeleteAttachment?: (id: string) => Promise<void>; }) {
   const [isEditing, setIsEditing] = useState(false);
   const [replyOpen, setReplyOpen] = useState(openReplyMap.get(node.id) ?? false);
+  const [submittingReply, setSubmittingReply] = useState(false);
   const editRef = useRef<HTMLDivElement | null>(null);
   const replyRef = useRef<HTMLDivElement | null>(null);
   const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
@@ -847,6 +902,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               ref={editComposerRef}
               defaultValue={{ decision: null, text: text }}
               placeholder="Edite o comentário… (@mencionar, /tarefa, /anexo)"
+              ariaLabel="Editar comentário"
               richText
               onAcceptMention={(query) => {
                 const list = profiles.filter((p) => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
@@ -1027,7 +1083,14 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               ref={replyComposerRef}
               defaultValue={{ decision: null, text: reply }}
               placeholder="Responder... (/tarefa, /anexo, @mencionar)"
+              ariaLabel="Responder comentário"
+              disabled={submittingReply}
               richText
+              enablePasteAttachment
+              enableDropAttachment
+              onRequestAttachment={() => onOpenAttach(node.id, { inPlace: true })}
+              onFilesDropped={(files)=> { setReply(prev => { if (!prevOpen()) return prev; return prev; }); try { replyComposerRef.current?.insertText(' '); } catch {} }}
+              onFilesPasted={(files)=> { try { replyComposerRef.current?.insertText(' '); } catch {} }}
               onAcceptMention={(query) => {
                 const list = profiles.filter((p) => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
                 if (list.length === 1) {
@@ -1052,10 +1115,13 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               }}
               onChange={(val)=> setReply(val.text || "")}
               onSubmit={async (val)=>{
+                if (submittingReply) return;
+                setSubmittingReply(true);
                 await onSubmitComment(node.id, val);
                 setReply("");
                 openReplyMap.set(node.id, false);
                 setReplyOpen(false);
+                setSubmittingReply(false);
               }}
               onCancel={()=> { openReplyMap.set(node.id, false); setReplyOpen(false); setMentionOpen2(false); setCmdOpen2(false); }}
               onMentionTrigger={(query, rect)=> {

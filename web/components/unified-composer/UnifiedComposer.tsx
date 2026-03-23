@@ -26,11 +26,16 @@ export type UnifiedComposerHandle = {
 
 type UnifiedComposerProps = {
   placeholder?: string;
+  ariaLabel?: string;
   defaultValue?: ComposerValue;
   disabled?: boolean;
   autoFocus?: boolean;
   className?: string;
   richText?: boolean; // habilita toolbar e formatação inline
+  enablePasteAttachment?: boolean; // interceptar paste de arquivo/imagem
+  enableDropAttachment?: boolean;  // interceptar drag & drop de arquivo/imagem
+  onFilesDropped?: (files: File[]) => void;
+  onFilesPasted?: (files: File[]) => void;
   onChange?: (value: ComposerValue) => void;
   onSubmit?: (value: ComposerValue) => void;
   onCancel?: () => void;
@@ -169,11 +174,14 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
   (
     {
       placeholder,
+      ariaLabel,
       defaultValue,
       disabled,
       autoFocus,
       className,
       richText,
+      enablePasteAttachment,
+      enableDropAttachment,
       onChange,
       onSubmit,
       onCancel,
@@ -184,6 +192,8 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       onCommandClose,
       onAcceptCommand,
       onAcceptMention,
+      onFilesDropped,
+      onFilesPasted,
     },
     ref
   ) => {
@@ -420,6 +430,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       rootRef.current.innerHTML = renderHTML(val);
       if (!options?.skipCaret) {
         placeCaretAtEnd(rootRef.current);
+        ensureCaretVisible(rootRef.current);
       }
     }
 
@@ -427,6 +438,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       const next = getCurrentValue();
       setValueState(next);
       detectTriggers();
+      if (rootRef.current) ensureCaretVisible(rootRef.current);
     }
 
     function detectTriggers() {
@@ -623,6 +635,19 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
     }
 
     function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+      try {
+        if (enablePasteAttachment) {
+          const dt = e.clipboardData;
+          const files = Array.from(dt?.files || []);
+          const hasFile = files.length > 0 || Array.from(dt?.items || []).some((it) => it.kind === 'file');
+          if (hasFile) {
+            e.preventDefault();
+            if (files.length > 0 && typeof onFilesPasted === 'function') onFilesPasted(files);
+            else if (typeof onRequestAttachment === 'function') onRequestAttachment();
+            return;
+          }
+        }
+      } catch {}
       e.preventDefault();
       const text = e.clipboardData.getData("text/plain");
       insertTextAtCursor(text);
@@ -630,7 +655,28 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
     }
 
     function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+      try {
+        const dt = e.dataTransfer as DataTransfer;
+        const files = Array.from(dt?.files || []);
+        const items = Array.from(dt?.items || []);
+        const types = Array.from(dt?.types || []);
+        const hasFile = files.length > 0 || items.some((it) => it.kind === 'file') || types.includes('Files');
+        if (enableDropAttachment && hasFile) {
+          e.preventDefault();
+          if (files.length > 0 && typeof onFilesDropped === 'function') onFilesDropped(files);
+          else if (typeof onRequestAttachment === 'function') onRequestAttachment();
+          setDragState(false);
+          return;
+        }
+      } catch {}
       e.preventDefault();
+    }
+
+    function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+      if (enableDropAttachment) {
+        e.preventDefault();
+        try { (e.dataTransfer as DataTransfer).dropEffect = 'copy'; } catch {}
+      }
     }
 
     function insertTextAtCursor(text: string) {
@@ -650,16 +696,35 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       selection.addRange(range);
     }
 
-    function placeCaretAtEnd(el: HTMLElement) {
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      range.collapse(false);
-      const sel = window.getSelection();
-      if (sel) {
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
+  function placeCaretAtEnd(el: HTMLElement) {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
     }
+  }
+
+  function ensureCaretVisible(root: HTMLElement) {
+    try {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      const rect = range.getClientRects().length > 0 ? range.getBoundingClientRect() : null;
+      if (!rect) return;
+      const rootRect = root.getBoundingClientRect();
+      const padding = 8;
+      const topRel = rect.top - rootRect.top + root.scrollTop;
+      const bottomRel = rect.bottom - rootRect.top + root.scrollTop;
+      if (topRel < root.scrollTop + padding) {
+        root.scrollTop = Math.max(0, topRel - padding);
+      } else if (bottomRel > root.scrollTop + root.clientHeight - padding) {
+        root.scrollTop = Math.max(0, bottomRel - root.clientHeight + padding);
+      }
+    } catch {}
+  }
 
     function focusAfterMention(root: HTMLElement, mention: ComposerMention) {
       const chips = Array.from(root.querySelectorAll<HTMLElement>('[data-role="mention-chip"]'));
@@ -716,6 +781,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
         selection.removeAllRanges();
         selection.addRange(range);
       }
+      ensureCaretVisible(root);
     }
 
     function getPrecedingText(root: HTMLElement): string {
@@ -731,6 +797,12 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
     }
 
     const showPlaceholder = valueState.text.length === 0 && !valueState.decision;
+    const dragActiveRef = useRef(false);
+    const [dragActive, setDragActive] = useState(false);
+    function setDragState(active: boolean) {
+      dragActiveRef.current = active;
+      setDragActive(active);
+    }
 
     return (
       <div className={clsx("composer-root", className)}>
@@ -870,9 +942,10 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
           )}
           <div
             ref={rootRef}
-            className={clsx("composer-input", { "composer-input-disabled": disabled })}
+            className={clsx("composer-input", { "composer-input-disabled": disabled, 'composer-input-drag-over': dragActive })}
             style={richText ? { paddingTop: 50 } : undefined}
             role="textbox"
+            aria-label={ariaLabel || placeholder || undefined}
             aria-multiline="true"
             contentEditable={!disabled}
             data-placeholder={placeholder}
@@ -882,7 +955,15 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
             onPaste={handlePaste}
             onClick={handleClick}
             onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragEnter={(e)=> { if (enableDropAttachment) { e.preventDefault(); setDragState(true); } }}
+            onDragLeave={(e)=> { if (enableDropAttachment) { e.preventDefault(); setDragState(false); } }}
           />
+          {dragActive && enableDropAttachment && (
+            <div aria-hidden="true" style={{ position:'absolute', inset:0, border:'2px dashed var(--verde-primario, #018942)', borderRadius:14, background:'rgba(1,137,66,0.04)', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--verde-primario, #018942)', fontSize:12, fontWeight:600, pointerEvents:'none' }}>
+              Solte para anexar
+            </div>
+          )}
           {showPlaceholder && (
             <div
               className="composer-placeholder"

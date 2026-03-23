@@ -1290,7 +1290,9 @@ body {
 
 
 .composer-input {
-  min-height: 128px;
+  /* Controlled autogrow: compact min, capped max, internal scroll */
+  min-height: 48px;
+  max-height: 200px;
   padding: 14px 16px;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
@@ -1318,6 +1320,13 @@ body {
 .composer-input-disabled {
   background: #f3f4f6;
   color: #9ca3af;
+}
+
+/* Drag & drop feedback for composer */
+.composer-input-drag-over {
+  border-style: dashed;
+  border-color: var(--verde-primario, #34a853);
+  background: rgba(1, 137, 66, 0.04);
 }
 .composer-placeholder {
   position: absolute;

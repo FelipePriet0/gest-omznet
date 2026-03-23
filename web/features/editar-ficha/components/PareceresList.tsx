@@ -380,7 +380,9 @@ function NoteItem({
               defaultValue={editValue}
               disabled={!canEdit}
               placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
+              ariaLabel="Editar parecer"
               richText
+              
               onAcceptMention={(query) => {
                 const list = profiles.filter((p) => (p.full_name || '').toLowerCase().includes((query || '').toLowerCase()));
                 if (list.length === 1) {
@@ -513,7 +515,9 @@ function NoteItem({
             <UnifiedComposer
               ref={replyComposerRef}
               placeholder="Responder… Use @ para mencionar e / para decisões"
+              ariaLabel="Responder parecer"
               richText
+              
               onAcceptMention={(query) => {
                 const list = profiles.filter((p) => (p.full_name || '').toLowerCase().includes((query || '').toLowerCase()));
                 if (list.length === 1) {

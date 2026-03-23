@@ -194,6 +194,10 @@ export function EditarFichaModal({
     }
 
     try {
+      if (context?.source === 'conversa' && !(context?.inPlace)) {
+        try { window.dispatchEvent(new CustomEvent('mz-conversation-stage-files', { detail: { files, parentId: context?.commentId ?? null } })); } catch {}
+        return;
+      }
       // Se for Conversa, criar comentário apenas quando não for edição in-place
       let commentIdForUpload: string | null = context?.commentId ?? null;
       if (context?.source === 'conversa' && !(context?.inPlace && context?.commentId)) {
@@ -856,7 +860,9 @@ export function EditarFichaModal({
                     ref={composerRef}
                     disabled={!canWriteParecer}
                     placeholder="Escreva um novo parecer… Use @ para mencionar"
+                    ariaLabel="Escrever parecer"
                     richText
+                    
                     onAcceptMention={(query) => {
                       if (!canWriteParecer) return false;
                       const list = (profiles || []).filter((p) => (p.full_name || '').toLowerCase().includes((query||'').toLowerCase()))
@@ -1299,7 +1305,9 @@ function NoteItem({
               ref={editComposerRef}
               defaultValue={editValue}
               placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
+              ariaLabel="Editar parecer"
               richText
+              
               onChange={(val)=> setEditValue(val)}
               onSubmit={async (val)=>{
                 const trimmed = (val.text || '').trim();
@@ -1379,7 +1387,9 @@ function NoteItem({
               ref={replyComposerRef}
               defaultValue={replyValue}
               placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
+              ariaLabel="Responder parecer"
               richText
+              
               onChange={(val)=> setReplyValue(val)}
               onSubmit={async (val)=>{
                 const trimmed = (val.text || '').trim();

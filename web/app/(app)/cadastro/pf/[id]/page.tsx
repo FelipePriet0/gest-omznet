@@ -326,6 +326,11 @@ export default function CadastroPFPage() {
     }
 
     try {
+      // Novo: Conversa co-relacionada deve estagiar arquivos no composer (não enviar imediato)
+      if (context?.source === 'conversa' && !context?.commentId) {
+        try { window.dispatchEvent(new CustomEvent('mz-conversation-stage-files', { detail: { files, parentId: null } })); } catch {}
+        return;
+      }
       // Se for Conversa, cria um comentário (pai ou resposta) antes do upload
       let commentIdForUpload: string | null = context?.commentId ?? null;
       if (context?.source === 'conversa') {
@@ -1319,8 +1324,10 @@ export default function CadastroPFPage() {
               <UnifiedComposer
                 ref={parecerComposerRef}
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
+                ariaLabel="Escrever parecer"
                 disabled={currentUserRole === 'vendedor'}
                 richText
+                
                 onAcceptMention={(query) => {
                   const list = (profiles||[]).filter(p => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
                   if (list.length === 1) {
@@ -1594,6 +1601,7 @@ function FieldStatusIndicator({ status }: { status: 'idle'|'pending'|'error' }) 
 function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void | Promise<void>; initialQuery?: string }) {
   const [q, setQ] = useState(initialQuery || "");
   useEffect(()=> setQ(initialQuery || ""), [initialQuery]);
+  const listboxId = useMemo(()=> `cmd-list-${Math.random().toString(36).slice(2)}`, []);
   const iconFor = (key: string) => {
     if (key === 'aprovado') return <CheckCircle className="w-4 h-4" />;
     if (key === 'negado') return <XCircle className="w-4 h-4" />;
@@ -1605,11 +1613,14 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
   const filtered = items.filter(i => i.key.includes(q) || i.label.toLowerCase().includes(q.toLowerCase()));
   const decisions = filtered.filter(i => ['aprovado','negado','reanalise'].includes(i.key));
   const actions = filtered.filter(i => ['tarefa','anexo'].includes(i.key));
+  const firstId = filtered[0]?.key ? `cmd-opt-${filtered[0].key}` : undefined;
+  const srOnly = { position:'absolute', width:'1px', height:'1px', padding:0, margin:'-1px', overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 } as React.CSSProperties;
   return (
-    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow">
+    <div className="cmd-menu-dropdown mt-2 max-h-60 w-64 overflow-auto rounded-lg border border-zinc-200 bg-white text-sm shadow" role="listbox" aria-label="Sugestões de comando" id={listboxId} aria-activedescendant={firstId}>
       <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-100">
         <Search className="w-4 h-4 text-zinc-500" />
-        <input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+        <input role="combobox" aria-autocomplete="list" aria-controls={listboxId} aria-expanded={true} aria-activedescendant={firstId} value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Buscar…" className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400" />
+        <div style={srOnly} aria-live="polite">{filtered.length} resultado{filtered.length===1?'':'s'}</div>
       </div>
       {decisions.length > 0 && (
         <div className="py-1">
@@ -1626,6 +1637,8 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
                   'cmd-menu-item--warning': i.key === 'reanalise',
                 }
               )}
+              role="option"
+              id={`cmd-opt-${i.key}`}
             >
               {iconFor(i.key)}
               <span>{i.label}</span>
@@ -1641,6 +1654,8 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
               key={i.key}
               onClick={() => onPick(i.key)}
               className="cmd-menu-item flex w-full items-center gap-2 px-2 py-1.5 text-left"
+              role="option"
+              id={`cmd-opt-${i.key}`}
             >
               {iconFor(i.key)}
               <span>{i.label}</span>
