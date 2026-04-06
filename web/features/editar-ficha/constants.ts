@@ -4,17 +4,17 @@ export const PLANO_OPTIONS: Opt[] = [
   { label: "— Normais —", value: "__hdr_norm", disabled: true },
   { label: "100 Mega - R$ 59,90", value: "100 Mega - R$ 59,90" },
   { label: "250 Mega - R$ 69,90", value: "250 Mega - R$ 69,90" },
-  { label: "500 Mega - R$ 79,90", value: "500 Mega - R$ 79,90" },
+  { label: "600 Mega - R$ 79,90", value: "600 Mega - R$ 79,90" },
   { label: "1000 Mega (1Gb) - R$ 99,90", value: "1000 Mega (1Gb) - R$ 99,90" },
   { label: "— IP Dinâmico —", value: "__hdr_ipdin", disabled: true },
   { label: "100 Mega + IP Dinâmico - R$ 74,90", value: "100 Mega + IP Dinâmico - R$ 74,90" },
   { label: "250 Mega + IP Dinâmico - R$ 89,90", value: "250 Mega + IP Dinâmico - R$ 89,90" },
-  { label: "500 Mega + IP Dinâmico - R$ 94,90", value: "500 Mega + IP Dinâmico - R$ 94,90" },
+  { label: "600 Mega + IP Dinâmico - R$ 94,90", value: "600 Mega + IP Dinâmico - R$ 94,90" },
   { label: "1000 Mega (1Gb) + IP Dinâmico - R$ 114,90", value: "1000 Mega (1Gb) + IP Dinâmico - R$ 114,90" },
   { label: "— IP Fixo —", value: "__hdr_ipfixo", disabled: true },
   { label: "100 Mega + IP Fixo - R$ 259,90", value: "100 Mega + IP Fixo - R$ 259,90" },
   { label: "250 Mega + IP Fixo - R$ 269,90", value: "250 Mega + IP Fixo - R$ 269,90" },
-  { label: "500 Mega + IP Fixo - R$ 279,90", value: "500 Mega + IP Fixo - R$ 279,90" },
+  { label: "600 Mega + IP Fixo - R$ 279,90", value: "600 Mega + IP Fixo - R$ 279,90" },
   { label: "1000 Mega (1Gb) + IP Fixo - R$ 299,90", value: "1000 Mega (1Gb) + IP Fixo - R$ 299,90" },
 ];
 
@@ -37,4 +37,3 @@ export const SVA_OPTIONS: Opt[] = [
 ];
 
 export const VENC_OPTIONS = ["5", "10", "15", "20", "25"] as const;
-

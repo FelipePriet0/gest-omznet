@@ -164,17 +164,17 @@ const PLANO_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
   { label: '— Normais —', value: '__hdr_norm', disabled: true },
   { label: '100 Mega - R$ 59,90', value: '100 Mega - R$ 59,90' },
   { label: '250 Mega - R$ 69,90', value: '250 Mega - R$ 69,90' },
-  { label: '500 Mega - R$ 79,90', value: '500 Mega - R$ 79,90' },
+  { label: '600 Mega - R$ 79,90', value: '600 Mega - R$ 79,90' },
   { label: '1000 Mega (1Gb) - R$ 99,90', value: '1000 Mega (1Gb) - R$ 99,90' },
   { label: '— IP Dinâmico —', value: '__hdr_ipdin', disabled: true },
   { label: '100 Mega + IP Dinâmico - R$ 74,90', value: '100 Mega + IP Dinâmico - R$ 74,90' },
   { label: '250 Mega + IP Dinâmico - R$ 89,90', value: '250 Mega + IP Dinâmico - R$ 89,90' },
-  { label: '500 Mega + IP Dinâmico - R$ 94,90', value: '500 Mega + IP Dinâmico - R$ 94,90' },
+  { label: '600 Mega + IP Dinâmico - R$ 94,90', value: '600 Mega + IP Dinâmico - R$ 94,90' },
   { label: '1000 Mega (1Gb) + IP Dinâmico - R$ 114,90', value: '1000 Mega (1Gb) + IP Dinâmico - R$ 114,90' },
   { label: '— IP Fixo —', value: '__hdr_ipfixo', disabled: true },
   { label: '100 Mega + IP Fixo - R$ 259,90', value: '100 Mega + IP Fixo - R$ 259,90' },
   { label: '250 Mega + IP Fixo - R$ 269,90', value: '250 Mega + IP Fixo - R$ 269,90' },
-  { label: '500 Mega + IP Fixo - R$ 279,90', value: '500 Mega + IP Fixo - R$ 279,90' },
+  { label: '600 Mega + IP Fixo - R$ 279,90', value: '600 Mega + IP Fixo - R$ 279,90' },
   { label: '1000 Mega (1Gb) + IP Fixo - R$ 299,90', value: '1000 Mega (1Gb) + IP Fixo - R$ 299,90' },
 ];
 
@@ -218,6 +218,15 @@ function uiToTipoInstPJ(v: string): string | null {
 }
 
 export default function CadastroPJPage() {
+  // Auto-print quando aberto em modo de exportação
+  const sp = useSearchParams();
+  useEffect(() => {
+    const isExport = (sp.get('from') || '').toLowerCase() === 'export';
+    const doPrint = (sp.get('print') || '') === '1';
+    if (!isExport || !doPrint) return;
+    const t = setTimeout(() => { try { window.print(); } catch {} }, 400);
+    return () => clearTimeout(t);
+  }, [sp]);
   const params = useParams();
   const search = useSearchParams();
   const applicantId = params?.id as string;
@@ -389,8 +398,10 @@ export default function CadastroPJPage() {
       try {
         const r = await listRoutes();
         setRoutes(r.filter((x) => x.active));
-      } catch (err) {
-        console.error(err);
+      } catch (err: any) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Falha ao carregar rotas (routes)', err?.message || err);
+        }
       }
     })();
   }, []);

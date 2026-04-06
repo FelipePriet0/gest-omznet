@@ -208,6 +208,14 @@ export default function HistoricoPage() {
             load();
           }}
         />
+        <div className="flex items-center justify-end">
+          <button
+            onClick={() => exportHistoricoCSV(filteredRows)}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Exportar CSV
+          </button>
+        </div>
         {/* Dashboard */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 w-full">
           <DashboardCard title="Qtd de fichas" value={dashboard.total} />
@@ -345,6 +353,39 @@ function DashboardCard({ title, value }: { title: string; value?: number | null 
       </div>
     </div>
   );
+}
+
+function exportHistoricoCSV(rows: Row[]) {
+  try {
+    const headers = [
+      'ID','Cliente','CPF/CNPJ','Status','Decisão Final','Finalizado em','Arquivado em','Vendedor','Analista'
+    ];
+    const lines = [headers.join(',')];
+    for (const r of rows) {
+      const vals = [
+        r.id,
+        r.applicant_name,
+        r.cpf_cnpj,
+        (r as any).decision_status || '',
+        r.final_decision || '',
+        r.finalized_at ? new Date(r.finalized_at).toLocaleString('pt-BR') : '',
+        r.archived_at ? new Date(r.archived_at).toLocaleString('pt-BR') : '',
+        r.vendedor_name || '',
+        r.analista_name || '',
+      ].map((v) => {
+        const s = String(v ?? '');
+        return '"' + s.replace(/"/g, '""') + '"';
+      });
+      lines.push(vals.join(','));
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'historico.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch {}
 }
 
 function HistoricoList({ rows, onOpenDetails }: { rows: Row[]; onOpenDetails: (cardId: string) => void }) {

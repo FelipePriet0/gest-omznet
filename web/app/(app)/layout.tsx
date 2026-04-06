@@ -123,6 +123,11 @@ export default function AppLayout({ children }: Readonly<{ children: React.React
 
 function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   const [open, setOpen] = useState(false);
+  // Para export: evitar hidratação instável em data/hora
+  const [exportNow, setExportNow] = useState<string>("");
+  useEffect(() => {
+    try { setExportNow(new Date().toLocaleString()); } catch {}
+  }, []);
   const isDesktop = useSyncExternalStore(
     (onStoreChange) => {
       if (typeof window === "undefined") return () => {};
@@ -168,7 +173,8 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
         tipo = parts[1];
         id = parts[2];
       }
-      const url = `/api/export/ficha?tipo=${encodeURIComponent(tipo)}&id=${encodeURIComponent(id)}`;
+      const path = tipo === 'pj' ? `/cadastro/pj/${id}` : `/cadastro/pf/${id}`;
+      const url = `${path}?from=export&print=1`;
       const a = document.createElement('a');
       a.href = url;
       a.rel = 'noopener noreferrer';
@@ -244,10 +250,38 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
 
   // Export mode (from=export): render only the page content (children), no sidebar/header/ctas
   if (exportMode && isExpandedCadastro) {
+    // Export shell: header/footer próprios para impressão
     return (
-      <main className="w-full min-h-screen">
-        {children}
+      <SidebarProvider open={false} setOpen={() => {}}>
+      <main className="w-full min-h-screen bg-white text-black">
+        <style>{`
+          @page { margin: 18mm 14mm; }
+          @media print {
+            .print-header { position: fixed; top: 0; left: 0; right: 0; height: 40px; padding: 8px 0; }
+            .print-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 30px; padding: 6px 0; }
+            .print-body   { margin-top: 56px; margin-bottom: 44px; }
+            /* Evitar quebras ruins de seção */
+            .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+          }
+        `}</style>
+        <div className="print-header border-b border-zinc-300 text-sm" style={{ background: '#fff' }}>
+          <div className="max-w-[980px] mx-auto flex items-center justify-between px-4">
+            <div className="font-semibold">MZNET — Ficha do Cadastro</div>
+            <div className="text-zinc-600" suppressHydrationWarning>{exportNow}</div>
+          </div>
+        </div>
+        <div className="print-body">
+          <div className="max-w-[980px] mx-auto px-4">
+            {children}
+          </div>
+        </div>
+        <div className="print-footer border-t border-zinc-300 text-xs text-zinc-600" style={{ background: '#fff' }}>
+          <div className="max-w-[980px] mx-auto px-4">
+            Documento gerado por MZNET — confidencial
+          </div>
+        </div>
       </main>
+      </SidebarProvider>
     );
   }
 
@@ -285,7 +319,6 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                     {isExpandedCadastro && (
                       <div className="flex items-center gap-2 shrink-0">
                         <button onClick={() => onExportPdf(parts)} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Exportar PDF</button>
-                        <button onClick={onDownloadPdf} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Imprimir/Salvar</button>
                       </div>
                     )}
                   </div>

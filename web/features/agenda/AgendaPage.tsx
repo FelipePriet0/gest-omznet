@@ -448,6 +448,14 @@ export function AgendaPage() {
               </div>
             )}
 
+            <button
+              type="button"
+              onClick={() => exportAgendaCSV(dateISO, filteredCards, technicians)}
+              className="h-9 shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              Exportar CSV
+            </button>
+
             <DateNavigator
               dateISO={dateISO}
               onPrev={() => handleChangeDay(-1)}
@@ -540,4 +548,32 @@ export function AgendaPage() {
       </DndContext>
     </div>
   );
+}
+
+function exportAgendaCSV(dateISO: string, cards: ScheduleCard[], technicians: Technician[]) {
+  try {
+    const techMap = new Map(technicians.map((t) => [t.id, t.name]));
+    const headers = ['Data','Horário(s)','Técnico','Cliente','Bairro','Tipo instalação','Stage'];
+    const lines = [headers.join(',')];
+    for (const c of cards) {
+      const horarios = Array.isArray(c.time_slots) && c.time_slots.length > 0 ? c.time_slots.join(' e ') : c.time_slot;
+      const vals = [
+        dateISO,
+        horarios,
+        techMap.get(c.technician_id) || '',
+        (c as any).cliente || '',
+        (c as any).bairro || '',
+        String((c as any).tipo_instalacao || ''),
+        String((c as any).stage || ''),
+      ].map((v) => '"' + String(v ?? '').replace(/"/g, '""') + '"');
+      lines.push(vals.join(','));
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `agenda-${dateISO}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch {}
 }
