@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
         height: `${metrics.heightMM}mm`,
         margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
       });
-      const displayName = await page.$eval('#mz-print-root', el => (el.getAttribute('data-name')||'').toString());
+      const displayName = await page.$eval('#mz-print-root', (el: Element) => (el.getAttribute('data-name')||'').toString());
       const base = displayName ? `Ficha-${t.toUpperCase()}-${displayName}-${id}.pdf` : `Ficha-${t.toUpperCase()}-${id}.pdf`;
       const fileName = sanitizeFilename(base);
       return new Response(pdf as any, {
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
         height: `${metrics.heightMM}mm`,
         margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
       });
-      const displayName = await page.$eval('#mz-print-root', el => (el.getAttribute('data-name')||'').toString());
+      const displayName = await page.$eval('#mz-print-root', (el: Element) => (el.getAttribute('data-name')||'').toString());
       const base = displayName ? `Ficha-${t.toUpperCase()}-${displayName}-${id}.pdf` : `Ficha-${t.toUpperCase()}-${id}.pdf`;
       const fileName = sanitizeFilename(base);
       return new Response(pdf as any, {

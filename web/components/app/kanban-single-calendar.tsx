@@ -112,7 +112,7 @@ export function KanbanSingleCalendar({ value, onChange, disablePast, fullDays, o
           const outside = !isSameMonth(day, month);
           const isSelected = selected && isSameDay(day, selected);
           const isToday = isSameDay(day, today);
-          const isFull = !!(fullDays?.has(iso));
+          const isFull = !!(iso && fullDays?.has(iso));
           const disabled = isPast || isFull;
           const fullLabel = isFull
             ? `Não há mais vagas para ${format(day, "dd/MM/yyyy", { locale: ptBR })}`

@@ -194,6 +194,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       onAcceptMention,
       onFilesDropped,
       onFilesPasted,
+      onRequestAttachment,
     },
     ref
   ) => {

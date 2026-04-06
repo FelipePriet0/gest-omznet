@@ -1089,7 +1089,7 @@ function CommentItem({ node, depth, onReply, onEdit, onDelete, onOpenAttach, onO
               enablePasteAttachment
               enableDropAttachment
               onRequestAttachment={() => onOpenAttach(node.id, { inPlace: true })}
-              onFilesDropped={(files)=> { setReply(prev => { if (!prevOpen()) return prev; return prev; }); try { replyComposerRef.current?.insertText(' '); } catch {} }}
+              onFilesDropped={(files)=> { try { replyComposerRef.current?.insertText(' '); } catch {} }}
               onFilesPasted={(files)=> { try { replyComposerRef.current?.insertText(' '); } catch {} }}
               onAcceptMention={(query) => {
                 const list = profiles.filter((p) => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));

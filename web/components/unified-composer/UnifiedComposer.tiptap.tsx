@@ -84,6 +84,7 @@ export default forwardRef<UnifiedComposerHandle, Props>(function UnifiedComposer
     onCommandClose,
     onAcceptCommand,
     onAcceptMention,
+    onRequestAttachment,
   },
   ref
 ) {
@@ -105,12 +106,7 @@ export default forwardRef<UnifiedComposerHandle, Props>(function UnifiedComposer
         const { useEditor, EditorContent } = tiptap as any;
         // Build editor
         const editor = useEditor({
-          extensions: [StarterKit.configure({
-            history: true,
-            bulletList: true,
-            orderedList: true,
-            heading: true,
-          }), Placeholder.configure({ placeholder: placeholder || "Digite…" })],
+          extensions: [StarterKit, Placeholder.configure({ placeholder: placeholder || "Digite…" })],
           content: (defaultValue?.text || "").replace(/\n/g, "<br/>") || "",
           editable: !disabled,
           onUpdate: ({ editor }: any) => {

@@ -519,25 +519,6 @@ function NoteItem({
               richText
               
               onAcceptMention={(query) => {
-                const list = profiles.filter((p) => (p.full_name || '').toLowerCase().includes((query || '').toLowerCase()));
-                if (list.length === 1) {
-                  replyComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
-                  setReplyMentionOpen(false);
-                  setReplyMentionFilter('');
-                  return true;
-                }
-                return false;
-              }}
-              onAcceptCommand={(query) => {
-                const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
-                if (opts.length === 1) {
-                  replyComposerRef.current?.setDecision(opts[0] as any);
-                  setCmdOpen(false); setCmdQuery('');
-                  return true;
-                }
-                return false;
-              }}
-              onAcceptMention={(query) => {
                 const list = profiles.filter((p) => p.id !== currentUserId && (p.full_name || '').toLowerCase().includes((query || '').toLowerCase()));
                 if (list.length === 1) {
                   replyComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });

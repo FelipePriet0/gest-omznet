@@ -127,11 +127,11 @@ export function EditTechnicianModal({
       const isMudanca = (activity || "").toLowerCase().includes("mud");
       if (isMudanca) {
         // Determinar janela: se não houver período, usar o dia atual
-        const todayISO = toDateOnlyISO(new Date());
+        const todayISO = toDateOnlyISO(new Date()) ?? new Date().toISOString().slice(0, 10);
         const startLocal = deadline.start || todayISO;
         const endLocal = deadline.end || startLocal;
-        const startUTC = String(startOfDayUtcISO(startLocal));
-        const endUTC = String(endOfDayUtcISO(endLocal));
+        const startUTC = String(startOfDayUtcISO(startLocal ?? todayISO));
+        const endUTC = String(endOfDayUtcISO(endLocal ?? todayISO));
 
         // Buscar cards agendados para este técnico na janela
         const { data: rows, error } = await supabase

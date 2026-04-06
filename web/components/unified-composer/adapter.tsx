@@ -13,7 +13,7 @@ import type {
 export type { ComposerDecision, ComposerMention, ComposerValue, UnifiedComposerHandle };
 
 type Props = React.ComponentProps<typeof LegacyComposer>;
-import LegacyComposer from "./UnifiedComposer";
+import { UnifiedComposer as LegacyComposer } from "./UnifiedComposer";
 import React from "react";
 
 let EngineComposer: React.ComponentType<Props> | null = null;

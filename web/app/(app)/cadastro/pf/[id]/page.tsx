@@ -1519,7 +1519,7 @@ function Grid({ cols, children }: { cols: 1|2|3|4; children: React.ReactNode }) 
   return <div className={`grid gap-4 ${cls}`}>{children}</div>;
 }
 
-function Field({ label, value, onChange, className, error, red, requiredMark, disabled, maxLength, status }: { label: string; value: string; onChange: (v: string)=>void; className?: string; error?: boolean; red?: boolean; requiredMark?: boolean; disabled?: boolean; maxLength?: number; status?: 'idle'|'pending'|'error' }) {
+function Field({ label, value, onChange, className, error, red, requiredMark, disabled, maxLength, status, placeholder, inputMode }: { label: string; value: string; onChange: (v: string)=>void; className?: string; error?: boolean; red?: boolean; requiredMark?: boolean; disabled?: boolean; maxLength?: number; status?: 'idle'|'pending'|'error'; placeholder?: string; inputMode?: React.InputHTMLAttributes<HTMLInputElement>['inputMode'] }) {
   return (
     <div className={className}>
       <label className="mb-1 block text-xs font-medium text-zinc-700">
@@ -1536,8 +1536,9 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
         onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
         disabled={disabled}
         maxLength={maxLength}
+        inputMode={inputMode}
         className={`h-10 w-full rounded-[7px] border ${error || red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 text-sm outline-none shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)]`}
-        placeholder=""
+        placeholder={placeholder ?? ""}
         autoComplete="off"
       />
       <FieldStatusIndicator status={status || 'idle'} />
@@ -1745,6 +1746,8 @@ function PareceresList({
   const [mentionOpenReply, setMentionOpenReply] = useState(false);
   const [mentionFilterReply, setMentionFilterReply] = useState("");
   const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
+  const [replyMentionOpen, setReplyMentionOpen] = useState(false);
+  const [replyMentionFilter, setReplyMentionFilter] = useState("");
   const [isReplyingId, setIsReplyingId] = useState<string|null>(null);
   const [isEditingId, setIsEditingId] = useState<string|null>(null);
   const [editValue, setEditValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
