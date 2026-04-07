@@ -893,7 +893,7 @@ export default function CadastroPFPage() {
   // Wrapper receives .expanded-portrait for compact layout on tall portrait monitors
   // Apply PF aspect (407/670) and responsive sizing with `.ficha-pf` and smart zoom scaler
   return (
-    <div className="form-zoom-wrap" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflowX: 'hidden' }}>
+    <div className="form-zoom-wrap" style={{ display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
       {/* Controls inline, above first card (Dados do Cliente), not scaled */}
       <div className="form-fixed-width px-3 md:px-4 expanded-portrait" style={{ paddingTop: 0, flexShrink: 0 }}>
         <div className="form-zoom-controls form-zoom-controls--inline">

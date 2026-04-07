@@ -768,7 +768,7 @@ export default function CadastroPJPage() {
   // Wrapper receives .expanded-portrait para layout compacto
   // Aplica zoom escalável tipo Adobe: controles acima do primeiro card e scaler centralizado
   return (
-    <div className="form-zoom-wrap" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflowX: 'hidden' }}>
+    <div className="form-zoom-wrap" style={{ display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
       {/* Controles inline, acima do primeiro card (Dados da Empresa), não escalam */}
       <div className="form-fixed-width px-3 md:px-4 expanded-portrait" style={{ paddingTop: 0, flexShrink: 0 }}>
         <div className="form-zoom-controls form-zoom-controls--inline">
