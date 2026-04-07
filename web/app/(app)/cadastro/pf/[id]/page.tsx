@@ -1342,7 +1342,6 @@ export default function CadastroPFPage() {
             <div className="relative" ref={parecerContainerRef}>
               <UnifiedComposer
                 ref={parecerComposerRef}
-                className="composer-root"
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
                 ariaLabel="Escrever parecer"
                 disabled={currentUserRole === 'vendedor'}

@@ -951,25 +951,6 @@ body {
   .ficha-pf textarea { min-height: 70px !important; font-size: 12px !important; }
 }
 
-/* ── Composer (Parecer) ── */
-.ficha-pf .composer-root {
-  border: 1px solid #a1a1aa !important;
-  border-radius: 2px !important;
-  background: #dbeafe !important;
-  box-shadow: none !important;
-  min-height: 52px !important;
-  font-size: 10px !important;
-}
-.ficha-pf .composer-root [contenteditable] {
-  font-size: 10px !important;
-  padding: 4px 6px !important;
-  min-height: 44px !important;
-}
-@media (max-width: 639px) {
-  .ficha-pf .composer-root { font-size: 12px !important; min-height: 64px !important; }
-  .ficha-pf .composer-root [contenteditable] { font-size: 12px !important; }
-}
-
 /* ── Grid & spacing ── */
 .ficha-pf .grid { gap: 4px !important; }
 .ficha-pf .gap-4 { gap: 4px !important; }
