@@ -812,6 +812,25 @@ body {
   }
 }
 
+/* ── Composer (Parecer) ── */
+.ficha-pj .composer-root {
+  border: 1px solid #a1a1aa !important;
+  border-radius: 2px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  min-height: 52px !important;
+  font-size: 10px !important;
+}
+.ficha-pj .composer-root [contenteditable] {
+  font-size: 10px !important;
+  padding: 4px 6px !important;
+  min-height: 44px !important;
+}
+@media (max-width: 639px) {
+  .ficha-pj .composer-root { font-size: 12px !important; min-height: 64px !important; }
+  .ficha-pj .composer-root [contenteditable] { font-size: 12px !important; }
+}
+
 /* ── Grid spacing ── */
 .ficha-pj .grid { gap: 4px !important; }
 .ficha-pj .pj-section { margin-bottom: 8px !important; }

@@ -1035,7 +1035,7 @@ export default function CadastroPJPage() {
           </div>
           {/* Agendamento: Instalação agendada para + Horário */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Instalação agendada para</label>
+            <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Instalação agendada para</label>
             <DateSingleKanbanPopover
               value={dueAt}
               onChange={(v) => {
@@ -1046,11 +1046,11 @@ export default function CadastroPJPage() {
                 }
               }}
               disablePast
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-white px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Horário</label>
+            <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Horário</label>
             <TimeMultiSelect
               label=""
               times={TIME_SLOTS}
@@ -1063,7 +1063,7 @@ export default function CadastroPJPage() {
                 }
               }}
               allowedPairs={[["08:30", "10:30"], ["13:30", "15:30"]]}
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-white px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
               date={dueAt}
             />
           </div>
