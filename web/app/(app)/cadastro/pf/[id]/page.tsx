@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { useParams, useSearchParams } from "next/navigation";
 import { SimpleSelect } from "@/components/ui/select";
@@ -894,16 +895,8 @@ export default function CadastroPFPage() {
   // Apply PF aspect (407/670) and responsive sizing with `.ficha-pf` and smart zoom scaler
   return (
     <div className="form-zoom-wrap" style={{ display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
-      {/* Controls inline, above first card (Dados do Cliente), not scaled */}
-      <div className="form-fixed-width px-3 md:px-4 expanded-portrait" style={{ paddingTop: 0, flexShrink: 0 }}>
-        <div className="form-zoom-controls form-zoom-controls--inline">
-          <button className="btn-zoom" onClick={() => setZoom(z => Math.max(0.75, +(z - 0.05).toFixed(2)))}>−</button>
-          <span className="zoom-label">{Math.round(zoom * 100)}%</span>
-          <button className="btn-zoom" onClick={() => setZoom(z => Math.min(1.5, +(z + 0.05).toFixed(2)))}>+</button>
-          <button className="btn-zoom-reset" onClick={() => setZoom(1)}>Reset</button>
-        </div>
-      </div>
-      <div className="form-zoom-scaler" style={{ zoom: zoom, margin: '12px auto 0 auto', minHeight: 'fit-content', width: '100%' }}>
+      <ZoomPortal zoom={zoom} setZoom={setZoom} />
+      <div className="form-zoom-scaler" style={{ zoom: zoom, margin: '0 auto', minHeight: 'fit-content', width: '100%' }}>
         <div
           id="mz-print-root"
           data-tipo="pf"
@@ -2248,3 +2241,17 @@ function ParecerMenu({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () 
 }
 
 // (Removido) Segmented control; categorias agora ficam dentro do dropdown
+
+function ZoomPortal({ zoom, setZoom }: { zoom: number; setZoom: (fn: (z: number) => number) => void }) {
+  const [target, setTarget] = useState<Element | null>(null);
+  useEffect(() => { setTarget(document.getElementById('mz-zoom-controls')); }, []);
+  if (!target) return null;
+  return createPortal(
+    <div className="flex items-center gap-1">
+      <button className="btn-zoom" onClick={() => setZoom(z => Math.max(0.75, +(z - 0.05).toFixed(2)))}>−</button>
+      <span className="zoom-label">{Math.round(zoom * 100)}%</span>
+      <button className="btn-zoom" onClick={() => setZoom(z => Math.min(1.5, +(z + 0.05).toFixed(2)))}>+</button>
+    </div>,
+    target
+  );
+}

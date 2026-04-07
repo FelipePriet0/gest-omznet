@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -769,18 +770,10 @@ export default function CadastroPJPage() {
   // Aplica zoom escalável tipo Adobe: controles acima do primeiro card e scaler centralizado
   return (
     <div className="form-zoom-wrap" style={{ display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
-      {/* Controles inline, acima do primeiro card (Dados da Empresa), não escalam */}
-      <div className="form-fixed-width px-3 md:px-4 expanded-portrait" style={{ paddingTop: 0, flexShrink: 0 }}>
-        <div className="form-zoom-controls form-zoom-controls--inline">
-          <button className="btn-zoom" onClick={() => setZoom(z => Math.max(0.75, +(z - 0.05).toFixed(2)))}>−</button>
-          <span className="zoom-label">{Math.round(zoom * 100)}%</span>
-          <button className="btn-zoom" onClick={() => setZoom(z => Math.min(1.5, +(z + 0.05).toFixed(2)))}>+</button>
-          <button className="btn-zoom-reset" onClick={() => setZoom(1)}>Reset</button>
-        </div>
-      </div>
+      <ZoomPortal zoom={zoom} setZoom={setZoom} storageKey="form-zoom-pj" />
       <div
         className="form-zoom-scaler"
-        style={{ zoom: zoom as any, margin: '12px auto 0 auto', minHeight: 'fit-content', width: '100%' }}
+        style={{ zoom: zoom as any, margin: '0 auto', minHeight: 'fit-content', width: '100%' }}
       >
         <div
           id="mz-print-root"
@@ -1921,4 +1914,18 @@ function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number) {
   document.body.appendChild(mirror);
   const spRect = span.getBoundingClientRect(); const top = spRect.top + textarea.scrollTop; const left = spRect.left + textarea.scrollLeft; const height = spRect.height || parseFloat(style.lineHeight) || 16; document.body.removeChild(mirror);
   return { top, left, height };
+}
+
+function ZoomPortal({ zoom, setZoom, storageKey }: { zoom: number; setZoom: (fn: (z: number) => number) => void; storageKey: string }) {
+  const [target, setTarget] = useState<Element | null>(null);
+  useEffect(() => { setTarget(document.getElementById('mz-zoom-controls')); }, []);
+  if (!target) return null;
+  return createPortal(
+    <div className="flex items-center gap-1">
+      <button className="btn-zoom" onClick={() => setZoom(z => Math.max(0.75, +(z - 0.05).toFixed(2)))}>−</button>
+      <span className="zoom-label">{Math.round(zoom * 100)}%</span>
+      <button className="btn-zoom" onClick={() => setZoom(z => Math.min(1.5, +(z + 0.05).toFixed(2)))}>+</button>
+    </div>,
+    target
+  );
 }

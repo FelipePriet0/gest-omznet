@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import RouteBg from "./RouteBg";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
-import { Columns3, ListTodo, Clock, CalendarDays, Wrench } from "lucide-react";
+import { Columns3, ListTodo, Clock, CalendarDays, Wrench, FileDown } from "lucide-react";
 import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
 import Breadcrumbs from "@/components/app/Breadcrumbs";
@@ -307,13 +307,22 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
               >
                 {!isCanvas && (
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <SidebarTrigger className="hidden md:inline-flex" />
                       <Breadcrumbs />
+                      {isExpandedCadastro && (
+                        <div id="mz-zoom-controls" className="flex items-center gap-1" />
+                      )}
                     </div>
                     {isExpandedCadastro && (
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => onExportPdf(parts)} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Exportar PDF</button>
+                        <button
+                          onClick={() => onExportPdf(parts)}
+                          title="Exportar PDF"
+                          className="flex items-center justify-center rounded-full border border-gray-300 bg-white p-1.5 text-gray-700 hover:bg-gray-50"
+                        >
+                          <FileDown className="h-4 w-4" />
+                        </button>
                       </div>
                     )}
                   </div>
