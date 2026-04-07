@@ -1230,57 +1230,60 @@ export default function CadastroPFPage() {
         </div>
       {/* Outras Informações / MK */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="col-span-2">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Plano escolhido</label>
-            <SimpleSelect
-              value={app.plano_acesso || ""}
-              onChange={(v)=>{ setApp({...app, plano_acesso:v}); queueSave("app","plano_acesso", v); }}
-              options={PLANO_OPTIONS as any}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="pf-highlight-row sm:col-span-2 lg:col-span-4 grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <div className="sm:col-span-2">
+              <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Plano escolhido</label>
+              <SimpleSelect
+                value={app.plano_acesso || ""}
+                onChange={(v)=>{ setApp({...app, plano_acesso:v}); queueSave("app","plano_acesso", v); }}
+                options={PLANO_OPTIONS as any}
+                className="mt-0"
+                triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900"
+                contentClassName="rounded-lg shadow-lg border-0"
+                contentStyle={{ zIndex: 9999 }}
+              />
+            </div>
+            <div>
+              <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">SVA Avulso</label>
+              <SimpleSelect
+                value={app.sva_avulso || ""}
+                onChange={(v)=>{ setApp({...app, sva_avulso:v}); queueSave("app","sva_avulso", v); }}
+                options={SVA_OPTIONS as any}
+                className="mt-0"
+                triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900"
+                contentClassName="rounded-lg shadow-lg border-0"
+                contentStyle={{ zIndex: 9999 }}
+              />
+            </div>
+            <div>
+              <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Vencimento</label>
+              <SimpleSelect
+                value={app.venc || ""}
+                onChange={(v)=>{ setApp({...app, venc:v}); queueSave("app","venc", v); }}
+                options={["5","10","15","20","25"]}
+                className="mt-0"
+                triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900"
+                contentClassName="rounded-lg shadow-lg border-0"
+                contentStyle={{ zIndex: 9999 }}
+              />
+            </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Vencimento</label>
-            <SimpleSelect
-              value={app.venc || ""}
-              onChange={(v)=>{ setApp({...app, venc:v}); queueSave("app","venc", v); }}
-              options={["5","10","15","20","25"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
-          </div>
-          
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">SVA Avulso</label>
-            <SimpleSelect
-              value={app.sva_avulso || ""}
-              onChange={(v)=>{ setApp({...app, sva_avulso:v}); queueSave("app","sva_avulso", v); }}
-              options={SVA_OPTIONS as any}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Carnê impresso</label>
+            <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Carnê impresso</label>
             <SimpleSelect
               value={app.carne_impresso ? "Sim" : "Não"}
               onChange={(v)=>{ const val = (v === 'Sim'); setApp({...app, carne_impresso: val}); queueSave("app","carne_impresso", val); }}
               options={["Sim","Não"]}
               className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200"
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
 
           {/* Agendamento: Instalação agendada para + Horário */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Instalação agendada para</label>
+            <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Instalação agendada para</label>
             <DateSingleKanbanPopover
               value={dueAt}
               onChange={(v) => {
@@ -1291,11 +1294,11 @@ export default function CadastroPFPage() {
                 }
               }}
               disablePast
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Horário</label>
+            <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Horário</label>
             <TimeMultiSelect
               label=""
               times={TIME_SLOTS}
@@ -1308,7 +1311,7 @@ export default function CadastroPFPage() {
                 }
               }}
               allowedPairs={[["08:30", "10:30"], ["13:30", "15:30"]]}
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
               date={dueAt}
             />
           </div>
@@ -1339,6 +1342,7 @@ export default function CadastroPFPage() {
             <div className="relative" ref={parecerContainerRef}>
               <UnifiedComposer
                 ref={parecerComposerRef}
+                className="composer-root"
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
                 ariaLabel="Escrever parecer"
                 disabled={currentUserRole === 'vendedor'}
@@ -1504,28 +1508,29 @@ export default function CadastroPFPage() {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mb-6 rounded-xl border border-zinc-200 bg-white shadow-[0_5.447px_5.447px_rgba(0,0,0,0.12)]">
-      <div className="border-b border-zinc-200 px-4 py-2 text-sm font-semibold text-white bg-[var(--verde-primario)] rounded-t-xl">{title}</div>
-      <div className="p-4">{children}</div>
+    <div className="mb-3">
+      {title && (
+        <div className="pf-card-header">
+          <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-700">{title}</span>
+        </div>
+      )}
+      <div>{children}</div>
     </div>
   );
 }
 
-// UI-only wrapper para seções com header de bolinha (conforme demo)
-// (UI demo wrapper removido; voltamos ao Card padrão)
-
 function Grid({ cols, children }: { cols: 1|2|3|4; children: React.ReactNode }) {
   const cls = cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-1 sm:grid-cols-2" : cols === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-4";
-  return <div className={`grid gap-4 ${cls}`}>{children}</div>;
+  return <div className={`grid gap-1 ${cls}`}>{children}</div>;
 }
 
 function Field({ label, value, onChange, className, error, red, requiredMark, disabled, maxLength, status, placeholder, inputMode }: { label: string; value: string; onChange: (v: string)=>void; className?: string; error?: boolean; red?: boolean; requiredMark?: boolean; disabled?: boolean; maxLength?: number; status?: 'idle'|'pending'|'error'; placeholder?: string; inputMode?: React.InputHTMLAttributes<HTMLInputElement>['inputMode'] }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-zinc-700">
-        <span>{label}</span>
+      <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">
+        {label}
         {requiredMark && (
-          <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
+          <span className={`ml-1 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[8px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
             Obrigatório
           </span>
         )}
@@ -1537,7 +1542,7 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
         disabled={disabled}
         maxLength={maxLength}
         inputMode={inputMode}
-        className={`h-10 w-full rounded-[7px] border ${error || red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 text-sm outline-none shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)]`}
+        className={`h-[21px] w-full rounded-[2px] border ${error || red ? 'border-red-400 bg-red-50' : 'border-zinc-400 bg-blue-100'} px-1 text-[10px] outline-none focus:border-zinc-600 ${disabled ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'text-zinc-900'}`}
         placeholder={placeholder ?? ""}
         autoComplete="off"
       />
@@ -1549,20 +1554,22 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
 function Textarea({ label, value, onChange, red, error, className, requiredMark, disabled, status }: { label: string; value: string; onChange: (v: string)=>void; red?: boolean; error?: boolean; className?: string; requiredMark?: boolean; disabled?: boolean; status?: 'idle'|'pending'|'error' }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-zinc-700">
-        <span>{label}</span>
-        {requiredMark && (
-          <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
-            Obrigatório
-          </span>
-        )}
-      </label>
+      <div className="border-b border-zinc-500 mb-1 pb-0.5">
+        <label className="pf-section-title">
+          {label}
+          {requiredMark && (
+            <span className={`ml-1 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[8px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
+              Obrigatório
+            </span>
+          )}
+        </label>
+      </div>
       <textarea
         value={value}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
         onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
         disabled={disabled}
-        className={`min-h-[88px] w-full rounded-xl border ${error || red ? 'border-red-500 bg-red-500/10 focus:ring-2 focus:ring-red-300' : 'border-zinc-200 bg-zinc-50 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600'} px-3 py-2 text-sm outline-none ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-zinc-900'} placeholder:text-[rgba(1,137,66,0.6)] shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]`}
+        className={`min-h-[52px] w-full rounded-[2px] border ${error || red ? 'border-red-300 bg-red-50' : 'border-zinc-300 bg-blue-100'} px-1.5 py-1 text-[10px] outline-none text-zinc-900 resize-none`}
         placeholder=""
       />
       <FieldStatusIndicator status={status || 'idle'} />
