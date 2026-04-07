@@ -996,6 +996,21 @@ export function EditarFichaModal({
                     </div>
                   )}
                 </div>
+                {/* Demo: Parecer I.A para Empresa LTDA (somente UI, sem persistir) */}
+                {personType === 'PJ' && ((app?.primary_name || '').trim().toLowerCase() === 'empresa ltda') && (
+                  <div className="mb-4 rounded-lg border-2 border-dotted border-blue-400 bg-blue-50 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white">I.A</span>
+                      <span className="text-xs font-medium text-blue-900">Agente I.A</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="font-semibold text-blue-900">Reanalise (Com ship)</div>
+                      <div className="text-sm text-blue-900">
+                        Precisa enviar contato da mãe e do pai para que possa completar o cadastro e seguirmos com análise.
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <PareceresList
                   cardId={cardId}
                   notes={[...((data.pareceres as any[]) || []), ...optimisticNotes] as any}
