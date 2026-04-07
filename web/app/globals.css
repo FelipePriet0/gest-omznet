@@ -854,7 +854,7 @@ body {
    ═══════════════════════════════════════════════════════════ */
 .ficha-pf {
   width: 100%;
-  max-width: 648px;
+  max-width: 100%;
   margin: 0 auto;
   background: #ffffff;
   font-size: 10px;

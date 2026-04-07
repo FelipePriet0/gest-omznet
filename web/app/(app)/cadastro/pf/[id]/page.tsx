@@ -861,9 +861,9 @@ export default function CadastroPFPage() {
     if (typeof window === 'undefined') return 1;
     try {
       const s = window.localStorage.getItem('form-zoom-pf');
-      if (!s) return 1;
+      if (!s) return 1.2;
       const n = parseFloat(s);
-      return Number.isFinite(n) ? Math.min(1.5, Math.max(0.75, n)) : 1;
+      return Number.isFinite(n) ? Math.min(1.5, Math.max(0.75, n)) : 1.2;
     } catch { return 1; }
   });
   useEffect(() => { try { window.localStorage.setItem('form-zoom-pf', String(zoom)); } catch {} }, [zoom]);
