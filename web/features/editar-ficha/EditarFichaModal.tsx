@@ -5,6 +5,7 @@ import Image from "next/image";
 import clsx from "clsx";
 import { User as UserIcon, MoreHorizontal, X } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
+import { FEATURES } from "@/lib/features";
 import { Conversation } from "@/features/comments/Conversation";
 import { TaskDrawer } from "@/features/tasks/TaskDrawer";
 import { TaskCard } from "@/features/tasks/TaskCard";
@@ -1057,6 +1058,7 @@ export function EditarFichaModal({
               </div>
             </div>
             {/* Coluna Direita: conversas co-relacionadas (scroll próprio) */}
+            {FEATURES.conversasCoRelacionadas && (
             <div className="w-[38%] min-w-[320px] flex-shrink-0 h-full min-h-0 border-l border-white/10" style={{ backgroundColor: 'rgba(255,230,204,0.2)' }}>
               <div className="h-full min-h-0 overflow-y-auto p-4">
                 <Conversation
@@ -1068,6 +1070,7 @@ export function EditarFichaModal({
                 />
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>
