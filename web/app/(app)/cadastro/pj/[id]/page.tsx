@@ -1046,7 +1046,7 @@ export default function CadastroPJPage() {
                 }
               }}
               disablePast
-              triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-white px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
+              triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
             />
           </div>
           <div>
@@ -1063,7 +1063,7 @@ export default function CadastroPJPage() {
                 }
               }}
               allowedPairs={[["08:30", "10:30"], ["13:30", "15:30"]]}
-              triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-white px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
+              triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
               date={dueAt}
             />
           </div>
@@ -1254,7 +1254,7 @@ function Field({ label, value, onChange, className, red, disabled, maxLength, in
         disabled={disabled}
         maxLength={maxLength}
         inputMode={inputMode}
-        className={`h-[21px] w-full rounded-[2px] border ${red ? 'border-red-400 bg-red-50' : 'border-zinc-400 bg-white'} px-1 text-[10px] outline-none focus:border-zinc-600 ${disabled ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'text-zinc-900'}`}
+        className={`h-[21px] w-full rounded-[2px] border ${red ? 'border-red-400 bg-red-50' : 'border-zinc-400 bg-blue-100'} px-1 text-[10px] outline-none focus:border-zinc-600 ${disabled ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'text-zinc-900'}`}
       />
       <FieldStatusIndicator status={status || 'idle'} />
     </div>
@@ -1271,7 +1271,7 @@ function Textarea({ label, value, onChange, red, status }: { label: string; valu
         value={value}
         onChange={(e)=> onChange(e.target.value)}
         onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
-        className={`min-h-[52px] w-full rounded-[2px] border ${red ? 'border-red-300 bg-red-50' : 'border-zinc-300 bg-white'} px-1.5 py-1 text-[10px] outline-none text-zinc-900 resize-none`}
+        className={`min-h-[52px] w-full rounded-[2px] border ${red ? 'border-red-300 bg-red-50' : 'border-zinc-300 bg-blue-100'} px-1.5 py-1 text-[10px] outline-none text-zinc-900 resize-none`}
       />
       <FieldStatusIndicator status={status || 'idle'} />
     </div>
