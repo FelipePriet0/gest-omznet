@@ -7,4 +7,6 @@
 export const FEATURES = {
   /** Coluna direita "Conversas Co-relacionadas" nas fichas PF/PJ */
   conversasCoRelacionadas: false,
+  /** Item "Minhas Tarefas" no sidebar + painel lateral */
+  minhasTarefas: false,
 } as const;

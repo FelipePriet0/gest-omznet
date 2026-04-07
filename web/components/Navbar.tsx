@@ -10,18 +10,19 @@ import {
 
 import { Dock, DockIcon, DockItem, DockLabel } from '@/components/ui/dock';
 import { cn } from '@/lib/utils';
+import { FEATURES } from '@/lib/features';
 
-const navItems = [
+const navItemsBase = [
   {
     title: 'Kanban',
     Icon: LayoutGrid,
     href: '/kanban',
   },
-  {
+  ...(FEATURES.minhasTarefas ? [{
     title: 'Minhas Tarefas',
     Icon: CheckSquare,
     href: '/tarefas',
-  },
+  }] : []),
   {
     title: 'Histórico',
     Icon: History,
@@ -33,6 +34,7 @@ const navItems = [
     href: '/perfil',
   },
 ];
+const navItems = navItemsBase;
 
 export function Navbar() {
   const pathname = usePathname();

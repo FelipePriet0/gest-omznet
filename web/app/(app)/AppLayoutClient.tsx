@@ -10,6 +10,7 @@ import Breadcrumbs from "@/components/app/Breadcrumbs";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { InboxSidebarEntry, InboxProvider, InboxPanel } from "@/features/inbox/InboxDrawer";
+import { FEATURES } from "@/lib/features";
 const TasksPanelProxy = dynamic(() => import("@/app/(app)/tarefas/page"), { ssr: false });
 
 const PANEL_WIDTH_STORAGE_KEY = "mznet-app-panel-width";
@@ -38,11 +39,11 @@ function AppSidebar() {
       href: "/agenda",
       icon: <CalendarDays className="h-5 w-5 text-white flex-shrink-0" />,
     },
-    {
+    ...(FEATURES.minhasTarefas ? [{
       label: "Minhas Tarefas",
       href: `${pathname}?panel=tarefas`,
       icon: <ListTodo className="h-5 w-5 text-white flex-shrink-0" />,
-    },
+    }] : []),
     {
       label: "Histórico",
       href: "/historico",
@@ -99,7 +100,7 @@ function AppSidebar() {
               return (
                 <Fragment key={link.label}>
                   <SidebarLink link={link} isActive={isActive} />
-                  {link.label === "Minhas Tarefas" && <InboxSidebarEntry />}
+                  {link.label === "Minhas Tarefas" && FEATURES.minhasTarefas && <InboxSidebarEntry />}
                 </Fragment>
               );
             })}
@@ -146,7 +147,7 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   const isExpandedCadastro = parts[0] === 'cadastro' && (parts[1] === 'pf' || parts[1] === 'pj') && parts.length >= 3;
   const exportMode = (search?.get('from') || '').toLowerCase() === 'export';
   const activePanel = (search?.get('panel') || '').toLowerCase();
-  const isTasksPanel = activePanel === 'tarefas';
+  const isTasksPanel = FEATURES.minhasTarefas && activePanel === 'tarefas';
   const isInboxPanel = activePanel === 'inbox';
   const isPanelOpen = isTasksPanel || isInboxPanel;
   const pageGutter = 6;
