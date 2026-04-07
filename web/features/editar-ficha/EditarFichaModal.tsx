@@ -997,7 +997,7 @@ export function EditarFichaModal({
                   )}
                 </div>
                 {/* Demo: Parecer I.A para Empresa LTDA (somente UI, sem persistir) */}
-                {FEATURES.demoParecerIA && personType === 'PJ' && ((app?.primary_name || '').trim().toLowerCase() === 'empresa ltda') && (
+                {FEATURES.demoParecerIA && (
                   <div className="mb-4 rounded-lg border-2 border-dotted border-blue-400 bg-blue-50 p-4">
                     <div className="mb-2 flex items-center gap-2">
                       <span className="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white">I.A</span>
