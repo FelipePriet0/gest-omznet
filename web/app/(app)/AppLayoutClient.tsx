@@ -306,16 +306,18 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                 style={isExpandedCadastro ? undefined : { height: `calc(100vh - ${pageGutter * 2}px)` }}
               >
                 {!isCanvas && (
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                  <div className={`mb-2 ${isExpandedCadastro ? 'grid grid-cols-3' : 'flex justify-between'} items-center gap-3`}>
+                    <div className="flex items-center gap-2 min-w-0">
                       <SidebarTrigger className="hidden md:inline-flex" />
                       <Breadcrumbs />
-                      {isExpandedCadastro && (
-                        <div id="mz-zoom-controls" className="flex items-center gap-1" />
-                      )}
                     </div>
                     {isExpandedCadastro && (
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center justify-center">
+                        <div id="mz-zoom-controls" className="flex items-center gap-1" />
+                      </div>
+                    )}
+                    {isExpandedCadastro && (
+                      <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => onExportPdf(parts)}
                           title="Exportar PDF"
