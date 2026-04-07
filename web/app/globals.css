@@ -709,50 +709,145 @@ body {
   .expanded-portrait .mt-6 { margin-top: 12px; }
 }
 
-/* Expanded ficha container: PJ (407/670 ≈ 0.61) */
+/* ── Ficha PJ — Corporate Document Style ────────────────────────────── */
 .ficha-pj {
-  aspect-ratio: 407 / 670;
-  width: min(900px, 90vh);
-  max-width: 100%;
-  margin-left: auto;
-  margin-right: auto;
-  font-size: 11px; /* ultra-compact for PJ */
-  line-height: 1.28;
-  padding: 8px !important;
+  width: 100%;
+  max-width: 634px;          /* Desktop Rotated: 634 px */
+  margin: 0 auto;
+  background: #ffffff;
+  font-size: 10px;
+  line-height: 1.3;
+  padding: 14px 16px !important;
+  box-shadow: none !important;
 }
 
-@media (max-width: 768px) {
-  .ficha-pj { aspect-ratio: auto; width: 100%; }
+/* Mobile: full width, looser padding */
+@media (max-width: 639px) {
+  .ficha-pj {
+    max-width: 100%;
+    padding: 10px 10px !important;
+  }
 }
 
-/* Compact layout rules for Expanded PJ (mirror PF density) */
-.ficha-pj .rounded-xl.bg-white { margin-bottom: 6px !important; }
-.ficha-pj .rounded-xl.bg-white > .p-4 { padding: 6px 10px !important; }
-.ficha-pj .rounded-xl.bg-white > div:first-child { height: 22px; display: flex; align-items: center; padding: 0 10px; font-size: 11px; }
-
-.ficha-pj .grid { gap: 4px !important; }
-@media (min-width: 1024px) {
-  .ficha-pj .grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-}
-@media (min-width: 1280px) {
-  .ficha-pj .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-}
-@media (min-width: 1536px) {
-  .ficha-pj .grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+/* Desktop (≥ 768px): center at 634 px, slight extra side padding */
+@media (min-width: 768px) {
+  .ficha-pj {
+    max-width: 634px;
+    padding: 16px 20px !important;
+  }
 }
 
+/* ── Inputs & Selects ── */
 .ficha-pj input,
-.ficha-pj select,
-.ficha-pj .SimpleSelect-trigger { height: 26px !important; min-height: 26px; padding: 0 6px !important; font-size: 11px !important; }
+.ficha-pj select {
+  height: 21px !important;
+  min-height: 21px !important;
+  padding: 0 5px !important;
+  font-size: 10px !important;
+  border: 1px solid #a1a1aa !important;
+  border-radius: 2px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  color: #18181b !important;
+}
 
+.ficha-pj .SimpleSelect-trigger {
+  height: 21px !important;
+  min-height: 21px !important;
+  padding: 0 6px !important;
+  font-size: 10px !important;
+  border: 1px solid #a1a1aa !important;
+  border-radius: 2px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  color: #18181b !important;
+}
+
+/* Mobile: slightly taller touch targets */
+@media (max-width: 639px) {
+  .ficha-pj input,
+  .ficha-pj select,
+  .ficha-pj .SimpleSelect-trigger {
+    height: 32px !important;
+    min-height: 32px !important;
+    font-size: 12px !important;
+    padding: 0 8px !important;
+  }
+}
+
+/* ── Labels ── */
 .ficha-pj label,
-.ficha-pj .field-label { font-size: 10.5px; margin-bottom: 1px; }
+.ficha-pj .field-label {
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: #52525b !important;
+  margin-bottom: 1px !important;
+  line-height: 1.2 !important;
+}
 
-.ficha-pj textarea { min-height: 38px !important; padding: 4px 6px !important; font-size: 11px !important; }
+@media (max-width: 639px) {
+  .ficha-pj label,
+  .ficha-pj .field-label {
+    font-size: 11px !important;
+  }
+}
 
+/* ── Textareas (sections) ── */
+.ficha-pj textarea {
+  min-height: 52px !important;
+  padding: 4px 6px !important;
+  font-size: 10px !important;
+  border: 1px solid #a1a1aa !important;
+  border-radius: 2px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 639px) {
+  .ficha-pj textarea {
+    min-height: 70px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* ── Grid spacing ── */
+.ficha-pj .grid { gap: 4px !important; }
+.ficha-pj .pj-section { margin-bottom: 8px !important; }
+.ficha-pj .mb-3, .ficha-pj .mb-4, .ficha-pj .mb-6 { margin-bottom: 6px !important; }
 .ficha-pj .mt-4 { margin-top: 4px !important; }
-.ficha-pj .mb-4 { margin-bottom: 4px !important; }
-.ficha-pj .mb-6 { margin-bottom: 6px !important; }
+.ficha-pj .gap-4 { gap: 4px !important; }
+
+/* ── Amber highlight — "Item Ajustado" (Plano de Acesso / SVA / Venc) ── */
+.ficha-pj .pj-highlight-row {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 3px;
+  padding: 5px 7px;
+  margin: 5px 0;
+}
+.ficha-pj .pj-highlight-row label,
+.ficha-pj .pj-highlight-row .field-label {
+  color: #78350f !important;
+}
+
+/* ── Section separator titles (Textareas) ── */
+.ficha-pj .pj-section-title {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: underline;
+  color: #18181b;
+}
+
+/* ── Card header (flat, no green) ── */
+.ficha-pj .pj-card-header {
+  border-bottom: 1.5px solid #52525b;
+  padding-bottom: 2px;
+  margin-bottom: 6px;
+}
 
 /* Expanded ficha container: PF (407/670 ≈ 0.61, conforme solicitação) */
 .ficha-pf {
