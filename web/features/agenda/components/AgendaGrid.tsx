@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { AgendaCard } from "./AgendaCard";
-import { AgendaEditModal } from "./AgendaEditModal";
+import { EditarFichaModal } from "@/features/editar-ficha/EditarFichaModal";
 import type { ScheduleCard, Technician, FreeRow } from "../types";
 
 // ── Pares de slots que um card pode cobrir simultaneamente ─────────────────
@@ -237,22 +237,12 @@ export function AgendaGrid({
 
       {/* ── Tabela ────────────────────────────────────────────────────── */}
       <div className="w-full overflow-x-auto rounded-2xl border border-white/10 shadow-sm">
-        <AgendaEditModal
+        <EditarFichaModal
           open={!!editingCard}
-          card={editingCard}
-          technicians={technicians}
-          slots={slots}
           onClose={() => setEditingId(null)}
-          onSave={(patch) => {
-            if (!editingCard) return;
-            onUpdate(editingCard.id, patch);
-            setEditingId(null);
-          }}
-          onDelete={() => {
-            if (!editingCard) return;
-            onDelete(editingCard.id);
-            setEditingId(null);
-          }}
+          cardId={editingId ?? ""}
+          applicantId={editingCard?.applicant_id ?? ""}
+          onStageChange={() => setEditingId(null)}
         />
 
         <table className="min-w-[1508px] w-full border-separate border-spacing-0">
