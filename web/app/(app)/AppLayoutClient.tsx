@@ -168,12 +168,9 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
         tipo = parts[1];
         id = parts[2];
       }
-      const path = tipo === 'pj' ? `/cadastro/pj/${id}` : `/cadastro/pf/${id}`;
-      const url = `${path}?from=export&print=1`;
       const a = document.createElement('a');
-      a.href = url;
-      a.rel = 'noopener noreferrer';
-      a.target = '_blank';
+      a.href = `/api/export/ficha/${tipo}/${encodeURIComponent(id)}`;
+      a.download = '';
       a.click();
     } catch {}
   }
