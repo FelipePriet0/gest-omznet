@@ -1,6 +1,6 @@
 export type CanvasMode = "hand" | "cursor";
 
-export type CanvasNodeType = "technician" | "priority" | "route";
+export type CanvasNodeType = "technician" | "priority" | "route" | "start" | "finish";
 
 export type CanvasNodeBase = {
   id: string;
@@ -24,7 +24,9 @@ export type RouteNodeData = {
 export type CanvasNode =
   | (CanvasNodeBase & { type: "technician"; data: TechnicianNodeData })
   | (CanvasNodeBase & { type: "priority"; data: PriorityNodeData })
-  | (CanvasNodeBase & { type: "route"; data: RouteNodeData });
+  | (CanvasNodeBase & { type: "route"; data: RouteNodeData })
+  | (CanvasNodeBase & { type: "start"; data: Record<string, never> })
+  | (CanvasNodeBase & { type: "finish"; data: Record<string, never> });
 
 export type PortId = "left" | "right";
 

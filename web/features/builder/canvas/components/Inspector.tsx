@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Check, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CanvasNode, CanvasNodeType } from "../types";
@@ -47,16 +47,20 @@ function subtitleForType(type: CanvasNodeType) {
 export function Inspector({
   node,
   routeRank,
+  nodes,
   onChange,
   onDelete,
 }: {
   node: CanvasNode | null;
   routeRank?: number | null;
+  nodes?: CanvasNode[];
   onChange: (next: CanvasNode) => void;
   onDelete: () => void;
 }) {
   const { technicians: TECHNICIANS, priorities: PRIORITY_OPTIONS, routes: ROUTE_OPTIONS } = useBuilderRefs();
+  const [techDupError, setTechDupError] = useState<string | null>(null);
   if (!node) return null;
+  if (node.type === "start" || node.type === "finish") return null;
 
   return (
     <div className="pointer-events-auto absolute right-6 top-[99px] w-[320px] rounded-2xl border border-black/5 bg-white p-4 shadow-lg">
@@ -108,6 +112,20 @@ export function Inspector({
                         const next = e.target.checked
                           ? [...node.data.technicianIds, t.id]
                           : node.data.technicianIds.filter((id) => id !== t.id);
+                        // Verifica duplicata: outro card de técnico com exatamente os mesmos IDs
+                        const sorted = [...next].sort().join(",");
+                        const hasDup = (nodes || []).some(
+                          (n) =>
+                            n.id !== node.id &&
+                            n.type === "technician" &&
+                            [...(n.data.technicianIds || [])].sort().join(",") === sorted &&
+                            sorted.length > 0
+                        );
+                        if (hasDup) {
+                          setTechDupError("Já existe um card de Técnico com essa mesma seleção.");
+                          return;
+                        }
+                        setTechDupError(null);
                         onChange({ ...node, data: { ...node.data, technicianIds: next } });
                       }}
                     />
@@ -125,6 +143,11 @@ export function Inspector({
                 );
               })}
             </div>
+            {techDupError && (
+              <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                {techDupError}
+              </p>
+            )}
           </div>
         )}
 

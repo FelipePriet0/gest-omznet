@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { UserRoundCog, BadgeAlert, MapPinned } from "lucide-react";
+import { UserRoundCog, BadgeAlert, MapPinned, CirclePlay, CircleStop } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CanvasNode, PortId } from "../types";
 import { listTechnicians } from "@/features/builder/services";
@@ -10,12 +10,16 @@ import { listTechnicians } from "@/features/builder/services";
 function iconForType(type: CanvasNode["type"]) {
   if (type === "technician") return <UserRoundCog className="h-4 w-4" />;
   if (type === "priority") return <BadgeAlert className="h-4 w-4" />;
+  if (type === "start") return <CirclePlay className="h-4 w-4" />;
+  if (type === "finish") return <CircleStop className="h-4 w-4" />;
   return <MapPinned className="h-4 w-4" />;
 }
 
 function labelForType(type: CanvasNode["type"]) {
   if (type === "technician") return "Técnico";
   if (type === "priority") return "Prioridade";
+  if (type === "start") return "Início";
+  if (type === "finish") return "Fim";
   return "Rota";
 }
 
@@ -100,37 +104,41 @@ export function NodeCard({
       role="button"
       tabIndex={0}
     >
-      {/* entrada */}
-      <button
-        type="button"
-        aria-label="Conectar (lado esquerdo)"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          onPortPointerDown("left", e);
-        }}
-        onPointerEnter={() => onPortPointerEnter("left")}
-        onPointerLeave={() => onPortPointerLeave("left")}
-        className={cn(
-          "absolute -left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-[var(--verde-primario)] border border-white shadow",
-          showLeftPort ? (selected ? "" : "opacity-80") : "pointer-events-none opacity-0"
-        )}
-      />
+      {/* entrada — oculta para start/finish */}
+      {node.type !== "start" && node.type !== "finish" && (
+        <button
+          type="button"
+          aria-label="Conectar (lado esquerdo)"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            onPortPointerDown("left", e);
+          }}
+          onPointerEnter={() => onPortPointerEnter("left")}
+          onPointerLeave={() => onPortPointerLeave("left")}
+          className={cn(
+            "absolute -left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-[var(--verde-primario)] border border-white shadow",
+            showLeftPort ? (selected ? "" : "opacity-80") : "pointer-events-none opacity-0"
+          )}
+        />
+      )}
 
-      {/* saída */}
-      <button
-        type="button"
-        aria-label="Conectar (lado direito)"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          onPortPointerDown("right", e);
-        }}
-        onPointerEnter={() => onPortPointerEnter("right")}
-        onPointerLeave={() => onPortPointerLeave("right")}
-        className={cn(
-          "absolute -right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-[var(--verde-primario)] border border-white shadow",
-          showRightPort ? (selected ? "" : "opacity-80") : "pointer-events-none opacity-0"
-        )}
-      />
+      {/* saída — oculta para start/finish */}
+      {node.type !== "start" && node.type !== "finish" && (
+        <button
+          type="button"
+          aria-label="Conectar (lado direito)"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            onPortPointerDown("right", e);
+          }}
+          onPointerEnter={() => onPortPointerEnter("right")}
+          onPointerLeave={() => onPortPointerLeave("right")}
+          className={cn(
+            "absolute -right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-[var(--verde-primario)] border border-white shadow",
+            showRightPort ? (selected ? "" : "opacity-80") : "pointer-events-none opacity-0"
+          )}
+        />
+      )}
 
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-2">

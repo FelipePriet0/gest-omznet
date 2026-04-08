@@ -213,19 +213,15 @@ export function CanvasSurface({
 
     const canvasPoint = clientToCanvas(ev.clientX, ev.clientY);
 
+    // Porto de saída (direita): sempre cria nova aresta — permite múltiplas saídas
+    if (port === "right") {
+      setConnecting({ kind: "create", from: { nodeId, port }, mouse: canvasPoint });
+      return;
+    }
+
+    // Porto de entrada (esquerda): se já há uma aresta chegando, permite reconectar (detach)
     for (let i = edges.length - 1; i >= 0; i--) {
       const edge = edges[i];
-      if (edge.from.nodeId === nodeId && edge.from.port === port) {
-        setConnecting({
-          kind: "detach",
-          edgeId: edge.id,
-          fixed: edge.to,
-          draggingEnd: "from",
-          mouse: canvasPoint,
-        });
-        return;
-      }
-
       if (edge.to.nodeId === nodeId && edge.to.port === port) {
         setConnecting({
           kind: "detach",

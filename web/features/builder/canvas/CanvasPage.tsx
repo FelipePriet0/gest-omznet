@@ -63,9 +63,11 @@ function findFreeSpot({
 
 function initialState(): CanvasWorkflowState {
   const nodes: CanvasNode[] = [
-    { id: "n_technician", type: "technician", x: 420, y: 220, data: { technicianIds: [] } },
-    { id: "n_priority", type: "priority", x: 650, y: 200, data: { priorities: ["", "", ""] } },
-    { id: "n_route", type: "route", x: 890, y: 235, data: { routes: [] } },
+    { id: "n_start",      type: "start",      x: 140,  y: 225, data: {} },
+    { id: "n_technician", type: "technician",  x: 420,  y: 220, data: { technicianIds: [] } },
+    { id: "n_priority",   type: "priority",    x: 650,  y: 200, data: { priorities: ["", "", ""] } },
+    { id: "n_route",      type: "route",       x: 890,  y: 235, data: { routes: [] } },
+    { id: "n_finish",     type: "finish",      x: 1150, y: 225, data: {} },
   ];
 
   const edges: CanvasEdge[] = [
@@ -212,7 +214,7 @@ export function CanvasPage() {
 
       if (e.key === "c") {
         const node = state.nodes.find((n) => n.id === state.selectedNodeId);
-        if (node) clipboardNode.current = node;
+        if (node && node.type !== "start" && node.type !== "finish") clipboardNode.current = node;
       }
 
       if (e.key === "v") {
@@ -421,6 +423,7 @@ export function CanvasPage() {
       <Inspector
         node={selectedNode}
         routeRank={routeRankForSelected}
+        nodes={state.nodes}
         onChange={(next) => {
           history.commit((prev) => ({
             ...prev,
@@ -430,6 +433,8 @@ export function CanvasPage() {
         }}
         onDelete={() => {
           if (!state.selectedNodeId) return;
+          const target = state.nodes.find((n) => n.id === state.selectedNodeId);
+          if (target?.type === "start" || target?.type === "finish") return;
           history.commit((prev) => {
             const id = prev.selectedNodeId;
             return {
