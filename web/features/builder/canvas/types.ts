@@ -25,8 +25,8 @@ export type CanvasNode =
   | (CanvasNodeBase & { type: "technician"; data: TechnicianNodeData })
   | (CanvasNodeBase & { type: "priority"; data: PriorityNodeData })
   | (CanvasNodeBase & { type: "route"; data: RouteNodeData })
-  | (CanvasNodeBase & { type: "start"; data: Record<string, never> })
-  | (CanvasNodeBase & { type: "finish"; data: Record<string, never> });
+  | (CanvasNodeBase & { type: "start"; data: Record<string, unknown> })
+  | (CanvasNodeBase & { type: "finish"; data: Record<string, unknown> });
 
 export type PortId = "left" | "right";
 

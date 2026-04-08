@@ -151,8 +151,18 @@ export function CanvasPage() {
         const wf = await getWorkflow(wfId);
         if (!active) return;
         if (wf && wf.state) {
-          // Initialize history with loaded state
-          history.setPresent((prev) => ({ ...(wf.state as any) }));
+          // Initialize history with loaded state, injetando start/finish se ausentes
+          history.setPresent(() => {
+            const loaded = wf.state as CanvasWorkflowState;
+            const nodes = loaded.nodes || [];
+            const hasStart  = nodes.some((n) => n.type === "start");
+            const hasFinish = nodes.some((n) => n.type === "finish");
+            const extras: CanvasNode[] = [
+              ...(!hasStart  ? [{ id: "n_start",  type: "start"  as const, x: 140,  y: 225, data: {} }] : []),
+              ...(!hasFinish ? [{ id: "n_finish", type: "finish" as const, x: 1150, y: 225, data: {} }] : []),
+            ];
+            return { ...loaded, nodes: [...extras, ...nodes] };
+          });
           setCurrentId(wf.id);
           setPublishedAt(wf.published_at as any);
           setWorkflowName(wf.name || "New Workflow");
