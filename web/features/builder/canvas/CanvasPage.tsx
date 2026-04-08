@@ -97,6 +97,7 @@ export function CanvasPage() {
   const history = useHistory<CanvasWorkflowState>(useMemo(() => initialState(), []), { max: 80 });
   const state = history.present;
   const savingRef = useRef(false);
+  const clipboardNode = useRef<CanvasNode | null>(null);
 
   // Helper: robust error logger to avoid printing empty objects
   function logError(prefix: string, err: any) {
@@ -201,6 +202,41 @@ export function CanvasPage() {
       saveNow();
     }, 600);
   }
+
+  // ── Ctrl+C / Ctrl+V ───────────────────────────────────────────────────────
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+
+      if (e.key === "c") {
+        const node = state.nodes.find((n) => n.id === state.selectedNodeId);
+        if (node) clipboardNode.current = node;
+      }
+
+      if (e.key === "v") {
+        if (!clipboardNode.current) return;
+        e.preventDefault();
+        const source = clipboardNode.current;
+        history.commit((prev) => {
+          const id = uid("node");
+          const newNode: CanvasNode = {
+            ...source,
+            id,
+            x: source.x + 40,
+            y: source.y + 40,
+            data: JSON.parse(JSON.stringify(source.data)),
+          };
+          return { ...prev, nodes: [...prev.nodes, newNode], selectedNodeId: id };
+        });
+        scheduleSaveNow();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [state.selectedNodeId, state.nodes]);
 
   const createNode = (type: CanvasNodeType) => {
     try { console.log('[Canvas] createNode', { type }); } catch {}
