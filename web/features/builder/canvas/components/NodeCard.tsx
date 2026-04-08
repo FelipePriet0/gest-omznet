@@ -104,8 +104,8 @@ export function NodeCard({
       role="button"
       tabIndex={0}
     >
-      {/* entrada — oculta para start/finish */}
-      {node.type !== "start" && node.type !== "finish" && (
+      {/* entrada — oculta para Start (sem entrada) */}
+      {node.type !== "start" && (
         <button
           type="button"
           aria-label="Conectar (lado esquerdo)"
@@ -122,8 +122,8 @@ export function NodeCard({
         />
       )}
 
-      {/* saída — oculta para start/finish */}
-      {node.type !== "start" && node.type !== "finish" && (
+      {/* saída — oculta para Finish (sem saída) */}
+      {node.type !== "finish" && (
         <button
           type="button"
           aria-label="Conectar (lado direito)"
