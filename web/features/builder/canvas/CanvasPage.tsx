@@ -224,7 +224,7 @@ export function CanvasPage() {
             const selectedNodeIds: string[] =
             (loaded as any).selectedNodeIds ??
             ((loaded as any).selectedNodeId ? [(loaded as any).selectedNodeId] : []);
-          const viewport = { zoom: 1, ...(loaded.viewport || {}) };
+          const viewport = loaded.viewport || { x: 0, y: 0, zoom: 1 };
           return { ...loaded, viewport, nodes: [...extras, ...nodes], selectedNodeIds };
           });
           setCurrentId(wf.id);
@@ -641,6 +641,10 @@ export function CanvasPage() {
           canRedo={history.canRedo}
           onUndo={history.undo}
           onRedo={history.redo}
+          zoom={state.viewport.zoom}
+          onZoomIn={() => history.setPresent((prev) => ({ ...prev, viewport: { ...prev.viewport, zoom: Math.min(5, prev.viewport.zoom * 1.25) } }))}
+          onZoomOut={() => history.setPresent((prev) => ({ ...prev, viewport: { ...prev.viewport, zoom: Math.max(0.2, prev.viewport.zoom * 0.8) } }))}
+          onZoomReset={() => history.setPresent((prev) => ({ ...prev, viewport: { ...prev.viewport, zoom: 1 } }))}
         />
       </div>
     </div>
