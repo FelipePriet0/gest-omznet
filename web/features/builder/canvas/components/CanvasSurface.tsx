@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { CanvasEdge, CanvasMode, CanvasNode, CanvasViewport, PortId } from "../types";
 import { NodeCard } from "./NodeCard";
@@ -8,7 +8,8 @@ import { NodeCard } from "./NodeCard";
 type DragState =
   | { kind: "none" }
   | { kind: "pan"; startX: number; startY: number; startViewport: CanvasViewport }
-  | { kind: "node"; nodeId: string; startX: number; startY: number; startPos: { x: number; y: number } };
+  | { kind: "node"; startX: number; startY: number; startPositions: Record<string, { x: number; y: number }> }
+  | { kind: "lasso"; startX: number; startY: number };
 
 type ConnectingState =
   | { kind: "none" }
@@ -20,6 +21,8 @@ type ConnectingState =
       draggingEnd: "from" | "to";
       mouse: { x: number; y: number };
     };
+
+type LassoRect = { x1: number; y1: number; x2: number; y2: number };
 
 function bezierPath(a: { x: number; y: number }, b: { x: number; y: number }) {
   const dx = Math.max(80, Math.abs(b.x - a.x) * 0.35);
@@ -33,10 +36,10 @@ export function CanvasSurface({
   viewport,
   nodes,
   edges,
-  selectedNodeId,
-  onSelectNode,
+  selectedNodeIds,
+  onSelectNodes,
   onChangeViewport,
-  onMoveNode,
+  onMoveNodes,
   onCreateEdge,
   onUpdateEdgeEnd,
   onDeleteEdge,
@@ -46,10 +49,10 @@ export function CanvasSurface({
   viewport: CanvasViewport;
   nodes: CanvasNode[];
   edges: CanvasEdge[];
-  selectedNodeId: string | null;
-  onSelectNode: (id: string | null) => void;
+  selectedNodeIds: string[];
+  onSelectNodes: (ids: string[]) => void;
   onChangeViewport: (next: CanvasViewport) => void;
-  onMoveNode: (id: string, pos: { x: number; y: number }) => void;
+  onMoveNodes: (positions: Record<string, { x: number; y: number }>) => void;
   onCreateEdge: (edge: { from: { nodeId: string; port: PortId }; to: { nodeId: string; port: PortId } }) => void;
   onUpdateEdgeEnd: (edge: { edgeId: string; end: "from" | "to"; nodeId: string; port: PortId }) => void;
   onDeleteEdge: (edgeId: string) => void;
@@ -59,6 +62,14 @@ export function CanvasSurface({
   const dragRef = useRef<DragState>({ kind: "none" });
   const [connecting, setConnecting] = useState<ConnectingState>({ kind: "none" });
   const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
+  const [lasso, setLasso] = useState<LassoRect | null>(null);
+
+  // Keep latest viewport/callback in refs so wheel handler (attached once) always has fresh values
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
+  const onChangeViewportRef = useRef(onChangeViewport);
+  onChangeViewportRef.current = onChangeViewport;
+
   const updateSize = useCallback((id: string, size: { w: number; h: number }) => {
     setSizes((prev) => {
       const curr = prev[id];
@@ -73,6 +84,48 @@ export function CanvasSurface({
     return map;
   }, [nodes]);
 
+  const selectedSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds]);
+
+  const zoom = viewport.zoom ?? 1;
+
+  // Native wheel listener (passive:false required to call preventDefault)
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+
+    const handleWheel = (ev: WheelEvent) => {
+      ev.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const vp = viewportRef.current;
+      const currentZoom = vp.zoom ?? 1;
+      const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+      const newZoom = Math.min(5, Math.max(0.2, currentZoom * factor));
+
+      // Zoom centrado no cursor
+      const canvasX = (ev.clientX - rect.left - vp.x) / currentZoom;
+      const canvasY = (ev.clientY - rect.top - vp.y) / currentZoom;
+      const newX = ev.clientX - rect.left - canvasX * newZoom;
+      const newY = ev.clientY - rect.top - canvasY * newZoom;
+
+      onChangeViewportRef.current({ x: newX, y: newY, zoom: newZoom });
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  const clientToCanvas = useCallback(
+    (clientX: number, clientY: number) => {
+      const el = wrapRef.current;
+      if (!el) return { x: 0, y: 0 };
+      const rect = el.getBoundingClientRect();
+      const x = (clientX - rect.left - viewport.x) / zoom;
+      const y = (clientY - rect.top - viewport.y) / zoom;
+      return { x, y };
+    },
+    [viewport.x, viewport.y, zoom]
+  );
+
   const portPosition = useCallback(
     (nodeId: string, port: PortId) => {
       const node = nodeById.get(nodeId);
@@ -86,14 +139,21 @@ export function CanvasSurface({
   );
 
   const onBackgroundPointerDown = (ev: ReactPointerEvent) => {
-    if (mode !== "hand") {
-      onSelectNode(null);
-      if (connecting.kind !== "none") setConnecting({ kind: "none" });
+    if (mode === "hand") {
+      if (ev.button !== 0) return;
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+      dragRef.current = { kind: "pan", startX: ev.clientX, startY: ev.clientY, startViewport: viewport };
       return;
     }
+
+    // cursor mode
     if (ev.button !== 0) return;
+    if (connecting.kind !== "none") {
+      setConnecting({ kind: "none" });
+      return;
+    }
     ev.currentTarget.setPointerCapture(ev.pointerId);
-    dragRef.current = { kind: "pan", startX: ev.clientX, startY: ev.clientY, startViewport: viewport };
+    dragRef.current = { kind: "lasso", startX: ev.clientX, startY: ev.clientY };
   };
 
   const onNodePointerDown = (nodeId: string) => (ev: ReactPointerEvent) => {
@@ -101,15 +161,20 @@ export function CanvasSurface({
     if (ev.button !== 0) return;
     ev.stopPropagation();
     (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
-    const node = nodeById.get(nodeId);
-    if (!node) return;
-    dragRef.current = {
-      kind: "node",
-      nodeId,
-      startX: ev.clientX,
-      startY: ev.clientY,
-      startPos: { x: node.x, y: node.y },
-    };
+
+    const idsToMove = selectedSet.has(nodeId) ? [...selectedSet] : [nodeId];
+
+    if (!selectedSet.has(nodeId)) {
+      onSelectNodes([nodeId]);
+    }
+
+    const startPositions: Record<string, { x: number; y: number }> = {};
+    for (const id of idsToMove) {
+      const n = nodeById.get(id);
+      if (n) startPositions[id] = { x: n.x, y: n.y };
+    }
+
+    dragRef.current = { kind: "node", startX: ev.clientX, startY: ev.clientY, startPositions };
   };
 
   const onPointerMove = (ev: ReactPointerEvent) => {
@@ -123,17 +188,35 @@ export function CanvasSurface({
     }
 
     const drag = dragRef.current;
+
     if (drag.kind === "pan") {
       const dx = ev.clientX - drag.startX;
       const dy = ev.clientY - drag.startY;
-      onChangeViewport({ x: drag.startViewport.x + dx, y: drag.startViewport.y + dy });
+      onChangeViewport({ x: drag.startViewport.x + dx, y: drag.startViewport.y + dy, zoom: drag.startViewport.zoom ?? 1 });
+      return;
+    }
+
+    if (drag.kind === "lasso") {
+      const el = wrapRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setLasso({
+        x1: Math.min(drag.startX, ev.clientX) - rect.left,
+        y1: Math.min(drag.startY, ev.clientY) - rect.top,
+        x2: Math.max(drag.startX, ev.clientX) - rect.left,
+        y2: Math.max(drag.startY, ev.clientY) - rect.top,
+      });
       return;
     }
 
     if (drag.kind === "node") {
-      const dx = ev.clientX - drag.startX;
-      const dy = ev.clientY - drag.startY;
-      onMoveNode(drag.nodeId, { x: drag.startPos.x + dx, y: drag.startPos.y + dy });
+      const dxCanvas = (ev.clientX - drag.startX) / zoom;
+      const dyCanvas = (ev.clientY - drag.startY) / zoom;
+      const positions: Record<string, { x: number; y: number }> = {};
+      for (const [id, start] of Object.entries(drag.startPositions)) {
+        positions[id] = { x: start.x + dxCanvas, y: start.y + dyCanvas };
+      }
+      onMoveNodes(positions);
     }
   };
 
@@ -162,6 +245,30 @@ export function CanvasSurface({
 
   const onPointerUp = (ev: ReactPointerEvent) => {
     const drag = dragRef.current;
+
+    if (drag.kind === "lasso") {
+      dragRef.current = { kind: "none" };
+      setLasso(null);
+      const el = wrapRef.current;
+      if (!el) return;
+      const moved = Math.abs(ev.clientX - drag.startX) > 4 || Math.abs(ev.clientY - drag.startY) > 4;
+      if (moved) {
+        const rect = el.getBoundingClientRect();
+        const x1 = (Math.min(drag.startX, ev.clientX) - rect.left - viewport.x) / zoom;
+        const y1 = (Math.min(drag.startY, ev.clientY) - rect.top - viewport.y) / zoom;
+        const x2 = (Math.max(drag.startX, ev.clientX) - rect.left - viewport.x) / zoom;
+        const y2 = (Math.max(drag.startY, ev.clientY) - rect.top - viewport.y) / zoom;
+        const inLasso = nodes.filter((n) => {
+          const size = sizes[n.id] ?? { w: 220, h: 64 };
+          return n.x < x2 && n.x + size.w > x1 && n.y < y2 && n.y + size.h > y1;
+        });
+        onSelectNodes(inLasso.map((n) => n.id));
+      } else {
+        onSelectNodes([]);
+      }
+      return;
+    }
+
     if (drag.kind !== "none") {
       dragRef.current = { kind: "none" };
       onCommit();
@@ -192,18 +299,6 @@ export function CanvasSurface({
     }
   };
 
-  const clientToCanvas = useCallback(
-    (clientX: number, clientY: number) => {
-      const el = wrapRef.current;
-      if (!el) return { x: 0, y: 0 };
-      const rect = el.getBoundingClientRect();
-      const x = clientX - rect.left - viewport.x;
-      const y = clientY - rect.top - viewport.y;
-      return { x, y };
-    },
-    [viewport.x, viewport.y]
-  );
-
   const handlePortPointerDown = (nodeId: string, port: PortId, ev: ReactPointerEvent) => {
     if (mode !== "cursor") return;
     if (ev.button !== 0) return;
@@ -213,13 +308,11 @@ export function CanvasSurface({
 
     const canvasPoint = clientToCanvas(ev.clientX, ev.clientY);
 
-    // Porto de saída (direita): sempre cria nova aresta — permite múltiplas saídas
     if (port === "right") {
       setConnecting({ kind: "create", from: { nodeId, port }, mouse: canvasPoint });
       return;
     }
 
-    // Porto de entrada (esquerda): se já há uma aresta chegando, permite reconectar (detach)
     for (let i = edges.length - 1; i >= 0; i--) {
       const edge = edges[i];
       if (edge.to.nodeId === nodeId && edge.to.port === port) {
@@ -239,7 +332,6 @@ export function CanvasSurface({
 
   const edgePaths = useMemo(() => {
     const visibleEdges = connecting.kind === "detach" ? edges.filter((e) => e.id !== connecting.edgeId) : edges;
-
     return visibleEdges.map((e) => {
       const a = portPosition(e.from.nodeId, e.from.port);
       const b = portPosition(e.to.nodeId, e.to.port);
@@ -253,22 +345,19 @@ export function CanvasSurface({
       const b = connecting.mouse;
       return bezierPath(a, b);
     }
-
     if (connecting.kind === "detach") {
       const a = portPosition(connecting.fixed.nodeId, connecting.fixed.port);
       const b = connecting.mouse;
       return bezierPath(a, b);
     }
-
     return null;
   }, [connecting, portPosition]);
 
-  // Compute route ranks based on creation order (order in nodes array)
   const routeRankMap = useMemo(() => {
     const map = new Map<string, number>();
     let rank = 0;
     for (const n of nodes) {
-      if (n.type === 'route') {
+      if (n.type === "route") {
         rank += 1;
         map.set(n.id, rank);
       }
@@ -285,11 +374,14 @@ export function CanvasSurface({
       onPointerDown={onBackgroundPointerDown}
       role="application"
       aria-label="Canvas"
+      style={{ touchAction: "none" }}
     >
+      {/* Canvas world — transformed by pan + zoom */}
       <div
         className="absolute inset-0"
         style={{
-          transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0)`,
+          transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${zoom})`,
+          transformOrigin: "0 0",
         }}
       >
         <svg className="absolute inset-0 overflow-visible" aria-hidden="true">
@@ -330,7 +422,7 @@ export function CanvasSurface({
           const hasRight = edges.some(
             (e) => (e.from.nodeId === n.id && e.from.port === "right") || (e.to.nodeId === n.id && e.to.port === "right")
           );
-          const isSelected = selectedNodeId === n.id;
+          const isSelected = selectedSet.has(n.id);
 
           return (
             <NodeCard
@@ -339,8 +431,8 @@ export function CanvasSurface({
               selected={isSelected}
               showLeftPort={isSelected || hasLeft}
               showRightPort={isSelected || hasRight}
-              routeRank={n.type === 'route' ? (routeRankMap.get(n.id) || null) : null}
-              onSelect={() => onSelectNode(n.id)}
+              routeRank={n.type === "route" ? (routeRankMap.get(n.id) || null) : null}
+              onSelect={() => onSelectNodes([n.id])}
               onPointerDown={onNodePointerDown(n.id)}
               onPortPointerDown={(port, ev) => handlePortPointerDown(n.id, port, ev)}
               onPortPointerEnter={() => {}}
@@ -350,6 +442,19 @@ export function CanvasSurface({
           );
         })}
       </div>
+
+      {/* Lasso selection rectangle — in screen space, outside the scaled world */}
+      {lasso && (
+        <div
+          className="absolute pointer-events-none rounded-sm border border-emerald-500 bg-emerald-500/10"
+          style={{
+            left: lasso.x1,
+            top: lasso.y1,
+            width: lasso.x2 - lasso.x1,
+            height: lasso.y2 - lasso.y1,
+          }}
+        />
+      )}
     </div>
   );
 }

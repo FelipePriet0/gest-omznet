@@ -1,6 +1,6 @@
 "use client";
 
-import { Hand, MousePointer2, Redo2, Undo2 } from "lucide-react";
+import { Hand, Minus, MousePointer2, Plus, Redo2, Undo2 } from "lucide-react";
 import type { CanvasMode } from "../types";
 
 export function CanvasDock({
@@ -10,6 +10,10 @@ export function CanvasDock({
   canRedo,
   onUndo,
   onRedo,
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onZoomReset,
 }: {
   mode: CanvasMode;
   onChangeMode: (m: CanvasMode) => void;
@@ -17,15 +21,20 @@ export function CanvasDock({
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  zoom: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onZoomReset: () => void;
 }) {
-  const btnClass = (active?: boolean) => {
-    return [
+  const btnClass = (active?: boolean) =>
+    [
       "h-9 w-9 rounded-full flex items-center justify-center transition",
       active ? "bg-emerald-100 text-emerald-700" : "text-zinc-700",
       "hover:bg-zinc-100",
       "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent",
     ].join(" ");
-  };
+
+  const zoomPct = Math.round((zoom ?? 1) * 100);
 
   return (
     <div
@@ -35,7 +44,7 @@ export function CanvasDock({
     >
       <button
         type="button"
-        title="Mão"
+        title="Mão (H)"
         aria-label="Mão"
         aria-pressed={mode === "hand"}
         className={btnClass(mode === "hand")}
@@ -46,7 +55,7 @@ export function CanvasDock({
 
       <button
         type="button"
-        title="Cursor"
+        title="Cursor (V)"
         aria-label="Cursor"
         aria-pressed={mode === "cursor"}
         className={btnClass(mode === "cursor")}
@@ -77,6 +86,40 @@ export function CanvasDock({
         onClick={onRedo}
       >
         <Redo2 className="h-5 w-5" />
+      </button>
+
+      <div className="mx-1 h-6 w-px bg-zinc-200" />
+
+      <button
+        type="button"
+        title="Zoom out"
+        aria-label="Zoom out"
+        disabled={zoomPct <= 20}
+        className={btnClass(false)}
+        onClick={onZoomOut}
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+
+      <button
+        type="button"
+        title="Resetar zoom (100%)"
+        aria-label={`Zoom ${zoomPct}%`}
+        className="h-9 min-w-[3rem] rounded-full px-2 text-xs font-mono font-semibold text-zinc-600 hover:bg-zinc-100 transition tabular-nums"
+        onClick={onZoomReset}
+      >
+        {zoomPct}%
+      </button>
+
+      <button
+        type="button"
+        title="Zoom in"
+        aria-label="Zoom in"
+        disabled={zoomPct >= 500}
+        className={btnClass(false)}
+        onClick={onZoomIn}
+      >
+        <Plus className="h-4 w-4" />
       </button>
     </div>
   );

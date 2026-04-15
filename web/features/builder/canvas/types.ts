@@ -39,6 +39,7 @@ export type CanvasEdge = {
 export type CanvasViewport = {
   x: number;
   y: number;
+  zoom: number;
 };
 
 export type CanvasWorkflowState = {
@@ -46,5 +47,5 @@ export type CanvasWorkflowState = {
   viewport: CanvasViewport;
   nodes: CanvasNode[];
   edges: CanvasEdge[];
-  selectedNodeId: string | null;
+  selectedNodeIds: string[];
 };

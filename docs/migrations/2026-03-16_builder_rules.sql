@@ -12,6 +12,14 @@ create table if not exists public.builder_rules (
 
 do $$ begin
   if not exists (
+    select 1 from information_schema.columns where table_schema='public' and table_name='builder_rules' and column_name='priority_rank'
+  ) then
+    alter table public.builder_rules add column priority_rank int null;
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
     select 1 from information_schema.columns where table_schema='public' and table_name='builder_rules' and column_name='route_rank'
   ) then
     alter table public.builder_rules add column route_rank int null;

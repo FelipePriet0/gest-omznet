@@ -77,10 +77,10 @@ function initialState(): CanvasWorkflowState {
 
   return {
     mode: "cursor",
-    viewport: { x: 0, y: 0 },
+    viewport: { x: 0, y: 0, zoom: 1 },
     nodes,
     edges,
-    selectedNodeId: null,
+    selectedNodeIds: [],
   };
 }
 
@@ -187,7 +187,9 @@ export function CanvasPage() {
     }
   }
 
-  const selectedNode = state.selectedNodeId ? state.nodes.find((n) => n.id === state.selectedNodeId) ?? null : null;
+  const selectedNode = state.selectedNodeIds.length === 1
+    ? state.nodes.find((n) => n.id === state.selectedNodeIds[0]) ?? null
+    : null;
   const routeRankForSelected = useMemo(() => {
     if (!selectedNode || selectedNode.type !== 'route') return null;
     let rank = 0;
@@ -219,7 +221,11 @@ export function CanvasPage() {
               ...(!hasStart  ? [{ id: "n_start",  type: "start"  as const, x: 140,  y: 225, data: {} }] : []),
               ...(!hasFinish ? [{ id: "n_finish", type: "finish" as const, x: 1150, y: 225, data: {} }] : []),
             ];
-            return { ...loaded, nodes: [...extras, ...nodes] };
+            const selectedNodeIds: string[] =
+            (loaded as any).selectedNodeIds ??
+            ((loaded as any).selectedNodeId ? [(loaded as any).selectedNodeId] : []);
+          const viewport = { zoom: 1, ...(loaded.viewport || {}) };
+          return { ...loaded, viewport, nodes: [...extras, ...nodes], selectedNodeIds };
           });
           setCurrentId(wf.id);
           setPublishedAt(wf.published_at as any);
@@ -273,15 +279,34 @@ export function CanvasPage() {
     }, 600);
   }
 
-  // ── Ctrl+C / Ctrl+V ───────────────────────────────────────────────────────
+  // ── Ctrl+C / Ctrl+V / Delete ──────────────────────────────────────────────
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+      // Delete / Backspace — remove todos os nós selecionados (exceto start/finish)
+      if (e.key === "Delete" || e.key === "Backspace") {
+        const toDelete = state.selectedNodeIds.filter((id) => {
+          const n = state.nodes.find((n) => n.id === id);
+          return n && n.type !== "start" && n.type !== "finish";
+        });
+        if (toDelete.length === 0) return;
+        const deleteSet = new Set(toDelete);
+        history.commit((prev) => ({
+          ...prev,
+          nodes: prev.nodes.filter((n) => !deleteSet.has(n.id)),
+          edges: prev.edges.filter((e) => !deleteSet.has(e.from.nodeId) && !deleteSet.has(e.to.nodeId)),
+          selectedNodeIds: [],
+        }));
+        scheduleSaveNow();
+        return;
+      }
+
       if (!(e.ctrlKey || e.metaKey)) return;
 
       if (e.key === "c") {
-        const node = state.nodes.find((n) => n.id === state.selectedNodeId);
+        const node = state.nodes.find((n) => n.id === state.selectedNodeIds[0]);
         if (node && node.type !== "start" && node.type !== "finish") clipboardNode.current = node;
       }
 
@@ -298,7 +323,7 @@ export function CanvasPage() {
             y: source.y + 40,
             data: JSON.parse(JSON.stringify(source.data)),
           };
-          return { ...prev, nodes: [...prev.nodes, newNode], selectedNodeId: id };
+          return { ...prev, nodes: [...prev.nodes, newNode], selectedNodeIds: [id] };
         });
         scheduleSaveNow();
       }
@@ -306,7 +331,7 @@ export function CanvasPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [state.selectedNodeId, state.nodes]);
+  }, [state.selectedNodeIds, state.nodes]);
 
   const createNode = (type: CanvasNodeType) => {
     try { console.log('[Canvas] createNode', { type }); } catch {}
@@ -557,13 +582,13 @@ export function CanvasPage() {
         viewport={state.viewport}
         nodes={state.nodes}
         edges={state.edges}
-        selectedNodeId={state.selectedNodeId}
-        onSelectNode={(id) => history.setPresent((prev) => ({ ...prev, selectedNodeId: id }))}
+        selectedNodeIds={state.selectedNodeIds}
+        onSelectNodes={(ids) => history.setPresent((prev) => ({ ...prev, selectedNodeIds: ids }))}
         onChangeViewport={(v) => history.setPresent((prev) => ({ ...prev, viewport: v }))}
-        onMoveNode={(id, pos) =>
+        onMoveNodes={(positions) =>
           history.setPresent((prev) => ({
             ...prev,
-            nodes: prev.nodes.map((n) => (n.id === id ? { ...n, ...pos } : n)),
+            nodes: prev.nodes.map((n) => (positions[n.id] ? { ...n, ...positions[n.id] } : n)),
           }))
         }
         onCreateEdge={createEdge}
@@ -593,18 +618,16 @@ export function CanvasPage() {
           scheduleSaveNow();
         }}
         onDelete={() => {
-          if (!state.selectedNodeId) return;
-          const target = state.nodes.find((n) => n.id === state.selectedNodeId);
+          if (!state.selectedNodeIds.length) return;
+          const id = state.selectedNodeIds[0];
+          const target = state.nodes.find((n) => n.id === id);
           if (target?.type === "start" || target?.type === "finish") return;
-          history.commit((prev) => {
-            const id = prev.selectedNodeId;
-            return {
-              ...prev,
-              nodes: prev.nodes.filter((n) => n.id !== id),
-              edges: prev.edges.filter((e) => e.from.nodeId !== id && e.to.nodeId !== id),
-              selectedNodeId: null,
-            };
-          });
+          history.commit((prev) => ({
+            ...prev,
+            nodes: prev.nodes.filter((n) => n.id !== id),
+            edges: prev.edges.filter((e) => e.from.nodeId !== id && e.to.nodeId !== id),
+            selectedNodeIds: [],
+          }));
           scheduleSaveNow();
         }}
       />
