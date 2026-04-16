@@ -968,27 +968,26 @@ body {
 /* ── Label vermelha — sobrescreve o !important do .ficha-pf label ── */
 .ficha-pf label.label-red { color: #dc2626 !important; }
 
-/* ── Inline field layout (label à esquerda do input / select / textarea) ── */
+/* ── Stacked field layout (label acima do input / select / textarea) ── */
 .ficha-pf .field-inline {
   display: flex !important;
-  align-items: center !important;
-  gap: 6px !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0 !important;
 }
-.ficha-pf .field-inline.items-start { align-items: flex-start !important; }
 .ficha-pf .field-inline > label {
-  display: inline !important;
+  display: block !important;
   flex-shrink: 0 !important;
-  margin-bottom: 0 !important;
-  white-space: nowrap !important;
+  margin-bottom: 2px !important;
+  white-space: normal !important;
 }
 .ficha-pf .field-inline > input,
 .ficha-pf .field-inline > textarea {
-  flex: 1 1 0 !important;
-  width: auto !important;
+  width: 100% !important;
   min-width: 0 !important;
 }
-/* SimpleSelect wrapper inside field-inline fills remaining space */
-.ficha-pf .field-inline > .select-wrap { flex: 1 1 0; min-width: 0; }
+/* SimpleSelect wrapper inside field-inline fills full width */
+.ficha-pf .field-inline > .select-wrap { width: 100%; min-width: 0; }
 .ficha-pf .field-inline > .select-wrap .SimpleSelect-trigger { width: 100% !important; }
 
 /* Demo Field Styles - Enterprise Responsive */
