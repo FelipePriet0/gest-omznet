@@ -47,6 +47,7 @@ async function loadFullDays(month: Date): Promise<Set<string>> {
 
 type DateSingleKanbanPopoverProps = {
   label?: string;
+  labelClassName?: string;
   value?: string; // yyyy-MM-dd
   onChange: (value?: string) => void;
   placeholder?: string;
@@ -55,7 +56,7 @@ type DateSingleKanbanPopoverProps = {
   triggerClassName?: string;
 };
 
-export function DateSingleKanbanPopover({ label, value, onChange, placeholder, disabled, disablePast, triggerClassName }: DateSingleKanbanPopoverProps) {
+export function DateSingleKanbanPopover({ label, labelClassName, value, onChange, placeholder, disabled, disablePast, triggerClassName }: DateSingleKanbanPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const [fullDays, setFullDays] = React.useState<Set<string>>(new Set());
   const [displayMonth, setDisplayMonth] = React.useState<Date>(() => parseDateOnly(value) || new Date());
@@ -71,7 +72,7 @@ export function DateSingleKanbanPopover({ label, value, onChange, placeholder, d
 
   return (
     <div className="w-full space-y-2">
-      {label && <Label className="field-label text-h1">{label}</Label>}
+      {label && <Label className={labelClassName ?? "field-label text-h1"}>{label}</Label>}
       <Popover open={open} onOpenChange={(next) => !disabled && setOpen(next)}>
         <PopoverTrigger asChild>
           <button

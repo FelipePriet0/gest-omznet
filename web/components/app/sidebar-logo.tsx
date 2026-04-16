@@ -10,8 +10,8 @@ export const Logo = () => {
       className="font-normal flex items-center text-sm py-1 relative z-20 rounded-lg hover:bg-white/20 transition-colors px-2"
     >
       <Image 
-        src="/mznet-logo.png" 
-        alt="MZNET Logo" 
+        src="/mznet-logo.svg"
+        alt="MZNET Logo"
         width={32}
         height={32}
         className="flex-shrink-0 object-contain"
@@ -27,9 +27,9 @@ export const LogoIcon = () => {
       href="/kanban"
       className="font-normal flex items-center text-sm py-1 relative z-20 rounded-lg hover:bg-white/20 transition-colors px-2"
     >
-      <Image 
-        src="/mznet-logo.png" 
-        alt="MZNET Logo" 
+      <Image
+        src="/mznet-logo.svg"
+        alt="MZNET Logo"
         width={32}
         height={32}
         className="flex-shrink-0 object-contain"

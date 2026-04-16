@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+/** @deprecated — use <div className="grid gap-4 grid-cols-…"> diretamente no modal */
 export function Section({ title, children, variant, className, titleClassName, cardClassName }: { title: string; children: React.ReactNode; variant?: string; className?: string; titleClassName?: string; cardClassName?: string }) {
   const wrapperClasses = [variant, className].filter(Boolean).join(" ");
   const cardClasses = ["section-card rounded-lg bg-white p-4 sm:p-6", cardClassName].filter(Boolean).join(" ");
@@ -18,8 +19,8 @@ export function Section({ title, children, variant, className, titleClassName, c
   );
 }
 
-export function Grid({ cols, children }: { cols: 1 | 2 | 3; children: React.ReactNode }) {
-  const cls = cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
-  return <div className={`grid gap-4 sm:gap-6 ${cls}`}>{children}</div>;
+export function Grid({ cols, children, className }: { cols?: 1 | 2 | 3; children: React.ReactNode; className?: string }) {
+  const defaultCls =
+    cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
+  return <div className={`grid gap-4 ${className ?? defaultCls}`}>{children}</div>;
 }
-

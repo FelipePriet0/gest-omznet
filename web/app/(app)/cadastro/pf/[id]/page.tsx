@@ -950,7 +950,7 @@ export default function CadastroPFPage() {
             <div className="select-wrap">
               <SimpleSelect
                 value={pf.tipo_moradia || ""}
-                onChange={(v)=>{ setPf({...pf, tipo_moradia:v}); queueSave("pf","tipo_moradia", v); }}
+                onChange={(v)=>{ const patch: any = { tipo_moradia: v }; if (v !== 'Outros') { patch.tipo_moradia_obs = ''; queueSave('pf','tipo_moradia_obs',''); } if (v !== 'Alugada') { patch.nome_locador = ''; patch.telefone_locador = ''; queueSave('pf','nome_locador',''); queueSave('pf','telefone_locador',''); } setPf(prev=>({...prev,...patch})); queueSave("pf","tipo_moradia", v); }}
                 options={["Própria","Alugada","Cedida","Outros"]}
                 className="mt-0"
                 triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
@@ -977,14 +977,14 @@ export default function CadastroPFPage() {
               />
             </div>
           </div>
-          <Field label="Observações" value={pf.tipo_moradia_obs || ""} onChange={(v)=>{ setPf({...pf, tipo_moradia_obs:v}); queueSave("pf","tipo_moradia_obs", v); }} error={errs.tipo_moradia_obs} requiredMark={reqObs} status={getFieldStatus('tipo_moradia_obs')} />
+          <Field label="Observações" value={pf.tipo_moradia_obs || ""} onChange={(v)=>{ setPf({...pf, tipo_moradia_obs:v}); queueSave("pf","tipo_moradia_obs", v); }} error={errs.tipo_moradia_obs} requiredMark={reqObs} disabled={!reqObs} status={getFieldStatus('tipo_moradia_obs')} />
           {/* Linha 2: "Única no lote" primeiro (esquerda) e Observação maior ao lado */}
           <div className="field-inline">
             <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Única no lote</label>
             <div className="select-wrap">
               <SimpleSelect
                 value={pf.unica_no_lote || ""}
-                onChange={(v)=>{ setPf({...pf, unica_no_lote:v}); queueSave("pf","unica_no_lote", v); }}
+                onChange={(v)=>{ const patch: any = { unica_no_lote: v }; if (v !== 'Não') { patch.unica_no_lote_obs = ''; queueSave('pf','unica_no_lote_obs',''); } setPf(prev=>({...prev,...patch})); queueSave("pf","unica_no_lote", v); }}
                 options={["Sim","Não"]}
                 className="mt-0"
                 triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
@@ -998,6 +998,7 @@ export default function CadastroPFPage() {
             onChange={(v)=>{ setPf({...pf, unica_no_lote_obs:v}); queueSave("pf","unica_no_lote_obs", v); }}
             error={errs.unica_no_lote_obs}
             requiredMark={reqUnicaObs}
+            disabled={!reqUnicaObs}
             className="sm:col-span-2"
             status={getFieldStatus('unica_no_lote_obs')}
           />
@@ -1088,8 +1089,8 @@ export default function CadastroPFPage() {
           </div>
           <Field label="Nome do Comprovante" value={pf.nome_comprovante || ""} onChange={(v)=>{ setPf({...pf, nome_comprovante:v}); queueSave("pf","nome_comprovante", v); }} error={errs.nome_comprovante} requiredMark={reqComprovante} disabled={!reqComprovante} status={getFieldStatus('nome_comprovante')} />
           {/* Linha 5 */}
-          <Field label="Nome Locador" value={pf.nome_locador || ""} onChange={(v)=>{ setPf({...pf, nome_locador:v}); queueSave("pf","nome_locador", v); }} error={errs.nome_locador} requiredMark={reqLocador} className="md:col-span-2" status={getFieldStatus('nome_locador')} />
-          <Field label="Telefone Locador" value={pf.telefone_locador || ""} onChange={(v)=>{ setPf({...pf, telefone_locador:v}); queueSave("pf","telefone_locador", v); }} error={errs.telefone_locador} requiredMark={reqLocador} status={getFieldStatus('telefone_locador')} />
+          <Field label="Nome Locador" value={pf.nome_locador || ""} onChange={(v)=>{ setPf({...pf, nome_locador:v}); queueSave("pf","nome_locador", v); }} error={errs.nome_locador} requiredMark={reqLocador} disabled={!reqLocador} className="md:col-span-2" status={getFieldStatus('nome_locador')} />
+          <Field label="Telefone Locador" value={pf.telefone_locador || ""} onChange={(v)=>{ const m = maskPhoneLoose(v); setPf({...pf, telefone_locador:m}); queueSave("pf","telefone_locador", m); }} error={errs.telefone_locador} requiredMark={reqLocador} disabled={!reqLocador} status={getFieldStatus('telefone_locador')} />
           {/* Linha 6 */}
           <div className="field-inline">
             <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Tem internet fixa atualmente?</label>
@@ -1120,7 +1121,7 @@ export default function CadastroPFPage() {
             <div className="select-wrap">
               <SimpleSelect
                 value={pf.vinculo || ""}
-                onChange={(v)=>{ setPf({...pf, vinculo:v}); queueSave("pf","vinculo", v); }}
+                onChange={(v)=>{ const patch: any = { vinculo: v }; if (v !== 'Outro') { patch.vinculo_obs = ''; queueSave('pf','vinculo_obs',''); } setPf(prev=>({...prev,...patch})); queueSave("pf","vinculo", v); }}
                 options={["Carteira Assinada","Presta Serviços","Contrato de Trabalho","Autonômo","Concursado","Outro"]}
                 className="mt-0"
                 triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
@@ -1128,7 +1129,7 @@ export default function CadastroPFPage() {
               />
             </div>
           </div>
-          <Field label="Vínculo (Obs)" value={pf.vinculo_obs || ""} onChange={(v)=>{ setPf({...pf, vinculo_obs:v}); queueSave("pf","vinculo_obs", v); }} error={errs.vinculo_obs} requiredMark={reqVinculoObs} status={getFieldStatus('vinculo_obs')} />
+          <Field label="Vínculo (Obs)" value={pf.vinculo_obs || ""} onChange={(v)=>{ setPf({...pf, vinculo_obs:v}); queueSave("pf","vinculo_obs", v); }} error={errs.vinculo_obs} requiredMark={reqVinculoObs} disabled={!reqVinculoObs} status={getFieldStatus('vinculo_obs')} />
           <Field label="Emprego do PS" value={pf.emprego_do_ps || ""} onChange={(v)=>{ setPf({...pf, emprego_do_ps:v}); queueSave("pf","emprego_do_ps", v); }} red className="lg:col-span-4" status={getFieldStatus('emprego_do_ps')} />
         </div>
 

@@ -23,7 +23,6 @@ import { renderTextWithChips } from "@/utils/richText";
 import { useDebouncedCallback } from "@/utils/useDebouncedCallback";
 import type { AppModel, CardSnapshotPatch } from "./types";
 import { PLANO_OPTIONS, SVA_OPTIONS, VENC_OPTIONS } from "./constants";
-import { Section, Grid } from "./components/Layout";
 import { Field, Select, SelectAdv } from "./components/Fields";
 import { CmdDropdown } from "./components/CmdDropdown";
 import { DecisionTag, decisionPlaceholder } from "./utils/decision";
@@ -702,37 +701,29 @@ export function EditarFichaModal({
                       Analisar
                     </button>
                   </div>
-            {/* Informações Pessoais */}
-            <Section title="Informações Pessoais" variant="info-pessoais">
-              <Grid cols={2}>
-                  <Field label={personType==='PJ' ? 'Razão Social' : 'Nome do Cliente'} value={app.primary_name||''} onChange={(v)=>{ updateAppField('primary_name', v); emitCardUpdate({ applicantName: v }); }} status={getFieldStatus('primary_name')} onBlur={handleFieldBlur} />
+            {/* Grade unificada — estilo corporativo sem seções separadas */}
+            <div className="space-y-4">
+
+              {/* Nome + CPF/CNPJ */}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-[3fr_2fr]">
+                <Field label={personType==='PJ' ? 'Razão Social' : 'Nome do Cliente'} value={app.primary_name||''} onChange={(v)=>{ updateAppField('primary_name', v); emitCardUpdate({ applicantName: v }); }} status={getFieldStatus('primary_name')} onBlur={handleFieldBlur} />
                 {personType === 'PJ' ? (
                   <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); updateAppField('cpf_cnpj', m); emitCardUpdate({ cpfCnpj: m }); }} inputMode="numeric" maxLength={18} status={getFieldStatus('cpf_cnpj')} onBlur={handleFieldBlur} />
                 ) : (
                   <Field label="CPF" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCpf(v); updateAppField('cpf_cnpj', m); emitCardUpdate({ cpfCnpj: m }); }} inputMode="numeric" maxLength={14} status={getFieldStatus('cpf_cnpj')} onBlur={handleFieldBlur} />
                 )}
-              </Grid>
-            </Section>
+              </div>
 
-            {/* Contato */}
-            <Section title="Informações de Contato" variant="info-contato">
-              <Grid cols={2}>
+              {/* Telefone + Whatsapp + E-mail */}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                 <Field label="Telefone" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); updateAppField('phone', m); emitCardUpdate({ phone: m }); }} status={getFieldStatus('phone')} onBlur={handleFieldBlur} />
                 <Field label="Whatsapp" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); updateAppField('whatsapp', m); emitCardUpdate({ whatsapp: m }); }} status={getFieldStatus('whatsapp')} onBlur={handleFieldBlur} />
-              </Grid>
-              <div className="mt-4 sm:mt-6">
-                <Grid cols={1}>
-                  <Field label="E-mail" value={app.email||''} onChange={(v)=>{ updateAppField('email', v); }} status={getFieldStatus('email')} onBlur={handleFieldBlur} />
-                </Grid>
+                <Field label="E-mail" value={app.email||''} onChange={(v)=>{ updateAppField('email', v); }} status={getFieldStatus('email')} onBlur={handleFieldBlur} />
               </div>
-            </Section>
 
-            {/* Endereço */}
-            <Section title="Endereço" variant="endereco">
-              <Grid cols={3}>
-                <div className="mt-1">
-                  <Field label="Logradouro" value={app.address_line||''} onChange={(v)=>{ updateAppField('address_line', v); }} status={getFieldStatus('address_line')} onBlur={handleFieldBlur} />
-                </div>
+              {/* Logradouro + Número + Tipo de Instalação */}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-[5fr_2fr_2fr]">
+                <Field label="Logradouro" value={app.address_line||''} onChange={(v)=>{ updateAppField('address_line', v); }} status={getFieldStatus('address_line')} onBlur={handleFieldBlur} />
                 <Field label="Número" value={app.address_number||''} onChange={(v)=>{ updateAppField('address_number', v); }} status={getFieldStatus('address_number')} onBlur={handleFieldBlur} />
                 <Select
                   label="Tipo de Instalação"
@@ -745,42 +736,36 @@ export function EditarFichaModal({
                   options={((personType||'')==='PJ' ? [...TIPO_INST_UI_PJ] : [...TIPO_INST_UI_DEFAULT]) as any}
                   contentStyle={{ zIndex: 9999 }}
                 />
-              </Grid>
-              <div className="mt-4 sm:mt-6">
-                <Grid cols={3}>
-                  <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ updateAppField('address_complement', v); }} status={getFieldStatus('address_complement')} onBlur={handleFieldBlur} />
-                  <div className="mt-1">
-                    <Select
-                      label="Bairro"
-                      value={app.bairro||''}
-                      onChange={(v)=>{ updateAppField('bairro', v); emitCardUpdate({ bairro: v }); handleFieldBlur?.(); }}
-                      options={routes.map(r => ({ label: r.name, value: r.name }))}
-                      contentStyle={{ zIndex: 9999 }}
-                    />
-                  </div>
-                  <div className="mt-1">
-                    <Field label="CEP" value={app.cep||''} onChange={(v)=>{ updateAppField('cep', v); }} status={getFieldStatus('cep')} onBlur={handleFieldBlur} />
-                  </div>
-                </Grid>
               </div>
-            </Section>
 
-            {/* Preferências e serviços */}
-            <Section title="Planos e Serviços" variant="planos-servicos">
-              <Grid cols={2}>
+              {/* Complemento + Bairro + CEP */}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+                <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ updateAppField('address_complement', v); }} status={getFieldStatus('address_complement')} onBlur={handleFieldBlur} />
+                <Select
+                  label="Bairro"
+                  value={app.bairro||''}
+                  onChange={(v)=>{ updateAppField('bairro', v); emitCardUpdate({ bairro: v }); handleFieldBlur?.(); }}
+                  options={routes.map(r => ({ label: r.name, value: r.name }))}
+                  contentStyle={{ zIndex: 9999 }}
+                />
+                <Field label="CEP" value={app.cep||''} onChange={(v)=>{ updateAppField('cep', v); }} status={getFieldStatus('cep')} onBlur={handleFieldBlur} />
+              </div>
+
+              {/* Plano + Vencimento + SVA + Carnê */}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
                 <SelectAdv label="Plano de Internet" value={app.plano_acesso||''} onChange={(v)=>{ updateAppField('plano_acesso', v); }} options={PLANO_OPTIONS as any} contentStyle={{ zIndex: 9999 }} />
                 <Select label="Dia de vencimento" value={String(app.venc||'')} onChange={(v)=>{ updateAppField('venc', v); }} options={VENC_OPTIONS as any} contentStyle={{ zIndex: 9999 }} />
                 <SelectAdv label="SVA Avulso" value={app.sva_avulso||''} onChange={(v)=>{ updateAppField('sva_avulso', v); }} options={SVA_OPTIONS as any} contentStyle={{ zIndex: 9999 }} />
                 <Select label="Carnê impresso" value={app.carne_impresso ? 'Sim':'Não'} onChange={(v)=>{ const val = (v==='Sim'); updateAppField('carne_impresso', val); }} options={["Sim","Não"]} contentStyle={{ zIndex: 9999 }} />
-              </Grid>
-            </Section>
+              </div>
 
-            {/* Agendamento */}
-            <Section title="Agendamento" variant="agendamento">
-              <Grid cols={3}>
+              {/* Criado em + Agendamento + Horário */}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                 <Field label="Feito em" value={createdAt} onChange={()=>{}} disabled />
                 <DateSingleKanbanPopover
                   label="Instalação agendada para"
+                  labelClassName="block mb-1.5 text-[14px] font-bold uppercase tracking-wide leading-none text-zinc-600"
+                  triggerClassName="h-10 rounded-[2px] px-3 bg-blue-100 border-zinc-400 "
                   value={dueAt}
                   onChange={async (val) => {
                     setDueAt(val || "");
@@ -824,6 +809,8 @@ export function EditarFichaModal({
                 />
                 <TimeMultiSelect
                   label="Horário"
+                  labelClassName="block mb-1.5 text-[14px] font-bold uppercase tracking-wide leading-none text-zinc-600"
+                  triggerClassName="h-10 rounded-[2px] px-3 bg-blue-100 border-zinc-400 "
                   times={horarios}
                   value={horaArr}
                   onApply={(vals) => {
@@ -837,29 +824,23 @@ export function EditarFichaModal({
                   allowedPairs={[['08:30','10:30'],['13:30','15:30']]}
                   date={dueAt}
                 />
-              </Grid>
-            </Section>
+              </div>
 
-            {/* Equipe Responsável */}
-            <Section title="Equipe Responsável" variant="info-contato">
-              <Grid cols={2}>
+              {/* Equipe Responsável */}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                 <Field label="Vendedor" value={vendorName} onChange={()=>{}} disabled />
                 <Field label="Analistas" value={analystName} onChange={()=>{}} disabled />
-              </Grid>
-            </Section>
+              </div>
+
+            </div>
 
             {/* Pareceres */}
-            <div className="section-card rounded-xl p-4 sm:p-6">
-              {/* Header Area - Red Box */}
-              <div className="section-header mb-4 sm:mb-6 flex items-center justify-between">
-                <h3 className="section-title text-sm font-semibold pareceres">Pareceres</h3>
-              </div>
-              
-              {/* Content Area - Yellow Box */}
-              <div className="section-content">
+            <div>
+                <label className="block mb-1.5 text-[14px] font-bold uppercase tracking-wide leading-none text-zinc-600">Parecer</label>
                 <div className="mb-3 relative" ref={parecerComposerContainerRef}>
                   <UnifiedComposer
                     ref={composerRef}
+                    className="composer-root--blue"
                     disabled={!canWriteParecer}
                     placeholder="Escreva um novo parecer… Use @ para mencionar"
                     ariaLabel="Escrever parecer"
@@ -1053,7 +1034,6 @@ export function EditarFichaModal({
                   onOpenTask={(ctx) => setTaskOpen({ open: true, parentId: ctx.parentId ?? null, taskId: ctx.taskId ?? null, source: ctx.source ?? 'parecer' })}
                   onToggleTask={handleTaskToggle}
                 />
-              </div>
             </div>
                 </div>
               </div>
@@ -1244,7 +1224,7 @@ function NoteItem({
   if (node.deleted) return null;
   return (
     <div
-      className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-6 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] pl-3"
+      className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-6 text-sm text-zinc-800  pl-3"
       style={{ marginLeft: depth*16, borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}
     >
       <div className="flex items-center justify-between gap-2">

@@ -24,6 +24,7 @@ async function loadFullSlots(dateISO: string): Promise<Set<string>> {
 
 export function TimeMultiSelect({
   label,
+  labelClassName,
   times,
   value,
   onApply,
@@ -33,6 +34,7 @@ export function TimeMultiSelect({
   date,
 }: {
   label: string;
+  labelClassName?: string;
   times: readonly string[]; // 'HH:MM'
   value: string[]; // selected 'HH:MM'
   onApply: (vals: string[]) => void;
@@ -94,7 +96,7 @@ export function TimeMultiSelect({
   return (
     <div className={className}>
       <div className="w-full space-y-2">
-        <div className="field-label text-h1">{label}</div>
+        <div className={labelClassName ?? "field-label text-h1"}>{label}</div>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button

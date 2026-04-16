@@ -158,7 +158,7 @@ export default function LoginPage() {
             {/* Logo Centralizada */}
             <div className="relative z-10 flex items-center justify-center h-full">
               <Image
-                src="/mznet-logo.png"
+                src="/mznet-logo.svg"
                 alt="MZNET Logo"
                 width={256}
                 height={256}
