@@ -163,8 +163,8 @@ function meioToUI(v:string|null): string { const m:any={ ligacao:'Ligação',wha
 
 const PLANO_OPTIONS: ({label:string,value:string,disabled?:boolean})[] = [
   { label: '— Normais —', value: '__hdr_norm', disabled: true },
-  { label: '100 Mega - R$ 59,90', value: '100 Mega - R$ 59,90' },
-  { label: '250 Mega - R$ 69,90', value: '250 Mega - R$ 69,90' },
+  { label: '100 Mega - R$ 150,00', value: '100 Mega - R$ 150,00' },
+  { label: '250 Mega - R$ 300,00', value: '250 Mega - R$ 300,00' },
   { label: '600 Mega - R$ 79,90', value: '600 Mega - R$ 79,90' },
   { label: '1000 Mega (1Gb) - R$ 99,90', value: '1000 Mega (1Gb) - R$ 99,90' },
   { label: '— IP Dinâmico —', value: '__hdr_ipdin', disabled: true },

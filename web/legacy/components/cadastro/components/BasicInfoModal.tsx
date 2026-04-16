@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState, Fragment } from "react";
 import Image from "next/image";
 import { X } from "lucide-react";
 import { BasicInfoPF, BasicInfoPJ, PessoaTipo } from "@/features/cadastro/types";
-import { criarFichaPF, criarFichaPJ, checkDuplicidadeQuery } from "@/features/cadastro/services";
+import { criarFichaPF, criarFichaPJ } from "@/features/cadastro/services";
 
 export function BasicInfoModal({
   open,
@@ -117,14 +117,6 @@ export function BasicInfoModal({
     if (!canContinue) return;
     setLoading(true);
     try {
-      const doc = isPF ? pf.cpf : pj.cnpj;
-      const exists = await checkDuplicidadeQuery(doc);
-      if (exists) {
-        setError("Documento já cadastrado. Verifique em Feitas/Cadastrar no MK.");
-        setLoading(false);
-        return;
-      }
-
       const res = isPF ? await criarFichaPF(pf) : await criarFichaPJ(pj);
       setOk("Ficha criada com sucesso.");
       // Abre expanded em outra aba
