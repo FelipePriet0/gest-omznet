@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 
 export const runtime = "nodejs"; // require Node.js runtime for future headless rendering
@@ -8,7 +9,56 @@ function sanitizeFilename(input: string): string {
   return (input || "ficha").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 120) || "ficha";
 }
 
+/** Extrai o access_token da sessão Supabase via cookie ou Authorization header. */
+async function requireAuth(req: NextRequest): Promise<{ error: Response } | { error: null }> {
+  let accessToken: string | null = null;
+
+  // 1) Authorization: Bearer <token>
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (authHeader.startsWith("Bearer ")) {
+    accessToken = authHeader.slice(7).trim();
+  }
+
+  // 2) Cookie sb-*-auth-token (supabase-js v2 armazena JSON com access_token)
+  if (!accessToken) {
+    const cookieHeader = req.headers.get("cookie") ?? "";
+    for (const pair of cookieHeader.split(";")) {
+      const eq = pair.indexOf("=");
+      if (eq === -1) continue;
+      const name = pair.slice(0, eq).trim();
+      const value = pair.slice(eq + 1).trim();
+      if (name.startsWith("sb-") && name.endsWith("-auth-token")) {
+        try {
+          const parsed = JSON.parse(decodeURIComponent(value));
+          accessToken = parsed?.access_token ?? null;
+        } catch {
+          // cookie corrompido — ignora
+        }
+        break;
+      }
+    }
+  }
+
+  if (!accessToken) {
+    return { error: new Response(JSON.stringify({ error: "Não autorizado" }), { status: 401, headers: { "content-type": "application/json" } }) };
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+  );
+  const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+  if (error || !user) {
+    return { error: new Response(JSON.stringify({ error: "Sessão inválida" }), { status: 401, headers: { "content-type": "application/json" } }) };
+  }
+
+  return { error: null };
+}
+
 export async function GET(req: NextRequest, ctx: { params: Promise<{ tipo: string; id: string }> }) {
+  const auth = await requireAuth(req);
+  if (auth.error) return auth.error;
+
   const { tipo, id } = (await ctx.params) || ({} as any);
   const t = String(tipo || "").toLowerCase();
   if (t !== "pf" && t !== "pj") {
