@@ -712,12 +712,12 @@ body {
 /* ── Ficha PJ — Corporate Document Style ────────────────────────────── */
 .ficha-pj {
   width: 100%;
-  max-width: 634px;          /* Desktop Rotated: 634 px */
+  max-width: 824px;          /* Desktop Rotated: 634px × 1.3 = 824px */
   margin: 0 auto;
   background: #ffffff;
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1.3;
-  padding: 14px 16px !important;
+  padding: 18px 21px !important;
   box-shadow: none !important;
 }
 
@@ -729,35 +729,35 @@ body {
   }
 }
 
-/* Desktop (≥ 768px): center at 634 px, slight extra side padding */
+/* Desktop (≥ 768px): center at 824 px, slight extra side padding */
 @media (min-width: 768px) {
   .ficha-pj {
-    max-width: 634px;
-    padding: 16px 20px !important;
+    max-width: 824px;
+    padding: 21px 26px !important;
   }
 }
 
 /* ── Inputs & Selects ── */
 .ficha-pj input,
 .ficha-pj select {
-  height: 21px !important;
-  min-height: 21px !important;
-  padding: 0 5px !important;
-  font-size: 10px !important;
+  height: 27px !important;
+  min-height: 27px !important;
+  padding: 0 7px !important;
+  font-size: 13px !important;
   border: 1px solid #a1a1aa !important;
-  border-radius: 2px !important;
+  border-radius: 3px !important;
   background: #dbeafe !important;
   box-shadow: none !important;
   color: #18181b !important;
 }
 
 .ficha-pj .SimpleSelect-trigger {
-  height: 21px !important;
-  min-height: 21px !important;
-  padding: 0 6px !important;
-  font-size: 10px !important;
+  height: 27px !important;
+  min-height: 27px !important;
+  padding: 0 8px !important;
+  font-size: 13px !important;
   border: 1px solid #a1a1aa !important;
-  border-radius: 2px !important;
+  border-radius: 3px !important;
   background: #dbeafe !important;
   box-shadow: none !important;
   color: #18181b !important;
@@ -770,7 +770,7 @@ body {
   .ficha-pj .SimpleSelect-trigger {
     height: 32px !important;
     min-height: 32px !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
     padding: 0 8px !important;
   }
 }
@@ -778,7 +778,7 @@ body {
 /* ── Labels ── */
 .ficha-pj label,
 .ficha-pj .field-label {
-  font-size: 9px !important;
+  font-size: 12px !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
@@ -790,17 +790,17 @@ body {
 @media (max-width: 639px) {
   .ficha-pj label,
   .ficha-pj .field-label {
-    font-size: 11px !important;
+    font-size: 13px !important;
   }
 }
 
 /* ── Textareas (sections) ── */
 .ficha-pj textarea {
-  min-height: 52px !important;
-  padding: 4px 6px !important;
-  font-size: 10px !important;
+  min-height: 68px !important;
+  padding: 5px 8px !important;
+  font-size: 13px !important;
   border: 1px solid #a1a1aa !important;
-  border-radius: 2px !important;
+  border-radius: 3px !important;
   background: #dbeafe !important;
   box-shadow: none !important;
 }
@@ -808,24 +808,24 @@ body {
 @media (max-width: 639px) {
   .ficha-pj textarea {
     min-height: 70px !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
   }
 }
 
 /* ── Grid spacing ── */
-.ficha-pj .grid { gap: 4px !important; }
-.ficha-pj .pj-section { margin-bottom: 8px !important; }
-.ficha-pj .mb-3, .ficha-pj .mb-4, .ficha-pj .mb-6 { margin-bottom: 6px !important; }
-.ficha-pj .mt-4 { margin-top: 4px !important; }
-.ficha-pj .gap-4 { gap: 4px !important; }
+.ficha-pj .grid { gap: 5px !important; }
+.ficha-pj .pj-section { margin-bottom: 10px !important; }
+.ficha-pj .mb-3, .ficha-pj .mb-4, .ficha-pj .mb-6 { margin-bottom: 8px !important; }
+.ficha-pj .mt-4 { margin-top: 5px !important; }
+.ficha-pj .gap-4 { gap: 5px !important; }
 
 /* ── Amber highlight — "Item Ajustado" (Plano de Acesso / SVA / Venc) ── */
 .ficha-pj .pj-highlight-row {
   background: #fffbeb;
   border: 1px solid #fcd34d;
-  border-radius: 3px;
-  padding: 5px 7px;
-  margin: 5px 0;
+  border-radius: 4px;
+  padding: 7px 9px;
+  margin: 7px 0;
 }
 .ficha-pj .pj-highlight-row label,
 .ficha-pj .pj-highlight-row .field-label {
@@ -834,7 +834,7 @@ body {
 
 /* ── Section separator titles (Textareas) ── */
 .ficha-pj .pj-section-title {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -844,9 +844,9 @@ body {
 
 /* ── Card header (flat, no green) ── */
 .ficha-pj .pj-card-header {
-  border-bottom: 1.5px solid #52525b;
-  padding-bottom: 2px;
-  margin-bottom: 6px;
+  border-bottom: 2px solid #52525b;
+  padding-bottom: 3px;
+  margin-bottom: 8px;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -857,9 +857,9 @@ body {
   max-width: 100%;
   margin: 0 auto;
   background: #ffffff;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.3;
-  padding: 14px 16px !important;
+  padding: 20px 22px !important;
   box-shadow: none !important;
 }
 
@@ -870,22 +870,22 @@ body {
 /* ── Labels ── */
 .ficha-pf label {
   display: block !important;
-  font-size: 9px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.08em !important;
   color: #52525b !important;
   line-height: 1 !important;
-  margin-bottom: 2px !important;
+  margin-bottom: 3px !important;
 }
 
 /* ── Inputs & Selects ── */
 .ficha-pf input,
 .ficha-pf select {
-  height: 21px !important;
-  min-height: 21px !important;
-  padding: 0 5px !important;
-  font-size: 10px !important;
+  height: 29px !important;
+  min-height: 29px !important;
+  padding: 0 7px !important;
+  font-size: 14px !important;
   border: 1px solid #a1a1aa !important;
   border-radius: 2px !important;
   background: #dbeafe !important;
@@ -894,10 +894,10 @@ body {
 }
 
 .ficha-pf .SimpleSelect-trigger {
-  height: 21px !important;
-  min-height: 21px !important;
-  padding: 0 6px !important;
-  font-size: 10px !important;
+  height: 29px !important;
+  min-height: 29px !important;
+  padding: 0 8px !important;
+  font-size: 14px !important;
   border: 1px solid #a1a1aa !important;
   border-radius: 2px !important;
   background: #dbeafe !important;
@@ -919,9 +919,9 @@ body {
 
 /* ── Textareas ── */
 .ficha-pf textarea {
-  min-height: 52px !important;
-  padding: 4px 6px !important;
-  font-size: 10px !important;
+  min-height: 73px !important;
+  padding: 6px 8px !important;
+  font-size: 14px !important;
   border: 1px solid #a1a1aa !important;
   border-radius: 2px !important;
   background: #dbeafe !important;
@@ -933,18 +933,18 @@ body {
 }
 
 /* ── Grid & spacing ── */
-.ficha-pf .grid { gap: 4px !important; }
-.ficha-pf .gap-4 { gap: 4px !important; }
-.ficha-pf .mt-4 { margin-top: 4px !important; }
-.ficha-pf .mb-3, .ficha-pf .mb-4, .ficha-pf .mb-6 { margin-bottom: 6px !important; }
+.ficha-pf .grid { gap: 6px !important; }
+.ficha-pf .gap-4 { gap: 6px !important; }
+.ficha-pf .mt-4 { margin-top: 6px !important; }
+.ficha-pf .mb-3, .ficha-pf .mb-4, .ficha-pf .mb-6 { margin-bottom: 8px !important; }
 
 /* ── Amber highlight — Plano / SVA / Vencimento ── */
 .ficha-pf .pf-highlight-row {
   background: #fffbeb;
   border: 1px solid #fcd34d;
-  border-radius: 3px;
-  padding: 5px 7px;
-  margin: 5px 0;
+  border-radius: 4px;
+  padding: 7px 10px;
+  margin: 7px 0;
 }
 .ficha-pf .pf-highlight-row label {
   color: #78350f !important;
@@ -952,7 +952,7 @@ body {
 
 /* ── Section separator titles (Textareas) ── */
 .ficha-pf .pf-section-title {
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -962,10 +962,36 @@ body {
 
 /* ── Card header (flat, no green) ── */
 .ficha-pf .pf-card-header {
-  border-bottom: 1.5px solid #52525b;
-  padding-bottom: 2px;
-  margin-bottom: 6px;
+  border-bottom: 2px solid #52525b;
+  padding-bottom: 3px;
+  margin-bottom: 8px;
 }
+
+/* ── Label vermelha — sobrescreve o !important do .ficha-pf label ── */
+.ficha-pf label.label-red { color: #dc2626 !important; }
+
+/* ── Inline field layout (label à esquerda do input / select / textarea) ── */
+.ficha-pf .field-inline {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.ficha-pf .field-inline.items-start { align-items: flex-start !important; }
+.ficha-pf .field-inline > label {
+  display: inline !important;
+  flex-shrink: 0 !important;
+  margin-bottom: 0 !important;
+  white-space: nowrap !important;
+}
+.ficha-pf .field-inline > input,
+.ficha-pf .field-inline > textarea {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+/* SimpleSelect wrapper inside field-inline fills remaining space */
+.ficha-pf .field-inline > .select-wrap { flex: 1 1 0; min-width: 0; }
+.ficha-pf .field-inline > .select-wrap .SimpleSelect-trigger { width: 100% !important; }
 
 /* Demo Field Styles - Enterprise Responsive */
 .field-group {

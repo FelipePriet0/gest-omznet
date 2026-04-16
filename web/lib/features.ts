@@ -9,4 +9,6 @@ export const FEATURES = {
   conversasCoRelacionadas: false,
   /** Item "Minhas Tarefas" no sidebar + painel lateral */
   minhasTarefas: false,
+  /** Botão de exportar/baixar ficha PDF nas fichas PF/PJ */
+  exportarFicha: false,
 } as const;

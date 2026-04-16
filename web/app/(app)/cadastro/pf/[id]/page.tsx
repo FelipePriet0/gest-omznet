@@ -205,23 +205,6 @@ function estadoCivilToUI(v:string|null): string { const m:any={ solteiro:'Soltei
 const MEIO_UI = ['Ligação','Whatspp','Presensicial','Whats - Uber'] as const;
 function uiToMeio(v:string): string|null { const m:any={ 'Ligação':'ligacao','Whatspp':'whatsapp','Presensicial':'presencial','Whats - Uber':'whats_uber' }; return m[v] ?? null; }
 function meioToUI(v:string|null): string { const m:any={ ligacao:'Ligação',whatsapp:'Whatspp',presencial:'Presensicial',whats_uber:'Whats - Uber' }; return v ? (m[v] ?? '') : ''; }
-function formatCurrencyBR(input: string) {
-  const d = digitsOnly(input);
-  if (!d) return "";
-  let n = d.replace(/^0+/, '');
-  if (n.length === 0) n = '0';
-  let intRaw = '0';
-  let cents = '00';
-  if (n.length <= 2) {
-    cents = n.padStart(2, '0');
-    intRaw = '0';
-  } else {
-    intRaw = n.slice(0, -2);
-    cents = n.slice(-2);
-  }
-  const intWithSep = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `R$ ${intWithSep},${cents}`;
-}
 function formatCep(input: string) {
   const d = digitsOnly(input).slice(0,8);
   if (d.length <= 5) return d;
@@ -246,7 +229,6 @@ export default function CadastroPFPage() {
   const [tipoInstalacao, setTipoInstalacao] = useState<string>('');
   const [dueAt, setDueAt] = useState<string>('');
   const [horaAt, setHoraAt] = useState<string[]>([]);
-  const [valorInternetWarn, setValorInternetWarn] = useState(false);
   const showAnalyzeCrumb = from === 'analisar';
   // Parecer states
   const [pareceres, setPareceres] = useState<any[]>([]);
@@ -861,9 +843,9 @@ export default function CadastroPFPage() {
     if (typeof window === 'undefined') return 1;
     try {
       const s = window.localStorage.getItem('form-zoom-pf');
-      if (!s) return 1.2;
+      if (!s) return 1;
       const n = parseFloat(s);
-      return Number.isFinite(n) ? Math.min(1.5, Math.max(0.75, n)) : 1.2;
+      return Number.isFinite(n) ? Math.min(1.5, Math.max(0.75, n)) : 1;
     } catch { return 1; }
   });
   useEffect(() => { try { window.localStorage.setItem('form-zoom-pf', String(zoom)); } catch {} }, [zoom]);
@@ -911,7 +893,7 @@ export default function CadastroPFPage() {
       {/* Ficha completa (dados, endereço, residência, etc.) */}
       <Card title="Ficha">
         {/* Linha 1: Nome | CPF | Data de Nascimento | Idade */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-[5fr_2fr_2fr_1fr] gap-4">
           <Field label="Nome do Cliente" value={app.primary_name || ""} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave("app","primary_name", v); }} status={getFieldStatus('primary_name')} />
           <Field label="CPF" value={app.cpf_cnpj || ""} onChange={(v)=>{ setApp({...app, cpf_cnpj:v}); queueSave("app","cpf_cnpj", v); }} status={getFieldStatus('cpf_cnpj')} />
           <Field label="Data de Nascimento" value={pf.birth_date ? formatDateBR(pf.birth_date as any) : ""} onChange={(v)=>{ setPf({...pf, birth_date: v}); queueSave("pf","birth_date", v); }} status={getFieldStatus('birth_date')} />
@@ -924,7 +906,7 @@ export default function CadastroPFPage() {
           <Textarea label="Do PS" value={pf.do_ps || ""} onChange={(v)=>{ setPf({...pf, do_ps:v}); queueSave("pf","do_ps", v); }} red status={getFieldStatus('do_ps')} />
         </div>
         {/* Linha 3: Naturalidade | UF | E-mail */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-[3fr_1fr_4fr] gap-4">
           <Field label="Naturalidade" value={pf.naturalidade || ""} onChange={(v)=>{ setPf({...pf, naturalidade:v}); queueSave("pf","naturalidade", v); }} status={getFieldStatus('naturalidade')} />
           <Field label="UF" value={pf.uf_naturalidade || ""} onChange={(v)=>{ setPf({...pf, uf_naturalidade:v}); queueSave("pf","uf_naturalidade", v); }} status={getFieldStatus('uf_naturalidade')} />
           <Field label="E-mail" value={app.email || ""} onChange={(v)=>{ setApp({...app, email:v}); queueSave("app","email", v); }} status={getFieldStatus('email')} />
@@ -939,18 +921,20 @@ export default function CadastroPFPage() {
             setApp({...app, cep:m});
             queueSave('app','cep', m);
           }} status={getFieldStatus('cep')} />
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Bairro</label>
-            <SimpleSelect
-              value={app.bairro || ""}
-              onChange={(v)=>{ setApp({...app, bairro:v}); queueSave("app","bairro", v); }}
-              options={routes.map(r => ({ label: r.name, value: r.name }))}
-              placeholder="— selecione —"
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-              contentStyle={{ zIndex: 9999 }}
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Bairro</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={app.bairro || ""}
+                onChange={(v)=>{ setApp({...app, bairro:v}); queueSave("app","bairro", v); }}
+                options={routes.map(r => ({ label: r.name, value: r.name }))}
+                placeholder="— selecione —"
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+                contentStyle={{ zIndex: 9999 }}
+              />
+            </div>
           </div>
           <Field label="Cond" value={pf.cond || ""} onChange={(v)=>{ setPf({...pf, cond:v}); queueSave("pf","cond", v); }} status={getFieldStatus('cond')} />
           <Field label="Tempo" value={pf.tempo_endereco || ""} onChange={(v)=>{ setPf({...pf, tempo_endereco:v}); queueSave("pf","tempo_endereco", v); }} status={getFieldStatus('tempo_endereco')} />
@@ -961,50 +945,52 @@ export default function CadastroPFPage() {
       {/* Seção 3: Relações de Residência */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Linha 1 */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              <span>Tipo de Moradia</span>
-            </label>
-            <SimpleSelect
-              value={pf.tipo_moradia || ""}
-              onChange={(v)=>{ setPf({...pf, tipo_moradia:v}); queueSave("pf","tipo_moradia", v); }}
-              options={["Própria","Alugada","Cedida","Outros"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Tipo de Moradia</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={pf.tipo_moradia || ""}
+                onChange={(v)=>{ setPf({...pf, tipo_moradia:v}); queueSave("pf","tipo_moradia", v); }}
+                options={["Própria","Alugada","Cedida","Outros"]}
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Instalação</label>
-            <SimpleSelect
-              value={tipoInstalacao}
-              onChange={(v) => {
-                setTipoInstalacao(v);
-                if (cardIdEff) {
-                  const dbVal = uiToTipoInst(v);
-                  supabase.from('kanban_cards').update({ tipo_instalacao: dbVal }).eq('id', cardIdEff).then(() => {});
-                }
-              }}
-              options={[...TIPO_INST_UI]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Tipo de Instalação</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={tipoInstalacao}
+                onChange={(v) => {
+                  setTipoInstalacao(v);
+                  if (cardIdEff) {
+                    const dbVal = uiToTipoInst(v);
+                    supabase.from('kanban_cards').update({ tipo_instalacao: dbVal }).eq('id', cardIdEff).then(() => {});
+                  }
+                }}
+                options={[...TIPO_INST_UI]}
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
           <Field label="Observações" value={pf.tipo_moradia_obs || ""} onChange={(v)=>{ setPf({...pf, tipo_moradia_obs:v}); queueSave("pf","tipo_moradia_obs", v); }} error={errs.tipo_moradia_obs} requiredMark={reqObs} status={getFieldStatus('tipo_moradia_obs')} />
           {/* Linha 2: "Única no lote" primeiro (esquerda) e Observação maior ao lado */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              <span>Única no lote</span>
-            </label>
-            <SimpleSelect
-              value={pf.unica_no_lote || ""}
-              onChange={(v)=>{ setPf({...pf, unica_no_lote:v}); queueSave("pf","unica_no_lote", v); }}
-              options={["Sim","Não"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Única no lote</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={pf.unica_no_lote || ""}
+                onChange={(v)=>{ setPf({...pf, unica_no_lote:v}); queueSave("pf","unica_no_lote", v); }}
+                options={["Sim","Não"]}
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
           <Field
             label="Única no lote (Obs)"
@@ -1017,50 +1003,50 @@ export default function CadastroPFPage() {
           />
           {/* Linha 3 */}
           <Field label="Com quem reside" value={pf.com_quem_reside || ""} onChange={(v)=>{ setPf({...pf, com_quem_reside:v}); queueSave("pf","com_quem_reside", v); }} className="md:col-span-2" status={getFieldStatus('com_quem_reside')} />
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              <span>Nas outras</span>
-            </label>
-            <SimpleSelect
-              value={pf.nas_outras || ""}
-              onChange={(v)=>{ setPf({...pf, nas_outras:v}); queueSave("pf","nas_outras", v); }}
-              options={["XXXXX","Parentes","Locador(a)","Só conhecidos","Não conhece"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Nas outras</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={pf.nas_outras || ""}
+                onChange={(v)=>{ setPf({...pf, nas_outras:v}); queueSave("pf","nas_outras", v); }}
+                options={["XXXXX","Parentes","Locador(a)","Só conhecidos","Não conhece"]}
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
           {/* Linha 4 */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              <span>Tem Contrato</span>
-            </label>
-            <SimpleSelect
-              value={pf.tem_contrato || ""}
-              onChange={(v)=>{ setPf({...pf, tem_contrato:v}); queueSave("pf","tem_contrato", v); if (v === 'Não') { setPf(prev=>({ ...prev, enviou_contrato:'', nome_de:'' })); queueSave('pf','enviou_contrato',''); queueSave('pf','nome_de',''); } else if (v === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { const nomeDe = (pf.nome_de || ''); setPf(prev=>({ ...prev, enviou_comprovante:'Sim', tipo_comprovante:'Outro', nome_comprovante: nomeDe })); queueSave('pf','enviou_comprovante','Sim'); queueSave('pf','tipo_comprovante','Outro'); queueSave('pf','nome_comprovante', nomeDe); } }}
-              options={["Sim","Não"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Tem Contrato</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={pf.tem_contrato || ""}
+                onChange={(v)=>{ setPf({...pf, tem_contrato:v}); queueSave("pf","tem_contrato", v); if (v === 'Não') { setPf(prev=>({ ...prev, enviou_contrato:'', nome_de:'' })); queueSave('pf','enviou_contrato',''); queueSave('pf','nome_de',''); } else if (v === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { const nomeDe = (pf.nome_de || ''); setPf(prev=>({ ...prev, enviou_comprovante:'Sim', tipo_comprovante:'Outro', nome_comprovante: nomeDe })); queueSave('pf','enviou_comprovante','Sim'); queueSave('pf','tipo_comprovante','Outro'); queueSave('pf','nome_comprovante', nomeDe); } }}
+                options={["Sim","Não"]}
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              <span>Enviou Contrato</span>
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">
+              Enviou Contrato
               {reqEnviouContrato && (
-                <span className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold align-middle ${errs.enviou_contrato ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
-                  Obrigatório
-                </span>
+                <span className={`ml-1 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[8px] font-semibold align-middle ${errs.enviou_contrato ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>Obrigatório</span>
               )}
             </label>
-            <SimpleSelect
-              value={pf.enviou_contrato || ""}
-              onChange={(v)=>{ setPf({...pf, enviou_contrato:v}); queueSave("pf","enviou_contrato", v); if (v !== 'Sim') { setPf(prev=>({ ...prev, nome_de:'' })); queueSave('pf','nome_de',''); } else if ((pf.tem_contrato||'') === 'Sim') { const nomeDe = (pf.nome_de || ''); setPf(prev=>({ ...prev, enviou_comprovante:'Sim', tipo_comprovante:'Outro', nome_comprovante: nomeDe })); queueSave('pf','enviou_comprovante','Sim'); queueSave('pf','tipo_comprovante','Outro'); queueSave('pf','nome_comprovante', nomeDe); } }}
-              options={["Sim","Não"]}
-              className="mt-0"
-              triggerClassName={`h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 ${!reqEnviouContrato ? 'opacity-50 pointer-events-none cursor-not-allowed bg-gray-100 text-gray-400' : ''}`}
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+            <div className="select-wrap">
+              <SimpleSelect
+                value={pf.enviou_contrato || ""}
+                onChange={(v)=>{ setPf({...pf, enviou_contrato:v}); queueSave("pf","enviou_contrato", v); if (v !== 'Sim') { setPf(prev=>({ ...prev, nome_de:'' })); queueSave('pf','nome_de',''); } else if ((pf.tem_contrato||'') === 'Sim') { const nomeDe = (pf.nome_de || ''); setPf(prev=>({ ...prev, enviou_comprovante:'Sim', tipo_comprovante:'Outro', nome_comprovante: nomeDe })); queueSave('pf','enviou_comprovante','Sim'); queueSave('pf','tipo_comprovante','Outro'); queueSave('pf','nome_comprovante', nomeDe); } }}
+                options={["Sim","Não"]}
+                className="mt-0"
+                triggerClassName={`h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 ${!reqEnviouContrato ? 'opacity-50 pointer-events-none cursor-not-allowed bg-gray-100 text-gray-400' : ''}`}
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
           <Field label="Nome De" value={pf.nome_de || ""} onChange={(v)=>{ setPf({...pf, nome_de:v}); queueSave("pf","nome_de", v); if ((pf.tem_contrato||'') === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { setPf(prev=>({ ...prev, nome_comprovante: v })); queueSave('pf','nome_comprovante', v); } }} error={errs.nome_de} requiredMark={reqNomeDe} disabled={!reqNomeDe} status={getFieldStatus('nome_de')} />
           {/* Linha 4 - Comprovantes na mesma linha */}
@@ -1105,43 +1091,23 @@ export default function CadastroPFPage() {
           <Field label="Nome Locador" value={pf.nome_locador || ""} onChange={(v)=>{ setPf({...pf, nome_locador:v}); queueSave("pf","nome_locador", v); }} error={errs.nome_locador} requiredMark={reqLocador} className="md:col-span-2" status={getFieldStatus('nome_locador')} />
           <Field label="Telefone Locador" value={pf.telefone_locador || ""} onChange={(v)=>{ setPf({...pf, telefone_locador:v}); queueSave("pf","telefone_locador", v); }} error={errs.telefone_locador} requiredMark={reqLocador} status={getFieldStatus('telefone_locador')} />
           {/* Linha 6 */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              <span>Tem internet fixa atualmente?</span>
-            </label>
-            <SimpleSelect
-              value={pf.tem_internet_fixa || ""}
-              onChange={(v)=>{ setPf({...pf, tem_internet_fixa:v}); queueSave("pf","tem_internet_fixa", v); }}
-              options={["Sim","Não"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Tem internet fixa atualmente?</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={pf.tem_internet_fixa || ""}
+                onChange={(v)=>{ setPf({...pf, tem_internet_fixa:v}); queueSave("pf","tem_internet_fixa", v); }}
+                options={["Sim","Não"]}
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
           <Field label="Empresa Internet" value={pf.empresa_internet || ""} onChange={(v)=>{ setPf({...pf, empresa_internet:v}); queueSave("pf","empresa_internet", v); }} status={getFieldStatus('empresa_internet')} />
-          <Field label="Plano Internet" value={pf.plano_internet || ""} onChange={(v)=>{ setPf({...pf, plano_internet:v}); queueSave("pf","plano_internet", v); }} status={getFieldStatus('plano_internet')} />
-          <div>
-            <Field
-              label="Valor Internet"
-              value={pf.valor_internet || ""}
-              onChange={(v)=>{
-                // Permitir digitar apenas números; aplicar máscara BRL sem quebrar aviso
-                const allowedMask = /[R$\s.,]/g; // caracteres de máscara inseridos automaticamente
-                const raw = v.replace(allowedMask, '');
-                const hasNonDigit = /[^\d]/.test(raw);
-                setValorInternetWarn(hasNonDigit);
-                const masked = formatCurrencyBR(v);
-                setPf({...pf, valor_internet: masked});
-                queueSave("pf","valor_internet", masked);
-              }}
-              status={getFieldStatus('valor_internet')}
-              placeholder="apenas números"
-              inputMode="numeric"
-            />
-            {valorInternetWarn && <p className="mt-1 text-xs font-medium text-red-500">Esse campo aceita apenas Números</p>}
-          </div>
+          <Field label="OBS:" value={pf.plano_internet || ""} onChange={(v)=>{ setPf({...pf, plano_internet:v}); queueSave("pf","plano_internet", v); }} status={getFieldStatus('plano_internet')} />
           {/* Linha 7 */}
-          <Textarea label="Observações" value={pf.observacoes || ""} onChange={(v)=>{ setPf({...pf, observacoes:v}); queueSave("pf","observacoes", v); }} className="md:col-span-3" status={getFieldStatus('observacoes')} />
+          <Textarea label="Observações" value={pf.observacoes || ""} onChange={(v)=>{ setPf({...pf, observacoes:v}); queueSave("pf","observacoes", v); }} status={getFieldStatus('observacoes')} />
         </div>
         {/* Checklist removido: agora marcamos no label dos campos obrigatórios */}
 
@@ -1149,18 +1115,18 @@ export default function CadastroPFPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Field label="Profissão" value={pf.profissao || ""} onChange={(v)=>{ setPf({...pf, profissao:v}); queueSave("pf","profissao", v); }} status={getFieldStatus('profissao')} />
           <Field label="Empresa" value={pf.empresa || ""} onChange={(v)=>{ setPf({...pf, empresa:v}); queueSave("pf","empresa", v); }} status={getFieldStatus('empresa')} />
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              <span>Vínculo</span>
-            </label>
-            <SimpleSelect
-              value={pf.vinculo || ""}
-              onChange={(v)=>{ setPf({...pf, vinculo:v}); queueSave("pf","vinculo", v); }}
-              options={["Carteira Assinada","Presta Serviços","Contrato de Trabalho","Autonômo","Concursado","Outro"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Vínculo</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={pf.vinculo || ""}
+                onChange={(v)=>{ setPf({...pf, vinculo:v}); queueSave("pf","vinculo", v); }}
+                options={["Carteira Assinada","Presta Serviços","Contrato de Trabalho","Autonômo","Concursado","Outro"]}
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
           <Field label="Vínculo (Obs)" value={pf.vinculo_obs || ""} onChange={(v)=>{ setPf({...pf, vinculo_obs:v}); queueSave("pf","vinculo_obs", v); }} error={errs.vinculo_obs} requiredMark={reqVinculoObs} status={getFieldStatus('vinculo_obs')} />
           <Field label="Emprego do PS" value={pf.emprego_do_ps || ""} onChange={(v)=>{ setPf({...pf, emprego_do_ps:v}); queueSave("pf","emprego_do_ps", v); }} red className="lg:col-span-4" status={getFieldStatus('emprego_do_ps')} />
@@ -1169,18 +1135,18 @@ export default function CadastroPFPage() {
       {/* Cônjuge */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Linha 1 */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              <span>Estado Civil</span>
-            </label>
-            <SimpleSelect
-              value={pf.estado_civil || ""}
-              onChange={(v)=>{ setPf({...pf, estado_civil:v}); queueSave("pf","estado_civil", v); }}
-              options={["Solteiro(a)","Casado(a)","Amasiado(a)","Separado(a)","Viuvo(a)"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Estado Civil</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={pf.estado_civil || ""}
+                onChange={(v)=>{ setPf({...pf, estado_civil:v}); queueSave("pf","estado_civil", v); }}
+                options={["Solteiro(a)","Casado(a)","Amasiado(a)","Separado(a)","Viuvo(a)"]}
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
           <Field label="Observações" value={pf.conjuge_obs || ""} onChange={(v)=>{ setPf({...pf, conjuge_obs:v}); queueSave("pf","conjuge_obs", v); }} className="lg:col-span-3" status={getFieldStatus('conjuge_obs')} />
           {/* Linha 2 */}
@@ -1196,6 +1162,11 @@ export default function CadastroPFPage() {
           <Field label="Do PS" value={pf.conjuge_do_ps || ""} onChange={(v)=>{ setPf({...pf, conjuge_do_ps:v}); queueSave("pf","conjuge_do_ps", v); }} red className="lg:col-span-4" status={getFieldStatus('conjuge_do_ps')} />
         </div>
 
+      {/* Informações SPC / Pesquisador */}
+        <div className="grid grid-cols-1 gap-4">
+          <Textarea label="Informações SPC" value={app.info_spc || ""} onChange={(v)=>{ setApp({...app, info_spc:v}); queueSave("app","info_spc", v); }} red stack />
+          <Textarea label="Informações do Pesquisador" value={app.info_pesquisador || ""} onChange={(v)=>{ setApp({...app, info_pesquisador:v}); queueSave("app","info_pesquisador", v); }} red stack />
+        </div>
       {/* Filiação */}
         <Grid cols={3}>
           <Field label="Pai — Nome" value={pf.pai_nome || ""} onChange={(v)=>{ setPf({...pf, pai_nome:v}); queueSave("pf","pai_nome", v); }} status={getFieldStatus('pai_nome')} />
@@ -1216,11 +1187,6 @@ export default function CadastroPFPage() {
           <Field label="Reside" value={pf.ref2_reside || ""} onChange={(v)=>{ setPf({...pf, ref2_reside:v}); queueSave("pf","ref2_reside", v); }} status={getFieldStatus('ref2_reside')} />
           <Field label="Telefone" value={pf.ref2_telefone || ""} onChange={(v)=>{ setPf({...pf, ref2_telefone:v}); queueSave("pf","ref2_telefone", v); }} status={getFieldStatus('ref2_telefone')} />
         </Grid>
-      {/* Informações SPC / Pesquisador */}
-        <div className="grid grid-cols-1 gap-4">
-          <Textarea label="Informações SPC" value={app.info_spc || ""} onChange={(v)=>{ setApp({...app, info_spc:v}); queueSave("app","info_spc", v); }} red />
-          <Textarea label="Informações do Pesquisador" value={app.info_pesquisador || ""} onChange={(v)=>{ setApp({...app, info_pesquisador:v}); queueSave("app","info_pesquisador", v); }} red />
-        </div>
       {/* Outras Informações / MK */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="pf-highlight-row sm:col-span-2 lg:col-span-4 grid grid-cols-1 sm:grid-cols-4 gap-2">
@@ -1324,8 +1290,8 @@ export default function CadastroPFPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Textarea label="Informações relevantes" value={app.info_relevantes || ""} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave("app","info_relevantes", v); }} className="lg:col-span-4" status={getFieldStatus('info_relevantes')} />
-          <Textarea label="Informações Relevantes do MK" value={app.info_mk || ""} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave("app","info_mk", v); }} red className="lg:col-span-4" status={getFieldStatus('info_mk')} />
+          <Textarea label="Informações relevantes" value={app.info_relevantes || ""} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave("app","info_relevantes", v); }} className="lg:col-span-4" status={getFieldStatus('info_relevantes')} stack />
+          <Textarea label="Informações Relevantes do MK" value={app.info_mk || ""} onChange={(v)=>{ setApp({...app, info_mk:v}); queueSave("app","info_mk", v); }} red className="lg:col-span-4" status={getFieldStatus('info_mk')} stack />
         </div>
       </Card>
 
@@ -1519,35 +1485,8 @@ function Grid({ cols, children }: { cols: 1|2|3|4; children: React.ReactNode }) 
 function Field({ label, value, onChange, className, error, red, requiredMark, disabled, maxLength, status, placeholder, inputMode }: { label: string; value: string; onChange: (v: string)=>void; className?: string; error?: boolean; red?: boolean; requiredMark?: boolean; disabled?: boolean; maxLength?: number; status?: 'idle'|'pending'|'error'; placeholder?: string; inputMode?: React.InputHTMLAttributes<HTMLInputElement>['inputMode'] }) {
   return (
     <div className={className}>
-      <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">
-        {label}
-        {requiredMark && (
-          <span className={`ml-1 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[8px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
-            Obrigatório
-          </span>
-        )}
-      </label>
-      <input
-        value={value}
-        onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
-        onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
-        disabled={disabled}
-        maxLength={maxLength}
-        inputMode={inputMode}
-        className={`h-[21px] w-full rounded-[2px] border ${error || red ? 'border-red-400 bg-red-50' : 'border-zinc-400 bg-blue-100'} px-1 text-[10px] outline-none focus:border-zinc-600 ${disabled ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'text-zinc-900'}`}
-        placeholder={placeholder ?? ""}
-        autoComplete="off"
-      />
-      <FieldStatusIndicator status={status || 'idle'} />
-    </div>
-  );
-}
-
-function Textarea({ label, value, onChange, red, error, className, requiredMark, disabled, status }: { label: string; value: string; onChange: (v: string)=>void; red?: boolean; error?: boolean; className?: string; requiredMark?: boolean; disabled?: boolean; status?: 'idle'|'pending'|'error' }) {
-  return (
-    <div className={className}>
-      <div className="border-b border-zinc-500 mb-1 pb-0.5">
-        <label className="pf-section-title">
+      <div className="field-inline">
+        <label className={`text-[9px] font-bold uppercase tracking-wide leading-none${red ? ' label-red' : ' text-zinc-600'}`}>
           {label}
           {requiredMark && (
             <span className={`ml-1 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[8px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
@@ -1555,15 +1494,54 @@ function Textarea({ label, value, onChange, red, error, className, requiredMark,
             </span>
           )}
         </label>
+        <input
+          value={value}
+          onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
+          onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
+          disabled={disabled}
+          maxLength={maxLength}
+          inputMode={inputMode}
+          className={`h-[21px] w-full rounded-[2px] border ${error || red ? 'border-red-400 bg-red-50' : 'border-zinc-400 bg-blue-100'} px-1 text-[10px] outline-none focus:border-zinc-600 ${disabled ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'text-zinc-900'}`}
+          placeholder={placeholder ?? ""}
+          autoComplete="off"
+        />
       </div>
-      <textarea
-        value={value}
-        onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
-        onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
-        disabled={disabled}
-        className={`min-h-[52px] w-full rounded-[2px] border ${error || red ? 'border-red-300 bg-red-50' : 'border-zinc-300 bg-blue-100'} px-1.5 py-1 text-[10px] outline-none text-zinc-900 resize-none`}
-        placeholder=""
-      />
+      <FieldStatusIndicator status={status || 'idle'} />
+    </div>
+  );
+}
+
+function Textarea({ label, value, onChange, red, error, className, requiredMark, disabled, status, stack }: { label: string; value: string; onChange: (v: string)=>void; red?: boolean; error?: boolean; className?: string; requiredMark?: boolean; disabled?: boolean; status?: 'idle'|'pending'|'error'; stack?: boolean }) {
+  const requiredBadge = requiredMark && (
+    <span className={`ml-1 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[8px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
+      Obrigatório
+    </span>
+  );
+  const ta = (
+    <textarea
+      value={value}
+      onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
+      onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
+      disabled={disabled}
+      className={`min-h-[52px] w-full rounded-[2px] border ${error || red ? 'border-red-300 bg-red-50' : 'border-zinc-300 bg-blue-100'} px-1.5 py-1 text-[10px] outline-none text-zinc-900 resize-none`}
+      placeholder=""
+    />
+  );
+  return (
+    <div className={className}>
+      {stack ? (
+        <>
+          <div className="border-b border-zinc-500 mb-1 pb-0.5">
+            <label className={`pf-section-title${red ? ' label-red' : ''}`}>{label}{requiredBadge}</label>
+          </div>
+          {ta}
+        </>
+      ) : (
+        <div className="field-inline items-start">
+          <label className={`pf-section-title pt-1${red ? ' label-red' : ''}`}>{label}{requiredBadge}</label>
+          {ta}
+        </div>
+      )}
       <FieldStatusIndicator status={status || 'idle'} />
     </div>
   );

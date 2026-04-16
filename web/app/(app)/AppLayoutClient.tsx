@@ -313,7 +313,7 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                         <div id="mz-zoom-controls" className="flex items-center gap-1" />
                       </div>
                     )}
-                    {isExpandedCadastro && (
+                    {isExpandedCadastro && FEATURES.exportarFicha && (
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => onExportPdf(parts)}
