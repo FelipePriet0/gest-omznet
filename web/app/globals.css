@@ -853,11 +853,11 @@ body {
    ═══════════════════════════════════════════════════════════ */
 .ficha-pf {
   width: 100%;
-  max-width: 100%;
+  max-width: 824px;
   margin: 0 auto;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.3;
-  padding: 20px 22px !important;
+  padding: 18px 21px !important;
   box-shadow: none !important;
 }
 
@@ -865,39 +865,52 @@ body {
   .ficha-pf { max-width: 100%; padding: 10px 10px !important; }
 }
 
+@media (min-width: 768px) {
+  .ficha-pf {
+    max-width: 824px;
+    padding: 21px 26px !important;
+  }
+}
+
 /* ── Labels ── */
 .ficha-pf label {
   display: block !important;
-  font-size: 13px !important;
+  font-size: 12px !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
+  letter-spacing: 0.05em !important;
   color: #52525b !important;
-  line-height: 1 !important;
-  margin-bottom: 3px !important;
+  line-height: 1.2 !important;
+  margin-bottom: 1px !important;
+}
+
+@media (max-width: 639px) {
+  .ficha-pf label {
+    font-size: 13px !important;
+  }
 }
 
 /* ── Inputs & Selects ── */
 .ficha-pf input,
 .ficha-pf select {
-  height: 29px !important;
-  min-height: 29px !important;
+  height: 27px !important;
+  min-height: 27px !important;
   padding: 0 7px !important;
-  font-size: 14px !important;
+  font-size: 13px !important;
   border: 1px solid #a1a1aa !important;
-  border-radius: 2px !important;
+  border-radius: 3px !important;
   background: #dbeafe !important;
   box-shadow: none !important;
   color: #18181b !important;
 }
 
 .ficha-pf .SimpleSelect-trigger {
-  height: 29px !important;
-  min-height: 29px !important;
+  height: 27px !important;
+  min-height: 27px !important;
   padding: 0 8px !important;
-  font-size: 14px !important;
+  font-size: 13px !important;
   border: 1px solid #a1a1aa !important;
-  border-radius: 2px !important;
+  border-radius: 3px !important;
   background: #dbeafe !important;
   box-shadow: none !important;
   color: #18181b !important;
@@ -910,38 +923,38 @@ body {
   .ficha-pf .SimpleSelect-trigger {
     height: 32px !important;
     min-height: 32px !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
     padding: 0 8px !important;
   }
 }
 
 /* ── Textareas ── */
 .ficha-pf textarea {
-  min-height: 73px !important;
-  padding: 6px 8px !important;
-  font-size: 14px !important;
+  min-height: 68px !important;
+  padding: 5px 8px !important;
+  font-size: 13px !important;
   border: 1px solid #a1a1aa !important;
-  border-radius: 2px !important;
+  border-radius: 3px !important;
   background: #dbeafe !important;
   box-shadow: none !important;
 }
 
 @media (max-width: 639px) {
-  .ficha-pf textarea { min-height: 70px !important; font-size: 12px !important; }
+  .ficha-pf textarea { min-height: 70px !important; font-size: 13px !important; }
 }
 
 /* ── Grid & spacing ── */
-.ficha-pf .grid { gap: 6px !important; }
-.ficha-pf .gap-4 { gap: 6px !important; }
-.ficha-pf .mt-4 { margin-top: 6px !important; }
+.ficha-pf .grid { gap: 5px !important; }
 .ficha-pf .mb-3, .ficha-pf .mb-4, .ficha-pf .mb-6 { margin-bottom: 8px !important; }
+.ficha-pf .mt-4 { margin-top: 5px !important; }
+.ficha-pf .gap-4 { gap: 5px !important; }
 
 /* ── Amber highlight — Plano / SVA / Vencimento ── */
 .ficha-pf .pf-highlight-row {
   background: #fffbeb;
   border: 1px solid #fcd34d;
   border-radius: 4px;
-  padding: 7px 10px;
+  padding: 7px 9px;
   margin: 7px 0;
 }
 .ficha-pf .pf-highlight-row label {
@@ -950,7 +963,7 @@ body {
 
 /* ── Section separator titles (Textareas) ── */
 .ficha-pf .pf-section-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
