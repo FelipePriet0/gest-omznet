@@ -898,7 +898,7 @@ export default function CadastroPFPage() {
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Field label="Telefone" value={app.phone || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave("app","phone", m); }} status={getFieldStatus('phone')} />
           <Field label="WhatsApp" value={app.whatsapp || ""} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave("app","whatsapp", m); }} status={getFieldStatus('whatsapp')} />
-          <Textarea label="Do PS" value={pf.do_ps || ""} onChange={(v)=>{ setPf({...pf, do_ps:v}); queueSave("pf","do_ps", v); }} red status={getFieldStatus('do_ps')} />
+          <Textarea label="Do PS" value={pf.do_ps || ""} onChange={(v)=>{ setPf({...pf, do_ps:v}); queueSave("pf","do_ps", v); }} red compact status={getFieldStatus('do_ps')} />
         </div>
         {/* Linha 3: Naturalidade | UF | E-mail */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-[3fr_1fr_4fr] gap-4">
@@ -933,7 +933,15 @@ export default function CadastroPFPage() {
           </div>
           <Field label="Cond" value={pf.cond || ""} onChange={(v)=>{ setPf({...pf, cond:v}); queueSave("pf","cond", v); }} status={getFieldStatus('cond')} />
           <Field label="Tempo" value={pf.tempo_endereco || ""} onChange={(v)=>{ setPf({...pf, tempo_endereco:v}); queueSave("pf","tempo_endereco", v); }} status={getFieldStatus('tempo_endereco')} />
-          <Field label="Endereço Do PS" value={pf.endereco_do_ps || ""} onChange={(v)=>{ setPf({...pf, endereco_do_ps:v}); queueSave("pf","endereco_do_ps", v); }} red className="md:col-span-4" status={getFieldStatus('endereco_do_ps')} />
+          <Textarea
+            label="Endereço Do PS"
+            value={pf.endereco_do_ps || ""}
+            onChange={(v)=>{ setPf({...pf, endereco_do_ps:v}); queueSave("pf","endereco_do_ps", v); }}
+            red
+            compact
+            className="md:col-span-4"
+            status={getFieldStatus('endereco_do_ps')}
+          />
         </div>
         {/* Checklist removido: agora marcamos no label dos campos obrigatórios */}
 
@@ -1101,9 +1109,8 @@ export default function CadastroPFPage() {
             </div>
           </div>
           <Field label="Empresa Internet" value={pf.empresa_internet || ""} onChange={(v)=>{ setPf({...pf, empresa_internet:v}); queueSave("pf","empresa_internet", v); }} status={getFieldStatus('empresa_internet')} />
-          <Field label="OBS:" value={pf.plano_internet || ""} onChange={(v)=>{ setPf({...pf, plano_internet:v}); queueSave("pf","plano_internet", v); }} status={getFieldStatus('plano_internet')} />
           {/* Linha 7 */}
-          <Textarea label="Observações" value={pf.observacoes || ""} onChange={(v)=>{ setPf({...pf, observacoes:v}); queueSave("pf","observacoes", v); }} status={getFieldStatus('observacoes')} />
+          <Textarea label="Observações" value={pf.observacoes || ""} onChange={(v)=>{ setPf({...pf, observacoes:v}); queueSave("pf","observacoes", v); }} compact status={getFieldStatus('observacoes')} />
         </div>
         {/* Checklist removido: agora marcamos no label dos campos obrigatórios */}
 
@@ -1125,7 +1132,15 @@ export default function CadastroPFPage() {
             </div>
           </div>
           <Field label="Vínculo (Obs)" value={pf.vinculo_obs || ""} onChange={(v)=>{ setPf({...pf, vinculo_obs:v}); queueSave("pf","vinculo_obs", v); }} error={errs.vinculo_obs} requiredMark={reqVinculoObs} disabled={!reqVinculoObs} status={getFieldStatus('vinculo_obs')} />
-          <Field label="Emprego do PS" value={pf.emprego_do_ps || ""} onChange={(v)=>{ setPf({...pf, emprego_do_ps:v}); queueSave("pf","emprego_do_ps", v); }} red className="lg:col-span-4" status={getFieldStatus('emprego_do_ps')} />
+          <Textarea
+            label="Emprego do PS"
+            value={pf.emprego_do_ps || ""}
+            onChange={(v)=>{ setPf({...pf, emprego_do_ps:v}); queueSave("pf","emprego_do_ps", v); }}
+            red
+            compact
+            className="lg:col-span-4"
+            status={getFieldStatus('emprego_do_ps')}
+          />
         </div>
 
       {/* Cônjuge */}
@@ -1155,7 +1170,15 @@ export default function CadastroPFPage() {
           <Field label="UF" value={pf.conjuge_uf || ""} onChange={(v)=>{ setPf({...pf, conjuge_uf:v}); queueSave("pf","conjuge_uf", v); }} status={getFieldStatus('conjuge_uf')} />
           <Field label="Idade" value={pf.conjuge_idade || ""} onChange={(v)=>{ setPf({...pf, conjuge_idade:v}); queueSave("pf","conjuge_idade", v); }} maxLength={2} status={getFieldStatus('conjuge_idade')} />
           {/* Linha 4 */}
-          <Field label="Do PS" value={pf.conjuge_do_ps || ""} onChange={(v)=>{ setPf({...pf, conjuge_do_ps:v}); queueSave("pf","conjuge_do_ps", v); }} red className="lg:col-span-4" status={getFieldStatus('conjuge_do_ps')} />
+          <Textarea
+            label="Do PS"
+            value={pf.conjuge_do_ps || ""}
+            onChange={(v)=>{ setPf({...pf, conjuge_do_ps:v}); queueSave("pf","conjuge_do_ps", v); }}
+            red
+            compact
+            className="lg:col-span-4"
+            status={getFieldStatus('conjuge_do_ps')}
+          />
         </div>
 
       {/* Informações SPC / Pesquisador */}
@@ -1497,7 +1520,7 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
           disabled={disabled}
           maxLength={maxLength}
           inputMode={inputMode}
-          className={`h-[21px] w-full rounded-[2px] border ${error || red ? 'border-red-400 bg-red-50' : 'border-zinc-400 bg-blue-100'} px-1 text-[10px] outline-none focus:border-zinc-600 ${disabled ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'text-zinc-900'}`}
+          className={`h-[21px] w-full rounded-[2px] border ${error || red ? 'border-red-400 bg-red-50' : 'border-zinc-400 bg-blue-100'} px-1 text-[10px] outline-none focus:border-zinc-600 ${disabled ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'text-zinc-900'}${red && !disabled ? ' input-red' : ''}`}
           placeholder={placeholder ?? ""}
           autoComplete="off"
         />
@@ -1507,19 +1530,22 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
   );
 }
 
-function Textarea({ label, value, onChange, red, error, className, requiredMark, disabled, status, stack }: { label: string; value: string; onChange: (v: string)=>void; red?: boolean; error?: boolean; className?: string; requiredMark?: boolean; disabled?: boolean; status?: 'idle'|'pending'|'error'; stack?: boolean }) {
+function Textarea({ label, value, onChange, red, error, className, requiredMark, disabled, status, stack, compact }: { label: string; value: string; onChange: (v: string)=>void; red?: boolean; error?: boolean; className?: string; requiredMark?: boolean; disabled?: boolean; status?: 'idle'|'pending'|'error'; stack?: boolean; compact?: boolean }) {
   const requiredBadge = requiredMark && (
     <span className={`ml-1 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[8px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
       Obrigatório
     </span>
   );
+  const compactLabelClass = `text-[9px] font-bold uppercase tracking-wide leading-none${red ? ' label-red' : ' text-zinc-600'}`;
+  const regularLabelClass = `pf-section-title pt-1${red ? ' label-red' : ''}`;
   const ta = (
     <textarea
       value={value}
       onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
       onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
       disabled={disabled}
-      className={`min-h-[52px] w-full rounded-[2px] border ${error || red ? 'border-red-300 bg-red-50' : 'border-zinc-300 bg-blue-100'} px-1.5 py-1 text-[10px] outline-none text-zinc-900 resize-none`}
+      rows={compact ? 1 : undefined}
+      className={`${compact ? 'pf-textarea-compact overflow-hidden' : 'min-h-[52px] py-1'} w-full rounded-[2px] border ${error || red ? 'border-red-300 bg-red-50' : 'border-zinc-300 bg-blue-100'} px-1.5 text-[10px] outline-none ${red ? 'text-red-700' : 'text-zinc-900'} resize-none`}
       placeholder=""
     />
   );
@@ -1528,13 +1554,13 @@ function Textarea({ label, value, onChange, red, error, className, requiredMark,
       {stack ? (
         <>
           <div className="border-b border-zinc-500 mb-1 pb-0.5">
-            <label className={`pf-section-title${red ? ' label-red' : ''}`}>{label}{requiredBadge}</label>
+            <label className={regularLabelClass}>{label}{requiredBadge}</label>
           </div>
           {ta}
         </>
       ) : (
-        <div className="field-inline items-start">
-          <label className={`pf-section-title pt-1${red ? ' label-red' : ''}`}>{label}{requiredBadge}</label>
+        <div className="field-inline">
+          <label className={compact ? compactLabelClass : regularLabelClass}>{label}{requiredBadge}</label>
           {ta}
         </div>
       )}
@@ -1579,11 +1605,10 @@ function Select({ label, value, onChange, options, error, requiredMark, disabled
 }
 
 function FieldStatusIndicator({ status }: { status: 'idle'|'pending'|'error' }) {
-  if (status === 'idle') return null;
+  if (status !== 'error') return null;
   return (
-    <div className="mt-1 text-xs text-gray-500 h-4 flex items-center gap-1">
-      {status === 'pending' && <span>Salvando…</span>}
-      {status === 'error' && <span className="text-red-500">Erro ao salvar</span>}
+    <div className="mt-1 text-xs h-4 flex items-center gap-1">
+      <span className="text-red-500">Erro ao salvar</span>
     </div>
   );
 }

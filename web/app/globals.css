@@ -939,8 +939,21 @@ body {
   box-shadow: none !important;
 }
 
+.ficha-pf textarea.pf-textarea-compact {
+  height: 27px !important;
+  min-height: 27px !important;
+  padding: 0 7px !important;
+  line-height: 25px !important;
+}
+
 @media (max-width: 639px) {
   .ficha-pf textarea { min-height: 70px !important; font-size: 13px !important; }
+  .ficha-pf textarea.pf-textarea-compact {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 8px !important;
+    line-height: 30px !important;
+  }
 }
 
 /* ── Grid & spacing ── */
@@ -980,6 +993,9 @@ body {
 
 /* ── Label vermelha — sobrescreve o !important do .ficha-pf label ── */
 .ficha-pf label.label-red { color: #dc2626 !important; }
+/* ── Input/textarea vermelho ── */
+.ficha-pf input.input-red,
+.ficha-pf textarea.input-red { color: #dc2626 !important; }
 
 /* ── Stacked field layout (label acima do input / select / textarea) ── */
 .ficha-pf .field-inline {

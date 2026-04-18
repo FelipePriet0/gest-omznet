@@ -64,3 +64,8 @@ Estruturar documentos de feature (docs/features/...).
 Implementar Login e Perfil (1ª entrega).
 
 Evoluir para Kanban + Tarefas + Comentários.
+
+📚 Documentos Operacionais
+
+- [Política de desenvolvimento, testes e deploy](../30-policies/fluxo-de-desenvolvimento-testes-e-deploy.md)
+- [Política de acesso e permissões](../30-policies/acesso-e-permissoes.md)

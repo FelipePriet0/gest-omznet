@@ -1293,11 +1293,10 @@ function Select({ label, value, onChange, options, disabled, className, required
 }
 
 function FieldStatusIndicator({ status }: { status: 'idle'|'pending'|'error' }) {
-  if (status === 'idle') return null;
+  if (status !== 'error') return null;
   return (
-    <div className="mt-1 text-xs text-gray-500 h-4 flex items-center gap-1">
-      {status === 'pending' && <span>Salvando…</span>}
-      {status === 'error' && <span className="text-red-500">Erro ao salvar</span>}
+    <div className="mt-1 text-xs h-4 flex items-center gap-1">
+      <span className="text-red-500">Erro ao salvar</span>
     </div>
   );
 }
