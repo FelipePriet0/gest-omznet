@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Suspense } from "react";
-import { InboxProvider } from "@/features/inbox/InboxDrawer";
 import "react-day-picker/dist/style.css";
 
 export const dynamic = "force-dynamic";
@@ -25,11 +23,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {/* Provider global para Inbox + Toasts (realtime), disponível em todas as rotas */}
-        <Suspense fallback={<>{children}</>}>
-          <InboxProvider>
-            {children}
-          </InboxProvider>
-        </Suspense>
+        {children}
       </body>
     </html>
   );

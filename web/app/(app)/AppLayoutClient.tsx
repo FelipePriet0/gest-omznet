@@ -9,7 +9,6 @@ import { SidebarUser } from "@/components/app/sidebar-user";
 import Breadcrumbs from "@/components/app/Breadcrumbs";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { InboxSidebarEntry, InboxPanel } from "@/features/inbox/InboxDrawer";
 import { FEATURES } from "@/lib/features";
 const TasksPanelProxy = dynamic(
   () => import("@/features/tarefas/MinhasTarefasPage"),
@@ -103,7 +102,6 @@ function AppSidebar() {
               return (
                 <Fragment key={link.label}>
                   <SidebarLink link={link} isActive={isActive} />
-                  {link.label === "Minhas Tarefas" && FEATURES.minhasTarefas && <InboxSidebarEntry />}
                 </Fragment>
               );
             })}
@@ -186,7 +184,7 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   };
 
   const panelTitle = isTasksPanel ? 'Minhas Tarefas' : isInboxPanel ? 'Caixa de Entrada' : '';
-  const panelContent = isTasksPanel ? <TasksPanelProxy /> : isInboxPanel ? <InboxPanel /> : null;
+  const panelContent = isTasksPanel ? <TasksPanelProxy /> : null;
 
   const handlePanelResizeStart = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
