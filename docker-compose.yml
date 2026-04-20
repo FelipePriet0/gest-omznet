@@ -1,0 +1,15 @@
+services:
+  multiagent:
+    build: .
+    container_name: multiagent_inadimplencia
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    volumes:
+      - .:/app
+    networks:
+      - mznetolt_default
+
+networks:
+  mznetolt_default:
+    external: true
