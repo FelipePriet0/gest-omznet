@@ -707,8 +707,8 @@ body {
   .expanded-portrait {
     max-width: 1020px;           /* safe width */
     margin: 0 auto;
-    padding-left: 8px;            /* side margins ≈ 8px */
-    padding-right: 8px;
+    padding-left: 2px;
+    padding-right: 2px;
   }
   /* Reduce vertical paddings and gaps */
   .expanded-portrait .section-card,
@@ -920,7 +920,7 @@ body {
 @media (min-width: 768px) {
   .ficha-pf {
     max-width: 824px;
-    padding: 21px 26px !important;
+    padding: 21px 16px !important;
   }
 }
 
@@ -982,7 +982,7 @@ body {
 
 /* ── Textareas ── */
 .ficha-pf textarea {
-  min-height: 68px !important;
+  min-height: 150px !important;
   padding: 5px 8px !important;
   font-size: 13px !important;
   border: 1px solid #a1a1aa !important;

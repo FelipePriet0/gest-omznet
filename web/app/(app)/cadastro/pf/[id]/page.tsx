@@ -1042,31 +1042,31 @@ export default function CadastroPFPage() {
           </div>
           <Field label="Nome De" value={pf.nome_de || ""} onChange={(v)=>{ setPf({...pf, nome_de:v}); queueSave("pf","nome_de", v); if ((pf.tem_contrato||'') === 'Sim' && (pf.enviou_contrato||'') === 'Sim') { setPf(prev=>({ ...prev, nome_comprovante: v })); queueSave('pf','nome_comprovante', v); } }} error={errs.nome_de} requiredMark={reqNomeDe} disabled={!reqNomeDe} status={getFieldStatus('nome_de')} />
           {/* Linha 4 - Comprovantes na mesma linha */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              <span>Comprovante</span>
-            </label>
-            <SimpleSelect
-              value={pf.enviou_comprovante || ""}
-              onChange={(v)=>{ setPf({...pf, enviou_comprovante:v}); queueSave("pf","enviou_comprovante", v); }}
-              options={["Sim","Não"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Comprovante</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={pf.enviou_comprovante || ""}
+                onChange={(v)=>{ setPf({...pf, enviou_comprovante:v}); queueSave("pf","enviou_comprovante", v); }}
+                options={["Sim","Não"]}
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              <span>Tipo</span>
-            </label>
-            <SimpleSelect
-              value={pf.tipo_comprovante || ""}
-              onChange={(v)=>{ setPf({...pf, tipo_comprovante:v}); queueSave("pf","tipo_comprovante", v); }}
-              options={["Energia","Agua","Internet","Outro"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="field-inline">
+            <label className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 shrink-0">Tipo</label>
+            <div className="select-wrap">
+              <SimpleSelect
+                value={pf.tipo_comprovante || ""}
+                onChange={(v)=>{ setPf({...pf, tipo_comprovante:v}); queueSave("pf","tipo_comprovante", v); }}
+                options={["Energia","Agua","Internet","Outro"]}
+                className="mt-0"
+                triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
           </div>
           <Field label="Em Nome de" value={pf.nome_comprovante || ""} onChange={(v)=>{ setPf({...pf, nome_comprovante:v}); queueSave("pf","nome_comprovante", v); }} status={getFieldStatus('nome_comprovante')} />
           {/* Linha 5 */}
@@ -1510,6 +1510,25 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
 }
 
 function Textarea({ label, value, onChange, red, error, className, requiredMark, disabled, status, stack, compact }: { label: string; value: string; onChange: (v: string)=>void; red?: boolean; error?: boolean; className?: string; requiredMark?: boolean; disabled?: boolean; status?: 'idle'|'pending'|'error'; stack?: boolean; compact?: boolean }) {
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (compact) return;
+    const el = taRef.current;
+    if (!el) return;
+    const MAX_FONT = 13;
+    const MIN_FONT = 6;
+    const STEP = 0.5;
+    // reset to max, measure, then shrink if overflowing
+    el.style.fontSize = `${MAX_FONT}px`;
+    el.style.overflowY = 'hidden';
+    let size = MAX_FONT;
+    while (el.scrollHeight > el.clientHeight && size > MIN_FONT) {
+      size = Math.max(MIN_FONT, size - STEP);
+      el.style.fontSize = `${size}px`;
+    }
+    el.style.overflowY = el.scrollHeight > el.clientHeight ? 'auto' : 'hidden';
+  }, [value, compact]);
+
   const requiredBadge = requiredMark && (
     <span className={`ml-1 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[8px] font-semibold align-middle ${error ? 'border-red-300 bg-red-100 text-red-700' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
       Obrigatório
@@ -1519,12 +1538,13 @@ function Textarea({ label, value, onChange, red, error, className, requiredMark,
   const regularLabelClass = `pf-section-title pt-1${red ? ' label-red' : ''}`;
   const ta = (
     <textarea
+      ref={taRef}
       value={value}
       onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
       onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
       disabled={disabled}
       rows={compact ? 1 : undefined}
-      className={`${compact ? 'pf-textarea-compact overflow-hidden' : 'min-h-[52px] py-1'} w-full rounded-[2px] border ${error || red ? 'border-red-300 bg-red-50' : 'border-zinc-300 bg-blue-100'} px-1.5 text-[10px] outline-none ${red ? 'text-red-700' : 'text-zinc-900'} resize-none`}
+      className={`${compact ? 'pf-textarea-compact overflow-hidden' : 'py-1'} w-full rounded-[2px] border ${error || red ? 'border-red-300 bg-red-50' : 'border-zinc-300 bg-blue-100'} px-1.5 text-[10px] outline-none ${red ? 'text-red-700' : 'text-zinc-900'} resize-none`}
       placeholder=""
     />
   );

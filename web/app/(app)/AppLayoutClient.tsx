@@ -300,13 +300,13 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                   isCanvas
                     ? "flex flex-1 w-full flex-col gap-0 md:min-w-0 md:p-0"
                     : isExpandedCadastro
-                    ? "flex flex-1 w-full flex-col gap-3 rounded-3xl border border-neutral-200 bg-[var(--neutro)] p-3 text-zinc-900 shadow-xl shadow-emerald-900/15 md:min-w-0 md:p-6 dark:border-neutral-700 dark:bg-neutral-900 dark:text-zinc-100"
+                    ? "flex flex-1 w-full flex-col gap-3 rounded-3xl border border-neutral-200 bg-[var(--neutro)] p-3 text-zinc-900 shadow-xl shadow-emerald-900/15 md:min-w-0 md:py-6 md:px-0 dark:border-neutral-700 dark:bg-neutral-900 dark:text-zinc-100"
                     : "flex flex-1 w-full flex-col gap-3 rounded-3xl border border-neutral-200 bg-[var(--neutro)] p-3 text-zinc-900 shadow-xl shadow-emerald-900/15 md:min-w-0 md:p-6 dark:border-neutral-700 dark:bg-neutral-900 dark:text-zinc-100 overflow-y-auto overscroll-contain app-scroll"
                 }
                 style={isExpandedCadastro ? undefined : { height: `calc(100vh - ${pageGutter * 2}px)` }}
               >
                 {!isCanvas && (
-                  <div className={`mb-2 ${isExpandedCadastro ? 'grid grid-cols-3' : 'flex justify-between'} items-center gap-3`}>
+                  <div className={`mb-2 ${isExpandedCadastro ? 'grid grid-cols-3 px-6' : 'flex justify-between'} items-center gap-3`}>
                     <div className="flex items-center gap-2 min-w-0">
                       <SidebarTrigger className="hidden md:inline-flex" />
                       <Breadcrumbs />
