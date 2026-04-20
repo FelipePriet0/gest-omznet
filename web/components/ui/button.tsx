@@ -15,10 +15,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           size === "sm" ? "px-3 py-1.5" : "px-4 py-2",
           {
             "bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-600": variant === "primary",
-            "bg-zinc-200 text-zinc-900 hover:bg-zinc-300 focus-visible:ring-zinc-400": variant === "secondary",
+            "bg-zinc-200 text-zinc-900 hover:bg-zinc-300 focus-visible:ring-zinc-400 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700 dark:focus-visible:ring-zinc-600": variant === "secondary",
             "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600": variant === "destructive",
-            "border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50 focus-visible:ring-zinc-400": variant === "outline",
-            "bg-transparent text-zinc-700 hover:bg-zinc-100 focus-visible:ring-zinc-300": variant === "ghost",
+            "border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50 focus-visible:ring-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus-visible:ring-zinc-600": variant === "outline",
+            "bg-transparent text-zinc-700 hover:bg-zinc-100 focus-visible:ring-zinc-300 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:focus-visible:ring-zinc-700": variant === "ghost",
           },
           className
         )}

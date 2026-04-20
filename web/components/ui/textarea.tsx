@@ -13,7 +13,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         rows={rows}
         className={cn(
           // Base visual inspirado no ui-features/Textarea + sombra padrão
-          "w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder:text-[rgba(1,137,66,0.6)]",
+          "w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder:text-[rgba(1,137,66,0.6)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-emerald-300/70",
           // Garantir quebra de palavras longas dentro do textarea
           "whitespace-pre-wrap break-words",
           "shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]",

@@ -56,16 +56,16 @@ export function Calendar({ selected, onSelect, className }: CalendarProps) {
 
   return (
     <div className={[
-      "rounded-xl bg-white shadow-sm p-3 w-[260px]",
+      "w-[260px] rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-950 dark:text-zinc-100",
       className || "",
     ].join(" ")}
     >
       <div className="flex items-center justify-between mb-2">
         <button aria-label="Previous month" className="h-8 w-8 flex items-center justify-center rounded-md text-[var(--verde-primario)] hover:bg-[var(--verde-primario)]/10" onClick={() => setView(new Date(year, month - 1, 1))}>‹</button>
-        <div className="text-sm font-semibold text-zinc-900 capitalize">{monthLabel}</div>
+        <div className="text-sm font-semibold capitalize text-zinc-900 dark:text-zinc-100">{monthLabel}</div>
         <button aria-label="Next month" className="h-8 w-8 flex items-center justify-center rounded-md text-[var(--verde-primario)] hover:bg-[var(--verde-primario)]/10" onClick={() => setView(new Date(year, month + 1, 1))}>›</button>
       </div>
-      <div className="grid grid-cols-7 text-center text-[11px] text-zinc-500 mb-1">
+      <div className="mb-1 grid grid-cols-7 text-center text-[11px] text-zinc-500 dark:text-zinc-400">
         {weekdayShort.map((w) => (<div key={w} className="py-1">{w}</div>))}
       </div>
       <div className="grid grid-cols-7 gap-y-1">
@@ -77,7 +77,7 @@ export function Calendar({ selected, onSelect, className }: CalendarProps) {
             ? "bg-[var(--verde-primario)] text-white"
             : inMonth
               ? "text-[var(--verde-primario)] hover:bg-[var(--verde-primario)]/40"
-              : "text-[color:rgba(1,137,66,0.35)]";
+              : "text-[color:rgba(1,137,66,0.35)] dark:text-[color:rgba(52,211,153,0.32)]";
           return (
             <button
               key={idx}

@@ -1224,7 +1224,7 @@ function NoteItem({
   if (node.deleted) return null;
   return (
     <div
-      className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-6 text-sm text-zinc-800  pl-3"
+      className="rounded-[2px] border border-zinc-400 bg-blue-100 px-3 py-6 text-sm text-zinc-800 pl-3"
       style={{ marginLeft: depth*16, borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}
     >
       <div className="flex items-center justify-between gap-2">

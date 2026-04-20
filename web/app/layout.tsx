@@ -1,28 +1,29 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
 import { InboxProvider } from "@/features/inbox/InboxDrawer";
 import "react-day-picker/dist/style.css";
 
-const poppins = Poppins({
-  weight: ['400', '500', '600', '700', '800'],
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-poppins',
-});
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "MZNET - Sistema de Gestão",
   description: "Sistema de Gestão Inteligente MZNET",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3f4f6" },
+    { media: "(prefers-color-scheme: dark)", color: "#050706" },
+  ],
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning className={`${poppins.variable} dark`}>
-      <body className={`${poppins.className} antialiased text-zinc-900 dark:text-zinc-100`} suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body
+        className="bg-[var(--background)] text-[var(--foreground)] antialiased"
+        suppressHydrationWarning
+      >
         {/* Provider global para Inbox + Toasts (realtime), disponível em todas as rotas */}
         <Suspense fallback={<>{children}</>}>
           <InboxProvider>

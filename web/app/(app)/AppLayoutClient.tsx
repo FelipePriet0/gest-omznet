@@ -9,9 +9,12 @@ import { SidebarUser } from "@/components/app/sidebar-user";
 import Breadcrumbs from "@/components/app/Breadcrumbs";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { InboxSidebarEntry, InboxProvider, InboxPanel } from "@/features/inbox/InboxDrawer";
+import { InboxSidebarEntry, InboxPanel } from "@/features/inbox/InboxDrawer";
 import { FEATURES } from "@/lib/features";
-const TasksPanelProxy = dynamic(() => import("@/app/(app)/tarefas/page"), { ssr: false });
+const TasksPanelProxy = dynamic(
+  () => import("@/features/tarefas/MinhasTarefasPage"),
+  { ssr: false },
+);
 
 const PANEL_WIDTH_STORAGE_KEY = "mznet-app-panel-width";
 const PANEL_MIN_WIDTH = 320;
@@ -278,7 +281,7 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <RouteBg>
       <SidebarProvider open={open} setOpen={setOpen}>
-          <div className={`text-zinc-900 min-h-screen ${isExpandedCadastro ? '' : 'h-screen overflow-hidden'}`} style={{ backgroundColor: '#000000' }}>
+          <div className={`min-h-screen text-zinc-900 dark:text-zinc-100 ${isExpandedCadastro ? '' : 'h-screen overflow-hidden'}`} style={{ backgroundColor: '#000000' }}>
             <Sidebar open={open} setOpen={setOpen}>
               <AppSidebar />
             </Sidebar>
@@ -318,7 +321,7 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                         <button
                           onClick={() => onExportPdf(parts)}
                           title="Exportar PDF"
-                          className="flex items-center justify-center rounded-full border border-gray-300 bg-white p-1.5 text-gray-700 hover:bg-gray-50"
+                          className="flex items-center justify-center rounded-full border border-gray-300 bg-white p-1.5 text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                         >
                           <FileDown className="h-4 w-4" />
                         </button>
@@ -355,7 +358,11 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                       <SidebarTrigger className="hidden md:inline-flex" />
                       <span className="text-h4 font-semibold text-[var(--color-primary)] truncate">{panelTitle}</span>
                     </div>
-                    <button onClick={closePanel} aria-label="Fechar" className="p-2 rounded hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700">
+                    <button
+                      onClick={closePanel}
+                      aria-label="Fechar"
+                      className="rounded p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    >
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
                         <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 11-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
                       </svg>

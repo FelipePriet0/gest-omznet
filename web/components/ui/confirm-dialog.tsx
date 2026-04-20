@@ -23,11 +23,11 @@ export function ConfirmDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onCancel() : undefined)}>
-      <DialogContent className="max-w-[440px] rounded-2xl bg-white">
+      <DialogContent className="max-w-[440px] rounded-2xl bg-white dark:bg-zinc-950">
         <DialogHeader>
-          <DialogTitle className="text-zinc-900">{title}</DialogTitle>
+          <DialogTitle className="text-zinc-900 dark:text-zinc-100">{title}</DialogTitle>
           {/* Always render a description to satisfy aria-describedby */}
-          <DialogDescription className={description ? "text-zinc-600" : "sr-only"}>
+          <DialogDescription className={description ? "text-zinc-600 dark:text-zinc-400" : "sr-only"}>
             {description || "Confirme para continuar ou cancele para voltar."}
           </DialogDescription>
         </DialogHeader>

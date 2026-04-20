@@ -79,14 +79,14 @@ export function DateSingleKanbanPopover({ label, labelClassName, value, onChange
             type="button"
             disabled={disabled}
             className={cn(
-              "mt-1 flex w-full items-center justify-between border border-zinc-300 bg-white text-left text-sm text-zinc-900 shadow-sm outline-none transition",
+              "mt-1 flex w-full items-center justify-between border border-zinc-300 bg-white text-left text-sm text-zinc-900 shadow-sm outline-none transition dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100",
               "focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20",
               disabled && "cursor-not-allowed opacity-60",
               triggerClassName || "h-12 rounded-lg px-5 py-3"
             )}
           >
             <span className="truncate">{formatted}</span>
-            <div className="flex items-center gap-2 text-zinc-500">
+            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
               {selectedDate && (
                 <X
                   className="h-4 w-4 hover:text-emerald-600 transition"
@@ -99,7 +99,7 @@ export function DateSingleKanbanPopover({ label, labelClassName, value, onChange
             </div>
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 border-0 shadow-md bg-white rounded-xl" align="start" sideOffset={8}>
+        <PopoverContent className="w-auto rounded-xl border-0 bg-white p-0 shadow-md dark:bg-zinc-950" align="start" sideOffset={8}>
           <KanbanSingleCalendar
             value={value}
             onChange={(v) => { onChange(v); setOpen(false); }}

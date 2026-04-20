@@ -775,7 +775,7 @@ export default function CadastroPJPage() {
           data-tipo="pj"
           data-id={applicantId}
           data-name={app.primary_name || ''}
-          className="pj-form ficha-pj px-3 md:px-4 py-6 expanded-portrait"
+          className="pj-form ficha-pj px-3 py-6 expanded-portrait"
         >
           {statusText && (
             <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
@@ -799,7 +799,7 @@ export default function CadastroPJPage() {
           {/* Linha 2: Complemento (linha inteira) */}
           <Field label="Complemento" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave('app','address_complement', v); }} className="sm:col-span-3" status={getFieldStatus('address_complement')} />
           {/* Linha 3: Tipo (md:col-span-2) | Observações */}
-          <div>
+          <div className="field-inline">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Imóvel</label>
             <SimpleSelect
               value={pj.tipo_imovel||''}
@@ -810,7 +810,7 @@ export default function CadastroPJPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <div>
+          <div className="field-inline">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Instalação</label>
             <SimpleSelect
               value={tipoInstalacao}
@@ -830,7 +830,7 @@ export default function CadastroPJPage() {
           <Field label="Obs Tipo de Imóvel" value={pj.obs_tipo_imovel||''} onChange={(v)=>{ setPj({...pj, obs_tipo_imovel:v}); queueSave('pj','obs_tipo_imovel', v); }} status={getFieldStatus('obs_tipo_imovel')} />
           {/* Linha 4: CEP | Bairro | Tempo */}
           <Field label="CEP" value={app.cep||''} onChange={(v)=>{ const m = formatCep(v); setApp({...app, cep:m}); queueSave('app','cep', m); }} status={getFieldStatus('cep')} />
-          <div>
+          <div className="field-inline">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Bairro</label>
             <SimpleSelect
               value={app.bairro||''}
@@ -845,7 +845,7 @@ export default function CadastroPJPage() {
           </div>
           <Field label="Tempo no Endereço" value={pj.tempo_endereco||''} onChange={(v)=>{ setPj({...pj, tempo_endereco:v}); queueSave('pj','tempo_endereco', v); }} status={getFieldStatus('tempo_endereco')} />
           {/* Linha 5: Estabelecimento (md:col-span-2) | Observações */}
-          <div className="sm:col-span-2">
+          <div className="field-inline sm:col-span-2">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Estabelecimento</label>
             <SimpleSelect
               value={pj.tipo_estabelecimento||''}
@@ -867,7 +867,7 @@ export default function CadastroPJPage() {
           <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queueSave('app','email', v); }} className="sm:col-span-4" status={getFieldStatus('email')} />
 
           {/* Linha: Possui Internet | Operadora | Plano | Valor */}
-          <div>
+          <div className="field-inline">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Possui Internet</label>
             <SimpleSelect
               value={(pj.possui_internet as any) || ''}
@@ -881,7 +881,7 @@ export default function CadastroPJPage() {
           <Field label="Operadora Internet" value={pj.operadora_internet||''} onChange={(v)=>{ setPj({...pj, operadora_internet:v}); queueSave('pj','operadora_internet', v); }} status={getFieldStatus('operadora_internet')} />
           <Field label="Plano Internet" value={pj.plano_internet||''} onChange={(v)=>{ setPj({...pj, plano_internet:v}); queueSave('pj','plano_internet', v); }} status={getFieldStatus('plano_internet')} />
           <Field label="Valor Internet" value={pj.valor_internet||''} onChange={(v)=>{ const m = formatCurrencyBR(v); setPj({...pj, valor_internet:m}); queueSave('pj','valor_internet', m); }} status={getFieldStatus('valor_internet')} />
-          <div>
+          <div className="field-inline">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Enviou Comprovante</label>
             <SimpleSelect
               value={(pj.enviou_comprovante as any) || ''}
@@ -892,7 +892,7 @@ export default function CadastroPJPage() {
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <div>
+          <div className="field-inline">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Comprovante</label>
             <SimpleSelect
               value={pj.tipo_comprovante||''}
@@ -904,7 +904,7 @@ export default function CadastroPJPage() {
             />
           </div>
           <Field label="Em nome de" value={pj.nome_comprovante||''} onChange={(v)=>{ setPj({...pj, nome_comprovante:v}); queueSave('pj','nome_comprovante', v); }} disabled={!reqComprov} requiredMark={reqComprov} status={getFieldStatus('nome_comprovante')} />
-          <div className="sm:col-span-2">
+          <div className="field-inline sm:col-span-2">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Contrato Social</label>
             <SimpleSelect
               value={(pj.contrato_social as any) || ''}
@@ -961,7 +961,7 @@ export default function CadastroPJPage() {
       {/* Seção 5: Solicitação */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Field label="Quem Solicitou" value={app.quem_solicitou||''} onChange={(v)=>{ setApp({...app, quem_solicitou:v}); queueSave('app','quem_solicitou', v); }} status={getFieldStatus('quem_solicitou')} />
-          <div>
+          <div className="field-inline">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Meio</label>
             <SimpleSelect
               value={app.meio||''}
@@ -976,7 +976,7 @@ export default function CadastroPJPage() {
           <Field label="Protocolo MK" value={app.protocolo_mk||''} onChange={(v)=>{ setApp({...app, protocolo_mk:v}); queueSave('app','protocolo_mk', v); }} status={getFieldStatus('protocolo_mk')} />
           {/* ── Bloco destacado: Plano / SVA / Vencimento ── */}
           <div className="pj-highlight-row sm:col-span-2 lg:col-span-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <div>
+            <div className="field-inline">
               <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Plano de Acesso</label>
               <SimpleSelect
                 value={app.plano_acesso||''}
@@ -987,7 +987,7 @@ export default function CadastroPJPage() {
                 contentClassName="rounded-lg shadow-lg border-0"
               />
             </div>
-            <div>
+            <div className="field-inline">
               <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">SVA Avulso</label>
               <SimpleSelect
                 value={app.sva_avulso||''}
@@ -998,7 +998,7 @@ export default function CadastroPJPage() {
                 contentClassName="rounded-lg shadow-lg border-0"
               />
             </div>
-            <div>
+            <div className="field-inline">
               <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Vencimento</label>
               <SimpleSelect
                 value={String(app.venc||'')}
@@ -1010,7 +1010,7 @@ export default function CadastroPJPage() {
               />
             </div>
           </div>
-          <div>
+          <div className="field-inline">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Carnê Impresso</label>
             <SimpleSelect
               value={app.carne_impresso ? 'Sim':'Não'}
@@ -1022,7 +1022,7 @@ export default function CadastroPJPage() {
             />
           </div>
           {/* Agendamento: Instalação agendada para + Horário */}
-          <div>
+          <div className="field-inline">
             <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Instalação agendada para</label>
             <DateSingleKanbanPopover
               value={dueAt}
@@ -1037,7 +1037,7 @@ export default function CadastroPJPage() {
               triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
             />
           </div>
-          <div>
+          <div className="field-inline">
             <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Horário</label>
             <TimeMultiSelect
               label=""
@@ -1083,6 +1083,7 @@ export default function CadastroPJPage() {
             <div className="relative" ref={parecerContainerRef}>
               <UnifiedComposer
                 ref={parecerComposerRef}
+                className="composer-root--blue"
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
                 ariaLabel="Escrever parecer"
                 richText
@@ -1232,18 +1233,20 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 function Field({ label, value, onChange, className, red, disabled, maxLength, inputMode, requiredMark, status }: { label: string; value: string; onChange: (v:string)=>void; className?: string; red?: boolean; disabled?: boolean; maxLength?: number; inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"]; requiredMark?: boolean; status?: 'idle'|'pending'|'error' }) {
   return (
     <div className={className}>
-      <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">
-        {label}{requiredMark && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
-      <input
-        value={value}
-        onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
-        onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
-        disabled={disabled}
-        maxLength={maxLength}
-        inputMode={inputMode}
-        className={`h-[21px] w-full rounded-[2px] border ${red ? 'border-red-400 bg-red-50' : 'border-zinc-400 bg-blue-100'} px-1 text-[10px] outline-none focus:border-zinc-600 ${disabled ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'text-zinc-900'}`}
-      />
+      <div className="field-inline">
+        <label className="block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">
+          {label}{requiredMark && <span className="ml-0.5 text-red-500">*</span>}
+        </label>
+        <input
+          value={value}
+          onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
+          onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}
+          disabled={disabled}
+          maxLength={maxLength}
+          inputMode={inputMode}
+          className={`h-[21px] w-full rounded-[2px] border ${red ? 'border-red-400 bg-red-50' : 'border-zinc-400 bg-blue-100'} px-1 text-[10px] outline-none focus:border-zinc-600 ${disabled ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'text-zinc-900'}`}
+        />
+      </div>
       <FieldStatusIndicator status={status || 'idle'} />
     </div>
   );
@@ -1495,8 +1498,8 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
     const isEditing = isEditingId === note.id;
     const isReplying = isReplyingId === note.id;
     const containerClass = isRoot
-      ? "rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-800 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)]"
-      : "rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-800";
+      ? "rounded-[2px] border border-zinc-400 bg-blue-100 px-3 py-4 text-sm text-zinc-800"
+      : "rounded-[2px] border border-zinc-400 bg-blue-100 px-3 py-3 text-sm text-zinc-800";
 
   return (
       <div
@@ -1587,6 +1590,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                         <div className="relative">
                           <UnifiedComposer
                             ref={editComposerRef}
+                            className="composer-root--blue"
                             defaultValue={editValue}
                             richText
                             onAcceptMention={(query) => {
@@ -1676,6 +1680,7 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                         <div className="flex-1 relative">
                           <UnifiedComposer
                             ref={replyComposerRef}
+                            className="composer-root--blue"
                             defaultValue={replyValue}
                             placeholder="Responder... (/aprovado, /negado, /reanalise)"
                             richText
@@ -1850,7 +1855,7 @@ function AttachmentChip({ attachment }: { attachment: any }) {
   const name = attachment?.file_name || attachment?.name || 'Anexo';
   const created = attachment?.created_at ? new Date(attachment.created_at).toLocaleString() : null;
   return (
-    <div className="flex items-center justify-between gap-3 rounded border border-zinc-200 bg-white px-3 py-2 text-sm">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <span className="text-lg shrink-0">📎</span>
         <div className="min-w-0 flex-1">

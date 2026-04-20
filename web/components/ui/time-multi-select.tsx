@@ -103,7 +103,7 @@ export function TimeMultiSelect({
               type="button"
               className={triggerClassName
                 ? `flex w-full items-center justify-between text-left outline-none ${triggerClassName}`
-                : "mt-1 flex h-12 w-full items-center justify-between rounded-lg border border-zinc-300 bg-white px-5 py-3 text-left text-sm text-zinc-900 shadow-none outline-none focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20"
+                : "mt-1 flex h-12 w-full items-center justify-between rounded-lg border border-zinc-300 bg-white px-5 py-3 text-left text-sm text-zinc-900 shadow-none outline-none focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               }
               style={triggerClassName ? undefined : { boxShadow: "0 1px 4px rgba(24, 50, 71, 0.08)" }}
             >
@@ -111,7 +111,7 @@ export function TimeMultiSelect({
               <span aria-hidden className="ml-2 inline-block align-middle" style={{ color: 'var(--verde-primario)', transform: 'rotate(90deg)' }}>&gt;</span>
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" sideOffset={6} className="w-[260px] p-2 bg-white border border-zinc-200 shadow-md rounded-md mz-time-popover">
+          <PopoverContent align="start" sideOffset={6} className="mz-time-popover w-[260px] rounded-md border border-zinc-200 bg-white p-2 shadow-md dark:border-zinc-800 dark:bg-zinc-950">
             <div className="space-y-1">
               {times.map((t) => {
                 const active = sel.includes(t);
@@ -141,8 +141,8 @@ export function TimeMultiSelect({
                     className={[
                       "group w-full flex items-center justify-between rounded-sm px-2 py-2 text-sm mz-time-item",
                       disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                      active ? "bg-[var(--verde-primario)] text-white mz-time-item--active" : "text-zinc-800 hover:bg-[var(--verde-primario)] hover:text-white",
-                      isFull ? "bg-zinc-100 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-400" : "",
+                      active ? "bg-[var(--verde-primario)] text-white mz-time-item--active" : "text-zinc-800 hover:bg-[var(--verde-primario)] hover:text-white dark:text-zinc-100",
+                      isFull ? "bg-zinc-100 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-500" : "",
                     ].join(" ")}
                   >
                     <span className="group-hover:text-white mz-time-label">{t}</span>
@@ -166,7 +166,7 @@ export function TimeMultiSelect({
                 return isFull ? (
                   <span key={t} className="relative block w-full cursor-not-allowed group/full">
                     {btn}
-                    <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 z-50 hidden group-hover/full:block w-max max-w-[220px] rounded-md bg-white border border-zinc-200 px-2.5 py-1.5 text-center text-xs leading-snug text-zinc-700 shadow-lg">
+                    <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 hidden w-max max-w-[220px] -translate-x-1/2 rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-center text-xs leading-snug text-zinc-700 shadow-lg group-hover/full:block dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
                       {fullTitle}
                     </span>
                   </span>
@@ -174,12 +174,12 @@ export function TimeMultiSelect({
               })}
             </div>
             <div className="mt-2 flex items-center justify-between gap-2">
-              <div className="text-xs text-zinc-600">
+              <div className="text-xs text-zinc-600 dark:text-zinc-400">
                 {sel.length === 0 ? "Nenhum selecionado" : sel.length === 1 ? sel[0] : `${sel[0]} e ${sel[1]}`}
               </div>
               <div className="flex gap-2">
                 <button
-                  className="text-xs px-2 py-1 rounded bg-zinc-100 hover:bg-zinc-200"
+                  className="rounded bg-zinc-100 px-2 py-1 text-xs hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
                   onClick={() => setSel([])}
                   type="button"
                 >Limpar</button>

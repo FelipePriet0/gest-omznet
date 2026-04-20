@@ -52,8 +52,8 @@ export function SimpleSelect({
     const hasCustomZIndex = contentStyle?.zIndex !== undefined;
     return cn(
       hasCustomZIndex ? "" : "z-[100]",
-      "min-w-[12rem] overflow-hidden rounded-md bg-white text-zinc-900 mz-select-content",
-      flat ? "border-0 shadow-none" : "border shadow-md",
+      "min-w-[12rem] overflow-hidden rounded-md bg-white text-zinc-900 mz-select-content dark:bg-zinc-950 dark:text-zinc-100",
+      flat ? "border-0 shadow-none" : "border border-zinc-200 shadow-md dark:border-zinc-800",
       contentClassName,
     );
   }, [contentStyle, flat, contentClassName]);
@@ -64,8 +64,8 @@ export function SimpleSelect({
         <button
           type="button"
           className={cn(
-            "SimpleSelect-trigger flex h-12 w-full items-center justify-between rounded-lg bg-white px-5 py-3 text-sm text-zinc-900 outline-none",
-            flat ? "border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent" : "border border-zinc-300 shadow-sm focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20",
+            "SimpleSelect-trigger flex h-12 w-full items-center justify-between rounded-lg bg-white px-5 py-3 text-sm text-zinc-900 outline-none dark:bg-zinc-900 dark:text-zinc-100",
+            flat ? "border-0 shadow-none focus-visible:ring-0 focus-visible:border-transparent" : "border border-zinc-300 shadow-sm focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 dark:border-zinc-700",
             className,
             triggerClassName,
           )}
@@ -106,7 +106,7 @@ export function SimpleSelect({
                   className={cn(
                     "relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
                     "hover:bg-[var(--verde-primario)] hover:text-white",
-                    isActive ? "bg-emerald-50 text-emerald-700" : "text-zinc-800",
+                    isActive ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200" : "text-zinc-800 dark:text-zinc-100",
                   )}
                 >
                   <span className="truncate">{label}</span>

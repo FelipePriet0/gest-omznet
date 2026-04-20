@@ -102,20 +102,20 @@ test('PF-05 · endereço — preenche campos de endereço', async ({ page }) => 
 
 // ─── SEÇÃO 4: Residência — Tipo de Moradia ────────────────────────────────────
 
-test('PF-06 · moradia "Outros" — habilita campo Observações', async ({ page }) => {
+test('PF-06 · campo Observações de moradia permanece editável', async ({ page }) => {
   await selectOption(page, /tipo de moradia/i, 'Outros');
   await expectEnabled(page, /observações/i);
   await fill(page, /observações/i, 'Casa de container');
   await expect(page.getByLabel(/observações/i)).toHaveValue('Casa de container');
 });
 
-test('PF-07 · moradia "Outros" → mudar para "Própria" — limpa e bloqueia Observações', async ({ page }) => {
+test('PF-07 · moradia "Outros" → "Própria" mantém Observações preenchidas', async ({ page }) => {
   await selectOption(page, /tipo de moradia/i, 'Outros');
   await fill(page, /observações/i, 'Casa de container');
 
   await selectOption(page, /tipo de moradia/i, 'Própria');
-  await expectDisabled(page, /observações/i);
-  await expect(page.getByLabel(/observações/i)).toHaveValue('');
+  await expectEnabled(page, /observações/i);
+  await expect(page.getByLabel(/observações/i)).toHaveValue('Casa de container');
 });
 
 test('PF-08 · moradia "Alugada" — habilita Nome Locador e Telefone Locador', async ({ page }) => {
@@ -141,20 +141,20 @@ test('PF-09 · moradia "Alugada" → mudar para "Cedida" — limpa e bloqueia Lo
 
 // ─── SEÇÃO 5: Residência — Única no Lote ────────────────────────────────────
 
-test('PF-10 · única no lote "Não" — habilita campo Obs', async ({ page }) => {
+test('PF-10 · campo Única no lote (Obs) permanece editável', async ({ page }) => {
   await selectOption(page, /única no lote$/i, 'Não');
   await expectEnabled(page, /única no lote \(obs\)/i);
   await fill(page, /única no lote \(obs\)/i, 'Duas casas no lote');
   await expect(page.getByLabel(/única no lote \(obs\)/i)).toHaveValue('Duas casas no lote');
 });
 
-test('PF-11 · única no lote "Não" → "Sim" — limpa e bloqueia Obs', async ({ page }) => {
+test('PF-11 · única no lote "Não" → "Sim" mantém Obs preenchida', async ({ page }) => {
   await selectOption(page, /única no lote$/i, 'Não');
   await fill(page, /única no lote \(obs\)/i, 'Duas casas');
 
   await selectOption(page, /única no lote$/i, 'Sim');
-  await expectDisabled(page, /única no lote \(obs\)/i);
-  await expect(page.getByLabel(/única no lote \(obs\)/i)).toHaveValue('');
+  await expectEnabled(page, /única no lote \(obs\)/i);
+  await expect(page.getByLabel(/única no lote \(obs\)/i)).toHaveValue('Duas casas');
 });
 
 // ─── SEÇÃO 6: Contrato ────────────────────────────────────────────────────────
@@ -192,14 +192,14 @@ test('PF-15 · tem contrato "Sim" → "Não" — limpa Enviou Contrato e Nome De
 
 // ─── SEÇÃO 7: Comprovante ────────────────────────────────────────────────────
 
-test('PF-16 · enviou comprovante "Não" — Tipo de Comprovante bloqueado', async ({ page }) => {
+test('PF-16 · enviou comprovante "Não" mantém Tipo e Nome editáveis', async ({ page }) => {
   await selectOption(page, /enviou comprovante/i, 'Não');
   const trigger = page.locator('div', { hasText: /tipo de comprovante/i }).locator('button').first();
-  await expect(trigger).toHaveClass(/opacity-50|pointer-events-none/);
-  await expectDisabled(page, /nome do comprovante/i);
+  await expect(trigger).not.toHaveClass(/opacity-50|pointer-events-none/);
+  await expectEnabled(page, /nome do comprovante/i);
 });
 
-test('PF-17 · enviou comprovante "Sim" — habilita Tipo e Nome', async ({ page }) => {
+test('PF-17 · enviou comprovante "Sim" mantém Tipo e Nome editáveis', async ({ page }) => {
   await selectOption(page, /enviou comprovante/i, 'Sim');
   const trigger = page.locator('div', { hasText: /tipo de comprovante/i }).locator('button').first();
   await expect(trigger).not.toHaveClass(/opacity-50/);
@@ -215,31 +215,33 @@ test('PF-18 · todas opções de Tipo de Comprovante são selecionáveis', async
   }
 });
 
-test('PF-19 · enviou comprovante "Sim" → "Não" — limpa Tipo e Nome', async ({ page }) => {
+test('PF-19 · enviou comprovante "Sim" → "Não" preserva Tipo e Nome', async ({ page }) => {
   await selectOption(page, /enviou comprovante/i, 'Sim');
   await selectOption(page, /tipo de comprovante/i, 'Energia');
   await fill(page, /nome do comprovante/i, 'João da Silva');
 
   await selectOption(page, /enviou comprovante/i, 'Não');
-  await expect(page.getByLabel(/nome do comprovante/i)).toHaveValue('');
+  const trigger = page.locator('div', { hasText: /tipo de comprovante/i }).locator('button').first();
+  await expect(trigger).toContainText('Energia');
+  await expect(page.getByLabel(/nome do comprovante/i)).toHaveValue('João da Silva');
 });
 
 // ─── SEÇÃO 8: Vínculo ────────────────────────────────────────────────────────
 
-test('PF-20 · vínculo "Outro" — habilita Vínculo Obs', async ({ page }) => {
+test('PF-20 · campo Vínculo Obs permanece editável', async ({ page }) => {
   await selectOption(page, /^vínculo$/i, 'Outro');
   await expectEnabled(page, /vínculo \(obs\)/i);
   await fill(page, /vínculo \(obs\)/i, 'Freelancer');
   await expect(page.getByLabel(/vínculo \(obs\)/i)).toHaveValue('Freelancer');
 });
 
-test('PF-21 · vínculo "Outro" → "Concursado" — limpa e bloqueia Obs', async ({ page }) => {
+test('PF-21 · vínculo "Outro" → "Concursado" mantém Obs preenchida', async ({ page }) => {
   await selectOption(page, /^vínculo$/i, 'Outro');
   await fill(page, /vínculo \(obs\)/i, 'Freelancer');
 
   await selectOption(page, /^vínculo$/i, 'Concursado');
-  await expectDisabled(page, /vínculo \(obs\)/i);
-  await expect(page.getByLabel(/vínculo \(obs\)/i)).toHaveValue('');
+  await expectEnabled(page, /vínculo \(obs\)/i);
+  await expect(page.getByLabel(/vínculo \(obs\)/i)).toHaveValue('Freelancer');
 });
 
 test('PF-22 · todos os vínculos são selecionáveis', async ({ page }) => {

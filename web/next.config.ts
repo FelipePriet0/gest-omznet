@@ -1,4 +1,8 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
+
+const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 const securityHeaders = [
   // Impede que a página seja carregada em iframe (clickjacking)
@@ -36,6 +40,13 @@ const securityHeaders = [
 // (Chromium, Puppeteer, Playwright) into the serverless function — without this
 // the Vercel build hangs during file tracing or exceeds the 250 MB bundle limit.
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: path.join(configDir, ".."),
+  experimental: {
+    cpus: 1,
+    staticGenerationMaxConcurrency: 1,
+    staticGenerationMinPagesPerWorker: 1,
+    webpackBuildWorker: false,
+  },
   serverExternalPackages: [
     "puppeteer-core",
     "@sparticuz/chromium",

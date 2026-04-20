@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  color-scheme: light;
+  --background: #f3f4f6;
   --foreground: #171717;
+  --surface: #ffffff;
+  --surface-muted: #f5f5f5;
+  --surface-elevated: rgba(255, 255, 255, 0.92);
+  --border-subtle: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --muted-foreground: #52525b;
   
   /* MZNET Design System Tokens */
   --verde-primario: #018942;
@@ -50,17 +57,6 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
-
-  .dark {
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
 }
 
 @theme inline {
@@ -91,8 +87,24 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+    --background: #050706;
+    --foreground: #f4f5f4;
+    --surface: #111816;
+    --surface-muted: #16201d;
+    --surface-elevated: rgba(17, 24, 22, 0.92);
+    --border-subtle: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --muted-foreground: #b7c0bb;
+    --neutro: #16201d;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
@@ -100,6 +112,28 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.app-surface {
+  background-color: var(--surface);
+  border-color: var(--border-subtle);
+  color: var(--foreground);
+}
+
+.app-surface-muted {
+  background-color: var(--surface-muted);
+  border-color: var(--border-subtle);
+  color: var(--foreground);
+}
+
+.app-surface-elevated {
+  background-color: var(--surface-elevated);
+  border-color: var(--border-subtle);
+  color: var(--foreground);
+}
+
+.app-muted-text {
+  color: var(--muted-foreground);
 }
 
 /* MZNET helper surfaces */
@@ -812,11 +846,29 @@ body {
 }
 
 /* ── Grid spacing ── */
-.ficha-pj .grid { gap: 5px !important; }
+.ficha-pj .grid { row-gap: 0 !important; column-gap: 5px !important; }
 .ficha-pj .pj-section { margin-bottom: 10px !important; }
 .ficha-pj .mb-3, .ficha-pj .mb-4, .ficha-pj .mb-6 { margin-bottom: 8px !important; }
 .ficha-pj .mt-4 { margin-top: 5px !important; }
-.ficha-pj .gap-4 { gap: 5px !important; }
+.ficha-pj .gap-4 { row-gap: 0 !important; column-gap: 5px !important; }
+
+/* ── Inline label layout (label esquerda + input direita) ── */
+.ficha-pj .field-inline {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+.ficha-pj .field-inline > label {
+  flex-shrink: 0 !important;
+  margin-bottom: 0 !important;
+  white-space: nowrap !important;
+}
+.ficha-pj .field-inline > :not(label) {
+  flex: 1 !important;
+  min-width: 0 !important;
+  width: auto !important;
+}
 
 /* ── Amber highlight — "Item Ajustado" (Plano de Acesso / SVA / Venc) ── */
 .ficha-pj .pj-highlight-row {
@@ -957,10 +1009,10 @@ body {
 }
 
 /* ── Grid & spacing ── */
-.ficha-pf .grid { gap: 5px !important; }
+.ficha-pf .grid { row-gap: 0 !important; column-gap: 5px !important; }
 .ficha-pf .mb-3, .ficha-pf .mb-4, .ficha-pf .mb-6 { margin-bottom: 8px !important; }
 .ficha-pf .mt-4 { margin-top: 5px !important; }
-.ficha-pf .gap-4 { gap: 5px !important; }
+.ficha-pf .gap-4 { row-gap: 0 !important; column-gap: 5px !important; }
 
 /* ── Amber highlight — Plano / SVA / Vencimento ── */
 .ficha-pf .pf-highlight-row {
@@ -997,26 +1049,26 @@ body {
 .ficha-pf input.input-red,
 .ficha-pf textarea.input-red { color: #dc2626 !important; }
 
-/* ── Stacked field layout (label acima do input / select / textarea) ── */
+/* ── Inline label layout (label esquerda + input direita) ── */
 .ficha-pf .field-inline {
   display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  gap: 0 !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 4px !important;
 }
 .ficha-pf .field-inline > label {
   display: block !important;
   flex-shrink: 0 !important;
-  margin-bottom: 2px !important;
-  white-space: normal !important;
+  margin-bottom: 0 !important;
+  white-space: nowrap !important;
 }
-.ficha-pf .field-inline > input,
-.ficha-pf .field-inline > textarea {
-  width: 100% !important;
+.ficha-pf .field-inline > :not(label) {
+  flex: 1 !important;
   min-width: 0 !important;
+  width: auto !important;
 }
-/* SimpleSelect wrapper inside field-inline fills full width */
-.ficha-pf .field-inline > .select-wrap { width: 100%; min-width: 0; }
+/* SimpleSelect wrapper inside field-inline */
+.ficha-pf .field-inline > .select-wrap { flex: 1; min-width: 0; }
 .ficha-pf .field-inline > .select-wrap .SimpleSelect-trigger { width: 100% !important; }
 
 /* Demo Field Styles - Enterprise Responsive */
@@ -1177,28 +1229,30 @@ body {
 }
 
 /* Pareceres Pai e Respondidos - Borda Primária */
-.pareceres .rounded.border.border-zinc-200.bg-zinc-50 {
+.pareceres .border.border-zinc-400.bg-blue-100 {
   border-left: 4px solid var(--verde-primario, #34a853) !important;
-  border-radius: 8px !important;
-  background: rgba(52, 168, 83, 0.02) !important;
+  border-radius: 2px !important;
+  background: #dbeafe !important;
+  box-shadow: none !important;
   transition: all 0.2s ease;
 }
 
-.pareceres .rounded.border.border-zinc-200.bg-zinc-50:hover {
+.pareceres .border.border-zinc-400.bg-blue-100:hover {
   border-left-width: 6px !important;
-  background: rgba(52, 168, 83, 0.05) !important;
+  background: #cfe3fb !important;
+  box-shadow: none !important;
   transform: translateX(2px);
 }
 
 /* Pareceres aninhados (respostas) - Borda mais sutil */
-.pareceres .rounded.border.border-zinc-200.bg-zinc-50[style*="margin-left"] {
+.pareceres .border.border-zinc-400.bg-blue-100[style*="margin-left"] {
   border-left: 3px solid rgba(52, 168, 83, 0.6) !important;
-  background: rgba(52, 168, 83, 0.01) !important;
+  background: #e3f0ff !important;
 }
 
-.pareceres .rounded.border.border-zinc-200.bg-zinc-50[style*="margin-left"]:hover {
+.pareceres .border.border-zinc-400.bg-blue-100[style*="margin-left"]:hover {
   border-left-width: 4px !important;
-  background: rgba(52, 168, 83, 0.03) !important;
+  background: #d7e8fd !important;
 }
 
 /* Parecer Menu Dropdown - Professional UI */
@@ -2276,7 +2330,7 @@ textarea[placeholder="Analisar"]::placeholder {
 }
 /* App background wrapper */
 .route-bg {
-  background-color: #000000;
+  background-color: var(--background);
 }
 
 /* Mini-dashboard headers and drawers: brand primary */
@@ -2308,6 +2362,57 @@ textarea[placeholder="Analisar"]::placeholder {
   margin: 0;
   font-family: inherit;
   color: #1f2937;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-white,
+  .bg-zinc-50,
+  .bg-zinc-100,
+  .bg-gray-50,
+  .bg-gray-100,
+  .bg-slate-50,
+  .bg-white\/90 {
+    background-color: var(--surface) !important;
+  }
+
+  .border-zinc-100,
+  .border-zinc-200,
+  .border-zinc-300,
+  .border-gray-200,
+  .border-gray-300,
+  .border-neutral-200 {
+    border-color: var(--border-subtle) !important;
+  }
+
+  .text-zinc-900,
+  .text-zinc-800,
+  .text-gray-900,
+  .text-black {
+    color: var(--foreground) !important;
+  }
+
+  .text-zinc-700,
+  .text-zinc-600,
+  .text-zinc-500,
+  .text-gray-700,
+  .text-gray-600,
+  .text-gray-500 {
+    color: var(--muted-foreground) !important;
+  }
+
+  .hover\:bg-zinc-50:hover,
+  .hover\:bg-zinc-100:hover,
+  .hover\:bg-gray-50:hover,
+  .hover\:bg-gray-100:hover,
+  .hover\:bg-white:hover {
+    background-color: var(--surface-muted) !important;
+  }
+
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg {
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32) !important;
+  }
 }
 
 .rdp-nav_button {

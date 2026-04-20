@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import { MoreHorizontal, User as UserIcon, Search } from "lucide-react";
+import { MoreHorizontal, User as UserIcon } from "lucide-react";
 import clsx from "clsx";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import MentionDropdown from "@/components/mentions/MentionDropdown";
@@ -280,7 +280,7 @@ function NoteItem({
 
   return (
     <div 
-      className={clsx("rounded-lg border border-zinc-200 bg-white p-3", isRoot ? "" : "pl-3")}
+      className={clsx("rounded-[2px] border border-zinc-400 bg-blue-100 px-3 py-3 text-sm text-zinc-800", !isRoot && "pl-3")}
       style={{ 
         marginLeft: isRoot ? 0 : depth * 16, 
         borderLeftColor: 'var(--verde-primario)', 
@@ -377,6 +377,7 @@ function NoteItem({
           <div className="relative">
             <UnifiedComposer
               ref={editComposerRef}
+              className="composer-root--blue"
               defaultValue={editValue}
               disabled={!canEdit}
               placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
@@ -514,6 +515,7 @@ function NoteItem({
           <div className="relative">
             <UnifiedComposer
               ref={replyComposerRef}
+              className="composer-root--blue"
               placeholder="Responder… Use @ para mencionar e / para decisões"
               ariaLabel="Responder parecer"
               richText
