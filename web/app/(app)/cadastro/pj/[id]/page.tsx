@@ -782,142 +782,136 @@ export default function CadastroPJPage() {
           )}
 
       {/* Ficha completa (dados, endereço, contatos, sócios, etc.) */}
-      <Card title="Ficha">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          <Field label="Razão Social" value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave('app','primary_name',v); }} className="lg:col-span-2" status={getFieldStatus('primary_name')} />
-          <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queueSave('app','cpf_cnpj',m); }} inputMode="numeric" maxLength={18} status={getFieldStatus('cpf_cnpj')} />
-          <Field label="Abertura" value={pj.data_abertura||''} onChange={(v)=>{ const m=formatDateBR(v); setPj({...pj, data_abertura:m}); queueSave('pj','data_abertura', m); }} inputMode="numeric" maxLength={10} status={getFieldStatus('data_abertura')} />
-          <Field label="Nome Fantasia" value={pj.nome_fantasia||''} onChange={(v)=>{ setPj({...pj, nome_fantasia:v}); queueSave('pj','nome_fantasia', v); }} status={getFieldStatus('nome_fantasia')} />
-          <Field label="Nome de Fachada" value={pj.nome_fachada||''} onChange={(v)=>{ setPj({...pj, nome_fachada:v}); queueSave('pj','nome_fachada', v); }} status={getFieldStatus('nome_fachada')} />
-          <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} className="lg:col-span-3 xl:col-span-4" status={getFieldStatus('area_atuacao')} />
+      <Card title="">
+        <div className="space-y-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Field label="Razão Social" value={app.primary_name||''} onChange={(v)=>{ setApp({...app, primary_name:v}); queueSave('app','primary_name',v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('primary_name')} />
+            <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queueSave('app','cpf_cnpj',m); }} inputMode="numeric" maxLength={18} className="w-full sm:w-56 sm:shrink-0" status={getFieldStatus('cpf_cnpj')} />
+            <Field label="ABERTURA" value={pj.data_abertura||''} onChange={(v)=>{ const m=formatDateBR(v); setPj({...pj, data_abertura:m}); queueSave('pj','data_abertura', m); }} inputMode="numeric" maxLength={10} className="w-full sm:w-44 sm:shrink-0" status={getFieldStatus('data_abertura')} />
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Field label="Nome Fantasia" value={pj.nome_fantasia||''} onChange={(v)=>{ setPj({...pj, nome_fantasia:v}); queueSave('pj','nome_fantasia', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('nome_fantasia')} />
+            <Field label="Nome de Fachada" value={pj.nome_fachada||''} onChange={(v)=>{ setPj({...pj, nome_fachada:v}); queueSave('pj','nome_fachada', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('nome_fachada')} />
+          </div>
+          <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} className="w-full" status={getFieldStatus('area_atuacao')} />
         </div>
       {/* Seção 2: Endereço */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Linha 1: Endereço | Número */}
-          <Field label="Endereço" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave('app','address_line', v); }} className="sm:col-span-2" status={getFieldStatus('address_line')} />
-          <Field label="N" value={app.address_number||''} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave('app','address_number', v); }} status={getFieldStatus('address_number')} />
-          {/* Linha 2: Complemento (linha inteira) */}
-          <Field label="Compl" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave('app','address_complement', v); }} className="sm:col-span-3" status={getFieldStatus('address_complement')} />
-          {/* Linha 3: Tipo (md:col-span-2) | Observações */}
-          <div className="field-inline">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo</label>
-            <SimpleSelect
-              value={pj.tipo_imovel||''}
-              onChange={(v)=>{ setPj({...pj, tipo_imovel:v}); queueSave('pj','tipo_imovel', v); }}
-              options={["Comércio Terreo","Comércio Sala","Casa"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+        <div className="mt-4 space-y-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Field label="END" value={app.address_line||''} onChange={(v)=>{ setApp({...app, address_line:v}); queueSave('app','address_line', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('address_line')} />
+            <Field label="N" value={app.address_number||''} onChange={(v)=>{ setApp({...app, address_number:v}); queueSave('app','address_number', v); }} className="w-full sm:w-20 sm:shrink-0" status={getFieldStatus('address_number')} />
+            <Field label="COMPL" value={app.address_complement||''} onChange={(v)=>{ setApp({...app, address_complement:v}); queueSave('app','address_complement', v); }} className="w-full sm:w-[250px] sm:shrink-0" status={getFieldStatus('address_complement')} />
           </div>
-          {/* Tipo de Instalação — oculto temporariamente
-          <div className="field-inline">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo de Instalação</label>
-            <SimpleSelect
-              value={tipoInstalacao}
-              onChange={(v)=>{
-                setTipoInstalacao(v);
-                if (cardIdEff) {
-                  const dbVal = uiToTipoInstPJ(v);
-                  supabase.from('kanban_cards').update({ tipo_instalacao: dbVal }).eq('id', cardIdEff).then(()=>{});
-                }
-              }}
-              options={[...TIPO_INST_UI_PJ]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="field-inline w-full sm:w-56 sm:shrink-0">
+              <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo</label>
+              <SimpleSelect
+                value={pj.tipo_imovel||''}
+                onChange={(v)=>{ setPj({...pj, tipo_imovel:v}); queueSave('pj','tipo_imovel', v); }}
+                options={["Comércio Terreo","Comércio Sala","Casa"]}
+                className="mt-0"
+                triggerClassName="h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
+            <Field label="OBS" value={pj.obs_tipo_imovel||''} onChange={(v)=>{ setPj({...pj, obs_tipo_imovel:v}); queueSave('pj','obs_tipo_imovel', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('obs_tipo_imovel')} />
           </div>
-          */}
-          <Field label="Obs" value={pj.obs_tipo_imovel||''} onChange={(v)=>{ setPj({...pj, obs_tipo_imovel:v}); queueSave('pj','obs_tipo_imovel', v); }} status={getFieldStatus('obs_tipo_imovel')} />
-          {/* Linha 4: CEP | Bairro | Tempo */}
-          <Field label="CEP" value={app.cep||''} onChange={(v)=>{ const m = formatCep(v); setApp({...app, cep:m}); queueSave('app','cep', m); }} status={getFieldStatus('cep')} />
-          <div className="field-inline">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Bairro</label>
-            <SimpleSelect
-              value={app.bairro||''}
-              onChange={(v)=>{ setApp({...app, bairro:v}); queueSave('app','bairro', v); }}
-              options={routes.map(r => ({ label: r.name, value: r.name }))}
-              placeholder="— selecione —"
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-              contentStyle={{ zIndex: 9999 }}
-            />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Field label="CEP" value={app.cep||''} onChange={(v)=>{ const m = formatCep(v); setApp({...app, cep:m}); queueSave('app','cep', m); }} className="w-full sm:w-40 sm:shrink-0" status={getFieldStatus('cep')} />
+            <div className="field-inline w-full sm:w-56 sm:shrink-0">
+              <label className="mb-1 block text-xs font-medium text-zinc-700">Bairro</label>
+              <SimpleSelect
+                value={app.bairro||''}
+                onChange={(v)=>{ setApp({...app, bairro:v}); queueSave('app','bairro', v); }}
+                options={routes.map(r => ({ label: r.name, value: r.name }))}
+                placeholder="— selecione —"
+                className="mt-0"
+                triggerClassName="h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+                contentStyle={{ zIndex: 9999 }}
+              />
+            </div>
+            <Field label="TEMPO" value={pj.tempo_endereco||''} onChange={(v)=>{ setPj({...pj, tempo_endereco:v}); queueSave('pj','tempo_endereco', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('tempo_endereco')} />
           </div>
-          <Field label="Tempo" value={pj.tempo_endereco||''} onChange={(v)=>{ setPj({...pj, tempo_endereco:v}); queueSave('pj','tempo_endereco', v); }} status={getFieldStatus('tempo_endereco')} />
-          {/* Linha 5: Estabelecimento (md:col-span-2) | Observações */}
-          <div className="field-inline sm:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Estabelecimento</label>
-            <SimpleSelect
-              value={pj.tipo_estabelecimento||''}
-              onChange={(v)=>{ setPj({...pj, tipo_estabelecimento:v}); queueSave('pj','tipo_estabelecimento', v); }}
-              options={["Própria","Alugada","Cedida","Outros"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="field-inline w-full sm:w-56 sm:shrink-0">
+              <label className="mb-1 block text-xs font-medium text-zinc-700">Estabelecimento</label>
+              <SimpleSelect
+                value={pj.tipo_estabelecimento||''}
+                onChange={(v)=>{ setPj({...pj, tipo_estabelecimento:v}); queueSave('pj','tipo_estabelecimento', v); }}
+                options={["Própria","Alugada","Cedida","Outros"]}
+                className="mt-0"
+                triggerClassName="h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
+            <Field label="OBS" value={pj.obs_estabelecimento||''} onChange={(v)=>{ setPj({...pj, obs_estabelecimento:v}); queueSave('pj','obs_estabelecimento', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('obs_estabelecimento')} />
           </div>
-          <Field label="OBS" value={pj.obs_estabelecimento||''} onChange={(v)=>{ setPj({...pj, obs_estabelecimento:v}); queueSave('pj','obs_estabelecimento', v); }} status={getFieldStatus('obs_estabelecimento')} />
-          <Field label="END NO PS" value={pj.end_ps||''} onChange={(v)=>{ setPj({...pj, end_ps:v}); queueSave('pj','end_ps', v); }} red className="sm:col-span-3" status={getFieldStatus('end_ps')} />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Field label="TEL" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave('app','phone', m); }} className="w-full sm:w-48 sm:shrink-0" status={getFieldStatus('phone')} />
+            <Field label="WHATS" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave('app','whatsapp', m); }} className="w-full sm:w-48 sm:shrink-0" status={getFieldStatus('whatsapp')} />
+            <Field label="FONE NO PS" value={pj.fones_ps||''} onChange={(v)=>{ setPj({...pj, fones_ps:v}); queueSave('pj','fones_ps', v); }} red className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('fones_ps')} />
+          </div>
+          <Field label="END NO PS" value={pj.end_ps||''} onChange={(v)=>{ setPj({...pj, end_ps:v}); queueSave('pj','end_ps', v); }} red className="w-full" status={getFieldStatus('end_ps')} />
         </div>
       {/* Seção 3: Contatos e Documentos */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Field label="Tel" value={app.phone||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, phone:m}); queueSave('app','phone', m); }} status={getFieldStatus('phone')} />
-          <Field label="Whats" value={app.whatsapp||''} onChange={(v)=>{ const m=maskPhoneLoose(v); setApp({...app, whatsapp:m}); queueSave('app','whatsapp', m); }} status={getFieldStatus('whatsapp')} />
-          <Field label="Fones no PS" value={pj.fones_ps||''} onChange={(v)=>{ setPj({...pj, fones_ps:v}); queueSave('pj','fones_ps', v); }} red status={getFieldStatus('fones_ps')} />
-          <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queueSave('app','email', v); }} className="sm:col-span-4" status={getFieldStatus('email')} />
-
-          <div className="field-inline">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Enviou Comprovante</label>
-            <SimpleSelect
-              value={(pj.enviou_comprovante as any) || ''}
-              onChange={(v)=>{ setPj({...pj, enviou_comprovante:v}); queueSave('pj','enviou_comprovante', v); if (v==='Não'){ setPj(prev=>({ ...prev, tipo_comprovante:'', nome_comprovante:'' })); queueSave('pj','tipo_comprovante',''); queueSave('pj','nome_comprovante',''); } }}
-              options={["Sim","Não"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+        <div className="mt-4 space-y-2">
+          <Field label="E-mail" value={app.email||''} onChange={(v)=>{ setApp({...app, email:v}); queueSave('app','email', v); }} className="w-full" status={getFieldStatus('email')} />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="field-inline w-full sm:w-52 sm:shrink-0">
+              <label className="mb-1 block text-xs font-medium text-zinc-700">Comprovante</label>
+              <SimpleSelect
+                value={(pj.enviou_comprovante as any) || ''}
+                onChange={(v)=>{ setPj({...pj, enviou_comprovante:v}); queueSave('pj','enviou_comprovante', v); if (v==='Não'){ setPj(prev=>({ ...prev, tipo_comprovante:'', nome_comprovante:'' })); queueSave('pj','tipo_comprovante',''); queueSave('pj','nome_comprovante',''); } }}
+                options={["Sim","Não"]}
+                className="mt-0"
+                triggerClassName="h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
+            <div className="field-inline w-full sm:w-44 sm:shrink-0">
+              <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo</label>
+              <SimpleSelect
+                value={pj.tipo_comprovante||''}
+                onChange={(v)=>{ setPj({...pj, tipo_comprovante:v}); queueSave('pj','tipo_comprovante', v); }}
+                options={["Energia","Agua","Internet","Outro"]}
+                className="mt-0"
+                triggerClassName={`h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 ${!reqComprov ? 'opacity-50 pointer-events-none cursor-not-allowed bg-gray-100 text-gray-400' : ''}`}
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
+            <Field label="Em Nome de" value={pj.nome_comprovante||''} onChange={(v)=>{ setPj({...pj, nome_comprovante:v}); queueSave('pj','nome_comprovante', v); }} disabled={!reqComprov} requiredMark={reqComprov} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('nome_comprovante')} />
           </div>
-          <div className="field-inline">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Tipo</label>
-            <SimpleSelect
-              value={pj.tipo_comprovante||''}
-              onChange={(v)=>{ setPj({...pj, tipo_comprovante:v}); queueSave('pj','tipo_comprovante', v); }}
-              options={["Energia","Agua","Internet","Outro"]}
-              className="mt-0"
-              triggerClassName={`h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 ${!reqComprov ? 'opacity-50 pointer-events-none cursor-not-allowed bg-gray-100 text-gray-400' : ''}`}
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="field-inline w-full sm:w-44 sm:shrink-0">
+              <label className="mb-1 block text-xs font-medium text-zinc-700">Internet</label>
+              <SimpleSelect
+                value={(pj.possui_internet as any) || ''}
+                onChange={(v)=>{ setPj({...pj, possui_internet:v}); queueSave('pj','possui_internet', v); }}
+                options={["Sim","Não"]}
+                className="mt-0"
+                triggerClassName="h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
+            <Field label="Operadora" value={pj.operadora_internet||''} onChange={(v)=>{ setPj({...pj, operadora_internet:v}); queueSave('pj','operadora_internet', v); }} className="w-full sm:w-48 sm:shrink-0" status={getFieldStatus('operadora_internet')} />
+            <Field label="Plano" value={pj.plano_internet||''} onChange={(v)=>{ setPj({...pj, plano_internet:v}); queueSave('pj','plano_internet', v); }} className="w-full sm:w-40 sm:shrink-0" status={getFieldStatus('plano_internet')} />
+            <Field label="Valor" value={pj.valor_internet||''} onChange={(v)=>{ const m = formatCurrencyBR(v); setPj({...pj, valor_internet:m}); queueSave('pj','valor_internet', m); }} className="w-full sm:w-40 sm:shrink-0" status={getFieldStatus('valor_internet')} />
           </div>
-          <Field label="Em nome de" value={pj.nome_comprovante||''} onChange={(v)=>{ setPj({...pj, nome_comprovante:v}); queueSave('pj','nome_comprovante', v); }} disabled={!reqComprov} requiredMark={reqComprov} status={getFieldStatus('nome_comprovante')} />
-          {/* Linha: Possui Internet | Operadora | Plano | Valor */}
-          <div className="field-inline">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Possui Internet</label>
-            <SimpleSelect
-              value={(pj.possui_internet as any) || ''}
-              onChange={(v)=>{ setPj({...pj, possui_internet:v}); queueSave('pj','possui_internet', v); }}
-              options={["Sim","Não"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="field-inline w-full sm:w-52 sm:shrink-0">
+              <label className="mb-1 block text-xs font-medium text-zinc-700">Contrato Social</label>
+              <SimpleSelect
+                value={(pj.contrato_social as any) || ''}
+                onChange={(v)=>{ setPj({...pj, contrato_social:v}); queueSave('pj','contrato_social', v); }}
+                options={["Sim","Não"]}
+                className="mt-0"
+                triggerClassName="h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
+            </div>
+            <Field label="OBS" value={pj.obs_contrato_social||''} onChange={(v)=>{ setPj({...pj, obs_contrato_social:v}); queueSave('pj','obs_contrato_social', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('obs_contrato_social')} />
           </div>
-          <Field label="Operadora" value={pj.operadora_internet||''} onChange={(v)=>{ setPj({...pj, operadora_internet:v}); queueSave('pj','operadora_internet', v); }} status={getFieldStatus('operadora_internet')} />
-          <Field label="Plano" value={pj.plano_internet||''} onChange={(v)=>{ setPj({...pj, plano_internet:v}); queueSave('pj','plano_internet', v); }} status={getFieldStatus('plano_internet')} />
-          <Field label="Valor" value={pj.valor_internet||''} onChange={(v)=>{ const m = formatCurrencyBR(v); setPj({...pj, valor_internet:m}); queueSave('pj','valor_internet', m); }} status={getFieldStatus('valor_internet')} />
-          <div className="field-inline sm:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Contrato Social</label>
-            <SimpleSelect
-              value={(pj.contrato_social as any) || ''}
-              onChange={(v)=>{ setPj({...pj, contrato_social:v}); queueSave('pj','contrato_social', v); }}
-              options={["Sim","Não"]}
-              className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-              contentClassName="rounded-lg shadow-lg border-0"
-            />
-          </div>
-          <Field label="Obs" value={pj.obs_contrato_social||''} onChange={(v)=>{ setPj({...pj, obs_contrato_social:v}); queueSave('pj','obs_contrato_social', v); }} status={getFieldStatus('obs_contrato_social')} />
         </div>
       {/* Seção 4: Sócios */}
       <TaskDrawer
@@ -951,69 +945,77 @@ export default function CadastroPJPage() {
       {/* Sócios */}
         <div>
           <p className="text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600 mb-1">Sócios</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Field label="" value={pj.socio1_nome||''} onChange={(v)=>{ setPj({...pj, socio1_nome:v}); queueSave('pj','socio1_nome', v); }} status={getFieldStatus('socio1_nome')} />
-            <Field label="" value={pj.socio1_cpf||''} onChange={(v)=>{ setPj({...pj, socio1_cpf:v}); queueSave('pj','socio1_cpf', v); }} status={getFieldStatus('socio1_cpf')} />
-            <Field label="" value={pj.socio1_telefone||''} onChange={(v)=>{ setPj({...pj, socio1_telefone:v}); queueSave('pj','socio1_telefone', v); }} status={getFieldStatus('socio1_telefone')} />
-            <Field label="" value={pj.socio2_nome||''} onChange={(v)=>{ setPj({...pj, socio2_nome:v}); queueSave('pj','socio2_nome', v); }} status={getFieldStatus('socio2_nome')} />
-            <Field label="" value={pj.socio2_cpf||''} onChange={(v)=>{ setPj({...pj, socio2_cpf:v}); queueSave('pj','socio2_cpf', v); }} status={getFieldStatus('socio2_cpf')} />
-            <Field label="" value={pj.socio2_telefone||''} onChange={(v)=>{ setPj({...pj, socio2_telefone:v}); queueSave('pj','socio2_telefone', v); }} status={getFieldStatus('socio2_telefone')} />
-            <Field label="" value={pj.socio3_nome||''} onChange={(v)=>{ setPj({...pj, socio3_nome:v}); queueSave('pj','socio3_nome', v); }} status={getFieldStatus('socio3_nome')} />
-            <Field label="" value={pj.socio3_cpf||''} onChange={(v)=>{ setPj({...pj, socio3_cpf:v}); queueSave('pj','socio3_cpf', v); }} status={getFieldStatus('socio3_cpf')} />
-            <Field label="" value={pj.socio3_telefone||''} onChange={(v)=>{ setPj({...pj, socio3_telefone:v}); queueSave('pj','socio3_telefone', v); }} status={getFieldStatus('socio3_telefone')} />
+          <div className="space-y-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Field label="" value={pj.socio1_nome||''} onChange={(v)=>{ setPj({...pj, socio1_nome:v}); queueSave('pj','socio1_nome', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('socio1_nome')} />
+              <Field label="" value={pj.socio1_cpf||''} onChange={(v)=>{ setPj({...pj, socio1_cpf:v}); queueSave('pj','socio1_cpf', v); }} className="w-full sm:w-52 sm:shrink-0" status={getFieldStatus('socio1_cpf')} />
+              <Field label="" value={pj.socio1_telefone||''} onChange={(v)=>{ setPj({...pj, socio1_telefone:v}); queueSave('pj','socio1_telefone', v); }} className="w-full sm:w-56 sm:shrink-0" status={getFieldStatus('socio1_telefone')} />
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Field label="" value={pj.socio2_nome||''} onChange={(v)=>{ setPj({...pj, socio2_nome:v}); queueSave('pj','socio2_nome', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('socio2_nome')} />
+              <Field label="" value={pj.socio2_cpf||''} onChange={(v)=>{ setPj({...pj, socio2_cpf:v}); queueSave('pj','socio2_cpf', v); }} className="w-full sm:w-52 sm:shrink-0" status={getFieldStatus('socio2_cpf')} />
+              <Field label="" value={pj.socio2_telefone||''} onChange={(v)=>{ setPj({...pj, socio2_telefone:v}); queueSave('pj','socio2_telefone', v); }} className="w-full sm:w-56 sm:shrink-0" status={getFieldStatus('socio2_telefone')} />
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Field label="" value={pj.socio3_nome||''} onChange={(v)=>{ setPj({...pj, socio3_nome:v}); queueSave('pj','socio3_nome', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('socio3_nome')} />
+              <Field label="" value={pj.socio3_cpf||''} onChange={(v)=>{ setPj({...pj, socio3_cpf:v}); queueSave('pj','socio3_cpf', v); }} className="w-full sm:w-52 sm:shrink-0" status={getFieldStatus('socio3_cpf')} />
+              <Field label="" value={pj.socio3_telefone||''} onChange={(v)=>{ setPj({...pj, socio3_telefone:v}); queueSave('pj','socio3_telefone', v); }} className="w-full sm:w-56 sm:shrink-0" status={getFieldStatus('socio3_telefone')} />
+            </div>
           </div>
         </div>
       {/* Seção 5: Solicitação */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Field label="Quem Solicitou" value={app.quem_solicitou||''} onChange={(v)=>{ setApp({...app, quem_solicitou:v}); queueSave('app','quem_solicitou', v); }} status={getFieldStatus('quem_solicitou')} />
-          <div className="field-inline">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Field label="Quem Solicitou" value={app.quem_solicitou||''} onChange={(v)=>{ setApp({...app, quem_solicitou:v}); queueSave('app','quem_solicitou', v); }} className="w-full sm:w-[250px] sm:shrink-0" status={getFieldStatus('quem_solicitou')} />
+          <div className="field-inline w-full sm:w-[190px] sm:shrink-0">
             <label className="mb-1 block text-xs font-medium text-zinc-700">Meio</label>
             <SimpleSelect
               value={app.meio||''}
               onChange={(v)=>{ setApp({...app, meio:v}); queueSave('app','meio', v); }}
               options={[...MEIO_UI]}
               className="mt-0"
-              triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+              triggerClassName="h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
               contentClassName="rounded-lg shadow-lg border-0"
             />
           </div>
-          <Field label="Tel" value={app.telefone_solicitante||''} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, telefone_solicitante:m}); queueSave('app','telefone_solicitante', m); }} status={getFieldStatus('telefone_solicitante')} />
+          <Field label="TEL" value={app.telefone_solicitante||''} onChange={(v)=>{ const m=maskPhone(v); setApp({...app, telefone_solicitante:m}); queueSave('app','telefone_solicitante', m); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('telefone_solicitante')} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* ── Bloco destacado: Plano / SVA / Vencimento / Data / Protocolo MK / Representante ── */}
-          <div className="pj-highlight-row sm:col-span-2 lg:col-span-4 space-y-2">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="field-inline">
-                <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Plano de Acesso</label>
+          <div className="pj-highlight-row sm:col-span-2 lg:col-span-4 grid grid-cols-1 gap-2">
+            <div className="flex items-center gap-2">
+              <label className="shrink-0 text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Plano de Acesso</label>
+              <div className="flex-1 min-w-0">
                 <SimpleSelect
                   value={app.plano_acesso||''}
                   onChange={(v)=>{ setApp({...app, plano_acesso:v}); queueSave('app','plano_acesso', v); }}
                   options={PLANO_OPTIONS as any}
                   className="mt-0"
-                  triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                  triggerClassName="h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
                   contentClassName="rounded-lg shadow-lg border-0"
                 />
               </div>
-              <div className="field-inline">
-                <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">SVA Avulso</label>
-                <SimpleSelect
-                  value={app.sva_avulso||''}
-                  onChange={(v)=>{ setApp({...app, sva_avulso:v}); queueSave('app','sva_avulso', v); }}
-                  options={SVA_OPTIONS as any}
-                  className="mt-0"
-                  triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
-                  contentClassName="rounded-lg shadow-lg border-0"
-                />
-              </div>
-              <div className="field-inline">
-                <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Vencimento</label>
+              <label className="shrink-0 text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Vencimento</label>
+              <div className="w-20 shrink-0">
                 <SimpleSelect
                   value={String(app.venc||'')}
                   onChange={(v)=>{ setApp({...app, venc:v}); queueSave('app','venc', v); }}
                   options={["5","10","15","20","25"]}
                   className="mt-0"
-                  triggerClassName="h-10 rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                  triggerClassName="h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
                   contentClassName="rounded-lg shadow-lg border-0"
                 />
               </div>
+            </div>
+            <div className="field-inline">
+              <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">SVA Avulso</label>
+              <SimpleSelect
+                value={app.sva_avulso||''}
+                onChange={(v)=>{ setApp({...app, sva_avulso:v}); queueSave('app','sva_avulso', v); }}
+                options={SVA_OPTIONS as any}
+                className="mt-0"
+                triggerClassName="h-10 w-full rounded-[7px] px-3 text-sm bg-zinc-50 border border-zinc-200 shadow-[0_5.447px_5.447px_rgba(0,0,0,0.25)] focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600"
+                contentClassName="rounded-lg shadow-lg border-0"
+              />
             </div>
             <div className="grid grid-cols-3 gap-2">
               <Field label="Data" value={app.created_at ? (()=>{ const d=new Date(app.created_at!); const dd=String(d.getDate()).padStart(2,'0'), mm=String(d.getMonth()+1).padStart(2,'0'), aa=String(d.getFullYear()).slice(-2), hh=String(d.getHours()).padStart(2,'0'), min=String(d.getMinutes()).padStart(2,'0'); return `${dd}/${mm}/${aa} ${hh}:${min}`; })()||"" : ""} onChange={()=>{}} disabled status="idle" />
@@ -1058,7 +1060,7 @@ export default function CadastroPJPage() {
         </div>
       {/* Seção 6: Informações Relevantes da Solicitação */}
         <div className="grid grid-cols-1 gap-4">
-          <Textarea label="Informações relevantes da solicitação" value={app.info_relevantes||''} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave('app','info_relevantes', v); }} status={getFieldStatus('info_relevantes')} />
+          <Textarea label="Informações relevantes da solicitação" value={app.info_relevantes||''} onChange={(v)=>{ setApp({...app, info_relevantes:v}); queueSave('app','info_relevantes', v); }} status={getFieldStatus('info_relevantes')} shrinkMin={2.5} />
         </div>
 
       {/* Seção 7: Consulta SPC/SERASA */}
@@ -1078,7 +1080,7 @@ export default function CadastroPJPage() {
       </Card>
 
       {(
-        <Card title="Parecer" noBorder red>
+        <Card title="Parecer da análise:" noBorder red>
           <div className="space-y-4">
             <div className="relative" ref={parecerContainerRef}>
               <UnifiedComposer
@@ -1223,7 +1225,7 @@ function Card({ title, children, noBorder, red }: { title: string; children: Rea
       {title && (
         <div className={noBorder ? "pb-[3px] mb-2" : "pj-card-header"}>
           <span
-            className={red ? "font-bold uppercase tracking-[0.06em] underline" : "text-[9px] font-bold uppercase tracking-widest text-zinc-700"}
+            className={red ? "pj-card-marker-title font-bold uppercase tracking-[0.06em] underline" : "text-[9px] font-bold uppercase tracking-widest text-zinc-700"}
             style={red ? { fontSize: '12px', color: '#dc2626' } : undefined}
           >{title}</span>
         </div>
@@ -1257,13 +1259,29 @@ function Field({ label, value, onChange, className, error, red, requiredMark, di
   );
 }
 
-function Textarea({ label, value, onChange, red, error, requiredMark, disabled, status }: { label: string; value: string; onChange: (v:string)=>void; red?: boolean; error?: boolean; requiredMark?: boolean; disabled?: boolean; status?: 'idle'|'pending'|'error' }) {
+function Textarea({ label, value, onChange, red, error, requiredMark, disabled, status, shrinkMin = 6 }: { label: string; value: string; onChange: (v:string)=>void; red?: boolean; error?: boolean; requiredMark?: boolean; disabled?: boolean; status?: 'idle'|'pending'|'error'; shrinkMin?: number }) {
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    const MAX_FONT = 13;
+    const STEP = 0.5;
+    el.style.fontSize = `${MAX_FONT}px`;
+    el.style.overflowY = 'hidden';
+    let size = MAX_FONT;
+    while (el.scrollHeight > el.clientHeight && size > shrinkMin) {
+      size = Math.max(shrinkMin, size - STEP);
+      el.style.fontSize = `${size}px`;
+    }
+    el.style.overflowY = el.scrollHeight > el.clientHeight ? 'auto' : 'hidden';
+  }, [value, shrinkMin]);
   return (
     <div>
       <div className="border-b border-zinc-500 mb-1 pb-0.5">
         <label className={`pj-section-title${red ? ' label-red' : ''}`}>{label}</label>
       </div>
       <textarea
+        ref={taRef}
         value={value}
         onChange={(e)=>{ if (disabled) return; onChange(e.target.value); }}
         onBlur={()=>{ try { window.dispatchEvent(new CustomEvent('mz-field-blur')); } catch {} }}

@@ -751,6 +751,7 @@ body {
   line-height: 1.3;
   padding: 18px 21px !important;
   box-shadow: none !important;
+  background: #ffffff !important;
 }
 
 /* Mobile: full width, looser padding */
@@ -776,8 +777,9 @@ body {
   min-height: 27px !important;
   padding: 0 7px !important;
   font-size: 13px !important;
-  border: 1px solid #a1a1aa !important;
-  border-radius: 3px !important;
+  border: none !important;
+  border-bottom: 2px solid #a1a1aa !important;
+  border-radius: 0 !important;
   background: #dbeafe !important;
   box-shadow: none !important;
   color: #18181b !important;
@@ -788,8 +790,9 @@ body {
   min-height: 27px !important;
   padding: 0 8px !important;
   font-size: 13px !important;
-  border: 1px solid #a1a1aa !important;
-  border-radius: 3px !important;
+  border: none !important;
+  border-bottom: 2px solid #a1a1aa !important;
+  border-radius: 0 !important;
   background: #dbeafe !important;
   box-shadow: none !important;
   color: #18181b !important;
@@ -804,6 +807,9 @@ body {
     min-height: 32px !important;
     font-size: 13px !important;
     padding: 0 8px !important;
+    border: none !important;
+    border-bottom: 2px solid #a1a1aa !important;
+    border-radius: 0 !important;
   }
 }
 
@@ -828,11 +834,12 @@ body {
 
 /* ── Textareas (sections) ── */
 .ficha-pj textarea {
-  min-height: 68px !important;
+  min-height: 150px !important;
   padding: 5px 8px !important;
   font-size: 13px !important;
-  border: 1px solid #a1a1aa !important;
-  border-radius: 3px !important;
+  border: none !important;
+  border-bottom: 2px solid #a1a1aa !important;
+  border-radius: 0 !important;
   background: #dbeafe !important;
   box-shadow: none !important;
 }
@@ -890,6 +897,9 @@ body {
   letter-spacing: 0.06em;
   text-decoration: underline;
   color: #18181b;
+  display: inline-block;
+  background: #fef08a;
+  padding: 0 4px;
 }
 
 /* ── Label e input vermelhos ── */
@@ -902,6 +912,12 @@ body {
   border-bottom: 2px solid #52525b;
   padding-bottom: 3px;
   margin-bottom: 8px;
+}
+
+.ficha-pj .pj-card-marker-title {
+  display: inline-block;
+  background: #fef08a;
+  padding: 0 4px;
 }
 
 /* ═══════════════════════════════════════════════════════════
