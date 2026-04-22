@@ -120,7 +120,7 @@ export function BasicInfoModal({
       const res = isPF ? await criarFichaPF(pf) : await criarFichaPJ(pj);
       setOk("Ficha criada com sucesso.");
       // Abre expanded em outra aba
-      const url = isPF ? `/cadastro/pf/${res.applicantId}` : `/cadastro/pj/${res.applicantId}`;
+      const url = isPF ? `/cadastro/pf/${res.applicantId}?standalone=1` : `/cadastro/pj/${res.applicantId}?standalone=1`;
       try {
         window.open(url, "_blank", "noopener,noreferrer");
       } catch {}

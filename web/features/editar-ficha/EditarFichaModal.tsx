@@ -609,7 +609,7 @@ export function EditarFichaModal({
   function openExpanded() {
     if (!applicantId) return;
     const isPJ = personType === 'PJ';
-    const url = isPJ ? `/cadastro/pj/${applicantId}?card=${cardId}&from=analisar` : `/cadastro/pf/${applicantId}?card=${cardId}&from=analisar`;
+    const url = isPJ ? `/cadastro/pj/${applicantId}?card=${cardId}&from=analisar&standalone=1` : `/cadastro/pf/${applicantId}?card=${cardId}&from=analisar&standalone=1`;
     try { window.open(url, '_blank', 'noopener,noreferrer'); } catch (e) {}
   }
 

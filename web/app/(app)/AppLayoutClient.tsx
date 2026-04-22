@@ -147,6 +147,7 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   const isCanvas = pathname.startsWith('/builder/canvas');
   const isExpandedCadastro = parts[0] === 'cadastro' && (parts[1] === 'pf' || parts[1] === 'pj') && parts.length >= 3;
   const exportMode = (search?.get('from') || '').toLowerCase() === 'export';
+  const standaloneMode = search?.get('standalone') === '1';
   const activePanel = (search?.get('panel') || '').toLowerCase();
   const isTasksPanel = FEATURES.minhasTarefas && activePanel === 'tarefas';
   const isInboxPanel = activePanel === 'inbox';
@@ -272,6 +273,20 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
           </div>
         </div>
       </main>
+      </SidebarProvider>
+    );
+  }
+
+  // Standalone mode: sem sidebar, sem breadcrumb — só ficha + zoom
+  if (standaloneMode && isExpandedCadastro) {
+    return (
+      <SidebarProvider open={false} setOpen={() => {}}>
+        <main className="w-full min-h-screen bg-[var(--neutro)] dark:bg-neutral-900 text-zinc-900 dark:text-zinc-100">
+          <div className="flex items-center justify-center border-b border-neutral-200 dark:border-neutral-700 py-2">
+            <div id="mz-zoom-controls" className="flex items-center gap-1" />
+          </div>
+          {children}
+        </main>
       </SidebarProvider>
     );
   }

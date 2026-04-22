@@ -36,12 +36,12 @@ async function selectOption(page: Page, label: string | RegExp, value: string) {
   await page.getByRole('option', { name: value, exact: true }).click();
 }
 
-async function expectDisabled(page: Page, label: string) {
+async function expectDisabled(page: Page, label: string | RegExp) {
   const input = page.getByLabel(label);
   await expect(input).toBeDisabled();
 }
 
-async function expectEnabled(page: Page, label: string) {
+async function expectEnabled(page: Page, label: string | RegExp) {
   const input = page.getByLabel(label);
   await expect(input).toBeEnabled();
 }
@@ -59,19 +59,19 @@ test.beforeEach(async ({ page }) => {
 test('PF-01 · dados pessoais — preenche campos básicos', async ({ page }) => {
   await fill(page, /nome do cliente/i,    'Maria Teste da Silva');
   await fill(page, /^cpf$/i,              '123.456.789-09');
-  await fill(page, /data de nascimento/i, '15/06/1990');
-  await fill(page, /^idade$/i,            '34');
-  await fill(page, /naturalidade/i,       'São Paulo');
+  await fill(page, /^nasc$/i,             '15/06/1990');
+  await fill(page, /^id$/i,               '34');
+  await fill(page, /^natural$/i,          'São Paulo');
   await fill(page, /^uf$/i,              'SP');
   await fill(page, /e-mail/i,            'maria@teste.com');
 
   await expect(page.getByLabel(/nome do cliente/i)).toHaveValue('Maria Teste da Silva');
   await expect(page.getByLabel(/^cpf$/i)).toHaveValue('123.456.789-09');
-  await expect(page.getByLabel(/^idade$/i)).toHaveValue('34');
+  await expect(page.getByLabel(/^id$/i)).toHaveValue('34');
 });
 
 test('PF-02 · dados pessoais — campo Idade rejeita mais de 2 caracteres', async ({ page }) => {
-  const input = page.getByLabel(/^idade$/i);
+  const input = page.getByLabel(/^id$/i);
   await input.fill('999');
   const val = await input.inputValue();
   expect(val.length).toBeLessThanOrEqual(2);
@@ -80,13 +80,13 @@ test('PF-02 · dados pessoais — campo Idade rejeita mais de 2 caracteres', asy
 // ─── SEÇÃO 2: Contatos ────────────────────────────────────────────────────────
 
 test('PF-03 · telefone — máscara aplicada ao digitar', async ({ page }) => {
-  await fill(page, /^telefone$/i, '11987654321');
-  await expect(page.getByLabel(/^telefone$/i)).toHaveValue('(11) 98765-4321');
+  await fill(page, /^tel$/i, '11987654321');
+  await expect(page.getByLabel(/^tel$/i)).toHaveValue('(11) 98765-4321');
 });
 
 test('PF-04 · whatsapp — máscara aplicada ao digitar', async ({ page }) => {
-  await fill(page, /whatsapp/i, '11912345678');
-  await expect(page.getByLabel(/whatsapp/i)).toHaveValue('(11) 91234-5678');
+  await fill(page, /^whats$/i, '11912345678');
+  await expect(page.getByLabel(/^whats$/i)).toHaveValue('(11) 91234-5678');
 });
 
 // ─── SEÇÃO 3: Endereço ────────────────────────────────────────────────────────
@@ -121,11 +121,11 @@ test('PF-07 · moradia "Outros" → "Própria" mantém Observações preenchidas
 test('PF-08 · moradia "Alugada" — habilita Nome Locador e Telefone Locador', async ({ page }) => {
   await selectOption(page, /tipo de moradia/i, 'Alugada');
   await expectEnabled(page, /nome locador/i);
-  await expectEnabled(page, /telefone locador/i);
+  await expectEnabled(page, /tel\.?\s*locador/i);
 
   await fill(page, /nome locador/i,     'João Locador');
-  await fill(page, /telefone locador/i, '11998877665');
-  await expect(page.getByLabel(/telefone locador/i)).toHaveValue('(11) 99887-7665');
+  await fill(page, /tel\.?\s*locador/i, '11998877665');
+  await expect(page.getByLabel(/tel\.?\s*locador/i)).toHaveValue('(11) 99887-7665');
 });
 
 test('PF-09 · moradia "Alugada" → mudar para "Cedida" — limpa e bloqueia Locador', async ({ page }) => {
@@ -134,9 +134,9 @@ test('PF-09 · moradia "Alugada" → mudar para "Cedida" — limpa e bloqueia Lo
 
   await selectOption(page, /tipo de moradia/i, 'Cedida');
   await expectDisabled(page, /nome locador/i);
-  await expectDisabled(page, /telefone locador/i);
+  await expectDisabled(page, /tel\.?\s*locador/i);
   await expect(page.getByLabel(/nome locador/i)).toHaveValue('');
-  await expect(page.getByLabel(/telefone locador/i)).toHaveValue('');
+  await expect(page.getByLabel(/tel\.?\s*locador/i)).toHaveValue('');
 });
 
 // ─── SEÇÃO 5: Residência — Única no Lote ────────────────────────────────────

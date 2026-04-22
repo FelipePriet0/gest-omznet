@@ -593,8 +593,8 @@ function DetailsModal({ data, onClose }: { data: any; onClose: () => void }) {
     const digits = String(app?.cpf_cnpj || '').replace(/\D/g, '');
     const personType = (app as any)?.person_type || (digits.length > 11 ? 'pj' : 'pf');
     const url = personType === 'pj'
-      ? `/cadastro/pj/${applicantId}?card=${card.id}&from=historico`
-      : `/cadastro/pf/${applicantId}?card=${card.id}&from=historico`;
+      ? `/cadastro/pj/${applicantId}?card=${card.id}&from=historico&standalone=1`
+      : `/cadastro/pf/${applicantId}?card=${card.id}&from=historico&standalone=1`;
     window.open(url, '_blank');
   }
 

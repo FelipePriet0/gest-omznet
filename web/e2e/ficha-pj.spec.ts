@@ -35,11 +35,11 @@ async function selectOption(page: Page, label: string | RegExp, value: string) {
   await page.getByRole('option', { name: value, exact: true }).click();
 }
 
-async function expectDisabled(page: Page, label: string) {
+async function expectDisabled(page: Page, label: string | RegExp) {
   await expect(page.getByLabel(label)).toBeDisabled();
 }
 
-async function expectEnabled(page: Page, label: string) {
+async function expectEnabled(page: Page, label: string | RegExp) {
   await expect(page.getByLabel(label)).toBeEnabled();
 }
 
@@ -77,13 +77,13 @@ test('PJ-03 · data de abertura — máscara aplicada', async ({ page }) => {
 // ─── SEÇÃO 2: Contatos ────────────────────────────────────────────────────────
 
 test('PJ-04 · telefone — máscara aplicada', async ({ page }) => {
-  await fill(page, /^telefone$/i, '11987654321');
-  await expect(page.getByLabel(/^telefone$/i)).toHaveValue('(11) 98765-4321');
+  await fill(page, /^tel$/i, '11987654321');
+  await expect(page.getByLabel(/^tel$/i)).toHaveValue('(11) 98765-4321');
 });
 
 test('PJ-05 · whatsapp — máscara aplicada', async ({ page }) => {
-  await fill(page, /whatsapp/i, '11912345678');
-  await expect(page.getByLabel(/whatsapp/i)).toHaveValue('(11) 91234-5678');
+  await fill(page, /^whats$/i, '11912345678');
+  await expect(page.getByLabel(/^whats$/i)).toHaveValue('(11) 91234-5678');
 });
 
 test('PJ-06 · e-mail — preenche livremente', async ({ page }) => {
