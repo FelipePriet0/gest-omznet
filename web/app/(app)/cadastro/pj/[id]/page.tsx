@@ -789,9 +789,9 @@ export default function CadastroPJPage() {
             <Field label="CNPJ" value={app.cpf_cnpj||''} onChange={(v)=>{ const m = formatCnpj(v); setApp({...app, cpf_cnpj:m}); queueSave('app','cpf_cnpj',m); }} inputMode="numeric" maxLength={18} className="w-full sm:w-56 sm:shrink-0" status={getFieldStatus('cpf_cnpj')} />
             <Field label="ABERTURA" value={pj.data_abertura||''} onChange={(v)=>{ const m=formatDateBR(v); setPj({...pj, data_abertura:m}); queueSave('pj','data_abertura', m); }} inputMode="numeric" maxLength={10} className="w-full sm:w-44 sm:shrink-0" status={getFieldStatus('data_abertura')} />
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Field label="Nome Fantasia" value={pj.nome_fantasia||''} onChange={(v)=>{ setPj({...pj, nome_fantasia:v}); queueSave('pj','nome_fantasia', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('nome_fantasia')} />
-            <Field label="Nome de Fachada" value={pj.nome_fachada||''} onChange={(v)=>{ setPj({...pj, nome_fachada:v}); queueSave('pj','nome_fachada', v); }} className="w-full sm:flex-1 sm:min-w-0" status={getFieldStatus('nome_fachada')} />
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <Field label="Nome Fantasia" value={pj.nome_fantasia||''} onChange={(v)=>{ setPj({...pj, nome_fantasia:v}); queueSave('pj','nome_fantasia', v); }} className="min-w-0" status={getFieldStatus('nome_fantasia')} />
+            <Field label="Nome de Fachada" value={pj.nome_fachada||''} onChange={(v)=>{ setPj({...pj, nome_fachada:v}); queueSave('pj','nome_fachada', v); }} className="min-w-0" status={getFieldStatus('nome_fachada')} />
           </div>
           <Field label="Área de Atuação" value={pj.area_atuacao||''} onChange={(v)=>{ setPj({...pj, area_atuacao:v}); queueSave('pj','area_atuacao', v); }} className="w-full" status={getFieldStatus('area_atuacao')} />
         </div>
@@ -1024,38 +1024,40 @@ export default function CadastroPJPage() {
             </div>
           </div>
           {/* Agendamento: Instalação agendada para + Horário */}
-          <div className="field-inline">
-            <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Instalação agendada para</label>
-            <DateSingleKanbanPopover
-              value={dueAt}
-              onChange={(v) => {
-                setDueAt(v || '');
-                if (cardIdEff) {
-                  const dueAtIso = v ? new Date(v + 'T12:00:00').toISOString() : null;
-                  supabase.from('kanban_cards').update({ due_at: dueAtIso }).eq('id', cardIdEff).then(() => {});
-                }
-              }}
-              disablePast
-              triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
-            />
-          </div>
-          <div className="field-inline">
-            <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Horário</label>
-            <TimeMultiSelect
-              label=""
-              times={TIME_SLOTS}
-              value={horaAt}
-              onApply={(v) => {
-                setHoraAt(v);
-                if (cardIdEff) {
-                  const horaAtDb = v.length > 0 ? v.map((s) => s + ':00') : null;
-                  supabase.from('kanban_cards').update({ hora_at: horaAtDb }).eq('id', cardIdEff).then(() => {});
-                }
-              }}
-              allowedPairs={[["08:30", "10:30"], ["13:30", "15:30"]]}
-              triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
-              date={dueAt}
-            />
+          <div className="sm:col-span-2 lg:col-span-4 flex items-center gap-2 min-w-0">
+            <label className="shrink-0 text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Agendada</label>
+            <div className="flex-1 min-w-0">
+              <DateSingleKanbanPopover
+                value={dueAt}
+                onChange={(v) => {
+                  setDueAt(v || '');
+                  if (cardIdEff) {
+                    const dueAtIso = v ? new Date(v + 'T12:00:00').toISOString() : null;
+                    supabase.from('kanban_cards').update({ due_at: dueAtIso }).eq('id', cardIdEff).then(() => {});
+                  }
+                }}
+                disablePast
+                triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
+              />
+            </div>
+            <label className="shrink-0 text-[9px] font-bold uppercase tracking-wide leading-none text-zinc-600">Horário</label>
+            <div className="flex-1 min-w-0">
+              <TimeMultiSelect
+                label=""
+                times={TIME_SLOTS}
+                value={horaAt}
+                onApply={(v) => {
+                  setHoraAt(v);
+                  if (cardIdEff) {
+                    const horaAtDb = v.length > 0 ? v.map((s) => s + ':00') : null;
+                    supabase.from('kanban_cards').update({ hora_at: horaAtDb }).eq('id', cardIdEff).then(() => {});
+                  }
+                }}
+                allowedPairs={[["08:30", "10:30"], ["13:30", "15:30"]]}
+                triggerClassName="h-[21px] w-full rounded-[2px] border border-zinc-400 bg-blue-100 px-1 text-[10px] text-zinc-900 outline-none focus:border-zinc-600"
+                date={dueAt}
+              />
+            </div>
           </div>
         </div>
       {/* Seção 6: Informações Relevantes da Solicitação */}
