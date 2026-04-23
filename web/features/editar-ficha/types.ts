@@ -13,6 +13,7 @@ export type AppModel = {
   venc?: string | number | null;
   carne_impresso?: boolean;
   sva_avulso?: string;
+  created_at?: string;
 };
 
 export type Opt = string | { label: string; value: string; disabled?: boolean };
