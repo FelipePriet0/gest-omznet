@@ -1575,7 +1575,6 @@ function Textarea({ label, value, onChange, red, error, className, requiredMark,
       rows={compact ? 1 : undefined}
       className={`${compact ? 'pf-textarea-compact overflow-hidden' : 'py-1'} w-full rounded-[2px] border ${error || red ? 'border-red-300 bg-red-50' : requiredMark && !disabled ? 'border-emerald-500 bg-emerald-50 placeholder:text-emerald-600 placeholder:font-semibold' : 'border-zinc-300 bg-blue-100'} px-1.5 text-[10px] outline-none ${red ? 'text-red-700' : 'text-zinc-900'} resize-none`}
       placeholder={requiredMark && !disabled ? "Obrigatório" : ""}
-      placeholder=""
     />
   );
   return (
