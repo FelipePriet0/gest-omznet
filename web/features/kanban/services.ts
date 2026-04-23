@@ -102,7 +102,7 @@ export async function listCards(
       if (area === 'comercial') {
         q = q.in('created_by', responsavelIds);
       } else {
-        q = q.in('assignee_id', responsavelIds);
+        q = q.or(`created_by.in.(${responsavelIds.join(',')}),assignee_id.in.(${responsavelIds.join(',')})`);
       }
     }
   }

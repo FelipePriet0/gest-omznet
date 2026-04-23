@@ -59,10 +59,12 @@ async function validateCommentId(cardId: string, commentId: string): Promise<boo
 export async function uploadAttachmentBatch({
   cardId,
   commentId,
+  noteId,
   files,
 }: {
   cardId: string;
   commentId?: string | null;
+  noteId?: string | null;
   files: Array<{ file: File; displayName?: string }>;
 }): Promise<Array<{ name: string; path: string }>> {
   if (!cardId) throw new Error("cardId é obrigatório para anexar arquivos.");
@@ -96,13 +98,27 @@ export async function uploadAttachmentBatch({
       throw new Error(msg.includes("row-level security") ? "Sem permissão para enviar anexos (políticas do Storage)." : msg);
     }
 
+    const authorMeta = await (async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        const uid = auth.user?.id ?? null;
+        if (!uid) return { author_id: null, author_name: null, author_role: null };
+        const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single();
+        return {
+          author_id: uid,
+          author_name: (prof as any)?.full_name ?? null,
+          author_role: (prof as any)?.role ?? null,
+        };
+      } catch { return { author_id: null, author_name: null, author_role: null }; }
+    })();
+
     const { error: metaError } = await supabase
       .from(TABLE_CARD_ATTACHMENTS)
       .insert({
         card_id: cardId,
         comment_id: commentId ?? null,
-        // preenche somente author_id (colunas author_name/author_role podem não existir no schema)
-        author_id: (await (async () => { try { const { data: auth } = await supabase.auth.getUser(); return auth.user?.id ?? null; } catch { return null; } })()),
+        note_id: noteId ?? null,
+        ...authorMeta,
         file_name: displayName || file.name,
         file_path: path,
         file_size: file.size,

@@ -93,7 +93,7 @@ export function FilterCTA({
   const [commandInput, setCommandInput] = React.useState("");
   const commandInputRef = React.useRef<HTMLInputElement>(null);
   const [filters, setFilters] = React.useState<Filter[]>([]);
-  const [, setResponsavelOptions] = React.useState<FilterOption[]>(
+  const [responsavelOptions, setResponsavelOptions] = React.useState<FilterOption[]>(
     filterViewToFilterOptions[FilterType.RESPONSAVEL]
   );
   const [calendarOpen, setCalendarOpen] = React.useState(false);
@@ -172,10 +172,8 @@ export function FilterCTA({
     let mounted = true;
 
     async function loadResponsaveis() {
-      const areaRole = area === "analise" ? "analista" : "vendedor";
-
       try {
-        const cacheKey = `responsavel-options-${areaRole}`;
+        const cacheKey = `responsavel-options-all`;
         const cached = sessionStorage.getItem(cacheKey);
         if (cached) {
           try {
@@ -196,7 +194,7 @@ export function FilterCTA({
         const { data, error } = await supabase
           .from(TABLE_PROFILES)
           .select("id, full_name, role")
-          .eq("role", areaRole)
+          .in("role", ["vendedor", "analista", "gestor"])
           .order("full_name");
 
         if (error) throw error;
@@ -229,7 +227,7 @@ export function FilterCTA({
     return () => {
       mounted = false;
     };
-  }, [area, pathname]);
+  }, [pathname]);
 
   // Inicializa a UI a partir da URL (?hora, ?prazo, ?prazo_fim)
   React.useEffect(() => {
@@ -362,74 +360,44 @@ export function FilterCTA({
     [setFilters]
   );
 
-  const handleApplySearch = React.useCallback(() => {
-    const trimmed = searchDraft.trim();
-    setFilters((prev) => {
-      const index = prev.findIndex((f) => f.type === FilterType.BUSCAR);
-      if (!trimmed) {
-        if (index === -1) return prev;
-        const clone = [...prev];
-        clone.splice(index, 1);
-        return clone;
-      }
-      if (index === -1) {
-        return [
-          ...prev,
-          {
-            id: "buscar",
-            type: FilterType.BUSCAR,
-            operator: FilterOperator.INCLUDE,
-            value: [trimmed],
-          },
-        ];
-      }
-      const clone = [...prev];
-      clone[index] = {
-        ...clone[index],
-        operator: FilterOperator.INCLUDE,
-        value: [trimmed],
-      };
-      return clone;
-    });
-    setSearchDraft(trimmed);
-    setSelectedView(null);
-    setCommandInput("");
-    setOpen(false);
-  }, [searchDraft, setFilters, setSelectedView, setCommandInput, setOpen]);
 
-  const handleClearSearch = React.useCallback(() => {
-    setSearchDraft("");
-    setFilters((prev) => prev.filter((f) => f.type !== FilterType.BUSCAR));
-    requestAnimationFrame(() => {
-      searchInputRef.current?.focus();
-    });
-  }, [setFilters]);
+  // Busca em tempo real: aplica o filtro enquanto o usuário digita (debounce 350ms)
+  const searchDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      const trimmed = searchDraft.trim();
+      setFilters((prev) => {
+        const index = prev.findIndex((f) => f.type === FilterType.BUSCAR);
+        if (!trimmed) {
+          if (index === -1) return prev;
+          const clone = [...prev];
+          clone.splice(index, 1);
+          return clone;
+        }
+        if (index === -1) {
+          return [...prev, { id: "buscar", type: FilterType.BUSCAR, operator: FilterOperator.INCLUDE, value: [trimmed] }];
+        }
+        const clone = [...prev];
+        clone[index] = { ...clone[index], operator: FilterOperator.INCLUDE, value: [trimmed] };
+        return clone;
+      });
+    }, 350);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchDraft]);
 
   // Aplica efeitos dos filtros na URL (igual ao FilterBar antigo)
   React.useEffect(() => {
     const params = new URLSearchParams(searchParamsStr);
 
-    // Hora
     const horaFilter = filters.find((f) => f.type === FilterType.HORARIO);
     const hora = horaFilter?.value?.[0];
-    if (hora) {
-      params.set("hora", hora);
-    } else {
-      params.delete("hora");
-    }
+    params.delete("hora");
 
-    // Prazo (dia único ou intervalo)
-    if (prazoStartValue) {
-      params.set("prazo", prazoStartValue);
-    } else {
-      params.delete("prazo");
-    }
-
-    if (prazoEndValue) {
-      params.set("prazo_fim", prazoEndValue);
-    } else {
-      params.delete("prazo_fim");
-    }
+    params.delete("prazo");
+    params.delete("prazo_fim");
 
     const responsavelFilter = filters.find(
       (f) => f.type === FilterType.RESPONSAVEL
@@ -440,11 +408,7 @@ export function FilterCTA({
 
     const searchTerm = searchFilter?.value?.[0]?.trim();
 
-    if (responsavelIds.length > 0) {
-      params.set("responsavel", responsavelIds.join(","));
-    } else {
-      params.delete("responsavel");
-    }
+    params.delete("responsavel");
 
     onFiltersChange?.({
       responsaveis: responsavelIds,
@@ -456,12 +420,8 @@ export function FilterCTA({
       searchTerm: searchTerm && searchTerm.length > 0 ? searchTerm : undefined,
     });
 
-    if (myMentions) params.set('minhas_mencoes','1'); else params.delete('minhas_mencoes');
-    if (searchTerm && searchTerm.length > 0) {
-      params.set("busca", searchTerm);
-    } else {
-      params.delete("busca");
-    }
+    params.delete('minhas_mencoes');
+    params.delete("busca");
 
     const qs = params.toString();
     const nextUrl = qs ? `${pathname}?${qs}` : pathname;
@@ -476,7 +436,7 @@ export function FilterCTA({
 
   return (
     <div className="flex gap-2 flex-wrap items-center">
-      <Filters filters={filters} setFilters={setFilters} />
+      <Filters filters={filters} setFilters={setFilters} options={{ responsavel: responsavelOptions }} />
       {myMentions && (
         <div
           className="inline-flex h-9 items-center gap-2 rounded-none px-3 text-white shadow-sm text-xs"
@@ -560,7 +520,7 @@ export function FilterCTA({
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
-                        handleApplySearch();
+                        setOpen(false);
                       }
                       if (event.key === "Escape") {
                         event.preventDefault();
@@ -569,21 +529,6 @@ export function FilterCTA({
                     }}
                     ref={searchInputRef}
                   />
-                </div>
-                <div className="flex justify-end gap-2">
-                  {(searchDraft.trim().length > 0 || searchFilter?.value?.[0]) && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleClearSearch}
-                    >
-                      Limpar
-                    </Button>
-                  )}
-                  <Button type="button" size="sm" onClick={handleApplySearch}>
-                    Aplicar
-                  </Button>
                 </div>
               </div>
             ) : (

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback, Fragment } from "react";
 import Image from "next/image";
 import clsx from "clsx";
-import { User as UserIcon, MoreHorizontal, X } from "lucide-react";
+import { User as UserIcon, MoreHorizontal, X, Paperclip } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { FEATURES } from "@/lib/features";
 import { Conversation } from "@/features/comments/Conversation";
@@ -12,6 +12,7 @@ import { TaskCard } from "@/features/tasks/TaskCard";
 import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
 import { changeStage } from "@/features/kanban/services";
 import Attach from "@/features/attachments/upload";
+import { listAttachments, type CardAttachment } from "@/features/attachments/services";
 import { DateSingleKanbanPopover } from "@/components/ui/date-single-kanban-popover";
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
@@ -129,6 +130,9 @@ export function EditarFichaModal({
   const [tasks, setTasks] = useState<CardTask[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa'; inPlace?: boolean } | null>(null);
+  const parecerAttachInputRef = useRef<HTMLInputElement | null>(null);
+  const [parecerPendingFiles, setParecerPendingFiles] = useState<File[]>([]);
+  const [cardAttachments, setCardAttachments] = useState<CardAttachment[]>([]);
   const { role: currentUserRole } = useUserRole();
   const isVendor = (currentUserRole ?? "").toLowerCase() === "vendedor";
   const canWriteParecer = !isVendor;
@@ -258,6 +262,14 @@ export function EditarFichaModal({
     try {
       const list = await listTasks(cardId);
       setTasks(list);
+    } catch (e) {}
+  }, [cardId]);
+
+  const refreshAttachments = useCallback(async () => {
+    if (!cardId) return;
+    try {
+      const list = await listAttachments(cardId);
+      setCardAttachments(list);
     } catch (e) {}
   }, [cardId]);
 
@@ -436,6 +448,12 @@ export function EditarFichaModal({
   useEffect(() => {
     if (optimisticNotes.length > 0) setOptimisticNotes([]);
   }, [data.pareceres]);
+
+  // Carrega anexos ao abrir e ao mudar de card
+  useEffect(() => {
+    if (!open || !cardId) return;
+    refreshAttachments();
+  }, [open, cardId, refreshAttachments]);
   // Inicializa dados ao abrir com snapshot fresco do backend; evita resetar inputs enquanto o modal estiver aberto
   useEffect(() => {
     if (!open || bootRef.current) return;
@@ -842,7 +860,7 @@ export function EditarFichaModal({
                     ref={composerRef}
                     className="composer-root--blue"
                     disabled={!canWriteParecer}
-                    placeholder="Escreva um novo parecer… Use @ para mencionar"
+                    placeholder="Escreva um novo parecer… Use @ para mencionar, / para comandos"
                     ariaLabel="Escrever parecer"
                     richText
                     
@@ -909,17 +927,38 @@ export function EditarFichaModal({
                       try { await deleteDraft(`parecer:${cardId}:self`); } catch (e) {}
                       setCmdOpenParecer(false);
                       // KISS: sem locks; exibimos otimista e aguardamos refresh
+                      const filesToUpload = parecerPendingFiles.slice();
+                      if (filesToUpload.length > 0) setParecerPendingFiles([]);
                       try {
-                        const { error } = await addParecer({ cardId, text: payloadText, parentId: null, decision: val.decision ?? null });
+                        const { data: noteData, error } = await addParecer({ cardId, text: payloadText, parentId: null, decision: val.decision ?? null });
                         if (error) {
                           // Reverter otimista
                           setOptimisticNotes((prev) => (prev || []).filter((n: any) => n.id !== tempNote.id));
                           setNovoParecer(val);
+                          if (filesToUpload.length > 0) setParecerPendingFiles(filesToUpload);
                           requestAnimationFrame(() => composerRef.current?.setValue(val));
                           alert(error.message || 'Falha ao adicionar parecer');
                           return;
                         }
+                        // Upload anexos do parecer vinculados ao note_id
+                        if (filesToUpload.length > 0) {
+                          const notes = ((noteData as any)?.reanalysis_notes || []) as any[];
+                          const newNote = [...notes].reverse().find((n: any) => !n.parent_id && !n.deleted);
+                          const noteId: string | null = newNote?.id ?? null;
+                          if (noteId) {
+                            try {
+                              await Attach.uploadAttachmentBatch({
+                                cardId,
+                                noteId,
+                                files: filesToUpload.map((f) => ({ file: f })),
+                              });
+                            } catch (uploadErr: any) {
+                              console.error('Falha ao enviar anexos do parecer', uploadErr);
+                            }
+                          }
+                        }
                         await refreshCardSnapshot();
+                        await refreshAttachments();
                         if (val.decision === 'aprovado' || val.decision === 'negado') {
                           await syncDecisionStatus(val.decision);
                         } else if (val.decision === 'reanalise') {
@@ -929,6 +968,7 @@ export function EditarFichaModal({
                         // Reverter otimista
                         setOptimisticNotes((prev) => (prev || []).filter((n: any) => n.id !== tempNote.id));
                         setNovoParecer(val);
+                        if (filesToUpload.length > 0) setParecerPendingFiles(filesToUpload);
                         requestAnimationFrame(() => composerRef.current?.setValue(val));
                         alert(err?.message || 'Falha ao adicionar parecer');
                       }
@@ -965,11 +1005,22 @@ export function EditarFichaModal({
                           { key:'aprovado', label:'Aprovado' },
                           { key:'negado', label:'Negado' },
                           { key:'reanalise', label:'Reanálise' },
+                          { key:'tarefa', label:'Tarefa' },
+                          { key:'anexo', label:'Anexo' },
                         ].filter(i=> i.key.includes(cmdQueryParecer))}
                         onPick={async (key)=>{
                           setCmdOpenParecer(false); setCmdQueryParecer('');
                           if (key==='aprovado' || key==='negado' || key==='reanalise') {
                             composerRef.current?.setDecision(key as any);
+                            return;
+                          }
+                          if (key==='tarefa') {
+                            setTaskOpen({ open: true, parentId: null, source: 'parecer' });
+                            return;
+                          }
+                          if (key==='anexo') {
+                            parecerAttachInputRef.current?.click();
+                            return;
                           }
                         }}
                         initialQuery={cmdQueryParecer}
@@ -978,9 +1029,46 @@ export function EditarFichaModal({
                   )}
                 </div>
 
+                {/* Arquivos pendentes para o novo parecer (selecionados via /anexo) */}
+                {canWriteParecer && parecerPendingFiles.length > 0 && (
+                  <div className="mb-2 flex items-center gap-2 flex-wrap">
+                    {parecerPendingFiles.map((f, i) => (
+                      <span key={i} className="flex items-center gap-1 text-xs bg-blue-50 border border-blue-200 rounded px-2 py-0.5 max-w-[180px]">
+                        <Paperclip className="w-3 h-3 text-blue-400 shrink-0" />
+                        <span className="truncate">{f.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setParecerPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                          className="ml-0.5 text-zinc-400 hover:text-red-500"
+                          aria-label={`Remover ${f.name}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <input
+                  ref={parecerAttachInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  accept={Attach.ATTACHMENT_ALLOWED_TYPES.join(",")}
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    e.target.value = "";
+                    const tooBig = files.find((f) => f.size > Attach.ATTACHMENT_MAX_SIZE);
+                    if (tooBig) { alert(`"${tooBig.name}" excede ${(Attach.ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`); return; }
+                    const invalid = files.find((f) => f.type && !Attach.ATTACHMENT_ALLOWED_TYPES.includes(f.type));
+                    if (invalid) { alert(`Tipo "${invalid.type || invalid.name}" não permitido.`); return; }
+                    setParecerPendingFiles((prev) => [...prev, ...files]);
+                  }}
+                />
+
                 <PareceresList
                   cardId={cardId}
                   notes={[...((data.pareceres as any[]) || []), ...optimisticNotes] as any}
+                  attachments={cardAttachments}
                   profiles={profiles}
                   tasks={tasks}
                   applicantName={app?.primary_name ?? null}
@@ -989,19 +1077,24 @@ export function EditarFichaModal({
                   onReply={async (pid, value) => {
                     const text = (value.text || '').trim();
                     const hasDecision = !!value.decision;
-                    if (!hasDecision && !text) return;
+                    if (!hasDecision && !text) return null;
                     const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
-                    const { error } = await addParecer({ cardId, text: payloadText, parentId: pid, decision: value.decision ?? null });
+                    const { data: noteData, error } = await addParecer({ cardId, text: payloadText, parentId: pid, decision: value.decision ?? null });
                     if (error) {
                       alert(error.message || "Falha ao adicionar parecer");
-                      return;
+                      return null;
                     }
+                    const notes = ((noteData as any)?.reanalysis_notes || []) as any[];
+                    const newNote = [...notes].reverse().find((n: any) => n.parent_id === pid && !n.deleted);
+                    const noteId: string | null = newNote?.id ?? null;
                     await refreshCardSnapshot();
+                    await refreshAttachments();
                     if (value.decision === 'aprovado' || value.decision === 'negado') {
                       await syncDecisionStatus(value.decision);
                     } else if (value.decision === 'reanalise') {
                       await syncDecisionStatus('reanalise');
                     }
+                    return noteId;
                   }}
                   onEdit={async (id, value) => {
                     const text = (value.text || '').trim();

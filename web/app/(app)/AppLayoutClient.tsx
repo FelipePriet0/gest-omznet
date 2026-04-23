@@ -6,7 +6,6 @@ import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarHeader, SidebarCo
 import { Columns3, ListTodo, Clock, CalendarDays, Wrench, FileDown } from "lucide-react";
 import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
-import Breadcrumbs from "@/components/app/Breadcrumbs";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { FEATURES } from "@/lib/features";
@@ -322,7 +321,6 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
                   <div className={`mb-2 ${isExpandedCadastro ? 'grid grid-cols-3 px-6' : 'flex justify-between'} items-center gap-3`}>
                     <div className="flex items-center gap-2 min-w-0">
                       <SidebarTrigger className="hidden md:inline-flex" />
-                      <Breadcrumbs />
                     </div>
                     {isExpandedCadastro && (
                       <div className="flex items-center justify-center">

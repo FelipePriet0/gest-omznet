@@ -1176,6 +1176,7 @@ export default function CadastroPJPage() {
               )}
             </div>
 
+            <div className="portrait-pareceres-scroll">
             <PareceresList
               cardId={cardIdEff}
               notes={pareceres as any}
@@ -1213,6 +1214,7 @@ export default function CadastroPJPage() {
               onDecisionChange={syncDecisionStatus}
               onPinnedChange={(active, h)=> setPinnedSpace(active ? h : 0)}
             />
+            </div>
           </div>
         </Card>
       )}

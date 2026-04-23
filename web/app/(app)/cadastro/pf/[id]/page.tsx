@@ -1396,6 +1396,7 @@ export default function CadastroPFPage() {
                 </div>
               )}
             </div>
+            <div className="portrait-pareceres-scroll">
             <PareceresList
               cardId={cardIdEff}
               notes={pareceres as any}
@@ -1440,6 +1441,7 @@ export default function CadastroPFPage() {
               onDecisionChange={currentUserRole === 'vendedor' ? undefined : syncDecisionStatus}
               onPinnedChange={(active, h)=> { try { (window as any).mzPinnedSpacePF = active ? h : 0; } catch {}; setPinnedSpace(active ? h : 0); }}
             />
+            </div>
           </div>
         </Card>
       )}
