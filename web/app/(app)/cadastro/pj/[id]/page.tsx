@@ -71,6 +71,8 @@ type AppModel = {
   info_pesquisador?: string;
   info_relevantes?: string;
   info_mk?: string;
+  created_at?: string;
+  representante_mz?: string;
 };
 
 type PjModel = {
