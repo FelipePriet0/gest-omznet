@@ -1,25 +1,30 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
+import { renderToStream } from "@react-pdf/renderer";
+import React from "react";
+import { fetchFichaPF, fetchFichaPJ } from "@/lib/pdf/fetchFichaData";
+import { FichaPfPdf } from "@/lib/pdf/FichaPfPdf";
+import { FichaPjPdf } from "@/lib/pdf/FichaPjPdf";
 
-export const runtime = "nodejs"; // require Node.js runtime for future headless rendering
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 30;
 
 function sanitizeFilename(input: string): string {
   return (input || "ficha").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 120) || "ficha";
 }
 
-/** Extrai o access_token da sessão Supabase via cookie ou Authorization header. */
-async function requireAuth(req: NextRequest): Promise<{ error: Response } | { error: null }> {
+async function requireAuth(req: NextRequest): Promise<
+  | { error: Response; token?: never; user?: never }
+  | { error: null; token: string; user: object }
+> {
   let accessToken: string | null = null;
 
-  // 1) Authorization: Bearer <token>
   const authHeader = req.headers.get("authorization") ?? "";
   if (authHeader.startsWith("Bearer ")) {
     accessToken = authHeader.slice(7).trim();
   }
 
-  // 2) Cookie sb-*-auth-token (supabase-js v2 armazena JSON com access_token)
   if (!accessToken) {
     const cookieHeader = req.headers.get("cookie") ?? "";
     for (const pair of cookieHeader.split(";")) {
@@ -32,7 +37,7 @@ async function requireAuth(req: NextRequest): Promise<{ error: Response } | { er
           const parsed = JSON.parse(decodeURIComponent(value));
           accessToken = parsed?.access_token ?? null;
         } catch {
-          // cookie corrompido — ignora
+          // cookie corrompido
         }
         break;
       }
@@ -40,186 +45,99 @@ async function requireAuth(req: NextRequest): Promise<{ error: Response } | { er
   }
 
   if (!accessToken) {
-    return { error: new Response(JSON.stringify({ error: "Não autorizado" }), { status: 401, headers: { "content-type": "application/json" } }) };
+    return {
+      error: new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      }),
+    };
   }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
   );
-  const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(accessToken);
   if (error || !user) {
-    return { error: new Response(JSON.stringify({ error: "Sessão inválida" }), { status: 401, headers: { "content-type": "application/json" } }) };
+    return {
+      error: new Response(JSON.stringify({ error: "Sessão inválida" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      }),
+    };
   }
 
-  return { error: null };
+  return { error: null, token: accessToken, user };
 }
 
-export async function GET(req: NextRequest, ctx: { params: Promise<{ tipo: string; id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ tipo: string; id: string }> }
+) {
   const auth = await requireAuth(req);
   if (auth.error) return auth.error;
 
-  const { tipo, id } = (await ctx.params) || ({} as any);
+  const { tipo, id } = await ctx.params;
   const t = String(tipo || "").toLowerCase();
   if (t !== "pf" && t !== "pj") {
-    return new Response(JSON.stringify({ error: "tipo inválido; use 'pf' ou 'pj'" }), { status: 400 });
-  }
-  if (!id) return new Response(JSON.stringify({ error: "id ausente" }), { status: 400 });
-
-  // Build absolute URL to the Expanded page (PF/PJ)
-  const url = new URL(req.nextUrl);
-  const origin = `${url.protocol}//${url.host}`;
-  const target = `${origin}/cadastro/${t}/${id}?print=1&from=export`;
-
-
-  const preferPlaywright = !process.env.VERCEL && process.platform === 'win32';
-
-  // Prefer Playwright on local Windows (dev) for smoother DX
-  if (preferPlaywright) try {
-    // @ts-ignore
-    const { chromium } = await import("playwright");
-    const browser = await (chromium as any).launch({ headless: true });
-    try {
-      const page = await browser.newPage();
-      const cookie = req.headers.get('cookie') || '';
-      await page.goto(target, { waitUntil: "networkidle" });
-      await page.waitForSelector("#mz-print-root", { timeout: 30_000 });
-      await (page as any).emulateMedia({ media: 'screen' });
-      const metrics = await page.evaluate(() => {
-        const el = document.getElementById('mz-print-root');
-        const pxPerInch = 96;
-        const pxHeight = el ? Math.max(el.scrollHeight, el.offsetHeight) : document.body.scrollHeight;
-        const pxWidth = el ? Math.max(el.scrollWidth, el.offsetWidth) : document.body.scrollWidth;
-        const mmPerPx = 25.4 / pxPerInch;
-        return { heightMM: Math.ceil(pxHeight * mmPerPx), widthMM: Math.ceil(pxWidth * mmPerPx) };
-      });
-      const widthMM = Math.max(210, metrics.widthMM);
-      const pdf = await page.pdf({
-        printBackground: true,
-        width: `${widthMM}mm`,
-        height: `${metrics.heightMM}mm`,
-        margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
-      });
-      const displayName = await page.$eval('#mz-print-root', (el: Element) => (el.getAttribute('data-name')||'').toString());
-      const base = displayName ? `Ficha-${t.toUpperCase()}-${displayName}-${id}.pdf` : `Ficha-${t.toUpperCase()}-${id}.pdf`;
-      const fileName = sanitizeFilename(base);
-      return new Response(pdf, { status: 200, headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="${fileName}"`, "cache-control": "no-store" } });
-    } finally { try { await browser.close(); } catch {} }
-  } catch {}
-
-  // Try Puppeteer Core + @sparticuz/chromium (serverless-friendly)
-
-  try {
-    // Dynamic imports so build doesn't fail when packages are not installed in some envs
-    // @ts-ignore
-    const chromium = await import("@sparticuz/chromium");
-    // @ts-ignore
-    const puppeteer = await import("puppeteer-core");
-
-    const executablePath = await (chromium as any).executablePath();
-    const browser = await (puppeteer as any).launch({
-      args: (chromium as any).args,
-      defaultViewport: (chromium as any).defaultViewport,
-      executablePath,
-      headless: true,
+    return new Response(JSON.stringify({ error: "tipo inválido; use 'pf' ou 'pj'" }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
     });
-    try {
-      const page = await browser.newPage();
-      const cookie = req.headers.get('cookie') || '';
-      if (cookie) await page.setExtraHTTPHeaders({ Cookie: cookie });
-      await page.goto(target, { waitUntil: "networkidle0", timeout: 90_000 });
-      // Ensure body ready
-      await page.waitForSelector("#mz-print-root", { timeout: 30_000 });
-      await page.emulateMediaType('screen');
-      // Measure content to generate single-page PDF height
-      const metrics = await page.evaluate(() => {
-        const el = document.getElementById('mz-print-root');
-        const pxPerInch = 96; // CSS reference pixel
-        const pxHeight = el ? Math.max(el.scrollHeight, el.offsetHeight) : document.body.scrollHeight;
-        const pxWidth = el ? Math.max(el.scrollWidth, el.offsetWidth) : document.body.scrollWidth;
-        const mmPerPx = 25.4 / pxPerInch;
-        return {
-          heightMM: Math.ceil(pxHeight * mmPerPx),
-          widthMM: Math.ceil(pxWidth * mmPerPx),
-        };
-      });
-      const widthMM = Math.max(210, metrics.widthMM);
-      const pdf = await page.pdf({
-        printBackground: true,
-        width: `${widthMM}mm`,
-        height: `${metrics.heightMM}mm`,
-        margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
-      });
-      const displayName = await page.$eval('#mz-print-root', (el: Element) => (el.getAttribute('data-name')||'').toString());
-      const base = displayName ? `Ficha-${t.toUpperCase()}-${displayName}-${id}.pdf` : `Ficha-${t.toUpperCase()}-${id}.pdf`;
-      const fileName = sanitizeFilename(base);
-      return new Response(pdf, {
-        status: 200,
-        headers: {
-          "content-type": "application/pdf",
-          "content-disposition": `attachment; filename="${fileName}"`,
-          "cache-control": "no-store",
-        },
-      });
-    } finally {
-      try { await browser.close(); } catch {}
-    }
-  } catch {}
+  }
+  if (!id) {
+    return new Response(JSON.stringify({ error: "id ausente" }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
-  // Fallback: try Playwright if available
   try {
-    // @ts-ignore
-    const { chromium } = await import("playwright");
-    const browser = await (chromium as any).launch({ headless: true });
-    try {
-      const page = await browser.newPage();
-      await page.goto(target, { waitUntil: "networkidle" });
-      await page.waitForSelector("#mz-print-root", { timeout: 30_000 });
-      await (page as any).emulateMedia({ media: 'screen' });
-      const metrics = await page.evaluate(() => {
-        const el = document.getElementById('mz-print-root');
-        const pxPerInch = 96;
-        const pxHeight = el ? Math.max(el.scrollHeight, el.offsetHeight) : document.body.scrollHeight;
-        const pxWidth = el ? Math.max(el.scrollWidth, el.offsetWidth) : document.body.scrollWidth;
-        const mmPerPx = 25.4 / pxPerInch;
-        return {
-          heightMM: Math.ceil(pxHeight * mmPerPx),
-          widthMM: Math.ceil(pxWidth * mmPerPx),
-        };
-      });
-      const widthMM = Math.max(210, metrics.widthMM);
-      const pdf = await page.pdf({
-        printBackground: true,
-        width: `${widthMM}mm`,
-        height: `${metrics.heightMM}mm`,
-        margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
-      });
-      const displayName = await page.$eval('#mz-print-root', (el: Element) => (el.getAttribute('data-name')||'').toString());
-      const base = displayName ? `Ficha-${t.toUpperCase()}-${displayName}-${id}.pdf` : `Ficha-${t.toUpperCase()}-${id}.pdf`;
-      const fileName = sanitizeFilename(base);
-      return new Response(pdf, {
-        status: 200,
-        headers: {
-          "content-type": "application/pdf",
-          "content-disposition": `attachment; filename="${fileName}"`,
-          "cache-control": "no-store",
-        },
-      });
-    } finally {
-      try { await browser.close(); } catch {}
-    }
-  } catch {}
+    let pdfStream: NodeJS.ReadableStream;
+    let displayName = "";
 
-  // Nothing available: explain how to enable
-  const hint = {
-    message: "Exportação direta para PDF não está habilitada neste ambiente.",
-    install:
-      "Instale 'puppeteer-core' + '@sparticuz/chromium' (serverless) ou 'playwright' (servidor com Chromium).",
-    steps: [
-      "npm i puppeteer-core @sparticuz/chromium  --save (ou npm i -D playwright)",
-      "Verifique se o runtime do Next está em Node.js (export const runtime = 'nodejs')",
-    ],
-    try_url: target,
-  };
-  return new Response(JSON.stringify(hint), { status: 501, headers: { "content-type": "application/json" } });
+    if (t === "pf") {
+      const { app, pf, notes } = await fetchFichaPF(id, auth.token);
+      displayName = app.primary_name || "";
+      const element = React.createElement(FichaPfPdf, { app, pf, notes });
+      pdfStream = await renderToStream(element as any);
+    } else {
+      const { app, pj, notes } = await fetchFichaPJ(id, auth.token);
+      displayName = app.primary_name || "";
+      const element = React.createElement(FichaPjPdf, { app, pj, notes });
+      pdfStream = await renderToStream(element as any);
+    }
+
+    const base = displayName
+      ? `Ficha-${t.toUpperCase()}-${displayName}-${id}.pdf`
+      : `Ficha-${t.toUpperCase()}-${id}.pdf`;
+    const fileName = sanitizeFilename(base);
+
+    // Converte o stream legível em ReadableStream do Web
+    const webStream = new ReadableStream({
+      start(controller) {
+        (pdfStream as any).on("data", (chunk: Buffer) => controller.enqueue(chunk));
+        (pdfStream as any).on("end", () => controller.close());
+        (pdfStream as any).on("error", (err: Error) => controller.error(err));
+      },
+    });
+
+    return new Response(webStream, {
+      status: 200,
+      headers: {
+        "content-type": "application/pdf",
+        "content-disposition": `attachment; filename="${fileName}"`,
+        "cache-control": "no-store",
+      },
+    });
+  } catch (err) {
+    console.error("[export-pdf] erro ao gerar PDF:", err);
+    return new Response(
+      JSON.stringify({ error: "Falha ao gerar PDF", detail: String(err) }),
+      { status: 500, headers: { "content-type": "application/json" } }
+    );
+  }
 }

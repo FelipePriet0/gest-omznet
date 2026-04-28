@@ -79,7 +79,7 @@ export function DateSingleKanbanPopover({ label, labelClassName, value, onChange
             type="button"
             disabled={disabled}
             className={cn(
-              "mt-1 flex w-full items-center justify-between border border-zinc-300 bg-white text-left text-sm text-zinc-900 shadow-sm outline-none transition dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100",
+              "mt-1 flex w-full items-center justify-between border border-zinc-300 bg-white text-left text-sm text-zinc-900 outline-none transition dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100",
               "focus-visible:border-emerald-600 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20",
               disabled && "cursor-not-allowed opacity-60",
               triggerClassName || "h-12 rounded-lg px-5 py-3"

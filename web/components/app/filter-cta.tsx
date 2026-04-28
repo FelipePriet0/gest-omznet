@@ -549,7 +549,7 @@ export function FilterCTA({
                   {selectedView ? (
                     <>
                       <CommandItem
-                        className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                        className="group flex gap-3 items-center px-2 py-2 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
                         value="voltar"
                         onSelect={() => {
                           setSelectedView(null);
@@ -566,7 +566,7 @@ export function FilterCTA({
                             const storedValue = filter.value ?? filter.name;
                             return (
                               <CommandItem
-                                className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                                className="group flex gap-3 items-center px-2 py-2 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
                                 key={storedValue}
                                 value={filter.name}
                                 onSelect={() => {
@@ -635,7 +635,7 @@ export function FilterCTA({
                           .filter((filter: FilterOption) => filter.name !== FilterType.PRAZO)
                           .map((filter: FilterOption) => (
                             <CommandItem
-                              className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                              className="group flex gap-3 items-center px-2 py-2 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
                               key={filter.name}
                               value={filter.name}
                               onSelect={(currentValue) => {
@@ -660,7 +660,7 @@ export function FilterCTA({
                       </CommandGroup>
                       <CommandItem
                         value="minhas-mencoes"
-                        className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                        className="group flex gap-3 items-center px-2 py-2 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
                         onSelect={() => setMyMentions((v) => !v)}
                       >
                         <AtSign className={cn("size-4 shrink-0", myMentions ? "text-emerald-600" : "text-muted-foreground")} />
@@ -670,7 +670,7 @@ export function FilterCTA({
                       </CommandItem>
                       <CommandItem
                         value="toggle-calendar"
-                        className="group flex gap-3 items-center px-2 py-2 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
+                        className="group flex gap-3 items-center px-2 py-2 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 transition-all duração-150 cursor-pointer rounded-sm mx-1 command-item"
                         onSelect={() => setCalendarOpen((prev) => !prev)}
                       >
                         <Calendar className="size-4 shrink-0 text-muted-foreground" />

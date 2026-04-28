@@ -10,5 +10,5 @@ export const FEATURES = {
   /** Item "Minhas Tarefas" no sidebar + painel lateral */
   minhasTarefas: false,
   /** Botão de exportar/baixar ficha PDF nas fichas PF/PJ */
-  exportarFicha: false,
+  exportarFicha: true,
 } as const;

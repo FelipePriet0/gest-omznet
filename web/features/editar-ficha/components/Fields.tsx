@@ -76,8 +76,8 @@ export function Select({ label, value, onChange, options, triggerClassName, cont
         onChange={(v) => onChange(v)}
         options={options}
         placeholder=""
-        triggerClassName={`h-10 rounded-[2px] px-3 text-sm bg-blue-100 border border-zinc-400 focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 ${triggerClassName ?? ""}`}
-        contentClassName={contentClassName}
+        triggerClassName={`h-10 rounded-[2px] px-3 text-sm bg-blue-100 border border-zinc-400 shadow-none focus-visible:ring-[3px] focus-visible:ring-emerald-600/20 focus-visible:border-emerald-600 ${triggerClassName ?? ""}`}
+        contentClassName={`shadow-none ${contentClassName ?? ""}`}
         triggerStyle={triggerStyle}
         contentStyle={contentStyle}
       />

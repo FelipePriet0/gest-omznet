@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus, FileCheck, XCircle, CheckCircle, Clock } from "lucide-react";
 import { useState as useModalState } from "react";
@@ -64,9 +64,6 @@ function KanbanPageInner() {
   const [openPersonType, setOpenPersonType] = useModalState(false);
   const [openBasicInfo, setOpenBasicInfo] = useModalState(false);
   const [tipoSel, setTipoSel] = useModalState<PessoaTipo | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-  const bottomInnerRef = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -120,52 +117,6 @@ function KanbanPageInner() {
     [cardsSnapshot],
   );
 
-  useEffect(() => {
-    const main = document.querySelector(
-      '[data-kanban-hscroll="comercial"]',
-    ) as HTMLDivElement | null;
-    const content = document.querySelector(
-      '[data-kanban-content="comercial"]',
-    ) as HTMLDivElement | null;
-    const proxy = bottomRef.current;
-    const proxyInner = bottomInnerRef.current;
-    if (!main || !content || !proxy || !proxyInner) return;
-
-    const resizeObserver = new ResizeObserver(() => {
-      try {
-        proxyInner.style.width = `${content.scrollWidth}px`;
-      } catch {}
-    });
-    resizeObserver.observe(content);
-
-    let syncing: "main" | "proxy" | null = null;
-    const onMain = () => {
-      if (syncing === "proxy") return;
-      syncing = "main";
-      proxy.scrollLeft = main.scrollLeft;
-      syncing = null;
-    };
-    const onProxy = () => {
-      if (syncing === "main") return;
-      syncing = "proxy";
-      main.scrollLeft = proxy.scrollLeft;
-      syncing = null;
-    };
-
-    main.addEventListener("scroll", onMain, { passive: true });
-    proxy.addEventListener("scroll", onProxy, { passive: true });
-    try {
-      proxyInner.style.width = `${content.scrollWidth}px`;
-    } catch {}
-    proxy.scrollLeft = main.scrollLeft;
-    return () => {
-      try {
-        resizeObserver.disconnect();
-      } catch {}
-      main.removeEventListener("scroll", onMain);
-      proxy.removeEventListener("scroll", onProxy);
-    };
-  }, [cardsSnapshot]);
 
   if (loading) {
     return <div className="text-sm text-zinc-600">Carregando…</div>;
@@ -173,7 +124,7 @@ function KanbanPageInner() {
 
   return (
     <div id="kanban-page-root" className="flex min-h-0 flex-1 flex-col">
-      <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overscroll-contain">
+      <div className="flex min-h-0 flex-1 flex-col overscroll-contain">
         <div className="border-b border-white/40 bg-[var(--neutro)] px-3 pb-4 pt-3 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <FilterCTA area="comercial" onFiltersChange={handleFiltersChange} />
@@ -233,15 +184,6 @@ function KanbanPageInner() {
             onCardsChange={setCardsSnapshot}
             onCardModalClose={handleCardModalClose}
           />
-        </div>
-      </div>
-
-      <div
-        className="fixed bottom-0 left-0 right-0 z-40 bg-[var(--neutro)]/90"
-        style={{ height: 14 }}
-      >
-        <div ref={bottomRef} className="h-full overflow-x-auto overflow-y-hidden">
-          <div ref={bottomInnerRef} style={{ height: 1 }} />
         </div>
       </div>
 

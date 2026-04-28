@@ -187,7 +187,7 @@ function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial', stage:
         onDragCancel={() => setActiveId(null)}
         onDragEnd={(event)=> { setActiveId(null); handleDragEnd(event); }}
       >
-        <div ref={hScrollRef} data-kanban-hscroll="comercial" className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hide-h-scrollbar">
+        <div ref={hScrollRef} data-kanban-hscroll="comercial" className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div ref={contentRef} data-kanban-content="comercial" className="flex items-start gap-6 min-h-[200px] w-max pr-6 pb-4">
             {columnConfig.map((column) => (
               <KanbanColumn
