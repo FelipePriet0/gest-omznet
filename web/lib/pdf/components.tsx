@@ -306,7 +306,7 @@ export function PdfRow({ children }: { children: React.ReactNode }) {
 
 /** Card com header opcional (borda inferior escura) */
 export function PdfCard({
-  title, red, children,
+  title, red, noBorder, children,
 }: {
   title?: string; red?: boolean; noBorder?: boolean; children: React.ReactNode;
 }) {
