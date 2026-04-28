@@ -20,6 +20,7 @@ import { DateNavigator } from "./components/DateNavigator";
 import { Legend } from "./components/Legend";
 import { TIME_SLOTS } from "./mock";
 import { supabase } from "@/lib/supabaseClient";
+import { FEATURES } from "@/lib/features";
 import {
   fetchAgendaTechnicians,
   fetchAgendaCardsByDate,
@@ -448,13 +449,15 @@ export function AgendaPage() {
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={() => exportAgendaCSV(dateISO, filteredCards, technicians)}
-              className="h-9 shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-            >
-              Exportar CSV
-            </button>
+            {FEATURES.exportarCsv && (
+              <button
+                type="button"
+                onClick={() => exportAgendaCSV(dateISO, filteredCards, technicians)}
+                className="h-9 shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                Exportar CSV
+              </button>
+            )}
 
             <DateNavigator
               dateISO={dateISO}

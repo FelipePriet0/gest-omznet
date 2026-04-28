@@ -13,6 +13,7 @@ import type { PessoaTipo } from "@/features/cadastro/types";
 import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
 import { listMyMentionCardIds } from "@/features/inbox/services";
 import { KanbanCard } from "@/features/kanban/types";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export default function KanbanPageClient() {
   const searchKey = useSearchParams().toString();
@@ -64,6 +65,7 @@ function KanbanPageInner() {
   const [openPersonType, setOpenPersonType] = useModalState(false);
   const [openBasicInfo, setOpenBasicInfo] = useModalState(false);
   const [tipoSel, setTipoSel] = useModalState<PessoaTipo | null>(null);
+  const { isLeitor } = useUserRole();
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -128,18 +130,20 @@ function KanbanPageInner() {
         <div className="border-b border-white/40 bg-[var(--neutro)] px-3 pb-4 pt-3 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <FilterCTA area="comercial" onFiltersChange={handleFiltersChange} />
-            <Button
-              onClick={() => setOpenPersonType(true)}
-              className="h-9 shrink-0 bg-emerald-600 text-sm text-white hover:bg-emerald-700"
-              style={{
-                paddingLeft: "18px",
-                paddingRight: "18px",
-                borderRadius: "10px",
-              }}
-            >
-              <Plus className="mr-2 size-6" />
-              Nova ficha
-            </Button>
+            {!isLeitor && (
+              <Button
+                onClick={() => setOpenPersonType(true)}
+                className="h-9 shrink-0 bg-emerald-600 text-sm text-white hover:bg-emerald-700"
+                style={{
+                  paddingLeft: "18px",
+                  paddingRight: "18px",
+                  borderRadius: "10px",
+                }}
+              >
+                <Plus className="mr-2 size-6" />
+                Nova ficha
+              </Button>
+            )}
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-4 md:gap-6">
             <DashboardCard
@@ -183,6 +187,7 @@ function KanbanPageInner() {
             allowedCardIds={mentionCardIds ?? undefined}
             onCardsChange={setCardsSnapshot}
             onCardModalClose={handleCardModalClose}
+            readOnly={isLeitor}
           />
         </div>
       </div>

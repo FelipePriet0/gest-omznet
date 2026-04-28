@@ -33,6 +33,7 @@ export function KanbanBoardAnalise({
   searchTerm,
   onCardsChange,
   onCardModalClose,
+  readOnly = false,
 }: {
   hora?: string;
   dateStart?: string;
@@ -42,6 +43,7 @@ export function KanbanBoardAnalise({
   searchTerm?: string;
   onCardsChange?: (cards: KanbanCard[]) => void;
   onCardModalClose?: () => void;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [cards, setCards] = useState<KanbanCard[]>([]);
@@ -139,13 +141,14 @@ export function KanbanBoardAnalise({
 
   // Arquivamento automático em cliente (fallback enquanto não houver job no banco)
   useEffect(() => {
+    if (readOnly) return;
     const ttl = Number(process.env.NEXT_PUBLIC_FINALIZADOS_TTL_SEC || 60);
     const ttlSec = Number.isFinite(ttl) && ttl > 0 ? Math.floor(ttl) : 60;
     const id = setInterval(() => {
       void autoArchiveFinalizados(ttlSec).then(() => reload());
     }, 20000);
     return () => clearInterval(id);
-  }, [reload]);
+  }, [reload, readOnly]);
 
   useEffect(() => {
     const channelKey = `kanban-analise-${hora || "_"}-${dateStart || "_"}-${dateEnd || "_"}-${responsavelIds.join("|") || "_"}-${searchTerm || "_"}`;
@@ -221,6 +224,7 @@ export function KanbanBoardAnalise({
   }, [openCardId, cards]);
 
   async function handleDragEnd(event: any) {
+    if (readOnly) return;
     const { active, over } = event;
     if (!over) return;
     const cardId = active.id as string;
@@ -241,6 +245,7 @@ export function KanbanBoardAnalise({
   }
 
   async function handleIngressar(card: KanbanCard) {
+    if (readOnly) return;
     try {
       await changeStage(
         card.id,
@@ -256,6 +261,7 @@ export function KanbanBoardAnalise({
   }
 
   function extraForRecebidos(c: KanbanCard) {
+    if (readOnly) return undefined;
     return (
       <div className="mt-3">
         <button
@@ -276,6 +282,7 @@ export function KanbanBoardAnalise({
   }
 
   function extraForFinalizados(c: KanbanCard) {
+    if (readOnly) return undefined;
     const ttl = Number(process.env.NEXT_PUBLIC_FINALIZADOS_TTL_SEC || 60);
     const ttlSec = Number.isFinite(ttl) && ttl > 0 ? Math.floor(ttl) : 60;
     const finalizedAtMs = c.finalizedAt ? Date.parse(c.finalizedAt) : NaN;
@@ -305,7 +312,10 @@ export function KanbanBoardAnalise({
       <DndContext
         sensors={sensors}
         autoScroll
-        onDragStart={({ active }) => setActiveId(String(active.id))}
+        onDragStart={({ active }) => {
+          if (readOnly) return;
+          setActiveId(String(active.id));
+        }}
         onDragCancel={() => setActiveId(null)}
         onDragEnd={(event)=> { setActiveId(null); handleDragEnd(event); }}
       >
@@ -322,7 +332,10 @@ export function KanbanBoardAnalise({
               cards={(grouped[c.key as keyof typeof grouped] || []).map((card) => ({
                 ...card,
                 onOpen: () => setEdit({ cardId: card.id, applicantId: card.applicantId }),
-                onMenu: () => setMove({ id: card.id, area: 'analise', stage: card.stage ?? null }),
+                onMenu: () => {
+                  if (readOnly) return;
+                  setMove({ id: card.id, area: 'analise', stage: card.stage ?? null });
+                },
                 extraAction:
                   c.key === "recebidos"
                     ? extraForRecebidos(card)
@@ -330,6 +343,7 @@ export function KanbanBoardAnalise({
                     ? extraForFinalizados(card)
                     : undefined,
               }))}
+              readOnly={readOnly}
             />
           ))}
           </div>
@@ -360,22 +374,26 @@ export function KanbanBoardAnalise({
           ) : null}
         </DragOverlay>
       </DndContext>
-      <MoveModal
-        open={!!move}
-        onClose={() => setMove(null)}
-        cardId={move?.id || ""}
-        presetArea={move?.area}
-        currentStage={move?.stage}
-        currentUserId={currentUserId}
-        onMoved={reload}
-      />
-      <CancelModal
-        open={!!cancel}
-        onClose={() => setCancel(null)}
-        cardId={cancel?.id || ""}
-        area="analise"
-        onCancelled={reload}
-      />
+      {!readOnly && (
+        <MoveModal
+          open={!!move}
+          onClose={() => setMove(null)}
+          cardId={move?.id || ""}
+          presetArea={move?.area}
+          currentStage={move?.stage}
+          currentUserId={currentUserId}
+          onMoved={reload}
+        />
+      )}
+      {!readOnly && (
+        <CancelModal
+          open={!!cancel}
+          onClose={() => setCancel(null)}
+          cardId={cancel?.id || ""}
+          area="analise"
+          onCancelled={reload}
+        />
+      )}
       
       <EditarFichaModal
         open={!!edit}

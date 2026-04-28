@@ -25,6 +25,8 @@ import { listRoutes, type Route } from "@/features/builder/services";
 import { DateSingleKanbanPopover } from "@/components/ui/date-single-kanban-popover";
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { TIME_SLOTS } from "@/features/agenda/mock";
+import { useUserRole } from "@/hooks/useUserRole";
+import { FEATURES } from "@/lib/features";
 //
 
 function digitsOnly(value: string) {
@@ -240,6 +242,7 @@ export default function CadastroPJPage() {
   const [pareceres, setPareceres] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { isLeitor } = useUserRole();
   const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
@@ -302,6 +305,7 @@ export default function CadastroPJPage() {
   const getFieldStatus = useCallback((key: string) => fieldStatus.current[key] || 'idle', []);
 
   function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa' }) {
+    if (isLeitor) return;
     attachmentContextRef.current = context ?? null;
     if (attachmentInputRef.current) {
       attachmentInputRef.current.value = "";
@@ -310,6 +314,7 @@ export default function CadastroPJPage() {
   }
 
   async function processAttachmentSelection(files: File[]) {
+    if (isLeitor) return;
     if (!cardIdEff || files.length === 0) return;
     const context = attachmentContextRef.current;
     attachmentContextRef.current = null;
@@ -385,6 +390,7 @@ export default function CadastroPJPage() {
   }
 
   async function handleAttachmentInputChange(event: ChangeEvent<HTMLInputElement>) {
+    if (isLeitor) return;
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     await processAttachmentSelection(files);
@@ -414,7 +420,7 @@ export default function CadastroPJPage() {
     }
     window.addEventListener("mz-open-attach", handleOpenAttach);
     return () => window.removeEventListener("mz-open-attach", handleOpenAttach);
-  }, []);
+  }, [isLeitor]);
 
   async function refreshReanalysisNotes(cardId: string) {
     if (!cardId) return;
@@ -429,6 +435,7 @@ export default function CadastroPJPage() {
   }
 
   async function syncDecisionStatus(decision: ComposerDecision | null) {
+    if (isLeitor) return;
     if (!cardIdEff) return;
     try {
       if (decision === null) {
@@ -444,6 +451,7 @@ export default function CadastroPJPage() {
   }
 
   async function handleSubmitParecer(value: ComposerValue) {
+    if (isLeitor) return;
     const text = (value.text || '').trim();
     const hasDecision = !!value.decision;
     if (!cardIdEff) return;
@@ -683,6 +691,11 @@ export default function CadastroPJPage() {
   }
 
   async function flushAutosave() {
+    if (isLeitor) {
+      pendingApp.current = {};
+      pendingPj.current = {};
+      return;
+    }
     if (!applicantId) return;
     const appPayload = pendingApp.current; const pjPayload = pendingPj.current;
     pendingApp.current = {}; pendingPj.current = {};
@@ -718,6 +731,7 @@ export default function CadastroPJPage() {
   }
 
   function queueSave(scope:'app'|'pj', key:string, value:any) {
+    if (isLeitor) return;
     if (scope==='app') { pendingApp.current = { ...pendingApp.current, [key]: value }; dirtyAppFields.current.add(key as keyof AppModel); }
     else { pendingPj.current = { ...pendingPj.current, [key]: value }; dirtyPjFields.current.add(key as keyof PjModel); }
     markFieldStatus(key, 'pending');
@@ -777,7 +791,7 @@ export default function CadastroPJPage() {
           data-tipo="pj"
           data-id={applicantId}
           data-name={app.primary_name || ''}
-          className="pj-form ficha-pj px-3 py-6 expanded-portrait"
+          className={`pj-form ficha-pj px-3 py-6 expanded-portrait ${isLeitor ? "pointer-events-none opacity-85" : ""}`}
         >
           {statusText && (
             <div className="mb-4 text-sm font-medium" style={{ color: 'var(--verde-primario)' }}>{statusText}</div>
@@ -1114,7 +1128,7 @@ export default function CadastroPJPage() {
                   return false;
                 }}
                 onChange={(val)=> { setNovoParecer(val); try { setParecerDraft({ text: val.text ?? '', decision: val.decision ?? null }); } catch {} }}
-                onSubmit={handleSubmitParecer}
+                onSubmit={isLeitor ? undefined : handleSubmitParecer}
                 onCancel={()=> {
                   setCmdOpenParecer(false);
                   setMentionOpenParecer(false);
@@ -1151,7 +1165,7 @@ export default function CadastroPJPage() {
                   />
                 </div>
               )}
-              {cmdOpenParecer && (
+              {cmdOpenParecer && !isLeitor && (
                 <div className="absolute z-50 left-0 bottom-full mb-2">
                   <CmdDropdown
                     items={[
@@ -1181,7 +1195,9 @@ export default function CadastroPJPage() {
               cardId={cardIdEff}
               notes={pareceres as any}
               profiles={profiles}
+              canWrite={!isLeitor}
               onReply={async (pid, value) => {
+                if (isLeitor) return;
                 const text = (value.text || '').trim();
                 const hasDecision = !!value.decision;
                 if (!hasDecision && !text) return;
@@ -1195,6 +1211,7 @@ export default function CadastroPJPage() {
                 await refreshReanalysisNotes(cardIdEff);
               }}
               onEdit={async (id, value) => {
+                if (isLeitor) return;
                 const text = (value.text || '').trim();
                 const hasDecision = !!value.decision;
                 if (!hasDecision && !text) return;
@@ -1208,6 +1225,7 @@ export default function CadastroPJPage() {
                 await refreshReanalysisNotes(cardIdEff);
               }}
               onDelete={async (id) => {
+                if (isLeitor) return;
                 await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id });
                 await refreshReanalysisNotes(cardIdEff);
               }}
@@ -1429,7 +1447,7 @@ function buildTree(notes: Note[]): Note[] {
   return roots as any;
 }
 
-function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onDecisionChange, onPinnedChange }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; onReply: (parentId:string, value: ComposerValue)=>Promise<any>; onEdit: (id:string, value: ComposerValue)=>Promise<any>; onDelete: (id:string)=>Promise<any>; onDecisionChange: (decision: ComposerDecision | null)=>Promise<void>; onPinnedChange?: (active:boolean, height:number)=>void }) {
+function PareceresList({ cardId, notes, profiles, canWrite = true, onReply, onEdit, onDelete, onDecisionChange, onPinnedChange }: { cardId: string; notes: Note[]; profiles: ProfileLite[]; canWrite?: boolean; onReply: (parentId:string, value: ComposerValue)=>Promise<any>; onEdit: (id:string, value: ComposerValue)=>Promise<any>; onDelete: (id:string)=>Promise<any>; onDecisionChange: (decision: ComposerDecision | null)=>Promise<void>; onPinnedChange?: (active:boolean, height:number)=>void }) {
   const tree = useMemo(()=> buildTree(notes||[]), [notes]);
   const { open } = useSidebar();
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -1559,36 +1577,40 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
                 >
                   <Pin className="w-4 h-4" strokeWidth={1.75} />
                 </button>
-                <button
-                  aria-label="Responder"
-              onClick={() => {
-                if (isReplying) {
-                      setIsReplyingId(null);
-                      setReplyValue({ decision: null, text: '' });
-                  setMentionOpenReply(false);
-                  setCmdOpen(false);
-                    } else {
-                  setIsReplyingId(note.id);
-                      setReplyValue({ decision: null, text: '' });
-                      requestAnimationFrame(() => replyComposerRef.current?.focus());
-                    }
-                  }}
-                  className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
-                >
-                  <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </button>
-                <ParecerMenu
-              onEdit={() => {
-                setIsEditingId(note.id);
-                const nextVal: ComposerValue = { decision: (note.decision as ComposerDecision) ?? null, text: note.text || '', mentions: [] };
-                    setEditValue(nextVal);
-                    requestAnimationFrame(() => {
-                      editComposerRef.current?.setValue(nextVal);
-                      editComposerRef.current?.focus();
-                    });
-                  }}
-              onDelete={() => onDelete(note.id)}
-                />
+                {canWrite && (
+                  <>
+                    <button
+                      aria-label="Responder"
+                      onClick={() => {
+                        if (isReplying) {
+                          setIsReplyingId(null);
+                          setReplyValue({ decision: null, text: '' });
+                          setMentionOpenReply(false);
+                          setCmdOpen(false);
+                        } else {
+                          setIsReplyingId(note.id);
+                          setReplyValue({ decision: null, text: '' });
+                          requestAnimationFrame(() => replyComposerRef.current?.focus());
+                        }
+                      }}
+                      className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
+                    >
+                      <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                    <ParecerMenu
+                      onEdit={() => {
+                        setIsEditingId(note.id);
+                        const nextVal: ComposerValue = { decision: (note.decision as ComposerDecision) ?? null, text: note.text || '', mentions: [] };
+                        setEditValue(nextVal);
+                        requestAnimationFrame(() => {
+                          editComposerRef.current?.setValue(nextVal);
+                          editComposerRef.current?.focus();
+                        });
+                      }}
+                      onDelete={() => onDelete(note.id)}
+                    />
+                  </>
+                )}
               </div>
             </div>
 
@@ -1861,6 +1883,10 @@ function PareceresList({ cardId, notes, profiles, onReply, onEdit, onDelete, onD
 function AttachmentChip({ attachment }: { attachment: any }) {
   const [url, setUrl] = useState<string | null>(() => attachment?.public_url || attachment?.url || null);
   useEffect(() => {
+    if (!FEATURES.baixarAnexos) {
+      setUrl(null);
+      return;
+    }
     if (attachment?.public_url || attachment?.url) return;
     let active = true;
     (async () => {
@@ -1894,13 +1920,13 @@ function AttachmentChip({ attachment }: { attachment: any }) {
           {created && <div className="text-[11px] text-zinc-500">{created}</div>}
         </div>
       </div>
-      {url ? (
+      {FEATURES.baixarAnexos && url ? (
         <a href={url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:text-emerald-700 shrink-0">
           Abrir ↗
         </a>
-      ) : (
+      ) : FEATURES.baixarAnexos ? (
         <span className="text-xs text-zinc-400 shrink-0">Sem link</span>
-      )}
+      ) : null}
     </div>
   );
 }

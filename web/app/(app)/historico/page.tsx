@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { DateRangePopover, type DateRangeValue } from "@/components/ui/date-range-popover";
 import { endOfDayUtcISO, startOfDayUtcISO } from "@/lib/datetime";
 import { restoreCard } from "@/features/kanban/services";
+import { FEATURES } from "@/lib/features";
 
 type Row = {
   id: string;
@@ -208,14 +209,16 @@ export default function HistoricoPage() {
             load();
           }}
         />
-        <div className="flex items-center justify-end">
-          <button
-            onClick={() => exportHistoricoCSV(filteredRows)}
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-          >
-            Exportar CSV
-          </button>
-        </div>
+        {FEATURES.exportarCsv && (
+          <div className="flex items-center justify-end">
+            <button
+              onClick={() => exportHistoricoCSV(filteredRows)}
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              Exportar CSV
+            </button>
+          </div>
+        )}
         {/* Dashboard */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 w-full">
           <DashboardCard title="Qtd de fichas" value={dashboard.total} />

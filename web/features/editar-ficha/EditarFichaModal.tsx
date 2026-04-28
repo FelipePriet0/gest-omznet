@@ -133,9 +133,9 @@ export function EditarFichaModal({
   const parecerAttachInputRef = useRef<HTMLInputElement | null>(null);
   const [parecerPendingFiles, setParecerPendingFiles] = useState<File[]>([]);
   const [cardAttachments, setCardAttachments] = useState<CardAttachment[]>([]);
-  const { role: currentUserRole } = useUserRole();
+  const { role: currentUserRole, isLeitor } = useUserRole();
   const isVendor = (currentUserRole ?? "").toLowerCase() === "vendedor";
-  const canWriteParecer = !isVendor;
+  const canWriteParecer = !isVendor && !isLeitor;
 
   const pendingApp = useRef<Partial<AppModel>>({});
   const pendingCard = useRef<Record<string, any>>({});
@@ -171,6 +171,7 @@ export function EditarFichaModal({
   }, []);
 
   function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa'; inPlace?: boolean }) {
+    if (!canWriteParecer) return;
     attachmentContextRef.current = context ?? null;
     if (attachmentInputRef.current) {
       attachmentInputRef.current.value = "";
@@ -403,6 +404,7 @@ export function EditarFichaModal({
   }, [canWriteParecer]);
 
   const handleTaskToggle = useCallback(async (taskId: string, done: boolean) => {
+    if (!canWriteParecer) return;
     // Otimista: atualiza lista local imediatamente para uma UX fluida
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: done ? 'completed' : 'pending' } : t));
     try {
@@ -414,15 +416,17 @@ export function EditarFichaModal({
       setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: !done ? 'completed' : 'pending' } : t));
       alert(e?.message || "Falha ao atualizar tarefa");
     }
-  }, [refreshTasks]);
+  }, [canWriteParecer, refreshTasks]);
 
   async function handleAttachmentInputChange(event: ChangeEvent<HTMLInputElement>) {
+    if (!canWriteParecer) return;
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     await processAttachmentSelection(files);
   }
 
   async function syncDecisionStatus(decision: ComposerDecision | null) {
+    if (!canWriteParecer) return;
     try {
       await setCardDecision(cardId, decision);
       // Fallback: se triggers foram removidas, mova o card explicitamente no Kanban de Análise
@@ -502,6 +506,7 @@ export function EditarFichaModal({
 
   // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)
   useEffect(() => {
+    if (!canWriteParecer) return;
     function onOpenTask(event?: Event) {
       const detail = (event as CustomEvent<{ parentId?: string | null; taskId?: string | null; source?: 'parecer' | 'conversa'; inPlace?: boolean }> | undefined)?.detail;
       setTaskOpen({
@@ -525,10 +530,14 @@ export function EditarFichaModal({
       window.removeEventListener('mz-open-task', onOpenTask);
       window.removeEventListener('mz-open-attach', onOpenAttach);
     };
-  }, []);
+  }, [canWriteParecer]);
 
   const flush = useCallback(async () => {
-    if (!open) return;
+    if (!open || !canWriteParecer) {
+      pendingApp.current = {};
+      pendingCard.current = {};
+      return;
+    }
     const appPatch = pendingApp.current;
     const cardPatch = pendingCard.current;
     pendingApp.current = {};
@@ -566,18 +575,19 @@ export function EditarFichaModal({
       Object.keys(cardPatch).forEach((key) => markFieldStatus(key, "error"));
       setSaving('error');
     }
-  }, [open, applicantId, cardId]);
+  }, [open, canWriteParecer, applicantId, cardId]);
 
   const scheduleFlush = useDebouncedCallback(flush, 1800);
 
   const queue = useCallback((scope:'app'|'card', key:string, value:any) => {
+    if (!canWriteParecer) return;
     if (scope==='app') {
       pendingApp.current = { ...pendingApp.current, [key]: value };
     } else {
       pendingCard.current = { ...pendingCard.current, [key]: value };
     }
     scheduleFlush();
-  }, [scheduleFlush]);
+  }, [canWriteParecer, scheduleFlush]);
 
   const markFieldStatus = useCallback((key: string, status: "idle" | "pending" | "error") => {
     fieldStatus.current[key] = status;
@@ -720,7 +730,7 @@ export function EditarFichaModal({
                     </button>
                   </div>
             {/* Grade unificada — estilo corporativo sem seções separadas */}
-            <div className="space-y-4">
+            <div className={`space-y-4 ${isLeitor ? "pointer-events-none opacity-80" : ""}`}>
 
               {/* Nome + CPF/CNPJ */}
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-[3fr_2fr]">

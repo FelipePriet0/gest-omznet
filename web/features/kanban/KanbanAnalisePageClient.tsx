@@ -20,6 +20,7 @@ import { KanbanBoardAnalise } from "@/legacy/components/kanban/components/Kanban
 import type { PessoaTipo } from "@/features/cadastro/types";
 import { supabase, clearStaleSupabaseSession } from "@/lib/supabaseClient";
 import { KanbanCard } from "@/features/kanban/types";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export default function KanbanAnalisePageClient() {
   const searchKey = useSearchParams().toString();
@@ -69,6 +70,7 @@ function KanbanAnalisePageInner() {
   const [openPersonType, setOpenPersonType] = useModalState(false);
   const [openBasicInfo, setOpenBasicInfo] = useModalState(false);
   const [tipoSel, setTipoSel] = useModalState<PessoaTipo | null>(null);
+  const { isLeitor } = useUserRole();
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const bottomInnerRef = useRef<HTMLDivElement | null>(null);
 
@@ -166,18 +168,20 @@ function KanbanAnalisePageInner() {
         <div className="border-b border-white/40 bg-[var(--neutro)] px-3 pb-4 pt-3 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <FilterCTA area="analise" onFiltersChange={handleFiltersChange} />
-            <Button
-              onClick={() => setOpenPersonType(true)}
-              className="h-9 bg-emerald-600 text-sm text-white hover:bg-emerald-700"
-              style={{
-                paddingLeft: "18px",
-                paddingRight: "18px",
-                borderRadius: "10px",
-              }}
-            >
-              <Plus className="mr-2 size-6" />
-              Nova ficha
-            </Button>
+            {!isLeitor && (
+              <Button
+                onClick={() => setOpenPersonType(true)}
+                className="h-9 bg-emerald-600 text-sm text-white hover:bg-emerald-700"
+                style={{
+                  paddingLeft: "18px",
+                  paddingRight: "18px",
+                  borderRadius: "10px",
+                }}
+              >
+                <Plus className="mr-2 size-6" />
+                Nova ficha
+              </Button>
+            )}
           </div>
           <div className="mt-4 grid w-full grid-cols-6 gap-3 sm:gap-4 md:gap-6">
             <DashboardCard
@@ -227,6 +231,7 @@ function KanbanAnalisePageInner() {
               openCardId={openCardId}
               onCardsChange={setCardsSnapshot}
               onCardModalClose={handleCardModalClose}
+              readOnly={isLeitor}
             />
           </div>
         </div>

@@ -31,6 +31,7 @@ export function KanbanBoard({
   allowedCardIds,
   onCardsChange,
   onCardModalClose,
+  readOnly = false,
 }: {
   hora?: string;
   dateStart?: string;
@@ -41,6 +42,7 @@ export function KanbanBoard({
   allowedCardIds?: string[];
   onCardsChange?: (cards: KanbanCard[]) => void;
   onCardModalClose?: () => void;
+  readOnly?: boolean;
 }) {
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [move, setMove] = useState<{id: string; area: 'comercial' | 'analise'; stage?: string | null} | null>(null);
@@ -165,6 +167,7 @@ export function KanbanBoard({
   }, [openCardId, cards]);
 
   async function handleDragEnd(event: any) {
+    if (readOnly) return;
     const { active, over } = event;
     if (!over) return;
     const cardId = active.id as string;
@@ -174,7 +177,10 @@ export function KanbanBoard({
     try { await changeStage(cardId, 'comercial', target); await reload(); } catch (e:any) { alert(e.message ?? 'Falha ao mover'); }
   }
 
-function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial', stage: c.stage ?? null }); }
+function openMenu(c: KanbanCard) {
+  if (readOnly) return;
+  setMove({ id: c.id, area: 'comercial', stage: c.stage ?? null });
+}
 
   
 
@@ -183,7 +189,10 @@ function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial', stage:
       <DndContext
         sensors={sensors}
         autoScroll
-        onDragStart={({ active }) => setActiveId(String(active.id))}
+        onDragStart={({ active }) => {
+          if (readOnly) return;
+          setActiveId(String(active.id));
+        }}
         onDragCancel={() => setActiveId(null)}
         onDragEnd={(event)=> { setActiveId(null); handleDragEnd(event); }}
       >
@@ -198,6 +207,7 @@ function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial', stage:
                 color={column.color}
                 icon={column.icon}
                 count={(grouped[column.key as keyof typeof grouped] || []).length}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -228,8 +238,8 @@ function openMenu(c: KanbanCard) { setMove({ id: c.id, area: 'comercial', stage:
           ) : null}
         </DragOverlay>
       </DndContext>
-      <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={reload} />
-      <CancelModal open={!!cancel} onClose={()=>setCancel(null)} cardId={cancel?.id||''} area="comercial" onCancelled={reload} />
+      {!readOnly && <MoveModal open={!!move} onClose={()=>setMove(null)} cardId={move?.id||''} presetArea={move?.area} onMoved={reload} />}
+      {!readOnly && <CancelModal open={!!cancel} onClose={()=>setCancel(null)} cardId={cancel?.id||''} area="comercial" onCancelled={reload} />}
       
       <EditarFichaModal
         open={!!edit}

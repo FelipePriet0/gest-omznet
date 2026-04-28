@@ -308,7 +308,7 @@ export function PdfRow({ children }: { children: React.ReactNode }) {
 export function PdfCard({
   title, red, children,
 }: {
-  title?: string; red?: boolean; children: React.ReactNode;
+  title?: string; red?: boolean; noBorder?: boolean; children: React.ReactNode;
 }) {
   return (
     <View>

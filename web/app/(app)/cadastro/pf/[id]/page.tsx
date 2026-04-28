@@ -26,6 +26,7 @@ import { listRoutes, type Route } from "@/features/builder/services";
 import { DateSingleKanbanPopover } from "@/components/ui/date-single-kanban-popover";
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { TIME_SLOTS } from "@/features/agenda/mock";
+import { FEATURES } from "@/lib/features";
 //
 
 const DECISION_META: Record<string, { label: string; className: string }> = {
@@ -237,6 +238,7 @@ export default function CadastroPFPage() {
   const [pareceres, setPareceres] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const currentUserRoleRef = useRef<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
@@ -297,7 +299,12 @@ export default function CadastroPFPage() {
 
   const getFieldStatus = useCallback((key: string) => fieldStatus.current[key] || 'idle', []);
 
+  useEffect(() => {
+    currentUserRoleRef.current = currentUserRole;
+  }, [currentUserRole]);
+
   function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa' }) {
+    if (currentUserRoleRef.current === "leitor") return;
     attachmentContextRef.current = context ?? null;
     if (attachmentInputRef.current) {
       attachmentInputRef.current.value = "";
@@ -306,6 +313,7 @@ export default function CadastroPFPage() {
   }
 
   async function processAttachmentSelection(files: File[]) {
+    if (currentUserRoleRef.current === "leitor") return;
     if (!cardIdEff || files.length === 0) return;
     const context = attachmentContextRef.current;
     attachmentContextRef.current = null;
@@ -382,6 +390,7 @@ export default function CadastroPFPage() {
   }
 
   async function handleAttachmentInputChange(event: ChangeEvent<HTMLInputElement>) {
+    if (currentUserRoleRef.current === "leitor") return;
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     await processAttachmentSelection(files);
@@ -715,6 +724,11 @@ export default function CadastroPFPage() {
   }
 
   async function flushAutosave() {
+    if (currentUserRoleRef.current === "leitor") {
+      pendingApp.current = {};
+      pendingPf.current = {};
+      return;
+    }
     if (!applicantId) return;
     const appPayload = pendingApp.current;
     const pfPayload = pendingPf.current;
@@ -781,6 +795,7 @@ export default function CadastroPFPage() {
   }
 
   function queueSave(scope: "app"|"pf", key: string, value: any) {
+    if (currentUserRoleRef.current === "leitor") return;
     if (scope === "app") { pendingApp.current = { ...pendingApp.current, [key]: value }; dirtyAppFields.current.add(key as keyof AppModel); }
     else { pendingPf.current = { ...pendingPf.current, [key]: value }; dirtyPfFields.current.add(key as keyof PfModel); }
     markFieldStatus(key, "pending");
@@ -854,6 +869,8 @@ export default function CadastroPFPage() {
   const reqLocador = (pf.tipo_moradia || '').toLowerCase() === 'alugada';
   const reqEnviouContrato = (pf.tem_contrato || '') === 'Sim';
   const reqNomeDe = reqEnviouContrato && (pf.enviou_contrato || '') === 'Sim';
+  const isReadOnly = currentUserRole === "leitor";
+  const canWriteParecer = currentUserRole !== "vendedor" && !isReadOnly;
 
   const errs = {
     nome_locador: reqLocador && !(pf.nome_locador || '').trim(),
@@ -873,7 +890,7 @@ export default function CadastroPFPage() {
           data-tipo="pf"
           data-id={applicantId}
           data-name={app.primary_name || ''}
-          className="mz-form ficha-pf px-3 py-6 expanded-portrait"
+          className={`mz-form ficha-pf px-3 py-6 expanded-portrait ${isReadOnly ? "pointer-events-none opacity-85" : ""}`}
         >
           <div className="mb-4 h-5 text-sm font-medium" style={{ color: 'var(--verde-primario)', opacity: statusText ? 1 : 0 }}>{statusText || ' '}</div>
 
@@ -1317,7 +1334,7 @@ export default function CadastroPFPage() {
                 className="composer-root--blue"
                 placeholder="Escreva um novo parecer… Use @ para mencionar"
                 ariaLabel="Escrever parecer"
-                disabled={currentUserRole === 'vendedor'}
+                disabled={!canWriteParecer}
                 richText
                 
                 onAcceptMention={(query) => {
@@ -1340,7 +1357,7 @@ export default function CadastroPFPage() {
                   return false;
                 }}
                 onChange={(val)=> { setNovoParecer(val); try { setParecerDraft({ text: val.text ?? '', decision: val.decision ?? null }); } catch {} }}
-                onSubmit={currentUserRole === 'vendedor' ? undefined : handleSubmitParecer}
+                onSubmit={!canWriteParecer ? undefined : handleSubmitParecer}
                 onCancel={()=> {
                   setCmdOpenParecer(false);
                   setMentionOpenParecer(false);
@@ -1377,7 +1394,7 @@ export default function CadastroPFPage() {
                   />
                 </div>
               )}
-              {cmdOpenParecer && currentUserRole !== 'vendedor' && (
+              {cmdOpenParecer && canWriteParecer && (
                 <div className="absolute z-50 left-0 bottom-full mb-2">
                   <CmdDropdown
                     items={[
@@ -1401,7 +1418,7 @@ export default function CadastroPFPage() {
               cardId={cardIdEff}
               notes={pareceres as any}
               profiles={profiles}
-              onReply={currentUserRole === 'vendedor' ? undefined : async (pid, value) => {
+              onReply={!canWriteParecer ? undefined : async (pid, value) => {
                 const text = (value.text || '').trim();
                 const hasDecision = !!value.decision;
                 if (!hasDecision && !text) return;
@@ -1414,7 +1431,7 @@ export default function CadastroPFPage() {
                 });
                 await refreshReanalysisNotes(cardIdEff);
               }}
-              onEdit={currentUserRole === 'vendedor' ? undefined : async (id, value) => {
+              onEdit={!canWriteParecer ? undefined : async (id, value) => {
                 const text = (value.text || '').trim();
                 const hasDecision = !!value.decision;
                 if (!hasDecision && !text) return;
@@ -1427,7 +1444,7 @@ export default function CadastroPFPage() {
                 });
                 await refreshReanalysisNotes(cardIdEff);
               }}
-              onDelete={currentUserRole === 'vendedor' ? undefined : async (id) => {
+              onDelete={!canWriteParecer ? undefined : async (id) => {
                 await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id });
                 try {
                   const { data: card } = await supabase
@@ -1438,7 +1455,7 @@ export default function CadastroPFPage() {
                   if (card && Array.isArray((card as any).reanalysis_notes)) setPareceres((card as any).reanalysis_notes);
                 } catch {}
               }}
-              onDecisionChange={currentUserRole === 'vendedor' ? undefined : syncDecisionStatus}
+              onDecisionChange={!canWriteParecer ? undefined : syncDecisionStatus}
               onPinnedChange={(active, h)=> { try { (window as any).mzPinnedSpacePF = active ? h : 0; } catch {}; setPinnedSpace(active ? h : 0); }}
             />
             </div>
@@ -2195,6 +2212,10 @@ function PareceresList({
 function AttachmentChip({ attachment }: { attachment: any }) {
   const [url, setUrl] = useState<string | null>(() => attachment?.public_url || attachment?.url || null);
   useEffect(() => {
+    if (!FEATURES.baixarAnexos) {
+      setUrl(null);
+      return;
+    }
     if (attachment?.public_url || attachment?.url) return;
     let active = true;
     (async () => {
@@ -2228,13 +2249,13 @@ function AttachmentChip({ attachment }: { attachment: any }) {
           {created && <div className="text-[11px] text-zinc-500">{created}</div>}
         </div>
       </div>
-      {url ? (
+      {FEATURES.baixarAnexos && url ? (
         <a href={url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:text-emerald-700 shrink-0">
           Abrir ↗
         </a>
-      ) : (
+      ) : FEATURES.baixarAnexos ? (
         <span className="text-xs text-zinc-400 shrink-0">Sem link</span>
-      )}
+      ) : null}
     </div>
   );
 }

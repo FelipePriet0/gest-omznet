@@ -7,8 +7,8 @@ import { KanbanCard as Card } from "@/features/kanban/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MoreVertical, Phone, MapPin, Calendar, Clock, Flame, AtSign } from "lucide-react";
 
-export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () => void; onMenu: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
+export function KanbanCard({ card, onOpen, onMenu, readOnly = false }: { card: Card; onOpen: () => void; onMenu: () => void; readOnly?: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id, disabled: readOnly });
   const style = {
     transform: CSS.Translate.toString(transform),
     willChange: 'transform, opacity',
@@ -65,23 +65,25 @@ export function KanbanCard({ card, onOpen, onMenu }: { card: Card; onOpen: () =>
               <Flame className="w-4 h-4" />
             </span>
           )}
-          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-            <PopoverTrigger asChild>
-              <button className="ml-1 rounded p-1 text-emerald-600 hover:bg-emerald-50" aria-label="Ações do card" data-ignore-card-click onClick={(e)=> e.stopPropagation()}>
-                <MoreVertical className="w-4 h-4" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[180px] p-0 bg-white border-0 shadow-lg rounded-lg" side="right" align="end" sideOffset={6}>
-              <div className="py-1">
-                <button
-                  className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-md"
-                  onClick={() => { setMenuOpen(false); onMenu(); }}
-                >
-                  Mover…
+          {!readOnly && (
+            <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+              <PopoverTrigger asChild>
+                <button className="ml-1 rounded p-1 text-emerald-600 hover:bg-emerald-50" aria-label="Ações do card" data-ignore-card-click onClick={(e)=> e.stopPropagation()}>
+                  <MoreVertical className="w-4 h-4" />
                 </button>
-              </div>
-            </PopoverContent>
-          </Popover>
+              </PopoverTrigger>
+              <PopoverContent className="w-[180px] p-0 bg-white border-0 shadow-lg rounded-lg" side="right" align="end" sideOffset={6}>
+                <div className="py-1">
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-md"
+                    onClick={() => { setMenuOpen(false); onMenu(); }}
+                  >
+                    Mover…
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-zinc-700">

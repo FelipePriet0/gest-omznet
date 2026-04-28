@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+export type UserRole = "vendedor" | "analista" | "gestor" | "instalador" | "leitor";
+
 export function useUserRole({ autoLoad = true }: { autoLoad?: boolean } = {}) {
-  const [role, setRole] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState<boolean>(autoLoad);
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export function useUserRole({ autoLoad = true }: { autoLoad?: boolean } = {}) {
           .eq("id", user.id)
           .single();
         if (!active) return;
-        setRole(profile?.role ?? null);
+        setRole((profile?.role as UserRole | null | undefined) ?? null);
         setLoading(false);
       } catch {
         if (!active) return;
@@ -34,6 +36,9 @@ export function useUserRole({ autoLoad = true }: { autoLoad?: boolean } = {}) {
     };
   }, [autoLoad]);
 
-  return { role, loading };
+  const isLeitor = role === "leitor";
+  return { role, loading, isLeitor, canWrite: !isLeitor };
 }
+
+export const useCurrentUserRole = useUserRole;
 

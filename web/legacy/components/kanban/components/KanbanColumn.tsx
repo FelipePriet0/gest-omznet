@@ -9,6 +9,7 @@ interface KanbanColumnProps {
   icon: string;
   count: number;
   droppableId?: string;
+  readOnly?: boolean;
 }
 
 const colorConfig = {
@@ -20,7 +21,7 @@ const colorConfig = {
   orange: { dot: "bg-[#F97316]", border: "border-orange-200" },
 } as const;
 
-export function KanbanColumn({ title, cards, color, icon, count, droppableId }: KanbanColumnProps) {
+export function KanbanColumn({ title, cards, color, icon, count, droppableId, readOnly = false }: KanbanColumnProps) {
   const config = colorConfig[(color as keyof typeof colorConfig) || "blue"];
   const { setNodeRef, isOver } = useDroppable({ id: droppableId || title.toLowerCase().replace(/\s+/g, "_") });
 
@@ -44,10 +45,10 @@ export function KanbanColumn({ title, cards, color, icon, count, droppableId }: 
                   <div className="h-6 w-6 rounded bg-gray-300" />
                 </div>
                 <p className="text-sm font-medium">Nenhuma ficha</p>
-                <p className="text-xs text-gray-400">Arraste fichas aqui</p>
+                {!readOnly && <p className="text-xs text-gray-400">Arraste fichas aqui</p>}
               </div>
             ) : (
-              cards.map((c) => <KanbanCard key={c.id} card={c} onOpen={() => c.onOpen?.()} onMenu={() => c.onMenu?.()} />)
+              cards.map((c) => <KanbanCard key={c.id} card={c} onOpen={() => c.onOpen?.()} onMenu={() => c.onMenu?.()} readOnly={readOnly} />)
             )}
           </div>
         </div>

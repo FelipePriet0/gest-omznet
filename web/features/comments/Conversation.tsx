@@ -8,6 +8,7 @@ import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services"
 import { TaskCard } from "@/features/tasks/TaskCard";
 import { listAttachments, removeAttachment, getAttachmentUrl, type CardAttachment } from "@/features/attachments/services";
 import { TABLE_CARD_ATTACHMENTS } from "@/lib/constants";
+import { FEATURES } from "@/lib/features";
 import { UnifiedComposer, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import MentionDropdown from "@/components/mentions/MentionDropdown";
 import { renderTextWithChips } from "@/utils/richText";
@@ -1440,22 +1441,24 @@ function AttachmentContent({ att, onDelete, onPreview, currentUserId }: { att: C
             <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.4" fill="none"/>
           </svg>
         </button>
-        <button
-          className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-800 shrink-0"
-          title="Abrir anexo"
-          onClick={async () => {
-            try {
-              const link = await getAttachmentUrl(att.id, 'download');
-              if (!link) { alert('Não foi possível abrir o anexo.'); return; }
-              setUrl(link);
-              window.open(link, '_blank');
-            } catch { alert('Não foi possível abrir o anexo.'); }
-          }}
-        >
-          <svg viewBox="0 0 24 24" width="18" height="18">
-            <path d="M12 4v10m0 0 4-4m-4 4-4-4M5 18h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </svg>
-        </button>
+        {FEATURES.baixarAnexos && (
+          <button
+            className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-zinc-800 shrink-0"
+            title="Abrir anexo"
+            onClick={async () => {
+              try {
+                const link = await getAttachmentUrl(att.id, 'download');
+                if (!link) { alert('Não foi possível abrir o anexo.'); return; }
+                setUrl(link);
+                window.open(link, '_blank');
+              } catch { alert('Não foi possível abrir o anexo.'); }
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path d="M12 4v10m0 0 4-4m-4 4-4-4M5 18h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+          </button>
+        )}
         {currentUserId && att.author_id === currentUserId && (
           <button
             className="flex h-8 w-8 items-center justify-center text-zinc-600 hover:text-red-600 shrink-0"
