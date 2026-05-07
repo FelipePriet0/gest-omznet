@@ -3,14 +3,12 @@
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutGrid,
-  CheckSquare,
   History,
   UserCircle,
 } from 'lucide-react';
 
 import { Dock, DockIcon, DockItem, DockLabel } from '@/components/ui/dock';
 import { cn } from '@/lib/utils';
-import { FEATURES } from '@/lib/features';
 
 const navItemsBase = [
   {
@@ -18,11 +16,6 @@ const navItemsBase = [
     Icon: LayoutGrid,
     href: '/kanban',
   },
-  ...(FEATURES.minhasTarefas ? [{
-    title: 'Minhas Tarefas',
-    Icon: CheckSquare,
-    href: '/tarefas',
-  }] : []),
   {
     title: 'Histórico',
     Icon: History,

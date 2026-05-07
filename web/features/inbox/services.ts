@@ -8,7 +8,6 @@ import type { InboxItem, NotificationType } from "./types";
 export async function notifyMention(params: {
   userId: string;
   cardId: string;
-  commentId?: string; // quando menção veio de um comentário
   noteId?: string; // quando menção veio de um parecer (kanban_cards.reanalysis_notes[].id)
   authorName?: string | null;
   applicantName?: string | null;
@@ -18,7 +17,7 @@ export async function notifyMention(params: {
 }) {
   try {
     const title = '💬 Nova menção';
-    const body = params.authorName ? `${params.authorName} mencionou você em uma conversa` : 'Você foi mencionado em uma conversa';
+    const body = params.authorName ? `${params.authorName} mencionou você em um parecer` : 'Você foi mencionado em um parecer';
     const meta = {
       author_name: params.authorName ?? null,
       primary_name: params.applicantName ?? null,
@@ -30,7 +29,6 @@ export async function notifyMention(params: {
     await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
       user_id: params.userId,
       card_id: params.cardId,
-      comment_id: params.commentId ?? null,
       type: 'mention',
       title,
       body,
@@ -86,7 +84,6 @@ type BaseNotifyParams = {
   linkUrl?: string | null;
   contentPreview?: string | null;
   cardId?: string | null;
-  commentId?: string | null;
   meta?: any;
 };
 
@@ -113,28 +110,6 @@ export async function notifyParecerReply(params: BaseNotifyParams & { cardId: st
   } catch {}
 }
 
-export async function notifyCommentReply(params: BaseNotifyParams & { cardId: string; commentId: string }) {
-  try {
-    const title = '💬 Respondeu seu comentário';
-    const body = params.authorName ? `${params.authorName} respondeu seu comentário` : 'Responderam seu comentário';
-    const meta = {
-      author_name: params.authorName ?? null,
-      primary_name: params.applicantName ?? null,
-      applicant_name: params.applicantName ?? null,
-      content_preview: params.contentPreview ?? null,
-      is_comment_reply: true,
-      ...(params.meta ?? {}),
-    };
-    await supabase.from(TABLE_INBOX_NOTIFICATIONS).insert({
-      user_id: params.userId,
-      type: 'comment_reply',
-      card_id: params.cardId,
-      comment_id: params.commentId,
-      link_url: params.linkUrl ?? null,
-    } as any);
-  } catch {}
-}
-
 export async function notifyAssApp(params: BaseNotifyParams & { title?: string | null; body?: string | null }) {
   try {
     const defaultTitle = 'Ass App';
@@ -151,7 +126,6 @@ export async function notifyAssApp(params: BaseNotifyParams & { title?: string |
       user_id: params.userId,
       type: 'ass_app',
       card_id: params.cardId ?? null,
-      comment_id: params.commentId ?? null,
       link_url: params.linkUrl ?? null,
     } as any);
   } catch {}

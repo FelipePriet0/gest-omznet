@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, Search } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCcw, Paperclip, Search } from "lucide-react";
 
 export function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; label: string }[]; onPick: (key: string) => void | Promise<void>; initialQuery?: string }) {
   const [q, setQ] = useState(initialQuery || "");
@@ -11,7 +11,6 @@ export function CmdDropdown({ items, onPick, initialQuery }: { items: { key: str
     if (key === "aprovado") return <CheckCircle className="w-4 h-4" />;
     if (key === "negado") return <XCircle className="w-4 h-4" />;
     if (key === "reanalise") return <RefreshCcw className="w-4 h-4" />;
-    if (key === "tarefa") return <ClipboardList className="w-4 h-4" />;
     if (key === "anexo") return <Paperclip className="w-4 h-4" />;
     return null;
   };

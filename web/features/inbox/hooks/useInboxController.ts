@@ -41,7 +41,6 @@ export function useInboxController(panelOpen: boolean) {
             body: row.body ?? null,
             meta: row.meta ?? null,
             card_id: row.card_id ?? null,
-            comment_id: row.comment_id ?? null,
             link_url: row.link_url ?? null,
             expires_at: row.expires_at ?? null,
             read_at: row.read_at ?? null,

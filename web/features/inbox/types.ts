@@ -1,7 +1,6 @@
 export type NotificationType =
   | 'mention'
   | 'parecer_reply'
-  | 'comment_reply'
   | 'ass_app'
   | 'fichas_atrasadas'
   | string;
@@ -18,7 +17,6 @@ export type InboxItem = {
   body?: string | null;
   meta?: any;
   card_id?: string | null;
-  comment_id?: string | null;
   link_url?: string | null;
   expires_at?: string | null;
   read_at?: string | null;
@@ -27,4 +25,4 @@ export type InboxItem = {
 };
 
 // Filtro padronizado para a Inbox (compartilhado entre componentes)
-export type InboxFilterOption = "mentions" | "parecer" | "comentarios";
+export type InboxFilterOption = "mentions" | "parecer";

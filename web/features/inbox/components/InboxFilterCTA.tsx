@@ -10,7 +10,6 @@ import type { InboxFilterOption } from "@/features/inbox/types";
 const inboxFilterLabels: Record<InboxFilterOption, string> = {
   mentions: "Menções",
   parecer: "Respostas em parecer",
-  comentarios: "Respostas em comentários",
 };
 
 export function InboxFilterCTA({ value, onSelect }: { value: InboxFilterOption | null; onSelect: (value: InboxFilterOption) => void }) {
@@ -35,7 +34,6 @@ export function InboxFilterCTA({ value, onSelect }: { value: InboxFilterOption |
                 [
                   { value: "mentions", label: inboxFilterLabels.mentions },
                   { value: "parecer", label: inboxFilterLabels.parecer },
-                  { value: "comentarios", label: inboxFilterLabels.comentarios },
                 ] as const
               ).map((option) => (
                 <CommandItem

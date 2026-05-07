@@ -4,7 +4,6 @@ export function getNotificationSymbol(item: InboxItem) {
   if (
     item.type === "mention" ||
     item.type === "parecer_reply" ||
-    item.type === "comment_reply" ||
     item.type === "comment"
   )
     return "💬";
@@ -49,12 +48,6 @@ export function getNotificationData(item: InboxItem) {
       (meta.is_parecer_reply || item.title?.includes("parecer")))
   ) {
     subtitle = `Respondeu seu parecer – ${subtitleTarget}`;
-  } else if (
-    item.type === "comment_reply" ||
-    (String(item.type) === "comment" &&
-      (meta.is_comment_reply || item.title?.includes("comentário")))
-  ) {
-    subtitle = `Respondeu seu comentário – ${subtitleTarget}`;
   } else if (item.type === "ass_app") {
     subtitle = `Ass App – ${subtitleTarget}`;
   } else if (item.type === "fichas_atrasadas") {

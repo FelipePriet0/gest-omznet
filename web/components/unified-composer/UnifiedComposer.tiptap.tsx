@@ -37,7 +37,6 @@ type Props = {
   onSubmit?: (value: ComposerValue) => void;
   onCancel?: () => void;
   onRequestDecision?: (decision: ComposerDecision) => void;
-  onRequestTask?: () => void;
   onRequestAttachment?: () => void;
   onMentionTrigger?: (query: string, rect: DOMRect | null) => void;
   onMentionClose?: () => void;

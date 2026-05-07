@@ -31,8 +31,8 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { overlayClassName?: string }
+>(({ className, overlayClassName, children, ...props }, ref) => {
   // Ensure aria-describedby exists to avoid a11y warnings in dev
   const contentProps: any = { ...props };
   if (contentProps['aria-describedby'] === undefined) {
@@ -40,7 +40,7 @@ const DialogContent = React.forwardRef<
   }
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(

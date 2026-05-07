@@ -23,7 +23,7 @@ export function ConfirmDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onCancel() : undefined)}>
-      <DialogContent className="max-w-[440px] rounded-2xl bg-white dark:bg-zinc-950">
+      <DialogContent className="z-[200] max-w-[440px] rounded-2xl bg-white dark:bg-zinc-950" overlayClassName="z-[199]">
         <DialogHeader>
           <DialogTitle className="text-zinc-900 dark:text-zinc-100">{title}</DialogTitle>
           {/* Always render a description to satisfy aria-describedby */}

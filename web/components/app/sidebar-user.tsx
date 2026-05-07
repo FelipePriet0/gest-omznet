@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, LogOut, User, UserCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase, hardResetAuth } from "@/lib/supabaseClient";
+import { getInitials } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useSidebar } from "@/components/ui/sidebar";
 
@@ -78,13 +79,7 @@ export const SidebarUser = ({ name, email, avatar }: SidebarUserProps) => {
   }, [open]);
 
   const displayName = useMemo(() => profile.full_name || name || authEmail || "Usuário", [profile.full_name, name, authEmail]);
-  const initials = useMemo(() => {
-    const n = (profile.full_name || displayName || "").toString();
-    const parts = n.trim().split(/\s+/);
-    const first = parts[0]?.[0] || "U";
-    const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-    return (first + last).toUpperCase();
-  }, [profile.full_name, displayName]);
+  const initials = useMemo(() => getInitials(profile.full_name || displayName), [profile.full_name, displayName]);
 
   async function logout() {
     try {

@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { FEATURES } from "@/lib/features";
 
 export default function HeaderNav() {
   const pathname = usePathname();
@@ -16,7 +15,6 @@ export default function HeaderNav() {
           <a className="text-zinc-700 hover:text-zinc-900 hover:underline dark:text-zinc-300 dark:hover:text-zinc-100" href="/perfil">Perfil</a>
           <a className="text-zinc-700 hover:text-zinc-900 hover:underline dark:text-zinc-300 dark:hover:text-zinc-100" href="/kanban">Kanban</a>
           <a className="text-zinc-700 hover:text-zinc-900 hover:underline dark:text-zinc-300 dark:hover:text-zinc-100" href="/historico">Histórico</a>
-          {FEATURES.minhasTarefas && <a className="text-zinc-700 hover:text-zinc-900 hover:underline dark:text-zinc-300 dark:hover:text-zinc-100" href="/tarefas">Minhas Tarefas</a>}
         </div>
       </nav>
     </header>

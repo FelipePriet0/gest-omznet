@@ -7,14 +7,14 @@ import { useParams, useSearchParams } from "next/navigation";
 import { SimpleSelect } from "@/components/ui/select";
 import { supabase } from "@/lib/supabaseClient";
 import { Textarea as UITTextarea } from "@/components/ui/textarea";
-import { Search, CheckCircle, XCircle, RefreshCcw, ClipboardList, Paperclip, User as UserIcon, Pin } from "lucide-react";
+import { Search, CheckCircle, XCircle, RefreshCcw, Paperclip, User as UserIcon, Pin } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
-import { listProfiles, type ProfileLite } from "@/features/comments/services";
+import { listProfiles, type ProfileLite } from "@/lib/profiles";
 import MentionDropdown from "@/components/mentions/MentionDropdown";
 import { useIndexedDraft } from "@/hooks/useIndexedDraft";
 import { saveDraft, getDraft, deleteDraft } from "@/lib/drafts";
-import { getAttachmentUrl, publicUrl } from "@/features/attachments/services";
-import { TaskDrawer } from "@/features/tasks/TaskDrawer";
+import { getAttachmentUrl, publicUrl, listAttachments, type CardAttachment } from "@/features/attachments/services";
+import { PareceresList } from "@/features/editar-ficha/components/PareceresList";
 import {
   ATTACHMENT_ALLOWED_TYPES,
   ATTACHMENT_MAX_SIZE,
@@ -236,6 +236,7 @@ export default function CadastroPFPage() {
   const showAnalyzeCrumb = from === 'analisar';
   // Parecer states
   const [pareceres, setPareceres] = useState<any[]>([]);
+  const [cardAttachments, setCardAttachments] = useState<CardAttachment[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const currentUserRoleRef = useRef<string | null>(null);
@@ -248,9 +249,8 @@ export default function CadastroPFPage() {
   const [cmdOpenParecer, setCmdOpenParecer] = useState(false);
   const [cmdQueryParecer, setCmdQueryParecer] = useState("");
   const parecerComposerRef = useRef<UnifiedComposerHandle | null>(null);
-  const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa'}>({open:false});
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
-  const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa' } | null>(null);
+  const attachmentContextRef = useRef<{ source?: "parecer" } | null>(null);
   const [pinnedSpace, setPinnedSpace] = useState<number>(0);
   // Draft de parecer (consistente com o modal)
   const draftKey = useMemo(() => `parecer:${cardIdEff || ''}:${currentUserId ?? 'self'}`, [cardIdEff, currentUserId]);
@@ -303,7 +303,7 @@ export default function CadastroPFPage() {
     currentUserRoleRef.current = currentUserRole;
   }, [currentUserRole]);
 
-  function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa' }) {
+  function triggerAttachmentPicker(context?: { source?: "parecer" }) {
     if (currentUserRoleRef.current === "leitor") return;
     attachmentContextRef.current = context ?? null;
     if (attachmentInputRef.current) {
@@ -333,42 +333,14 @@ export default function CadastroPFPage() {
     }
 
     try {
-      // Novo: Conversa co-relacionada deve estagiar arquivos no composer (não enviar imediato)
-      if (context?.source === 'conversa' && !context?.commentId) {
-        try { window.dispatchEvent(new CustomEvent('mz-conversation-stage-files', { detail: { files, parentId: null } })); } catch {}
-        return;
-      }
-      // Se for Conversa, cria um comentário (pai ou resposta) antes do upload
-      let commentIdForUpload: string | null = context?.commentId ?? null;
-      if (context?.source === 'conversa') {
-        const payload: any = { card_id: cardIdEff, content: '' };
-        if (context?.commentId) payload.parent_id = context.commentId;
-        try {
-          const { data: auth } = await supabase.auth.getUser();
-          const uid = auth.user?.id;
-          if (uid) {
-            payload.author_id = uid;
-            const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single();
-            if (prof) { payload.author_name = (prof as any).full_name ?? null; payload.author_role = (prof as any).role ?? null; }
-          }
-        } catch {}
-        const { data: c, error: cErr } = await supabase.from('card_comments').insert(payload).select('id').single();
-        if (cErr || !c?.id) throw cErr || new Error('Falha ao criar comentário para anexos');
-        commentIdForUpload = c.id as string;
-      }
-
       const uploaded = await uploadAttachmentBatch({
         cardId: cardIdEff,
-        commentId: commentIdForUpload,
         files: files.map((file) => {
           const dot = file.name.lastIndexOf(".");
           const baseName = dot > 0 ? file.name.slice(0, dot) : file.name;
           return { file, displayName: baseName || file.name };
         }),
       });
-
-      // Conversa: criar thread automática quando anexar sem commentId
-      // (sem pós-ligação — já subiu com commentId da nova thread)
 
       if (context?.source === "parecer" && uploaded.length > 0) {
         const names = uploaded.map((f) => f.name).join(", ");
@@ -429,10 +401,9 @@ export default function CadastroPFPage() {
     })();
 
     function handleOpenAttach(event?: Event) {
-      const detail = (event as CustomEvent<{ commentId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;
+      const detail = (event as CustomEvent<{ source?: "parecer" }> | undefined)?.detail;
       triggerAttachmentPicker({
-        commentId: detail?.commentId ?? null,
-        source: detail?.source ?? 'parecer',
+        source: detail?.source ?? "parecer",
       });
     }
     window.addEventListener("mz-open-attach", handleOpenAttach);
@@ -453,6 +424,11 @@ export default function CadastroPFPage() {
       setPareceres((card as any).reanalysis_notes);
     }
   }
+
+  const refreshAttachments = useCallback(async () => {
+    if (!cardIdEff) return;
+    try { setCardAttachments(await listAttachments(cardIdEff)); } catch {}
+  }, [cardIdEff]);
 
   async function handleSubmitParecer(value: ComposerValue) {
     const text = (value.text || '').trim();
@@ -606,6 +582,7 @@ export default function CadastroPFPage() {
         if (useCardId) {
           setCardIdEff(useCardId);
           if (Array.isArray((cardRow as any).reanalysis_notes)) setPareceres((cardRow as any).reanalysis_notes);
+          try { setCardAttachments(await listAttachments(useCardId)); } catch {}
           setTipoInstalacao(tipoInstToUI((cardRow as any)?.tipo_instalacao ?? null));
           // Carregar agendamento
           if ((cardRow as any)?.due_at) {
@@ -1417,11 +1394,15 @@ export default function CadastroPFPage() {
             <PareceresList
               cardId={cardIdEff}
               notes={pareceres as any}
+              attachments={cardAttachments}
               profiles={profiles}
-              onReply={!canWriteParecer ? undefined : async (pid, value) => {
+              canWrite={canWriteParecer}
+              currentUserId={currentUserId}
+              onReply={async (pid, value) => {
+                if (!canWriteParecer) return null;
                 const text = (value.text || '').trim();
                 const hasDecision = !!value.decision;
-                if (!hasDecision && !text) return;
+                if (!hasDecision && !text) return null;
                 const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
                 await supabase.rpc('add_parecer', {
                   p_card_id: cardIdEff,
@@ -1430,8 +1411,10 @@ export default function CadastroPFPage() {
                   p_decision: value.decision ?? null,
                 });
                 await refreshReanalysisNotes(cardIdEff);
+                return null;
               }}
-              onEdit={!canWriteParecer ? undefined : async (id, value) => {
+              onEdit={async (id, value) => {
+                if (!canWriteParecer) return;
                 const text = (value.text || '').trim();
                 const hasDecision = !!value.decision;
                 if (!hasDecision && !text) return;
@@ -1444,45 +1427,20 @@ export default function CadastroPFPage() {
                 });
                 await refreshReanalysisNotes(cardIdEff);
               }}
-              onDelete={!canWriteParecer ? undefined : async (id) => {
+              onDelete={async (id) => {
+                if (!canWriteParecer) return;
                 await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id });
-                try {
-                  const { data: card } = await supabase
-                    .from('kanban_cards')
-                    .select('reanalysis_notes')
-                    .eq('id', cardIdEff)
-                    .maybeSingle();
-                  if (card && Array.isArray((card as any).reanalysis_notes)) setPareceres((card as any).reanalysis_notes);
-                } catch {}
+                await refreshReanalysisNotes(cardIdEff);
               }}
-              onDecisionChange={!canWriteParecer ? undefined : syncDecisionStatus}
-              onPinnedChange={(active, h)=> { try { (window as any).mzPinnedSpacePF = active ? h : 0; } catch {}; setPinnedSpace(active ? h : 0); }}
+              onDecisionChange={syncDecisionStatus}
+              onAttachmentUploaded={refreshAttachments}
+              onPinnedChange={(active, h) => setPinnedSpace(active ? h : 0)}
             />
             </div>
           </div>
         </Card>
       )}
       {pinnedSpace>0 && (<div aria-hidden className="w-full" style={{ height: pinnedSpace }} />)}
-      <TaskDrawer
-        open={taskOpen.open}
-        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null, source: undefined})}
-        cardId={cardIdEff}
-        commentId={taskOpen.parentId ?? null}
-        taskId={taskOpen.taskId ?? null}
-        source={taskOpen.source ?? 'conversa'}
-        onCreated={async (t)=> {
-          if (taskOpen.source === 'parecer') {
-            try {
-              const { data: card } = await supabase
-                .from('kanban_cards')
-                .select('reanalysis_notes')
-                .eq('id', cardIdEff)
-                .maybeSingle();
-              if (card && Array.isArray((card as any).reanalysis_notes)) setPareceres((card as any).reanalysis_notes);
-            } catch {}
-          }
-        }}
-      />
       <input
         ref={attachmentInputRef}
         type="file"
@@ -1663,13 +1621,12 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
     if (key === 'aprovado') return <CheckCircle className="w-4 h-4" />;
     if (key === 'negado') return <XCircle className="w-4 h-4" />;
     if (key === 'reanalise') return <RefreshCcw className="w-4 h-4" />;
-    if (key === 'tarefa') return <ClipboardList className="w-4 h-4" />;
     if (key === 'anexo') return <Paperclip className="w-4 h-4" />;
     return null;
   };
   const filtered = items.filter(i => i.key.includes(q) || i.label.toLowerCase().includes(q.toLowerCase()));
   const decisions = filtered.filter(i => ['aprovado','negado','reanalise'].includes(i.key));
-  const actions = filtered.filter(i => ['tarefa','anexo'].includes(i.key));
+  const actions = filtered.filter(i => ['anexo'].includes(i.key));
   const firstId = filtered[0]?.key ? `cmd-opt-${filtered[0].key}` : undefined;
   const srOnly = { position:'absolute', width:'1px', height:'1px', padding:0, margin:'-1px', overflow:'hidden', clip:'rect(0,0,0,0)', whiteSpace:'nowrap', border:0 } as React.CSSProperties;
   return (
@@ -1727,565 +1684,6 @@ function CmdDropdown({ items, onPick, initialQuery }: { items: { key: string; la
   );
 }
 
-// MentionDropdownParecer consolidated into shared MentionDropdown
-
-type Note = { id: string; text: string; decision?: ComposerDecision | string | null; author_name?: string; author_role?: string|null; created_at?: string; parent_id?: string|null; level?: number; deleted?: boolean };
-function buildTree(notes: Note[]): Note[] {
-  // Filtra itens soft-deletados para não renderizar
-  const valid = (notes || []).filter((n: any) => !n?.deleted);
-  const byId = new Map<string, any>();
-  const normalizeText = (note: any) => {
-    if (!note) return '';
-    if (!note.decision) return note.text || '';
-    const placeholder = decisionPlaceholder(note.decision as any);
-    return note.text === placeholder ? '' : (note.text || '');
-  };
-  valid.forEach((n:any) => {
-    byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] });
-  });
-  const roots: any[] = [];
-  valid.forEach((n:any) => {
-    const node = byId.get(n.id)!;
-    if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node); else roots.push(node);
-  });
-  const sortFn = (a:any,b:any)=> new Date(a.created_at||'').getTime() - new Date(b.created_at||'').getTime();
-  const sortTree = (arr:any[]) => { arr.sort(sortFn); arr.forEach(x=> sortTree(x.children)); };
-  sortTree(roots);
-  return roots as any;
-}
-
-function PareceresList({
-  cardId,
-  notes,
-  profiles,
-  onReply,
-  onEdit,
-  onDelete,
-  onDecisionChange,
-  onPinnedChange,
-  disableInteractions,
-}: {
-  cardId: string;
-  notes: Note[];
-  profiles: ProfileLite[];
-  onReply?: (parentId:string, value: ComposerValue)=>Promise<any>;
-  onEdit?: (id:string, value: ComposerValue)=>Promise<any>;
-  onDelete?: (id:string)=>Promise<any>;
-  onDecisionChange?: (decision: ComposerDecision | null)=>Promise<void>;
-  onPinnedChange?: (active:boolean, height:number)=>void;
-  disableInteractions?: boolean;
-}) {
-  const tree = useMemo(()=> buildTree(notes||[]), [notes]);
-  const { open } = useSidebar();
-  const [cmdOpen, setCmdOpen] = useState(false);
-  const [cmdQuery, setCmdQuery] = useState("");
-  const replyBoxRef = useRef<HTMLDivElement | null>(null);
-  const editBoxRef = useRef<HTMLDivElement | null>(null);
-  const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
-  const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
-  const [mentionOpenReply, setMentionOpenReply] = useState(false);
-  const [mentionFilterReply, setMentionFilterReply] = useState("");
-  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
-  const [replyMentionOpen, setReplyMentionOpen] = useState(false);
-  const [replyMentionFilter, setReplyMentionFilter] = useState("");
-  const [isReplyingId, setIsReplyingId] = useState<string|null>(null);
-  const [isEditingId, setIsEditingId] = useState<string|null>(null);
-  const [editValue, setEditValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
-  const [editMentionOpen, setEditMentionOpen] = useState(false);
-  const [editMentionFilter, setEditMentionFilter] = useState("");
-  const [editCmdOpen, setEditCmdOpen] = useState(false);
-  const [editCmdQuery, setEditCmdQuery] = useState("");
-  const [pinned, setPinned] = useState<any|null>(null);
-  const [leftOffset, setLeftOffset] = useState(0);
-  const [pinnedHeight, setPinnedHeight] = useState(120);
-  const [isResizing, setIsResizing] = useState(false);
-
-  useEffect(() => {
-    const update = () => {
-      const isDesktop = window.innerWidth >= 768;
-      const left = isDesktop ? (open ? 300 : 60) : 0;
-      setLeftOffset(left);
-    };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, [open]);
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const newHeight = window.innerHeight - e.clientY;
-      const minHeight = 80;
-      const maxHeight = window.innerHeight * 0.6;
-      setPinnedHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing]);
-
-  useEffect(() => {
-    if (onPinnedChange) onPinnedChange(!!pinned, pinned ? pinnedHeight : 0);
-  }, [pinned, pinnedHeight, onPinnedChange]);
-
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      const target = e.target as Node | null;
-      if (isEditingId) {
-        const box = editBoxRef.current;
-        if (box && target && !box.contains(target)) {
-          setIsEditingId(null);
-        }
-      }
-      if (isReplyingId) {
-        const rbox = replyBoxRef.current;
-        if (rbox && target && !rbox.contains(target)) {
-          setReplyValue({ decision: null, text: '' });
-          setMentionOpenReply(false);
-          setCmdOpen(false);
-          setIsReplyingId(null);
-        }
-      }
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [isEditingId, isReplyingId]);
-
-  async function handleDecisionShortcut(cardIdLocal: string, decisionChange: ((decision: ComposerDecision | null) => Promise<void>) | undefined, key: 'aprovado' | 'negado' | 'reanalise') {
-    if (!cardIdLocal || !decisionChange) return;
-    if (key === 'aprovado') {
-      await decisionChange('aprovado');
-    } else if (key === 'negado') {
-      await decisionChange('negado');
-    } else if (key === 'reanalise') {
-      await decisionChange('reanalise');
-    }
-  }
-
-  const renderThread = (note: any, depth = 0): React.ReactNode => {
-    const isRoot = depth === 0;
-    const isEditing = isEditingId === note.id;
-    const isReplying = isReplyingId === note.id;
-    const canReply = !disableInteractions && !!onReply;
-    const canEdit = !disableInteractions && !!onEdit;
-    const canDelete = !disableInteractions && !!onDelete;
-    const canDecide = !disableInteractions && !!onDecisionChange;
-    const containerClass = isRoot
-      ? "rounded-[2px] border border-zinc-400 bg-blue-100 px-3 py-4 text-sm text-zinc-800"
-      : "rounded-[2px] border border-zinc-400 bg-blue-100 px-3 py-3 text-sm text-zinc-800";
-
-    return (
-      <div
-        key={note.id}
-        className={containerClass}
-        style={{ borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px', borderLeftStyle: 'solid' }}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex items-start gap-2">
-            {isRoot && <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />}
-            <div className="min-w-0">
-              <div className="truncate font-medium">
-                {note.author_name || '—'}
-                <span className="ml-2 text-[11px] text-zinc-500">
-                  {note.created_at ? new Date(note.created_at).toLocaleString() : ''}
-                </span>
-              </div>
-              {note.author_role && <div className="text-[11px] text-zinc-500 truncate">{note.author_role}</div>}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 z-10">
-            <button
-              aria-label="Fixar parecer"
-              onClick={() => setPinned((p: any) => (p?.id === note.id ? null : note))}
-              className={`${pinned?.id === note.id ? 'text-amber-700' : 'text-zinc-500 hover:text-zinc-700'} p-1 rounded hover:bg-zinc-100 transition-colors`}
-            >
-              <Pin className="w-4 h-4" strokeWidth={1.75} />
-            </button>
-            {canReply && (
-              <button
-                aria-label="Responder"
-                onClick={() => {
-                  if (isReplying) {
-                    setIsReplyingId(null);
-                    setReplyValue({ decision: null, text: '' });
-                    setMentionOpenReply(false);
-                    setCmdOpen(false);
-                  } else {
-                    setIsReplyingId(note.id);
-                    setReplyValue({ decision: null, text: '' });
-                    requestAnimationFrame(() => replyComposerRef.current?.focus());
-                  }
-                }}
-                className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
-              >
-                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </button>
-            )}
-            {(canEdit || canDelete) && (
-              <ParecerMenu
-                onEdit={canEdit ? () => {
-                  setIsEditingId(note.id);
-                  const nextVal: ComposerValue = { decision: (note.decision as ComposerDecision) ?? null, text: note.text || '', mentions: [] };
-                  setEditValue(nextVal);
-                  requestAnimationFrame(() => {
-                    editComposerRef.current?.setValue(nextVal);
-                    editComposerRef.current?.focus();
-                  });
-                } : undefined}
-                onDelete={canDelete ? () => onDelete!(note.id) : undefined}
-              />
-            )}
-          </div>
-        </div>
-
-        {!isEditing && (
-          <div className="mt-2 space-y-2">
-            <DecisionTag decision={note.decision} />
-            <div className="break-words">{renderTextWithChips(note.text)}</div>
-            {isRoot && (
-              <>
-                {note.updated_at && (
-                  <div className="text-[11px] text-zinc-500">Atualizado em {new Date(note.updated_at).toLocaleString()}</div>
-                )}
-                {note.updated_by_name && (
-                  <div className="text-[11px] text-zinc-500">Por {note.updated_by_name}</div>
-                )}
-              </>
-            )}
-            {Array.isArray(note.attachments) && note.attachments.length > 0 && (
-              <div className="pt-2 space-y-2">
-                {note.attachments.map((att: any, idx: number) => (
-                  <AttachmentChip key={att.id ?? att.file_path ?? `${note.id}-att-${idx}`} attachment={att} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {isEditing && canEdit && (
-          <div className="mt-3" ref={editBoxRef}>
-            <div className="relative">
-              <UnifiedComposer
-                ref={editComposerRef}
-                className="composer-root--blue"
-                defaultValue={editValue}
-                richText
-                onAcceptMention={(query) => {
-                  const list = (profiles||[]).filter(p => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
-                  if (list.length === 1) {
-                    editComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
-                    setEditMentionOpen(false);
-                    setEditMentionFilter('');
-                    return true;
-                  }
-                  return false;
-                }}
-                onAcceptCommand={(query) => {
-                  const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
-                  if (opts.length === 1) {
-                    editComposerRef.current?.setDecision(opts[0] as any);
-                    setEditCmdOpen(false); setEditCmdQuery('');
-                    return true;
-                  }
-                  return false;
-                }}
-                onChange={(val) => setEditValue(val)}
-                onSubmit={async (val) => {
-                  if (!onEdit) return;
-                  const trimmed = (val.text || '').trim();
-                  if (!trimmed) return;
-                  await onEdit(note.id, val);
-                  setIsEditingId(null);
-                  if (onDecisionChange) {
-                    if (val.decision === 'aprovado' || val.decision === 'negado') {
-                      await onDecisionChange(val.decision);
-                    } else if (val.decision === 'reanalise') {
-                      await onDecisionChange('reanalise');
-                    }
-                  }
-                }}
-                onCancel={() => setIsEditingId(null)}
-                onMentionTrigger={(query) => {
-                  setEditMentionFilter(query.trim());
-                  setEditMentionOpen(true);
-                }}
-                onMentionClose={() => setEditMentionOpen(false)}
-                onCommandTrigger={(query) => {
-                  setEditCmdQuery(query.toLowerCase());
-                  setEditCmdOpen(true);
-                }}
-                onCommandClose={() => {
-                  setEditCmdOpen(false);
-                  setEditCmdQuery('');
-                }}
-              />
-              {editMentionOpen && (
-                <div className="absolute z-50 left-0 bottom-full mb-2">
-                <MentionDropdown
-                  items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(editMentionFilter.toLowerCase()))}
-                  onPick={(p) => {
-                      editComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
-                      setEditMentionOpen(false);
-                      setEditMentionFilter("");
-                    }}
-                />
-                </div>
-              )}
-              {editCmdOpen && (
-                <div className="absolute z-50 left-0 bottom-full mb-2">
-                  <CmdDropdown
-                    items={[{ key: 'aprovado', label: 'Aprovado' }, { key: 'negado', label: 'Negado' }, { key: 'reanalise', label: 'Reanálise' }].filter((i) => i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
-                    onPick={async (key) => {
-                      setEditCmdOpen(false);
-                      setEditCmdQuery('');
-                      if (key === 'aprovado' || key === 'negado' || key === 'reanalise') {
-                        editComposerRef.current?.setDecision(key as ComposerDecision);
-                      }
-                    }}
-                    initialQuery={editCmdQuery}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {isReplying && canReply && (
-          <div className="mt-2 flex gap-2 relative" ref={replyBoxRef}>
-            <div className="flex-1 relative">
-              <UnifiedComposer
-                ref={replyComposerRef}
-                className="composer-root--blue"
-                defaultValue={replyValue}
-                placeholder="Responder... (/aprovado, /negado, /reanalise)"
-                richText
-                onAcceptMention={(query) => {
-                  const list = (profiles||[]).filter(p => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
-                  if (list.length === 1) {
-                    replyComposerRef.current?.insertMention({ id: list[0].id, label: list[0].full_name });
-                    setReplyMentionOpen(false);
-                    setReplyMentionFilter('');
-                    return true;
-                  }
-                  return false;
-                }}
-                onAcceptCommand={(query) => {
-                  const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
-                  if (opts.length === 1) {
-                    replyComposerRef.current?.setDecision(opts[0] as any);
-                    setCmdOpen(false); setCmdQuery('');
-                    return true;
-                  }
-                  return false;
-                }}
-                onChange={(val) => setReplyValue(val)}
-                onSubmit={async (val) => {
-                  if (!onReply) return;
-                  const trimmed = (val.text || '').trim();
-                  if (!trimmed) return;
-                  await onReply(note.id, val);
-                  if (onDecisionChange) {
-                    if (val.decision === 'aprovado' || val.decision === 'negado') {
-                      await onDecisionChange(val.decision);
-                    } else if (val.decision === 'reanalise') {
-                      await onDecisionChange('reanalise');
-                    }
-                  }
-                  const resetVal: ComposerValue = { decision: null, text: '', mentions: [] };
-                  setReplyValue(resetVal);
-                  requestAnimationFrame(() => replyComposerRef.current?.setValue(resetVal));
-                  setIsReplyingId(null);
-                  setMentionOpenReply(false);
-                  setCmdOpen(false);
-                }}
-                onCancel={() => {
-                  setIsReplyingId(null);
-                  setMentionOpenReply(false);
-                  setCmdOpen(false);
-                }}
-                onMentionTrigger={(query) => {
-                  setMentionFilterReply(query.trim());
-                  setMentionOpenReply(true);
-                }}
-                onMentionClose={() => setMentionOpenReply(false)}
-                onCommandTrigger={(query) => {
-                  setCmdQuery(query.toLowerCase());
-                  setCmdOpen(true);
-                }}
-                onCommandClose={() => {
-                  setCmdOpen(false);
-                  setCmdQuery('');
-                }}
-              />
-              {mentionOpenReply && (
-                <div className="absolute z-50 left-0 bottom-full mb-2">
-                <MentionDropdown
-                  items={profiles.filter((p) => (p.full_name || '').toLowerCase().includes(mentionFilterReply.toLowerCase()))}
-                  onPick={(p) => {
-                      replyComposerRef.current?.insertMention({ id: p.id, label: p.full_name });
-                      setMentionOpenReply(false);
-                      setMentionFilterReply("");
-                    }}
-                />
-                </div>
-              )}
-              {cmdOpen && (
-                <div className="absolute z-50 left-0 bottom-full mb-2">
-                  <CmdDropdown
-                    items={[{ key: 'aprovado', label: 'Aprovado' }, { key: 'negado', label: 'Negado' }, { key: 'reanalise', label: 'Reanálise' }].filter((i) => i.key.includes(cmdQuery) || i.label.toLowerCase().includes(cmdQuery))}
-                    onPick={async (key) => {
-                      setCmdOpen(false);
-                      setCmdQuery('');
-                      if (key === 'aprovado' || key === 'negado' || key === 'reanalise') {
-                        replyComposerRef.current?.setDecision(key as ComposerDecision);
-                      }
-                    }}
-                    initialQuery={cmdQuery}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {Array.isArray(note.children) && note.children.length > 0 && (
-          <div className="mt-2 space-y-2 pl-4">
-            {note.children.map((child: any) => renderThread(child, depth + 1))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <>
-      <div className="space-y-2">
-        {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
-        {tree.map((note:any) => renderThread(note, 0))}
-
-      </div>
-      {pinned && (
-        <div className="fixed bottom-0 z-40 pointer-events-none" style={{ left: leftOffset, right: 0, height: `${pinnedHeight}px` }}>
-          <div className="pointer-events-auto border-t border-zinc-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)] w-full h-full flex flex-col">
-            <div
-              className={`w-full h-2 cursor-ns-resize flex items-center justify-center border-b border-zinc-100 hover:bg-zinc-50 transition-colors ${isResizing ? 'bg-zinc-100' : ''}`}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setIsResizing(true);
-              }}
-            >
-              <div className="w-12 h-1 bg-zinc-300 rounded-full"></div>
-            </div>
-            <div className="px-4 py-3 text-xs text-zinc-600 flex items-center justify-between border-b border-zinc-100 shrink-0">
-              <div className="min-w-0 flex items-center gap-2">
-                <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
-                <div className="truncate">
-                  <span className="font-medium text-zinc-800">{pinned.author_name || '—'}</span>
-                  <span className="ml-2 text-zinc-500">{pinned.created_at ? new Date(pinned.created_at).toLocaleString() : ''}</span>
-                </div>
-              </div>
-              <button onClick={()=> setPinned(null)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100 transition-colors">
-                <Pin className="w-3.5 h-3.5" strokeWidth={1.75} />
-                <span className="hidden sm:inline">Desafixar</span>
-              </button>
-            </div>
-            <div className="px-4 py-3 text-sm text-zinc-800 break-words overflow-y-auto flex-1">
-              <div className="mb-2"><DecisionTag decision={pinned.decision} /></div>
-              {renderTextWithChips(pinned.text)}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-function AttachmentChip({ attachment }: { attachment: any }) {
-  const [url, setUrl] = useState<string | null>(() => attachment?.public_url || attachment?.url || null);
-  useEffect(() => {
-    if (!FEATURES.baixarAnexos) {
-      setUrl(null);
-      return;
-    }
-    if (attachment?.public_url || attachment?.url) return;
-    let active = true;
-    (async () => {
-      try {
-        // Se tem ID, usa getAttachmentUrl (seguro, com RLS)
-        if (attachment?.id) {
-          const resolved = await getAttachmentUrl(attachment.id, 'download');
-          if (active) setUrl(resolved);
-        } else {
-          // Fallback: se não tem ID, usa publicUrl (compatibilidade)
-          const path = attachment?.file_path || attachment?.path;
-          if (!path) { setUrl(null); return; }
-          const resolved = await publicUrl(path);
-          if (active) setUrl(resolved);
-        }
-      } catch {
-        if (active) setUrl(null);
-      }
-    })();
-    return () => { active = false; };
-  }, [attachment?.id, attachment?.file_path, attachment?.path, attachment?.public_url, attachment?.url]);
-
-  const name = attachment?.file_name || attachment?.name || 'Anexo';
-  const created = attachment?.created_at ? new Date(attachment.created_at).toLocaleString() : null;
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <span className="text-lg shrink-0">📎</span>
-        <div className="min-w-0 flex-1">
-          <div className="font-medium text-zinc-800 break-words">{name}</div>
-          {created && <div className="text-[11px] text-zinc-500">{created}</div>}
-        </div>
-      </div>
-      {FEATURES.baixarAnexos && url ? (
-        <a href={url} target="_blank" rel="noreferrer" className="text-sm text-emerald-600 hover:text-emerald-700 shrink-0">
-          Abrir ↗
-        </a>
-      ) : FEATURES.baixarAnexos ? (
-        <span className="text-xs text-zinc-400 shrink-0">Sem link</span>
-      ) : null}
-    </div>
-  );
-}
-
-function ParecerMenu({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () => void | Promise<void> }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button onClick={()=> setMenuOpen(v=>!v)} className="parecer-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duration-200" aria-label="Abrir menu">
-        <svg className="w-5 h-5 text-zinc-700" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 14a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
-      </button>
-      {menuOpen && (
-        <>
-          <div className="fixed inset-0 z-[9998]" onClick={()=> setMenuOpen(false)} />
-          <div className="parecer-menu-dropdown absolute right-0 top-10 z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
-            <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" onClick={()=> { setMenuOpen(false); onEdit?.(); }}>
-              <svg className="w-4 h-4 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-              Editar
-            </button>
-            <div className="h-px bg-zinc-100 mx-2" />
-            <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" onClick={async ()=> { setMenuOpen(false); await onDelete?.(); }}>
-              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-              Excluir
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 // (Removido) Segmented control; categorias agora ficam dentro do dropdown
 

@@ -5,8 +5,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { DEFAULT_TIMEZONE, utcISOToLocalParts } from "@/lib/datetime";
 import { fetchApplicantCard } from "../services";
 import type { AppModel } from "../types";
-import type { ProfileLite } from "@/features/comments/services";
-import { listProfiles } from "@/features/comments/services";
+import type { ProfileLite } from "@/lib/profiles";
+import { listProfiles } from "@/lib/profiles";
 
 export function useEditarFichaData(params: { open: boolean; applicantId: string; cardId: string }) {
   const { open, applicantId, cardId } = params;

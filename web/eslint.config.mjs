@@ -11,6 +11,8 @@ const config = [
     ignores: [
       "**/node_modules/**",
       "**/.next/**",
+      "**/playwright-report/**",
+      "**/test-results/**",
       "**/dist/**",
       "ui-features/**",
       "tmp/**",
@@ -56,6 +58,8 @@ const config = [
   // Override default ignores of eslint-config-next.
   globalIgnores([
     ".next/**",
+    "playwright-report/**",
+    "test-results/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

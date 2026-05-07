@@ -6,7 +6,6 @@ import { STORAGE_BUCKET_CARD_ATTACHMENTS, TABLE_CARD_ATTACHMENTS } from "@/lib/c
 export type CardAttachment = {
   id: string;
   card_id: string;
-  comment_id?: string | null;
   note_id?: string | null;
   author_id?: string | null;
   author_name?: string | null;
@@ -22,10 +21,10 @@ export type CardAttachment = {
 export async function listAttachments(cardId: string): Promise<CardAttachment[]> {
   const { data, error } = await supabase
     .from(TABLE_CARD_ATTACHMENTS)
-    .select("id, card_id, comment_id, note_id, author_id, author_name, author_role, file_name, file_path, file_size, file_type, file_extension, created_at")
+    .select("id, card_id, note_id, author_id, author_name, author_role, file_name, file_path, file_size, file_type, file_extension, created_at")
     .eq("card_id", cardId)
     .order("created_at", { ascending: true });
-  if (error) return [];
+  if (error) { console.error("[listAttachments]", error); return []; }
   return (data as any) ?? [];
 }
 
@@ -33,7 +32,7 @@ export async function listAttachmentsByNoteIds(cardId: string, noteIds: string[]
   if (!noteIds.length) return [];
   const { data, error } = await supabase
     .from(TABLE_CARD_ATTACHMENTS)
-    .select("id, card_id, comment_id, note_id, author_id, author_name, author_role, file_name, file_path, file_size, file_type, file_extension, created_at")
+    .select("id, card_id, note_id, author_id, author_name, author_role, file_name, file_path, file_size, file_type, file_extension, created_at")
     .eq("card_id", cardId)
     .in("note_id", noteIds)
     .order("created_at", { ascending: true });

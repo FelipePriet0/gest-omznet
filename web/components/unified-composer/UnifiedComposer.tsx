@@ -34,13 +34,13 @@ type UnifiedComposerProps = {
   richText?: boolean; // habilita toolbar e formatação inline
   enablePasteAttachment?: boolean; // interceptar paste de arquivo/imagem
   enableDropAttachment?: boolean;  // interceptar drag & drop de arquivo/imagem
+  hasPendingAttachments?: boolean; // permite submit mesmo sem texto quando há anexos pendentes
   onFilesDropped?: (files: File[]) => void;
   onFilesPasted?: (files: File[]) => void;
   onChange?: (value: ComposerValue) => void;
   onSubmit?: (value: ComposerValue) => void;
   onCancel?: () => void;
   onRequestDecision?: (decision: ComposerDecision) => void;
-  onRequestTask?: () => void;
   onRequestAttachment?: () => void;
   onMentionTrigger?: (query: string, rect: DOMRect | null) => void;
   onMentionClose?: () => void;
@@ -182,6 +182,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
       richText,
       enablePasteAttachment,
       enableDropAttachment,
+      hasPendingAttachments,
       onChange,
       onSubmit,
       onCancel,
@@ -302,6 +303,16 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
           const next = normalizeValue(val ?? DEFAULT_VALUE);
           setValueState(next);
           applyStateToDOM(next);
+          // Se o novo texto não tem mais trigger de comando/menção ativo, limpa o estado interno
+          // Evita que Enter dispare onAcceptCommand com query antiga (ex: /anexo abre picker de novo)
+          if (!next.text.match(/\/[\w]*$/)) {
+            commandOpenRef.current = false;
+            lastCommandQueryRef.current = "";
+          }
+          if (!next.text.match(/@[\w\s]*$/)) {
+            mentionOpenRef.current = false;
+            lastMentionQueryRef.current = "";
+          }
         },
         getSelectionRect: () => {
           const selection = window.getSelection();
@@ -437,6 +448,10 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
 
     function handleInput() {
       const next = getCurrentValue();
+      // Se o chip de decisão foi removido do DOM (ex: Backspace nativo do browser), zera o estado
+      if (next.decision && rootRef.current && !rootRef.current.querySelector('[data-role="decision-chip"]')) {
+        next.decision = null;
+      }
       setValueState(next);
       detectTriggers();
       if (rootRef.current) ensureCaretVisible(rootRef.current);
@@ -534,7 +549,12 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
         }
         if (commandOpenRef.current && onAcceptCommand) {
           const accepted = await onAcceptCommand((lastCommandQueryRef.current || '').trim().toLowerCase());
-          if (accepted) return;
+          if (accepted) {
+            commandOpenRef.current = false;
+            lastCommandQueryRef.current = "";
+            onCommandClose?.();
+            return;
+          }
         }
         // 1) Se há query de menção ativa e o pai aceitar, não submeter
         const root = rootRef.current;
@@ -594,7 +614,7 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
         const val = getCurrentValue();
         const hasDecision = !!val.decision;
         const hasText = val.text.trim().length > 0;
-        if (!hasDecision && !hasText) return;
+        if (!hasDecision && !hasText && !hasPendingAttachments) return;
         onSubmit?.(val);
         return;
       }
@@ -605,23 +625,6 @@ export const UnifiedComposer = forwardRef<UnifiedComposerHandle, UnifiedComposer
         return;
       }
 
-      if (e.key === "Backspace") {
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          if (
-            range.startContainer === rootRef.current &&
-            range.startOffset === 0 &&
-            valueState.decision
-          ) {
-            e.preventDefault();
-            const next = { ...valueState, decision: null };
-            setValueState(next);
-            requestAnimationFrame(() => applyStateToDOM(next));
-            return;
-          }
-        }
-      }
     }
 
     function handleClick(e: React.MouseEvent<HTMLDivElement>) {

@@ -4,12 +4,7 @@ import { useEffect, useMemo, useRef, useState, ChangeEvent, useCallback, Fragmen
 import Image from "next/image";
 import clsx from "clsx";
 import { User as UserIcon, MoreHorizontal, X, Paperclip } from "lucide-react";
-import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
-import { FEATURES } from "@/lib/features";
-import { Conversation } from "@/features/comments/Conversation";
-import { TaskDrawer } from "@/features/tasks/TaskDrawer";
-import { TaskCard } from "@/features/tasks/TaskCard";
-import { listTasks, toggleTask, type CardTask } from "@/features/tasks/services";
+import { supabase } from "@/lib/supabaseClient";
 import { changeStage } from "@/features/kanban/services";
 import Attach from "@/features/attachments/upload";
 import { listAttachments, type CardAttachment } from "@/features/attachments/services";
@@ -17,7 +12,7 @@ import { DateSingleKanbanPopover } from "@/components/ui/date-single-kanban-popo
 import { TimeMultiSelect } from "@/components/ui/time-multi-select";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import MentionDropdown from "@/components/mentions/MentionDropdown";
-import { type ProfileLite } from "@/features/comments/services";
+import { type ProfileLite } from "@/lib/profiles";
 import { useSidebar } from "@/components/ui/sidebar";
 import { DEFAULT_TIMEZONE, startOfDayUtcISO, utcISOToLocalParts, localDateTimeToUtcISO } from "@/lib/datetime";
 import { renderTextWithChips } from "@/utils/richText";
@@ -28,6 +23,7 @@ import { Field, Select, SelectAdv } from "./components/Fields";
 import { CmdDropdown } from "./components/CmdDropdown";
 import { DecisionTag, decisionPlaceholder } from "./utils/decision";
 import { PareceresList } from "./components/PareceresList";
+import { FileUploadDropzone, PendingFileChip } from "@/components/ui/file-upload";
 import { addParecer, editParecer, deleteParecer, setCardDecision, fetchApplicantCard } from "./services";
 import { suggestAssignmentRPC } from "@/features/agenda/services";
 import { listRoutes, type Route } from "@/features/builder/services";
@@ -125,17 +121,15 @@ export function EditarFichaModal({
   // KISS: notas otimistas simples (somente criação), limpas ao sincronizar com backend
   const [optimisticNotes, setOptimisticNotes] = useState<any[]>([]);
   const [personType, setPersonType] = useState<'PF'|'PJ'|null>(null);
-  // UI: tarefas/anexos em conversas
-  const [taskOpen, setTaskOpen] = useState<{open:boolean, parentId?: string|null, taskId?: string|null, source?: 'parecer'|'conversa', inPlace?: boolean}>({open:false});
-  const [tasks, setTasks] = useState<CardTask[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
-  const attachmentContextRef = useRef<{ commentId?: string | null; source?: 'parecer' | 'conversa'; inPlace?: boolean } | null>(null);
+  const attachmentContextRef = useRef<{ source?: "parecer" } | null>(null);
   const parecerAttachInputRef = useRef<HTMLInputElement | null>(null);
   const [parecerPendingFiles, setParecerPendingFiles] = useState<File[]>([]);
   const [cardAttachments, setCardAttachments] = useState<CardAttachment[]>([]);
   const { role: currentUserRole, isLeitor } = useUserRole();
   const isVendor = (currentUserRole ?? "").toLowerCase() === "vendedor";
-  const canWriteParecer = !isVendor && !isLeitor;
+  const isInstalador = (currentUserRole ?? "").toLowerCase() === "instalador";
+  const canWriteParecer = !isVendor && !isLeitor && !isInstalador;
 
   const pendingApp = useRef<Partial<AppModel>>({});
   const pendingCard = useRef<Record<string, any>>({});
@@ -170,7 +164,7 @@ export function EditarFichaModal({
     }
   }, []);
 
-  function triggerAttachmentPicker(context?: { commentId?: string | null; source?: 'parecer' | 'conversa'; inPlace?: boolean }) {
+  function triggerAttachmentPicker(context?: { source?: "parecer" }) {
     if (!canWriteParecer) return;
     attachmentContextRef.current = context ?? null;
     if (attachmentInputRef.current) {
@@ -199,45 +193,9 @@ export function EditarFichaModal({
     }
 
     try {
-      if (context?.source === 'conversa' && !(context?.inPlace)) {
-        try { window.dispatchEvent(new CustomEvent('mz-conversation-stage-files', { detail: { files, parentId: context?.commentId ?? null } })); } catch {}
-        return;
-      }
-      // Se for Conversa, criar comentário apenas quando não for edição in-place
-      let commentIdForUpload: string | null = context?.commentId ?? null;
-      if (context?.source === 'conversa' && !(context?.inPlace && context?.commentId)) {
-        const payload: any = { card_id: cardId, content: '' };
-        if (context?.commentId) payload.parent_id = context.commentId;
-        try {
-          const { data: auth } = await supabase.auth.getUser();
-          const uid = auth.user?.id;
-          if (uid) {
-            payload.author_id = uid;
-            const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single();
-            if (prof) { payload.author_name = (prof as any).full_name ?? null; payload.author_role = (prof as any).role ?? null; }
-          }
-        } catch (e) {}
-        const { data: c, error: cErr } = await supabase.from('card_comments').insert(payload).select('id').single();
-        if (cErr || !c?.id) throw cErr || new Error('Falha ao criar comentário para anexos');
-        commentIdForUpload = c.id as string;
-      } else if (context?.source === 'conversa' && context?.inPlace && context?.commentId) {
-        // Edição in-place: substituir anexos existentes deste comentário e remover tarefas existentes
-        try { await supabase.from('card_attachments').delete().eq('comment_id', context.commentId); } catch (e) {}
-        try { await supabase.from('card_tasks').delete().eq('comment_id', context.commentId); } catch (e) {}
-        // Limpar o texto atual para renderizar anexos inline (sem header duplicado)
-        try { await supabase.from('card_comments').update({ content: '' }).eq('id', context.commentId); } catch (e) {}
-        // Otimista: avisar Conversa para atualizar imediatamente
-        try { window.dispatchEvent(new CustomEvent('mz-optimistic-transform', { detail: { commentId: context.commentId, to: 'attachment' } })); } catch (e) {}
-      }
-
       const uploaded = await Attach.uploadAttachmentBatch({
         cardId,
-        commentId: commentIdForUpload,
-        files: files.map((file) => {
-          const dot = file.name.lastIndexOf(".");
-          const baseName = dot > 0 ? file.name.slice(0, dot) : file.name;
-          return { file, displayName: baseName || file.name };
-        }),
+        files: files.map((file) => ({ file, displayName: file.name })),
       });
 
       if (context?.source === "parecer" && uploaded.length > 0) {
@@ -259,13 +217,6 @@ export function EditarFichaModal({
     }
   }
 
-  const refreshTasks = useCallback(async () => {
-    try {
-      const list = await listTasks(cardId);
-      setTasks(list);
-    } catch (e) {}
-  }, [cardId]);
-
   const refreshAttachments = useCallback(async () => {
     if (!cardId) return;
     try {
@@ -273,32 +224,6 @@ export function EditarFichaModal({
       setCardAttachments(list);
     } catch (e) {}
   }, [cardId]);
-
-  useEffect(() => {
-    if (!cardId) return;
-    let active = true;
-    (async () => {
-      if (!active) return;
-      await refreshTasks();
-    })();
-    if (!isSupabaseConfigured || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-      return () => { active = false; };
-    }
-    const channel = supabase
-      .channel(`editar-ficha-tasks-${cardId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "card_tasks", filter: `card_id=eq.${cardId}` }, () => {
-        refreshTasks();
-      });
-    channel.subscribe((status) => {
-      if (status === "CHANNEL_ERROR") {
-        try { supabase.removeChannel(channel); } catch (e) {}
-      }
-    });
-    return () => {
-      active = false;
-      try { supabase.removeChannel(channel); } catch (e) {}
-    };
-  }, [cardId, refreshTasks]);
 
   useEffect(() => {
     if (!open) return;
@@ -403,21 +328,6 @@ export function EditarFichaModal({
     setCmdQueryParecer("");
   }, [canWriteParecer]);
 
-  const handleTaskToggle = useCallback(async (taskId: string, done: boolean) => {
-    if (!canWriteParecer) return;
-    // Otimista: atualiza lista local imediatamente para uma UX fluida
-    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: done ? 'completed' : 'pending' } : t));
-    try {
-      await toggleTask(taskId, done);
-      // Faz um refresh leve para sincronizar completed_at e estados vindos do backend
-      await refreshTasks();
-    } catch (e: any) {
-      // Reverte em caso de erro
-      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: !done ? 'completed' : 'pending' } : t));
-      alert(e?.message || "Falha ao atualizar tarefa");
-    }
-  }, [canWriteParecer, refreshTasks]);
-
   async function handleAttachmentInputChange(event: ChangeEvent<HTMLInputElement>) {
     if (!canWriteParecer) return;
     const files = Array.from(event.target.files || []);
@@ -504,30 +414,17 @@ export function EditarFichaModal({
     if (!open) bootRef.current = false;
   }, [open, applicantId, cardId]);
 
-  // Listeners para abrir Task/Anexo a partir dos inputs de Parecer (respostas)
+  // Listeners para abrir Anexo a partir dos inputs de Parecer (respostas)
   useEffect(() => {
     if (!canWriteParecer) return;
-    function onOpenTask(event?: Event) {
-      const detail = (event as CustomEvent<{ parentId?: string | null; taskId?: string | null; source?: 'parecer' | 'conversa'; inPlace?: boolean }> | undefined)?.detail;
-      setTaskOpen({
-        open: true,
-        parentId: detail?.parentId ?? null,
-        taskId: detail?.taskId ?? null,
-        source: detail?.source ?? 'parecer',
-        inPlace: detail?.inPlace ?? false,
-      });
-    }
     function onOpenAttach(event?: Event) {
-      const detail = (event as CustomEvent<{ commentId?: string | null; source?: 'parecer' | 'conversa' }> | undefined)?.detail;
+      const detail = (event as CustomEvent<{ source?: "parecer" }> | undefined)?.detail;
       triggerAttachmentPicker({
-        commentId: detail?.commentId ?? null,
-        source: detail?.source ?? 'parecer',
+        source: detail?.source ?? "parecer",
       });
     }
-    window.addEventListener('mz-open-task', onOpenTask);
     window.addEventListener('mz-open-attach', onOpenAttach);
     return () => {
-      window.removeEventListener('mz-open-task', onOpenTask);
       window.removeEventListener('mz-open-attach', onOpenAttach);
     };
   }, [canWriteParecer]);
@@ -865,7 +762,20 @@ export function EditarFichaModal({
             {/* Pareceres */}
             <div>
                 <label className="block mb-1.5 text-[14px] font-bold uppercase tracking-wide leading-none text-zinc-600">Parecer</label>
-                <div className="mb-3 relative" ref={parecerComposerContainerRef}>
+                <FileUploadDropzone
+                  onFiles={(dropped) => {
+                    if (!canWriteParecer) return;
+                    const tooBig = dropped.find((f) => f.size > Attach.ATTACHMENT_MAX_SIZE);
+                    if (tooBig) { alert(`"${tooBig.name}" excede ${(Attach.ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`); return; }
+                    const invalid = dropped.find((f) => f.type && !Attach.ATTACHMENT_ALLOWED_TYPES.includes(f.type));
+                    if (invalid) { alert(`Tipo "${invalid.type || invalid.name}" não permitido.`); return; }
+                    setParecerPendingFiles((prev) => [...prev, ...dropped]);
+                  }}
+                  disabled={!canWriteParecer}
+                  accept={Object.fromEntries(Attach.ATTACHMENT_ALLOWED_TYPES.map((t) => [t, []]))}
+                  className="mb-3"
+                >
+                <div className="relative" ref={parecerComposerContainerRef}>
                   <UnifiedComposer
                     ref={composerRef}
                     className="composer-root--blue"
@@ -873,7 +783,7 @@ export function EditarFichaModal({
                     placeholder="Escreva um novo parecer… Use @ para mencionar, / para comandos"
                     ariaLabel="Escrever parecer"
                     richText
-                    
+                    hasPendingAttachments={parecerPendingFiles.length > 0}
                     onAcceptMention={(query) => {
                       if (!canWriteParecer) return false;
                       const list = (profiles || []).filter((p) => (p.full_name || '').toLowerCase().includes((query||'').toLowerCase()))
@@ -887,10 +797,18 @@ export function EditarFichaModal({
                     }}
                     onAcceptCommand={(query) => {
                       if (!canWriteParecer) return false;
-                      const items = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
+                      const items = ['aprovado','negado','reanalise','anexo'].filter(k => k.includes((query||'').toLowerCase()));
                       if (items.length === 1) {
-                        composerRef.current?.setDecision(items[0] as any);
                         setCmdOpenParecer(false); setCmdQueryParecer('');
+                        if (items[0] === 'anexo') {
+                          parecerAttachInputRef.current?.click();
+                          const cleanText = novoParecer.text.replace(/\s*\/[\w]*$/, '').trimEnd();
+                          const next = { ...novoParecer, text: cleanText };
+                          setNovoParecer(next);
+                          composerRef.current?.setValue(next);
+                        } else {
+                          composerRef.current?.setDecision(items[0] as any);
+                        }
                         return true;
                       }
                       return false;
@@ -914,7 +832,7 @@ export function EditarFichaModal({
                     onSubmit={!canWriteParecer ? undefined : async (val)=> {
                       const txt = (val.text || '').trim();
                       const hasDecision = !!val.decision;
-                      if (!hasDecision && !txt) return;
+                      if (!hasDecision && !txt && parecerPendingFiles.length === 0) return;
                       const payloadText = hasDecision && !txt ? decisionPlaceholder(val.decision ?? null) : txt;
                       // OTIMISTA: cria thread nível 1 localmente até o backend confirmar
                       const me = profiles.find((p) => p.id === currentUserId);
@@ -1015,21 +933,20 @@ export function EditarFichaModal({
                           { key:'aprovado', label:'Aprovado' },
                           { key:'negado', label:'Negado' },
                           { key:'reanalise', label:'Reanálise' },
-                          { key:'tarefa', label:'Tarefa' },
                           { key:'anexo', label:'Anexo' },
-                        ].filter(i=> i.key.includes(cmdQueryParecer))}
+                        ].filter(i=> i.key.includes(cmdQueryParecer) || i.label.toLowerCase().includes(cmdQueryParecer))}
                         onPick={async (key)=>{
                           setCmdOpenParecer(false); setCmdQueryParecer('');
                           if (key==='aprovado' || key==='negado' || key==='reanalise') {
                             composerRef.current?.setDecision(key as any);
                             return;
                           }
-                          if (key==='tarefa') {
-                            setTaskOpen({ open: true, parentId: null, source: 'parecer' });
-                            return;
-                          }
                           if (key==='anexo') {
                             parecerAttachInputRef.current?.click();
+                            const cleanText = novoParecer.text.replace(/\s*\/[\w]*$/, '').trimEnd();
+                            const next = { ...novoParecer, text: cleanText };
+                            setNovoParecer(next);
+                            composerRef.current?.setValue(next);
                             return;
                           }
                         }}
@@ -1038,26 +955,18 @@ export function EditarFichaModal({
                     </div>
                   )}
                 </div>
-
-                {/* Arquivos pendentes para o novo parecer (selecionados via /anexo) */}
                 {canWriteParecer && parecerPendingFiles.length > 0 && (
-                  <div className="mb-2 flex items-center gap-2 flex-wrap">
+                  <div className="mb-2 space-y-1">
                     {parecerPendingFiles.map((f, i) => (
-                      <span key={i} className="flex items-center gap-1 text-xs bg-blue-50 border border-blue-200 rounded px-2 py-0.5 max-w-[180px]">
-                        <Paperclip className="w-3 h-3 text-blue-400 shrink-0" />
-                        <span className="truncate">{f.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setParecerPendingFiles((prev) => prev.filter((_, j) => j !== i))}
-                          className="ml-0.5 text-zinc-400 hover:text-red-500"
-                          aria-label={`Remover ${f.name}`}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
+                      <PendingFileChip
+                        key={i}
+                        file={f}
+                        onRemove={() => setParecerPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                      />
                     ))}
                   </div>
                 )}
+                </FileUploadDropzone>
                 <input
                   ref={parecerAttachInputRef}
                   type="file"
@@ -1080,31 +989,49 @@ export function EditarFichaModal({
                   notes={[...((data.pareceres as any[]) || []), ...optimisticNotes] as any}
                   attachments={cardAttachments}
                   profiles={profiles}
-                  tasks={tasks}
                   applicantName={app?.primary_name ?? null}
                   currentUserId={currentUserId}
                   canWrite={canWriteParecer}
                   onReply={async (pid, value) => {
                     const text = (value.text || '').trim();
                     const hasDecision = !!value.decision;
-                    if (!hasDecision && !text) return null;
                     const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
-                    const { data: noteData, error } = await addParecer({ cardId, text: payloadText, parentId: pid, decision: value.decision ?? null });
-                    if (error) {
-                      alert(error.message || "Falha ao adicionar parecer");
+                    // OTIMISTA: mostra a resposta imediatamente (igual ao campo inicial de Parecer)
+                    const me = profiles.find((p) => p.id === currentUserId);
+                    const tempReply: any = {
+                      id: `tmp-reply-${Date.now()}`,
+                      text: hasDecision && !text ? '' : text,
+                      decision: value.decision ?? null,
+                      author_id: currentUserId ?? null,
+                      author_name: me?.full_name || '',
+                      author_role: me?.role || '',
+                      created_at: new Date().toISOString(),
+                      parent_id: pid,
+                    };
+                    setOptimisticNotes((prev) => [...(prev || []), tempReply]);
+                    try {
+                      const { data: noteData, error } = await addParecer({ cardId, text: payloadText, parentId: pid, decision: value.decision ?? null });
+                      if (error) {
+                        setOptimisticNotes((prev) => (prev || []).filter((n: any) => n.id !== tempReply.id));
+                        alert(error.message || "Falha ao adicionar parecer");
+                        return null;
+                      }
+                      const notes = ((noteData as any)?.reanalysis_notes || []) as any[];
+                      const newNote = [...notes].reverse().find((n: any) => n.parent_id === pid && !n.deleted);
+                      const noteId: string | null = newNote?.id ?? null;
+                      await refreshCardSnapshot();
+                      await refreshAttachments();
+                      if (value.decision === 'aprovado' || value.decision === 'negado') {
+                        await syncDecisionStatus(value.decision);
+                      } else if (value.decision === 'reanalise') {
+                        await syncDecisionStatus('reanalise');
+                      }
+                      return noteId;
+                    } catch (err: any) {
+                      setOptimisticNotes((prev) => (prev || []).filter((n: any) => n.id !== tempReply.id));
+                      alert(err?.message || 'Falha ao adicionar resposta');
                       return null;
                     }
-                    const notes = ((noteData as any)?.reanalysis_notes || []) as any[];
-                    const newNote = [...notes].reverse().find((n: any) => n.parent_id === pid && !n.deleted);
-                    const noteId: string | null = newNote?.id ?? null;
-                    await refreshCardSnapshot();
-                    await refreshAttachments();
-                    if (value.decision === 'aprovado' || value.decision === 'negado') {
-                      await syncDecisionStatus(value.decision);
-                    } else if (value.decision === 'reanalise') {
-                      await syncDecisionStatus('reanalise');
-                    }
-                    return noteId;
                   }}
                   onEdit={async (id, value) => {
                     const text = (value.text || '').trim();
@@ -1134,44 +1061,16 @@ export function EditarFichaModal({
                     refreshCardSnapshot().catch(() => {}); // Não bloquear se falhar
                   }}
                   onDecisionChange={syncDecisionStatus}
-                  onOpenTask={(ctx) => setTaskOpen({ open: true, parentId: ctx.parentId ?? null, taskId: ctx.taskId ?? null, source: ctx.source ?? 'parecer' })}
-                  onToggleTask={handleTaskToggle}
+                  onAttachmentUploaded={refreshAttachments}
                 />
             </div>
                 </div>
               </div>
             </div>
-            {/* Coluna Direita: conversas co-relacionadas (scroll próprio) */}
-            {FEATURES.conversasCoRelacionadas && (
-            <div className="w-[38%] min-w-[320px] flex-shrink-0 h-full min-h-0 border-l border-white/10" style={{ backgroundColor: 'rgba(255,230,204,0.2)' }}>
-              <div className="h-full min-h-0 overflow-y-auto p-4">
-                <Conversation
-                  cardId={cardId}
-                  applicantName={app?.primary_name ?? null}
-                  onOpenTask={(parentId?: string, options?: { inPlace?: boolean }) => setTaskOpen({ open: true, parentId: parentId ?? null, taskId: null, source: 'conversa', inPlace: options?.inPlace ?? false })}
-                  onOpenAttach={(parentId?: string, options?: { inPlace?: boolean }) => triggerAttachmentPicker({ commentId: parentId ?? null, source: 'conversa', inPlace: options?.inPlace ?? false })}
-                  onEditTask={(taskId: string) => setTaskOpen({ open: true, parentId: null, taskId })}
-                />
-              </div>
-            </div>
-            )}
           </div>
         </div>
       </div>
       </div>
-      {/* Drawers/Modais auxiliares */}
-      <TaskDrawer
-        open={taskOpen.open}
-        onClose={()=> setTaskOpen({open:false, parentId:null, taskId:null, source: undefined})}
-        cardId={cardId}
-        commentId={taskOpen.parentId ?? null}
-        taskId={taskOpen.taskId ?? null}
-        source={taskOpen.source ?? 'conversa'}
-        inPlace={taskOpen.inPlace ?? false}
-        onCreated={async ()=> {
-          await refreshTasks();
-        }}
-      />
       <input
         ref={attachmentInputRef}
         type="file"
@@ -1183,451 +1082,4 @@ export function EditarFichaModal({
     </Fragment>
   );
 }
-
-// Subcomponentes e utilitários extraídos para components/* e utils/*
-/*
-  cardId,
-  notes,
-  profiles,
-  tasks,
-  applicantName,
-  onReply,
-  onEdit,
-  onDelete,
-  onDecisionChange,
-  onOpenTask,
-  onToggleTask,
-  currentUserId,
-}: {
-  cardId: string;
-  notes: Note[];
-  profiles: ProfileLite[];
-  tasks: CardTask[];
-  applicantName?: string | null;
-  onReply: (parentId:string, value: ComposerValue)=>Promise<any>;
-  onEdit: (id:string, value: ComposerValue)=>Promise<any>;
-  onDelete: (id:string)=>Promise<any>;
-  onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
-  onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
-  onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
-  currentUserId?: string | null;
-}) {
-  const tree = useMemo(()=> buildTree(notes||[]), [notes]);
-  return (
-    <div className="space-y-2">
-      {(!notes || notes.length===0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
-      {tree.map(n => (
-        <NoteItem
-          key={n.id}
-          cardId={cardId}
-          node={n}
-          depth={0}
-          profiles={profiles}
-          tasks={tasks}
-          onReply={onReply}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onDecisionChange={onDecisionChange}
-          onOpenTask={onOpenTask}
-          onToggleTask={onToggleTask}
-          applicantName={applicantName}
-          currentUserId={currentUserId}
-        />
-      ))}
-    </div>
-  );
-}
-
-function NoteItem({
-  cardId,
-  node,
-  depth,
-  profiles,
-  tasks,
-  applicantName,
-  onReply,
-  onEdit,
-  onDelete,
-  onDecisionChange,
-  onOpenTask,
-  onToggleTask,
-  currentUserId,
-}: {
-  cardId: string;
-  node: any;
-  depth: number;
-  profiles: ProfileLite[];
-  tasks: CardTask[];
-  applicantName?: string | null;
-  onReply: (parentId:string, value: ComposerValue)=>Promise<any>;
-  onEdit: (id:string, value: ComposerValue)=>Promise<any>;
-  onDelete: (id:string)=>Promise<any>;
-  onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
-  onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
-  onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
-  currentUserId?: string | null;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isReplying, setIsReplying] = useState(false);
-  const editRef = useRef<HTMLDivElement | null>(null);
-  const replyRef = useRef<HTMLDivElement | null>(null);
-  const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
-  const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
-  useEffect(() => {
-    function onDocMouseDown(e: MouseEvent) {
-      const t = e.target as Node | null;
-      if (isEditing && editRef.current && t && !editRef.current.contains(t)) {
-        setIsEditing(false);
-      }
-      if (isReplying && replyRef.current && t && !replyRef.current.contains(t)) {
-        setIsReplying(false);
-      }
-    }
-    document.addEventListener('mousedown', onDocMouseDown);
-    return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [isEditing, isReplying]);
-  const [editValue, setEditValue] = useState<ComposerValue>({ decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || '' });
-  const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: '', mentions: [] });
-  const [cmdOpen, setCmdOpen] = useState(false);
-  const [cmdQuery, setCmdQuery] = useState('');
-  // Compositor Unificado - edição
-  // Menções desativadas para edição/resposta de parecer
-  const [editCmdOpen, setEditCmdOpen] = useState(false);
-  const [editCmdQuery, setEditCmdQuery] = useState('');
-  useEffect(() => {
-    if (!isEditing) {
-      setEditValue({ decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || '' });
-    }
-  }, [node.text, node.decision, isEditing]);
-  useEffect(() => {
-    if (!isEditing) {
-      setEditCmdOpen(false);
-    }
-  }, [isEditing]);
-  useEffect(() => {
-    if (!isReplying) {
-      setCmdOpen(false);
-    }
-  }, [isReplying]);
-  useEffect(() => {
-    if (!isReplying) return;
-    const txt = replyValue.text || '';
-    const m = txt.match(/\/([\w]*)$/);
-    if (m) {
-      setCmdQuery((m[1] || '').toLowerCase());
-      setCmdOpen(true);
-    } else {
-      setCmdOpen(false);
-      setCmdQuery('');
-    }
-  }, [replyValue.text, isReplying]);
-  const ts = node.created_at ? new Date(node.created_at).toLocaleString() : '';
-  const nodeTasks = useMemo(() => tasks.filter((t) => t.comment_id === node.id), [tasks, node.id]);
-  const trimmedText = (node.text || '').trim();
-  if (node.deleted) return null;
-  return (
-    <div
-      className="rounded-[2px] border border-zinc-400 bg-blue-100 px-3 py-6 text-sm text-zinc-800 pl-3"
-      style={{ marginLeft: depth*16, borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' }}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex items-center gap-2">
-          <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
-          <div className="min-w-0">
-            <div className="truncate font-medium">{node.author_name || '—'} <span className="ml-2 text-[11px] text-zinc-500">{ts}</span></div>
-            {node.author_role && <div className="text-[11px] text-zinc-500 truncate">{node.author_role}</div>}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            aria-label="Responder"
-            onClick={()=>{
-              setIsReplying(prev => {
-                const next = !prev;
-                if (next) {
-                  const initial: ComposerValue = { decision: null, text: '', mentions: [] };
-                  setReplyValue(initial);
-                  requestAnimationFrame(() => {
-                    replyComposerRef.current?.setValue(initial);
-                    replyComposerRef.current?.focus();
-                  });
-                } else {
-                  setCmdOpen(false);
-                }
-                return next;
-              });
-            }}
-            className="text-zinc-500 hover:text-zinc-700 p-1 rounded hover:bg-zinc-100"
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16">
-              <path d="M4 12h16M12 4l8 8-8 8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          {currentUserId && node.author_id && node.author_id === currentUserId ? (
-          <ParecerMenu
-            onEdit={()=>{
-              const initial: ComposerValue = { decision: (node.decision as ComposerDecision | null) ?? null, text: node.text || '', mentions: [] };
-              setEditValue(initial);
-              setIsEditing(true);
-              requestAnimationFrame(() => {
-                editComposerRef.current?.setValue(initial);
-                editComposerRef.current?.focus();
-              });
-            }}
-            onDelete={async ()=> { if (confirm('Excluir este parecer?')) { try { await onDelete(node.id); } catch(e:any){ alert(e?.message||'Falha ao excluir parecer'); } } }}
-          />
-          ) : null}
-        </div>
-      </div>
-      {!isEditing ? (
-        <div className="mt-1 space-y-2">
-          {node.decision ? <DecisionTag decision={node.decision} /> : null}
-          {trimmedText.length > 0 && (
-            <div className="break-words">{renderTextWithChips(node.text)}</div>
-          )}
-        </div>
-      ) : (
-        <div className="mt-2" ref={editRef}>
-          <div className="relative">
-            <UnifiedComposer
-              ref={editComposerRef}
-              defaultValue={editValue}
-              placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
-              ariaLabel="Editar parecer"
-              richText
-              
-              onChange={(val)=> setEditValue(val)}
-              onSubmit={async (val)=>{
-                const trimmed = (val.text || '').trim();
-                if (!trimmed) return;
-                try {
-                  await onEdit(node.id, val);
-                  if (val.decision === 'aprovado' || val.decision === 'negado') {
-                    await onDecisionChange(val.decision);
-                  } else if (val.decision === 'reanalise') {
-                    await onDecisionChange('reanalise');
-                  }
-                  setIsEditing(false);
-                  setEditCmdOpen(false);
-                } catch(e:any){ alert(e?.message||'Falha ao editar parecer'); }
-              }}
-              onCancel={()=> {
-                setIsEditing(false);
-                setEditCmdOpen(false);
-              }}
-              onCommandTrigger={(query)=>{
-                setEditCmdQuery(query.toLowerCase());
-                setEditCmdOpen(true);
-              }}
-              onCommandClose={()=> {
-                setEditCmdOpen(false);
-                setEditCmdQuery('');
-              }}
-            />
-            {editCmdOpen && (
-              <div className="absolute z-50 left-0 bottom-full mb-2">
-                <CmdDropdown
-                  items={[
-                    { key:'aprovado', label:'Aprovado' },
-                    { key:'negado', label:'Negado' },
-                    { key:'reanalise', label:'Reanálise' },
-                  ].filter(i=> i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
-                  onPick={async (key)=>{
-                    setEditCmdOpen(false); setEditCmdQuery('');
-                    if (key==='aprovado' || key==='negado' || key==='reanalise') {
-                      editComposerRef.current?.setDecision(key as any);
-                      try {
-                        await onDecisionChange(key as any);
-                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
-                    }
-                  }}
-                  initialQuery={editCmdQuery}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {nodeTasks.length > 0 && (
-        <div className="mt-2 space-y-2">
-          {nodeTasks.map((task) => {
-            const creatorProfile = task.created_by
-              ? profiles.find((p) => p.id === task.created_by)
-              : null;
-            const creatorName = creatorProfile?.full_name ?? "Colaborador";
-            return (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onToggle={(id, done) => onToggleTask(id, done)}
-                creatorName={creatorName}
-                applicantName={applicantName}
-                onEdit={() => onOpenTask({ parentId: node.id, taskId: task.id, source: "parecer" })}
-              />
-            );
-          })}
-        </div>
-      )}
-      {isReplying && (
-        <div className="mt-2 flex gap-2 relative" ref={replyRef}>
-          <div className="flex-1 relative">
-            <UnifiedComposer
-              ref={replyComposerRef}
-              defaultValue={replyValue}
-              placeholder="Responder... (/aprovado, /negado, /reanalise, /tarefa, /anexo)"
-              ariaLabel="Responder parecer"
-              richText
-              
-              onChange={(val)=> setReplyValue(val)}
-              onSubmit={async (val)=>{
-                const trimmed = (val.text || '').trim();
-                if (!trimmed) return;
-                try {
-                  await onReply(node.id, val);
-                  if (val.decision === 'aprovado' || val.decision === 'negado') {
-                    await onDecisionChange(val.decision);
-                  } else if (val.decision === 'reanalise') {
-                    await onDecisionChange('reanalise');
-                  }
-                  const resetVal: ComposerValue = { decision: null, text: '', mentions: [] };
-                  setReplyValue(resetVal);
-                  replyComposerRef.current?.setValue(resetVal);
-                  setIsReplying(false);
-                  setCmdOpen(false);
-                } catch(e:any){ alert(e?.message||'Falha ao responder parecer'); }
-              }}
-              onCancel={()=> {
-                setIsReplying(false);
-                setCmdOpen(false);
-              }}
-              onCommandTrigger={(query)=>{
-                setCmdQuery(query.toLowerCase());
-                setCmdOpen(true);
-              }}
-              onCommandClose={()=> {
-                const txt = replyValue.text || '';
-                if (txt.match(/\/([\w]*)$/)) {
-                  setCmdOpen(true);
-                } else {
-                  setCmdOpen(false);
-                  setCmdQuery('');
-                }
-              }}
-            />
-            {cmdOpen && (
-              <div className="absolute z-50 left-0 bottom-full mb-2">
-                <CmdDropdown
-                  items={[
-                    { key:'aprovado', label:'Aprovado' },
-                    { key:'negado', label:'Negado' },
-                    { key:'reanalise', label:'Reanálise' },
-                    { key:'tarefa', label:'Tarefa' },
-                    { key:'anexo', label:'Anexo' },
-                  ].filter(i=> i.key.includes(cmdQuery))}
-                  onPick={async (key)=>{
-                    setCmdOpen(false); setCmdQuery('');
-                    if (key==='aprovado' || key==='negado' || key==='reanalise') {
-                      replyComposerRef.current?.setDecision(key as any);
-                      try {
-                        await onDecisionChange(key as any);
-                      } catch(e:any){ alert(e?.message||'Falha ao mover'); }
-                      return;
-                    }
-                    if (key==='tarefa') {
-                      onOpenTask({ parentId: node.id, source: "parecer" });
-                      return;
-                    }
-                    if (key==='anexo') {
-                      try {
-                        const ev = new CustomEvent('mz-open-attach', { detail: { commentId: node.id, source: 'parecer' } });
-                        window.dispatchEvent(ev);
-                      } catch (e) {}
-                      return;
-                    }
-                  }}
-                  initialQuery={cmdQuery}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {node.children && node.children.length>0 && (
-        <div className="mt-2 space-y-2">
-          {node.children.map((c:any)=> (
-            <NoteItem
-              key={c.id}
-              cardId={cardId}
-              node={c}
-              depth={depth+1}
-              profiles={profiles}
-              tasks={tasks}
-              onReply={onReply}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onDecisionChange={onDecisionChange}
-              onOpenTask={onOpenTask}
-              onToggleTask={onToggleTask}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ParecerMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void | Promise<void> }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    function onDocMouseDown(e: MouseEvent) {
-      const t = e.target as Node | null;
-      if (open && menuRef.current && t && !menuRef.current.contains(t)) setOpen(false);
-    }
-    document.addEventListener('mousedown', onDocMouseDown);
-    return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [menuOpen]);
-  return (
-    <div className="relative" ref={menuRef}>
-      <button 
-        aria-label="Mais ações" 
-        className="parecer-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duration-200" 
-        onClick={()=> setMenuOpen(v=>!v)}
-      >
-        <MoreHorizontal className="w-4 h-4 text-zinc-600" strokeWidth={2} />
-      </button>
-      {menuOpen && (
-        <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setMenuOpen(false)} />
-          <div className="parecer-menu-dropdown absolute right-0 top-10 z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
-            <button 
-              className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duration-150" 
-              onClick={()=> { setMenuOpen(false); onEdit(); }}
-            >
-              <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Editar
-            </button>
-            <div className="h-px bg-zinc-100 mx-2" />
-            <button 
-              className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-150" 
-              onClick={async ()=> { setOpen(false); await onDelete(); }}
-            >
-              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              Excluir
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// Utilitário local para obter a posição do caret no textarea
-// MentionDropdownParecer removido: menções desativadas no Parecer
-*/
-
 // MentionDropdown now shared in @/components/mentions/MentionDropdown

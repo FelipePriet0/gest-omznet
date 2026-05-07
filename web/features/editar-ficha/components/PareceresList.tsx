@@ -1,38 +1,53 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
-import { MoreHorizontal, User as UserIcon, Paperclip, X } from "lucide-react";
+import { MoreHorizontal, Pin } from "lucide-react";
+import { useSidebar } from "@/components/ui/sidebar";
+import { UserAvatar } from "@/components/ui/avatar";
 import clsx from "clsx";
 import { uploadAttachmentBatch, ATTACHMENT_MAX_SIZE, ATTACHMENT_ALLOWED_TYPES } from "@/features/attachments/upload";
-import { getAttachmentUrl, type CardAttachment } from "@/features/attachments/services";
+import { getAttachmentUrl, removeAttachment, type CardAttachment } from "@/features/attachments/services";
+import { FileUploadDropzone, AttachmentChip, PendingFileChip } from "@/components/ui/file-upload";
 import { UnifiedComposer, type ComposerDecision, type ComposerValue, type UnifiedComposerHandle } from "@/components/unified-composer/UnifiedComposer";
 import MentionDropdown from "@/components/mentions/MentionDropdown";
-import { TaskCard } from "@/features/tasks/TaskCard";
-import type { CardTask } from "@/features/tasks/services";
-import type { ProfileLite } from "@/features/comments/services";
+import type { ProfileLite } from "@/lib/profiles";
 import { renderTextWithChips } from "@/utils/richText";
 import { CmdDropdown } from "../components/CmdDropdown";
 import { DecisionTag, decisionPlaceholder } from "../utils/decision";
 
 type Note = { id: string; text: string; author_id?: string | null; author_name?: string; author_role?: string | null; created_at?: string; parent_id?: string | null; level?: number; deleted?: boolean; decision?: ComposerDecision | string | null };
 
-function buildTree(notes: Note[]): Note[] {
-  // Filtrar pareceres deletados (soft delete do backend)
-  const activeNotes = notes.filter((n) => !n.deleted);
-  
-  const byId = new Map<string, any>();
+function buildTree(activeNotes: Note[], allNotes: Note[]): Note[] {
   const normalizeText = (note: any) => {
     if (!note) return "";
     if (!note.decision) return note.text || "";
     const placeholder = decisionPlaceholder(note.decision as any);
     return note.text === placeholder ? "" : (note.text || "");
   };
+
+  // Mapa completo incluindo deletados — usado para snapshot do pai no quote block
+  const allById = new Map<string, any>();
+  allNotes.forEach((n) => allById.set(n.id, { ...n, text: normalizeText(n) }));
+
+  const byId = new Map<string, any>();
   activeNotes.forEach((n) => byId.set(n.id, { ...n, text: normalizeText(n), children: [] as any[] }));
   const roots: any[] = [];
   activeNotes.forEach((n) => {
     const node = byId.get(n.id)!;
-    if (n.parent_id && byId.has(n.parent_id)) byId.get(n.parent_id).children.push(node);
-    else roots.push(node);
+    if (n.parent_id && byId.has(n.parent_id)) {
+      byId.get(n.parent_id).children.push(node);
+    } else {
+      // Pai foi deletado — preserva os dados dele como snapshot no filho
+      if (n.parent_id && allById.has(n.parent_id)) {
+        const deletedParent = allById.get(n.parent_id);
+        node.deletedParentSnapshot = {
+          author_name: deletedParent.author_name,
+          text: deletedParent.text,
+          decision: deletedParent.decision,
+        };
+      }
+      roots.push(node);
+    }
   });
   const sortFn = (a: any, b: any) => new Date(a.created_at || "").getTime() - new Date(b.created_at || "").getTime();
   const sortTree = (arr: any[]) => {
@@ -48,47 +63,47 @@ export function PareceresList({
   notes,
   attachments,
   profiles,
-  tasks,
   applicantName,
   onReply,
   onEdit,
   onDelete,
   onDecisionChange,
-  onOpenTask,
-  onToggleTask,
   currentUserId,
   canWrite = true,
   onTypingChange,
+  onAttachmentUploaded,
+  onPinnedChange,
 }: {
   cardId: string;
   notes: Note[];
   attachments?: CardAttachment[];
   profiles: ProfileLite[];
-  tasks: CardTask[];
   applicantName?: string | null;
   onReply: (parentId: string, value: ComposerValue) => Promise<string | null>;
   onEdit: (id: string, value: ComposerValue) => Promise<any>;
   onDelete: (id: string) => Promise<any>;
   onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
-  onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
-  onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
   currentUserId?: string | null;
   canWrite?: boolean;
   onTypingChange?: (typing: boolean) => void;
+  onAttachmentUploaded?: () => void;
+  onPinnedChange?: (active: boolean, height: number) => void;
 }) {
   // Estado otimista: pareceres deletados localmente (antes da confirmação do backend)
   const [optimisticallyDeleted, setOptimisticallyDeleted] = useState<Set<string>>(new Set());
   const [optimisticallyEdited, setOptimisticallyEdited] = useState<Map<string, Partial<Note>>>(new Map());
   
-  // Filtrar pareceres deletados (backend + otimista) e aplicar edições otimistas
+  // Incluir todas as notas; deletadas (backend + otimista) ficam marcadas como deleted: true
   const filteredNotes = useMemo(() => {
-    return (notes || []).filter((n) => !n.deleted && !optimisticallyDeleted.has(n.id)).map((n) => {
+    return (notes || []).map((n) => {
+      const isDeleted = n.deleted || optimisticallyDeleted.has(n.id);
+      if (isDeleted) return { ...n, deleted: true };
       const edit = optimisticallyEdited.get(n.id);
       return edit ? { ...n, ...edit } : n;
     });
   }, [notes, optimisticallyDeleted, optimisticallyEdited]);
   
-  const tree = useMemo(() => buildTree(filteredNotes), [filteredNotes]);
+  const tree = useMemo(() => buildTree(filteredNotes, notes || []), [filteredNotes, notes]);
   
   // Resetar estado otimista quando os dados do hook mudarem (sincronização)
   useEffect(() => {
@@ -144,7 +159,43 @@ export function PareceresList({
     }
   };
   
+  const { open } = useSidebar();
+  const [pinned, setPinned] = useState<any | null>(null);
+  const [pinnedHeight, setPinnedHeight] = useState(120);
+  const [isResizing, setIsResizing] = useState(false);
+  const [leftOffset, setLeftOffset] = useState(0);
+
+  useEffect(() => {
+    const update = () => {
+      const isDesktop = window.innerWidth >= 768;
+      setLeftOffset(isDesktop ? (open ? 300 : 60) : 0);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [open]);
+
+  useEffect(() => {
+    if (!isResizing) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const newH = window.innerHeight - e.clientY;
+      setPinnedHeight(Math.max(80, Math.min(window.innerHeight * 0.6, newH)));
+    };
+    const handleMouseUp = () => setIsResizing(false);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
+
+  useEffect(() => {
+    onPinnedChange?.(!!pinned, pinned ? pinnedHeight : 0);
+  }, [pinned, pinnedHeight, onPinnedChange]);
+
   return (
+    <>
     <div className="space-y-2">
       {(!filteredNotes || filteredNotes.length === 0) && <div className="text-xs text-zinc-500">Nenhum parecer</div>}
       {tree.map((n) => (
@@ -153,66 +204,141 @@ export function PareceresList({
           cardId={cardId}
           node={n as any}
           depth={0}
+          parentNote={
+            (n as any).deletedParentSnapshot
+              ? {
+                  ...(n as any).deletedParentSnapshot,
+                  attachmentNames: (attachments || [])
+                    .filter((a) => a.note_id === n.parent_id)
+                    .map((a) => a.file_name),
+                }
+              : null
+          }
           attachments={attachments}
           profiles={profiles}
-          tasks={tasks}
           onReply={onReply}
           onEdit={handleEditOptimistic}
           onDelete={handleDeleteOptimistic}
           onDecisionChange={onDecisionChange}
-          onOpenTask={onOpenTask}
-          onToggleTask={onToggleTask}
           applicantName={applicantName}
           currentUserId={currentUserId}
           canWrite={canWrite}
           onTypingChange={onTypingChange}
+          onAttachmentUploaded={onAttachmentUploaded}
+          pinned={pinned}
+          onPin={setPinned}
         />
       ))}
     </div>
+    {pinned && (
+      <div className="fixed bottom-0 z-40 pointer-events-none" style={{ left: leftOffset, right: 0, height: `${pinnedHeight}px` }}>
+        <div className="pointer-events-auto border-t border-zinc-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)] w-full h-full flex flex-col">
+          <div
+            className={`w-full h-2 cursor-ns-resize flex items-center justify-center border-b border-zinc-100 hover:bg-zinc-50 transition-colors ${isResizing ? "bg-zinc-100" : ""}`}
+            onMouseDown={(e) => { e.preventDefault(); setIsResizing(true); }}
+          >
+            <div className="w-12 h-1 bg-zinc-300 rounded-full" />
+          </div>
+          <div className="px-4 py-3 text-xs text-zinc-600 flex items-center justify-between border-b border-zinc-100 shrink-0">
+            <div className="min-w-0 flex items-center gap-2 truncate">
+              <span className="font-medium text-zinc-800">{pinned.author_name || "—"}</span>
+              <span className="text-zinc-500">{pinned.created_at ? new Date(pinned.created_at).toLocaleString() : ""}</span>
+            </div>
+            <button onClick={() => setPinned(null)} className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100 transition-colors shrink-0">
+              <Pin className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <span className="hidden sm:inline">Desafixar</span>
+            </button>
+          </div>
+          <div className="px-4 py-3 text-sm text-zinc-800 break-words overflow-y-auto flex-1">
+            {pinned.decision && <div className="mb-2"><span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-700">{pinned.decision}</span></div>}
+            {renderTextWithChips(pinned.text)}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
+
+const ATTACHMENT_ACCEPT = Object.fromEntries(ATTACHMENT_ALLOWED_TYPES.map((t) => [t, []]));
+
 
 function NoteItem({
   cardId,
   node,
   depth,
+  parentNote,
   attachments,
   profiles,
-  tasks,
   onReply,
   onEdit,
   onDelete,
   onDecisionChange,
-  onOpenTask,
-  onToggleTask,
   applicantName,
   currentUserId,
   canWrite,
   onTypingChange,
+  onAttachmentUploaded,
+  pinned,
+  onPin,
 }: {
   cardId: string;
   node: any;
   depth: number;
+  parentNote?: { author_name?: string; text?: string; decision?: any; attachmentNames?: string[] } | null;
   attachments?: CardAttachment[];
   profiles: ProfileLite[];
-  tasks: CardTask[];
   onReply: (parentId: string, value: ComposerValue) => Promise<string | null>;
   onEdit: (id: string, value: ComposerValue) => Promise<any>;
   onDelete: (id: string) => Promise<any>;
   onDecisionChange: (decision: ComposerDecision | null) => Promise<void>;
-  onOpenTask: (context: { parentId?: string | null; taskId?: string | null; source?: "parecer" | "conversa" }) => void;
-  onToggleTask: (taskId: string, done: boolean) => Promise<void> | void;
   applicantName?: string | null;
   currentUserId?: string | null;
   canWrite?: boolean;
   onTypingChange?: (typing: boolean) => void;
+  onAttachmentUploaded?: () => void;
+  pinned?: any;
+  onPin?: (note: any) => void;
 }) {
   const replyComposerRef = useRef<UnifiedComposerHandle | null>(null);
   const editComposerRef = useRef<UnifiedComposerHandle | null>(null);
   const editRef = useRef<HTMLDivElement | null>(null);
   const replyRef = useRef<HTMLDivElement | null>(null);
   const replyAttachInputRef = useRef<HTMLInputElement | null>(null);
+  const editAttachInputRef = useRef<HTMLInputElement | null>(null);
   const [isReplying, setIsReplying] = useState(false);
+  const [editPendingFiles, setEditPendingFiles] = useState<File[]>([]);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const handleDropOnReply = (dropped: File[]) => {
+    if (dropped.length === 0) return;
+    const tooBig = dropped.find((f) => f.size > ATTACHMENT_MAX_SIZE);
+    if (tooBig) { alert(`"${tooBig.name}" excede ${(ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`); return; }
+    const invalid = dropped.find((f) => f.type && !ATTACHMENT_ALLOWED_TYPES.includes(f.type));
+    if (invalid) { alert(`Tipo "${invalid.type || invalid.name}" não permitido.`); return; }
+    setReplyPendingFiles((prev) => [...prev, ...dropped]);
+  };
+
+  const handleDropOnEdit = (dropped: File[]) => {
+    if (dropped.length === 0) return;
+    const tooBig = dropped.find((f) => f.size > ATTACHMENT_MAX_SIZE);
+    if (tooBig) { alert(`"${tooBig.name}" excede ${(ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`); return; }
+    const invalid = dropped.find((f) => f.type && !ATTACHMENT_ALLOWED_TYPES.includes(f.type));
+    if (invalid) { alert(`Tipo "${invalid.type || invalid.name}" não permitido.`); return; }
+    setEditPendingFiles((prev) => [...prev, ...dropped]);
+  };
+
+  const handleRemoveAttachment = async (id: string) => {
+    setRemovingId(id);
+    try {
+      await removeAttachment(id);
+      onAttachmentUploaded?.();
+    } catch (e: any) {
+      alert(e?.message || "Falha ao remover anexo");
+    } finally {
+      setRemovingId(null);
+    }
+  };
   const [replyValue, setReplyValue] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [replyPendingFiles, setReplyPendingFiles] = useState<File[]>([]);
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -242,7 +368,6 @@ function NoteItem({
   }, []);
 
   const trimmedText = (node.text || "").trim();
-  const nodeTasks = tasks.filter((t) => (t as any).comment_id === node.id);
   const noteAttachments = (attachments || []).filter((a) => a.note_id === node.id);
   const isRoot = depth === 0;
 
@@ -258,55 +383,17 @@ function NoteItem({
     setEditCmdOpen(false);
   }, [canEdit]);
 
-  // Fechar campo de edição ao clicar fora
-  useEffect(() => {
-    if (!isEditing) return;
-    function handleClickOutside(e: MouseEvent) {
-      const target = e.target as Node | null;
-      if (editRef.current && target && !editRef.current.contains(target)) {
-        setIsEditing(false);
-        setEditCmdOpen(false);
-        onTypingChange?.(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isEditing]);
-
-  // Fechar campo de resposta ao clicar fora
-  useEffect(() => {
-    if (!isReplying) return;
-    function handleClickOutside(e: MouseEvent) {
-      const target = e.target as Node | null;
-      if (replyRef.current && target && !replyRef.current.contains(target)) {
-        setIsReplying(false);
-        setCmdOpen(false);
-        onTypingChange?.(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isReplying]);
 
   return (
-    <div 
-      className={clsx("rounded-[2px] border border-zinc-400 bg-blue-100 px-3 py-3 text-sm text-zinc-800", !isRoot && "pl-3")}
-      style={{ 
-        marginLeft: isRoot ? 0 : depth * 16, 
-        borderLeftColor: 'var(--verde-primario)', 
-        borderLeftWidth: '8px' 
-      }}
-    >      
+    <div
+      className={isRoot ? "rounded-[2px] border border-zinc-400 bg-blue-100 text-sm text-zinc-800 overflow-hidden" : ""}
+      style={isRoot ? { borderLeftColor: 'var(--verde-primario)', borderLeftWidth: '8px' } : {}}
+    >
+    <div className="px-3 py-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          {!isRoot ? (
-            <UserIcon className="w-4 h-4 text-[var(--verde-primario)] shrink-0" />
-          ) : (
-            <div className="h-8 w-8 rounded-full bg-zinc-100 flex items-center justify-center">
-              <span className="text-xs">{(node.author_name || "?").slice(0, 2)}</span>
-            </div>
-          )}
+          <UserAvatar name={node.author_name || "?"} size={isRoot ? "sm" : "xs"} />
           <div className="leading-tight min-w-0">
             <div className="text-sm font-medium text-zinc-900 truncate">{node.author_name || "—"}</div>
             <div className="text-[11px] text-zinc-500">{new Date(node.created_at || "").toLocaleString()}</div>
@@ -316,6 +403,16 @@ function NoteItem({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {!node.deleted && (<>
+          {onPin && (
+            <button
+              aria-label="Fixar parecer"
+              onClick={() => onPin(pinned?.id === node.id ? null : node)}
+              className={clsx("p-1 rounded hover:bg-zinc-100 transition-colors", pinned?.id === node.id ? "text-amber-700" : "text-zinc-500 hover:text-zinc-700")}
+            >
+              <Pin className="w-4 h-4" strokeWidth={1.75} />
+            </button>
+          )}
           <button
             aria-label="Responder"
             disabled={!canReply}
@@ -373,18 +470,62 @@ function NoteItem({
               }
             />
           ) : null}
+          </>)}
         </div>
       </div>
 
+      {/* Quote block (WhatsApp-style) */}
+      {parentNote && (
+        <div className="mt-2 flex overflow-hidden rounded-sm" style={{ borderLeft: '3px solid var(--verde-primario)' }}>
+          <div className="bg-blue-200/50 px-2 py-1 min-w-0 flex-1">
+            <div className="text-[11px] font-semibold truncate" style={{ color: 'var(--verde-primario)' }}>
+              {parentNote.author_name || '—'}
+            </div>
+            <div className="text-[11px] text-zinc-500 truncate">
+              {(parentNote.text || '').trim()
+                || (parentNote.attachmentNames?.[0] ? `📎 ${parentNote.attachmentNames[0]}` : '…')}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
-      {!isEditing ? (
+      {node.deleted ? (
+        <div className="mt-1 flex items-center gap-1.5 text-zinc-400 italic text-sm select-none">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M4.93 4.93L19.07 19.07"/>
+          </svg>
+          <span>Mensagem apagada para todos</span>
+        </div>
+      ) : !isEditing ? (
         <div className="mt-1 space-y-2">
           {node.decision ? <DecisionTag decision={node.decision} /> : null}
           {trimmedText.length > 0 && <div className="break-words">{renderTextWithChips(node.text)}</div>}
         </div>
       ) : (
-        <div className="mt-2" ref={editRef}>
+        <FileUploadDropzone
+          onFiles={handleDropOnEdit}
+          disabled={!canEdit}
+          accept={ATTACHMENT_ACCEPT}
+          className="mt-2"
+        >
+        <div ref={editRef}>
           <div className="relative">
+            <button
+              type="button"
+              aria-label="Descartar alterações"
+              onClick={() => {
+                setIsEditing(false);
+                setEditCmdOpen(false);
+                onTypingChange?.(false);
+              }}
+              className="absolute top-2 right-2 z-10 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 rounded p-1 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
             <UnifiedComposer
               ref={editComposerRef}
               className="composer-root--blue"
@@ -393,7 +534,7 @@ function NoteItem({
               placeholder="Edite o parecer… Use @ para mencionar e / para comandos"
               ariaLabel="Editar parecer"
               richText
-              
+              hasPendingAttachments={editPendingFiles.length > 0}
               onAcceptMention={(query) => {
                 const list = profiles.filter((p) => (p.full_name || '').toLowerCase().includes((query || '').toLowerCase()));
                 if (list.length === 1) {
@@ -405,10 +546,18 @@ function NoteItem({
                 return false;
               }}
               onAcceptCommand={(query) => {
-                const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
+                const opts = ['aprovado','negado','reanalise','anexo'].filter(k => k.includes((query||'').toLowerCase()));
                 if (opts.length === 1) {
-                  editComposerRef.current?.setDecision(opts[0] as any);
                   setEditCmdOpen(false); setEditCmdQuery('');
+                  if (opts[0] === 'anexo') {
+                    editAttachInputRef.current?.click();
+                    const cleanText = editValue.text.replace(/\s*\/[\w]*$/, '').trimEnd();
+                    const next = { ...editValue, text: cleanText };
+                    setEditValue(next);
+                    editComposerRef.current?.setValue(next);
+                  } else {
+                    editComposerRef.current?.setDecision(opts[0] as any);
+                  }
                   return true;
                 }
                 return false;
@@ -419,18 +568,32 @@ function NoteItem({
                   ? undefined
                   : async (val) => {
                       const trimmed = (val.text || "").trim();
-                      if (!trimmed) return;
+                      const hasDecision = !!val.decision;
+                      if (!hasDecision && !trimmed && editPendingFiles.length === 0) return;
+                      const payloadText = hasDecision && !trimmed ? decisionPlaceholder(val.decision ?? null) : trimmed;
+                      const filesToUpload = editPendingFiles.slice();
+                      if (filesToUpload.length > 0) setEditPendingFiles([]);
+                      setIsEditing(false);
+                      setEditCmdOpen(false);
+                      onTypingChange?.(false);
                       try {
-                        await onEdit(node.id, val);
+                        await onEdit(node.id, { ...val, text: payloadText });
+                        if (filesToUpload.length > 0) {
+                          try {
+                            await uploadAttachmentBatch({ cardId, noteId: node.id, files: filesToUpload.map((f) => ({ file: f })) });
+                            onAttachmentUploaded?.();
+                          } catch (uploadErr: any) {
+                            console.error("Falha ao enviar anexos do edit", uploadErr);
+                          }
+                        }
                         if (val.decision === "aprovado" || val.decision === "negado") {
                           await onDecisionChange(val.decision);
                         } else if (val.decision === "reanalise") {
                           await onDecisionChange("reanalise");
                         }
-                        setIsEditing(false);
-                        setEditCmdOpen(false);
-                        onTypingChange?.(false);
                       } catch (e: any) {
+                        setIsEditing(true);
+                        if (filesToUpload.length > 0) setEditPendingFiles(filesToUpload);
                         alert(e?.message || "Falha ao editar parecer");
                       }
                     }
@@ -483,12 +646,22 @@ function NoteItem({
                     { key: "aprovado", label: "Aprovado" },
                     { key: "negado", label: "Negado" },
                     { key: "reanalise", label: "Reanálise" },
+                    { key: "anexo", label: "Anexo" },
                   ].filter((i) => i.key.includes(editCmdQuery) || i.label.toLowerCase().includes(editCmdQuery))}
                   onPick={async (key) => {
                     setEditCmdOpen(false);
                     setEditCmdQuery("");
                     if (key === "aprovado" || key === "negado" || key === "reanalise") {
                       editComposerRef.current?.setDecision(key as any);
+                      return;
+                    }
+                    if (key === "anexo") {
+                      editAttachInputRef.current?.click();
+                      const cleanText = editValue.text.replace(/\s*\/[\w]*$/, '').trimEnd();
+                      const next = { ...editValue, text: cleanText };
+                      setEditValue(next);
+                      editComposerRef.current?.setValue(next);
+                      return;
                     }
                   }}
                   initialQuery={editCmdQuery}
@@ -496,79 +669,68 @@ function NoteItem({
               </div>
             )}
           </div>
+          <input
+            ref={editAttachInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept={ATTACHMENT_ALLOWED_TYPES.join(",")}
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              e.target.value = "";
+              const tooBig = files.find((f) => f.size > ATTACHMENT_MAX_SIZE);
+              if (tooBig) { alert(`"${tooBig.name}" excede ${(ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`); return; }
+              const invalid = files.find((f) => f.type && !ATTACHMENT_ALLOWED_TYPES.includes(f.type));
+              if (invalid) { alert(`Tipo "${invalid.type || invalid.name}" não permitido.`); return; }
+              setEditPendingFiles((prev) => [...prev, ...files]);
+              requestAnimationFrame(() => editComposerRef.current?.focus());
+            }}
+          />
+          {editPendingFiles.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {editPendingFiles.map((f, i) => (
+                <PendingFileChip
+                  key={i}
+                  file={f}
+                  onRemove={() => setEditPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                />
+              ))}
+            </div>
+          )}
         </div>
+        </FileUploadDropzone>
       )}
 
-      {/* Tasks */}
-      {nodeTasks.length > 0 && (
-        <div className="mt-2 space-y-2">
-          {nodeTasks.map((task) => {
-            const creatorProfile = task.created_by ? profiles.find((p) => p.id === task.created_by) : null;
-            const creatorName = creatorProfile?.full_name ?? "Colaborador";
-            return (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onToggle={(id, done) => onToggleTask(id, done)}
-                creatorName={creatorName}
-                applicantName={applicantName}
-                onEdit={() => onOpenTask({ parentId: node.id, taskId: task.id, source: "parecer" })}
-              />
-            );
-          })}
-        </div>
-      )}
-
-      {/* TODO: attachment-cards — redesenhar com preview/download por tipo de arquivo antes de reativar */}
-      {false && noteAttachments.length > 0 && (
-        <div className="mt-3 space-y-2">
-          {noteAttachments.map((att) => {
-            const authorName = att.author_name || node.author_name || "—";
-            const authorRole = att.author_role || node.author_role || null;
-            const ts = att.created_at || node.created_at || "";
-            const initials = (authorName).slice(0, 2).toUpperCase();
-            return (
-              <button
-                key={att.id}
-                type="button"
-                onClick={async () => {
-                  const url = await getAttachmentUrl(att.id);
-                  if (url) window.open(url, "_blank");
-                }}
-                className="w-full text-left rounded-[2px] border border-zinc-300 bg-white px-3 py-2.5 hover:bg-zinc-50 transition-colors block"
-                style={{ borderLeftColor: "var(--verde-primario)", borderLeftWidth: "4px" }}
-                title={`Abrir ${att.file_name}`}
-              >
-                {/* Cabeçalho do autor */}
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-7 w-7 rounded-full bg-zinc-200 flex items-center justify-center shrink-0">
-                    <span className="text-[10px] font-semibold text-zinc-600">{initials}</span>
-                  </div>
-                  <div className="leading-tight min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-zinc-800 truncate">{authorName}</div>
-                    {authorRole && <div className="text-[10px] text-zinc-500 truncate">{authorRole}</div>}
-                  </div>
-                  <div className="text-[10px] text-zinc-400 shrink-0 whitespace-nowrap">
-                    {ts ? new Date(ts).toLocaleString() : ""}
-                  </div>
-                </div>
-                {/* Arquivo */}
-                <div className="flex items-center gap-2 rounded border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                  <Paperclip className="w-4 h-4 text-zinc-400 shrink-0" />
-                  <span className="truncate text-sm text-zinc-700 flex-1">{att.file_name}</span>
-                  <span className="text-xs font-medium shrink-0" style={{ color: "var(--verde-primario)" }}>
-                    Abrir
-                  </span>
-                </div>
-              </button>
-            );
-          })}
+      {/* Attachment chips */}
+      {!node.deleted && noteAttachments.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {noteAttachments.map((att) => (
+            <AttachmentChip
+              key={att.id}
+              name={att.file_name}
+              fileType={att.file_type}
+              fileExt={att.file_extension}
+              fileSize={att.file_size}
+              createdAt={att.created_at}
+              removing={removingId === att.id}
+              onClick={async () => {
+                const url = await getAttachmentUrl(att.id);
+                if (url) window.open(url, "_blank");
+              }}
+              onRemove={canWrite ? () => handleRemoveAttachment(att.id) : undefined}
+            />
+          ))}
         </div>
       )}
 
       {/* Reply */}
-      {canReply && isReplying && (
-        <div className="mt-2" ref={replyRef}>
+      {!node.deleted && canReply && isReplying && (
+        <FileUploadDropzone
+          onFiles={handleDropOnReply}
+          accept={ATTACHMENT_ACCEPT}
+          className="mt-2"
+        >
+        <div ref={replyRef}>
           <div className="relative">
             <UnifiedComposer
               ref={replyComposerRef}
@@ -576,7 +738,7 @@ function NoteItem({
               placeholder="Responder… Use @ para mencionar e / para comandos"
               ariaLabel="Responder parecer"
               richText
-              
+              hasPendingAttachments={replyPendingFiles.length > 0}
               onAcceptMention={(query) => {
                 const list = profiles.filter((p) => p.id !== currentUserId && (p.full_name || '').toLowerCase().includes((query || '').toLowerCase()));
                 if (list.length === 1) {
@@ -588,10 +750,18 @@ function NoteItem({
                 return false;
               }}
               onAcceptCommand={(query) => {
-                const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
+                const opts = ['aprovado','negado','reanalise','anexo'].filter(k => k.includes((query||'').toLowerCase()));
                 if (opts.length === 1) {
-                  replyComposerRef.current?.setDecision(opts[0] as any);
                   setCmdOpen(false); setCmdQuery('');
+                  if (opts[0] === 'anexo') {
+                    replyAttachInputRef.current?.click();
+                    const cleanText = replyValue.text.replace(/\s*\/[\w]*$/, '').trimEnd();
+                    const next = { ...replyValue, text: cleanText };
+                    setReplyValue(next);
+                    replyComposerRef.current?.setValue(next);
+                  } else {
+                    replyComposerRef.current?.setDecision(opts[0] as any);
+                  }
                   return true;
                 }
                 return false;
@@ -600,10 +770,14 @@ function NoteItem({
               onSubmit={async (val) => {
                 const txt = (val.text || "").trim();
                 const hasDecision = !!val.decision;
-                if (!hasDecision && !txt) return;
+                if (!hasDecision && !txt && replyPendingFiles.length === 0) return;
                 const payloadText = hasDecision && !txt ? decisionPlaceholder(val.decision ?? null) : txt;
                 const filesToUpload = replyPendingFiles.slice();
                 if (filesToUpload.length > 0) setReplyPendingFiles([]);
+                setIsReplying(false);
+                setReplyValue({ decision: null, text: "", mentions: [] });
+                setCmdOpen(false);
+                onTypingChange?.(false);
                 try {
                   const noteId = await onReply(node.id, { ...val, text: payloadText });
                   if (filesToUpload.length > 0 && noteId) {
@@ -613,6 +787,7 @@ function NoteItem({
                         noteId,
                         files: filesToUpload.map((f) => ({ file: f })),
                       });
+                      onAttachmentUploaded?.();
                     } catch (uploadErr: any) {
                       console.error('Falha ao enviar anexos da resposta', uploadErr);
                     }
@@ -622,11 +797,8 @@ function NoteItem({
                   } else if (val.decision === "reanalise") {
                     await onDecisionChange("reanalise");
                   }
-                  setIsReplying(false);
-                  setReplyValue({ decision: null, text: "", mentions: [] });
-                  setCmdOpen(false);
-                  onTypingChange?.(false);
                 } catch (e: any) {
+                  setIsReplying(true);
                   if (filesToUpload.length > 0) setReplyPendingFiles(filesToUpload);
                   alert(e?.message || "Falha ao responder");
                 }
@@ -675,9 +847,8 @@ function NoteItem({
                     { key: "aprovado", label: "Aprovado" },
                     { key: "negado", label: "Negado" },
                     { key: "reanalise", label: "Reanálise" },
-                    { key: "tarefa", label: "Tarefa" },
                     { key: "anexo", label: "Anexo" },
-                  ].filter((i) => i.key.includes(cmdQuery))}
+                  ].filter((i) => i.key.includes(cmdQuery) || i.label.toLowerCase().includes(cmdQuery))}
                   onPick={async (key) => {
                     setCmdOpen(false);
                     setCmdQuery("");
@@ -685,12 +856,12 @@ function NoteItem({
                       replyComposerRef.current?.setDecision(key as any);
                       return;
                     }
-                    if (key === "tarefa") {
-                      onOpenTask({ parentId: node.id, source: "parecer" });
-                      return;
-                    }
                     if (key === "anexo") {
                       replyAttachInputRef.current?.click();
+                      const cleanText = replyValue.text.replace(/\s*\/[\w]*$/, '').trimEnd();
+                      const next = { ...replyValue, text: cleanText };
+                      setReplyValue(next);
+                      replyComposerRef.current?.setValue(next);
                       return;
                     }
                   }}
@@ -699,25 +870,6 @@ function NoteItem({
               </div>
             )}
           </div>
-          {/* Arquivos pendentes para a resposta (selecionados via /anexo) */}
-          {replyPendingFiles.length > 0 && (
-            <div className="mt-1 flex items-center gap-2 flex-wrap">
-              {replyPendingFiles.map((f, i) => (
-                <span key={i} className="flex items-center gap-1 text-xs bg-blue-50 border border-blue-200 rounded px-2 py-0.5 max-w-[160px]">
-                  <Paperclip className="w-3 h-3 text-blue-400 shrink-0" />
-                  <span className="truncate">{f.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setReplyPendingFiles((prev) => prev.filter((_, j) => j !== i))}
-                    className="ml-0.5 text-zinc-400 hover:text-red-500"
-                    aria-label={`Remover ${f.name}`}
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
           <input
             ref={replyAttachInputRef}
             type="file"
@@ -732,36 +884,58 @@ function NoteItem({
               const invalid = files.find((f) => f.type && !ATTACHMENT_ALLOWED_TYPES.includes(f.type));
               if (invalid) { alert(`Tipo "${invalid.type || invalid.name}" não permitido.`); return; }
               setReplyPendingFiles((prev) => [...prev, ...files]);
+              requestAnimationFrame(() => replyComposerRef.current?.focus());
             }}
           />
+          {replyPendingFiles.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {replyPendingFiles.map((f, i) => (
+                <PendingFileChip
+                  key={i}
+                  file={f}
+                  onRemove={() => setReplyPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                />
+              ))}
+            </div>
+          )}
         </div>
+        </FileUploadDropzone>
       )}
 
-      {/* Children */}
-      {node.children && node.children.length > 0 && (
-        <div className="mt-2 space-y-2">
-          {node.children.map((c: any) => (
-            <NoteItem
-              key={c.id}
-              cardId={cardId}
-              node={c}
-              depth={depth + 1}
-              attachments={attachments}
-              profiles={profiles}
-              tasks={tasks}
-              onReply={onReply}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onDecisionChange={onDecisionChange}
-              onOpenTask={onOpenTask}
-              onToggleTask={onToggleTask}
-              applicantName={applicantName}
-              currentUserId={currentUserId}
-              canWrite={canWrite}
-            />
-          ))}
-        </div>
-      )}
+    </div>
+    {node.children && node.children.length > 0 && (
+      <div className="border-t border-zinc-300">
+        {node.children.map((c: any) => (
+          <NoteItem
+            key={c.id}
+            cardId={cardId}
+            node={c}
+            depth={depth + 1}
+            parentNote={{
+              author_name: node.author_name,
+              text: node.text,
+              decision: node.decision,
+              attachmentNames: (attachments || [])
+                .filter((a) => a.note_id === node.id)
+                .map((a) => a.file_name),
+            }}
+            attachments={attachments}
+            profiles={profiles}
+            onReply={onReply}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onDecisionChange={onDecisionChange}
+            applicantName={applicantName}
+            currentUserId={currentUserId}
+            canWrite={canWrite}
+            onTypingChange={onTypingChange}
+            onAttachmentUploaded={onAttachmentUploaded}
+            pinned={pinned}
+            onPin={onPin}
+          />
+        ))}
+      </div>
+    )}
     </div>
   );
 }
@@ -771,24 +945,29 @@ function NoteItem({
 function ParecerMenu({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () => void | Promise<void> }) {
   if (!onEdit && !onDelete) return null;
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    function onDocMouseDown(e: MouseEvent) {
-      const t = e.target as Node | null;
-      if (menuOpen && menuRef.current && t && !menuRef.current.contains(t)) setMenuOpen(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleToggle = () => {
+    if (!menuOpen && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
     }
-    document.addEventListener("mousedown", onDocMouseDown);
-    return () => document.removeEventListener("mousedown", onDocMouseDown);
-  }, [menuOpen]);
+    setMenuOpen((v) => !v);
+  };
+
   return (
-    <div className="relative" ref={menuRef}>
-      <button aria-label="Mais ações" className="parecer-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors duração-200" onClick={() => setMenuOpen((v) => !v)}>
+    <div>
+      <button ref={btnRef} aria-label="Mais ações" className="parecer-menu-trigger p-2 rounded-full hover:bg-zinc-100 transition-colors" onClick={handleToggle}>
         <MoreHorizontal className="w-4 h-4 text-zinc-600" strokeWidth={2} />
       </button>
-      {menuOpen && (
+      {menuOpen && menuPos && (
         <>
           <div className="fixed inset-0 z-[9998]" onClick={() => setMenuOpen(false)} />
-          <div className="parecer-menu-dropdown absolute right-0 top-10 z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden">
+          <div
+            className="parecer-menu-dropdown fixed z-[9999] w-48 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 overflow-hidden"
+            style={{ top: menuPos.top, right: menuPos.right }}
+          >
             {onEdit && (
               <button className="parecer-menu-item flex items-center gap-3 w-full px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50 transition-colors duração-150" onClick={() => { setMenuOpen(false); onEdit(); }}>
                 <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

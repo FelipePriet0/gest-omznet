@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { ArrowLeft, Calendar, ListFilter, AtSign, X as XIcon } from "lucide-react";
 import { nanoid } from "nanoid";
 import * as React from "react";
@@ -35,7 +35,7 @@ import { KanbanRangeCalendar } from "@/components/app/kanban-range-calendar";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { TABLE_PROFILES } from "@/lib/constants";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/avatar";
 
 type CachedResponsavel = {
   id: string | null;
@@ -53,12 +53,7 @@ export type AppliedFilters = {
 
 function getResponsavelIcon(name: string | undefined | null) {
   if (!name) return undefined;
-  const initials = name.slice(0, 2).toUpperCase();
-  return (
-    <Avatar className="h-6 w-6 text-xs">
-      <AvatarFallback>{initials}</AvatarFallback>
-    </Avatar>
-  );
+  return <UserAvatar name={name} size="xs" />;
 }
 
 function buildResponsavelOptions(profiles: CachedResponsavel[]): FilterOption[] {

@@ -479,8 +479,7 @@ body {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.section-card:has(.section-title.pareceres),
-.section-card:has(.section-title.conversas) {
+.section-card:has(.section-title.pareceres) {
   background: #ffffff;
 }
 
@@ -565,13 +564,6 @@ body {
 }
 .section-title.pareceres::before {
   background: #34a853;
-}
-
-.section-title.conversas {
-  color: #00bcd4;
-}
-.section-title.conversas::before {
-  background: #00bcd4;
 }
 
 .section-content {
@@ -2747,4 +2739,3 @@ textarea[placeholder="Analisar"]::placeholder {
   border: 3px solid transparent;
   background-clip: content-box;
 }
-

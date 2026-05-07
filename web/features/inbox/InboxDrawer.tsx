@@ -140,7 +140,6 @@ export function InboxSidebarEntry() {
 const inboxFilterLabels: Record<InboxFilterOption, string> = {
   mentions: "Menções",
   parecer: "Respostas em parecer",
-  comentarios: "Respostas em comentários",
 };
 
 export function InboxPanel() {
@@ -160,7 +159,6 @@ export function InboxPanel() {
     const byType = (item: InboxItem, types: NotificationType[]) => types.includes(item.type as NotificationType);
     if (filterType === 'mentions') return base.filter((item) => byType(item, ['mention']));
     if (filterType === 'parecer') return base.filter((item) => byType(item, ['parecer_reply']));
-    if (filterType === 'comentarios') return base.filter((item) => byType(item, ['comment_reply']));
     return base;
   }, [visibleBase, filterType]);
 

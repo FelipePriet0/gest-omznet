@@ -3,17 +3,13 @@
 import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import RouteBg from "./RouteBg";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarTrigger, SidebarProvider } from "@/components/ui/sidebar";
-import { Columns3, ListTodo, Clock, CalendarDays, Wrench, FileDown } from "lucide-react";
+import { Columns3, Clock, CalendarDays, Wrench, FileDown } from "lucide-react";
 import Image from "next/image";
 import { SidebarUser } from "@/components/app/sidebar-user";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { FEATURES } from "@/lib/features";
 import { supabase } from "@/lib/supabaseClient";
-const TasksPanelProxy = dynamic(
-  () => import("@/features/tarefas/MinhasTarefasPage"),
-  { ssr: false },
-);
 
 const PANEL_WIDTH_STORAGE_KEY = "mznet-app-panel-width";
 const PANEL_MIN_WIDTH = 320;
@@ -41,11 +37,6 @@ function AppSidebar() {
       href: "/agenda",
       icon: <CalendarDays className="h-5 w-5 text-white flex-shrink-0" />,
     },
-    ...(FEATURES.minhasTarefas ? [{
-      label: "Minhas Tarefas",
-      href: `${pathname}?panel=tarefas`,
-      icon: <ListTodo className="h-5 w-5 text-white flex-shrink-0" />,
-    }] : []),
     {
       label: "Histórico",
       href: "/historico",
@@ -92,8 +83,6 @@ function AppSidebar() {
                   ? pathname.startsWith("/kanban")
                   : link.label === "Agenda"
                   ? pathname.startsWith("/agenda")
-                  : link.label === "Minhas Tarefas"
-                  ? panel === "tarefas"
                   : link.label === "Histórico"
                   ? pathname.startsWith("/historico")
                   : link.label === "Builder"
@@ -119,8 +108,36 @@ export function AppLayoutClient({ children }: Readonly<{ children: React.ReactNo
   return <AppLayoutInner>{children}</AppLayoutInner>;
 }
 
+function InactivityWarning({ secondsLeft, onStayLoggedIn }: { secondsLeft: number; onStayLoggedIn: () => void }) {
+  const mins = Math.floor(secondsLeft / 60);
+  const secs = secondsLeft % 60;
+  const label = mins > 0 ? `${mins}m ${String(secs).padStart(2, "0")}s` : `${secs}s`;
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+        <h2 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Sessão prestes a expirar</h2>
+        <p className="mb-5 text-sm text-zinc-500 dark:text-zinc-400">
+          Você ficará desconectado por inatividade em <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">{label}</span>.
+        </p>
+        <button
+          onClick={onStayLoggedIn}
+          className="w-full rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 active:opacity-80"
+        >
+          Continuar conectado
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   const [open, setOpen] = useState(false);
+  const [inactivitySecondsLeft, setInactivitySecondsLeft] = useState<number | null>(null);
+
+  const handleWarn = useCallback((s: number) => setInactivitySecondsLeft(s), []);
+  const handleDismissWarn = useCallback(() => setInactivitySecondsLeft(null), []);
+  useInactivityLogout(handleWarn, handleDismissWarn);
+
   const isDesktop = useSyncExternalStore(
     (onStoreChange) => {
       if (typeof window === "undefined") return () => {};
@@ -144,9 +161,8 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
   const exportMode = (search?.get('from') || '').toLowerCase() === 'export';
   const standaloneMode = search?.get('standalone') === '1';
   const activePanel = (search?.get('panel') || '').toLowerCase();
-  const isTasksPanel = FEATURES.minhasTarefas && activePanel === 'tarefas';
   const isInboxPanel = activePanel === 'inbox';
-  const isPanelOpen = isTasksPanel || isInboxPanel;
+  const isPanelOpen = isInboxPanel;
   const pageGutter = 6;
   const panelHeight = `calc(100vh - ${pageGutter * 2}px)`;
 
@@ -188,8 +204,8 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
     router.replace(`${pathname}${query}`, { scroll: false });
   };
 
-  const panelTitle = isTasksPanel ? 'Minhas Tarefas' : isInboxPanel ? 'Caixa de Entrada' : '';
-  const panelContent = isTasksPanel ? <TasksPanelProxy /> : null;
+  const panelTitle = isInboxPanel ? 'Caixa de Entrada' : '';
+  const panelContent = null;
 
   const handlePanelResizeStart = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -382,6 +398,9 @@ function AppLayoutInner({ children }: Readonly<{ children: React.ReactNode }>) {
             </div>
           </div>
       </SidebarProvider>
+      {inactivitySecondsLeft !== null && (
+        <InactivityWarning secondsLeft={inactivitySecondsLeft} onStayLoggedIn={handleDismissWarn} />
+      )}
     </RouteBg>
   );
 }

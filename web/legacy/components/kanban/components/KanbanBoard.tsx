@@ -77,7 +77,7 @@ export function KanbanBoard({
       ]);
       const mentionCardIds = new Set(
         (inbox || [])
-          .filter((n: any) => ['mention','comment_reply','parecer_reply'].includes(String(n?.type || '')))
+          .filter((n: any) => ['mention','parecer_reply'].includes(String(n?.type || '')))
           .map((n: any) => String(n.card_id || ''))
           .filter((id: string) => !!id)
       );

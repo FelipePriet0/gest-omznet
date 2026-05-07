@@ -2,19 +2,43 @@
 
 import * as React from "react"
 import * as AvatarPrimitive from "@radix-ui/react-avatar"
+import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@/lib/utils"
+import { cn, getInitials, getAvatarColor } from "@/lib/utils"
+
+const avatarVariants = cva(
+  "relative flex shrink-0 overflow-hidden rounded-full",
+  {
+    variants: {
+      size: {
+        xs: "h-6 w-6",
+        sm: "h-8 w-8",
+        md: "h-10 w-10",
+        lg: "h-12 w-12",
+      },
+    },
+    defaultVariants: { size: "md" },
+  }
+)
+
+const fallbackTextSize: Record<string, string> = {
+  xs: "text-[9px]",
+  sm: "text-[11px]",
+  md: "text-xs",
+  lg: "text-sm",
+}
+
+interface AvatarProps
+  extends React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>,
+    VariantProps<typeof avatarVariants> {}
 
 const Avatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
->(({ className, ...props }, ref) => (
+  AvatarProps
+>(({ className, size, ...props }, ref) => (
   <AvatarPrimitive.Root
     ref={ref}
-    className={cn(
-      "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
-      className,
-    )}
+    className={cn(avatarVariants({ size }), className)}
     {...props}
   />
 ))
@@ -47,4 +71,27 @@ const AvatarFallback = React.forwardRef<
 ))
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
 
-export { Avatar, AvatarImage, AvatarFallback }
+// Componente composto — único ponto de entrada para avatares de usuário
+interface UserAvatarProps {
+  name: string
+  imageUrl?: string | null
+  size?: "xs" | "sm" | "md" | "lg"
+  className?: string
+}
+
+function UserAvatar({ name, imageUrl, size = "md", className }: UserAvatarProps) {
+  const initials = getInitials(name)
+  const colorClass = getAvatarColor(name)
+  const textClass = fallbackTextSize[size]
+
+  return (
+    <Avatar size={size} className={className}>
+      {imageUrl && <AvatarImage src={imageUrl} alt={name} />}
+      <AvatarFallback className={cn(colorClass, textClass, "font-semibold")}>
+        {initials}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
+export { Avatar, AvatarImage, AvatarFallback, UserAvatar }

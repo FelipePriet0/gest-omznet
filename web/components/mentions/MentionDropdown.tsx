@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import type { ProfileLite } from "@/features/comments/services";
+import type { ProfileLite } from "@/lib/profiles";
 
 type Props = {
   items: ProfileLite[];
