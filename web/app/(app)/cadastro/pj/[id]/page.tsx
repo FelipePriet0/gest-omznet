@@ -14,6 +14,7 @@ import { useIndexedDraft } from "@/hooks/useIndexedDraft";
 import { saveDraft, getDraft, deleteDraft } from "@/lib/drafts";
 import { getAttachmentUrl, publicUrl, listAttachments, type CardAttachment } from "@/features/attachments/services";
 import { PareceresList } from "@/features/editar-ficha/components/PareceresList";
+import { PendingFileChip } from "@/components/ui/file-upload";
 import {
   ATTACHMENT_ALLOWED_TYPES,
   ATTACHMENT_MAX_SIZE,
@@ -241,9 +242,12 @@ export default function CadastroPJPage() {
   // Parecer UI states
   const [pareceres, setPareceres] = useState<any[]>([]);
   const [cardAttachments, setCardAttachments] = useState<CardAttachment[]>([]);
+  const [parecerPendingFiles, setParecerPendingFiles] = useState<File[]>([]);
+  const parecerAttachInputRef = useRef<HTMLInputElement | null>(null);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const { isLeitor } = useUserRole();
+  const { role: currentUserRole, isLeitor } = useUserRole();
+  const canWriteParecer = !isLeitor && currentUserRole !== "vendedor" && currentUserRole !== "instalador";
   const [novoParecer, setNovoParecer] = useState<ComposerValue>({ decision: null, text: "", mentions: [] });
   const [mentionOpenParecer, setMentionOpenParecer] = useState(false);
   const [mentionFilterParecer, setMentionFilterParecer] = useState("");
@@ -412,7 +416,7 @@ export default function CadastroPJPage() {
   }, [cardIdEff]);
 
   async function syncDecisionStatus(decision: ComposerDecision | null) {
-    if (isLeitor) return;
+    if (!canWriteParecer) return;
     if (!cardIdEff) return;
     try {
       if (decision === null) {
@@ -427,14 +431,25 @@ export default function CadastroPJPage() {
     }
   }
 
+  function addParecerFiles(files: File[]) {
+    if (!files.length) return;
+    const tooBig = files.find(f => f.size > ATTACHMENT_MAX_SIZE);
+    if (tooBig) { alert(`"${tooBig.name}" excede ${(ATTACHMENT_MAX_SIZE / (1024 * 1024)).toFixed(0)}MB.`); return; }
+    const invalid = files.find(f => f.type && !ATTACHMENT_ALLOWED_TYPES.includes(f.type));
+    if (invalid) { alert(`Tipo "${invalid.type || invalid.name}" não permitido.`); return; }
+    setParecerPendingFiles(prev => [...prev, ...files]);
+  }
+
   async function handleSubmitParecer(value: ComposerValue) {
-    if (isLeitor) return;
+    if (!canWriteParecer) return;
     const text = (value.text || '').trim();
     const hasDecision = !!value.decision;
     if (!cardIdEff) return;
-    if (!hasDecision && !text) return;
+    if (!hasDecision && !text && parecerPendingFiles.length === 0) return;
 
     const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
+    const filesToUpload = parecerPendingFiles.slice();
+    if (filesToUpload.length > 0) setParecerPendingFiles([]);
 
     const tempNote: any = {
       id: `tmp-${Date.now()}`,
@@ -448,17 +463,28 @@ export default function CadastroPJPage() {
     setPareceres(prev => [...(prev || []), tempNote]);
 
     try {
-      await supabase.rpc('add_parecer', {
+      const { data: rpcData } = await supabase.rpc('add_parecer', {
         p_card_id: cardIdEff,
         p_text: payloadText,
         p_parent_id: null,
         p_decision: value.decision ?? null,
       });
       await refreshReanalysisNotes(cardIdEff);
-      if (value.decision === 'aprovado' || value.decision === 'negado') {
+      if (value.decision === 'aprovado' || value.decision === 'negado' || value.decision === 'reanalise') {
         await syncDecisionStatus(value.decision);
-      } else if (value.decision === 'reanalise') {
-        await syncDecisionStatus('reanalise');
+      }
+      if (filesToUpload.length > 0) {
+        const notes = (rpcData as any)?.reanalysis_notes || [];
+        const newNote = [...notes].reverse().find((n: any) => !n.parent_id && !n.deleted);
+        const noteId: string | null = newNote?.id ?? null;
+        if (noteId) {
+          try {
+            await uploadAttachmentBatch({ cardId: cardIdEff, noteId, files: filesToUpload.map(f => ({ file: f })) });
+            await refreshAttachments();
+          } catch (uploadErr) {
+            console.error('Falha ao enviar anexos do parecer', uploadErr);
+          }
+        }
       }
     } catch (err: any) {
       setPareceres(prev => (prev || []).filter((n: any) => n.id !== tempNote.id));
@@ -1062,10 +1088,15 @@ export default function CadastroPJPage() {
               <UnifiedComposer
                 ref={parecerComposerRef}
                 className="composer-root--blue"
-                placeholder="Escreva um novo parecer… Use @ para mencionar"
+                placeholder="Escreva um novo parecer… Use @ para mencionar, / para comandos"
                 ariaLabel="Escrever parecer"
                 richText
-                
+                disabled={!canWriteParecer}
+                enablePasteAttachment={canWriteParecer}
+                enableDropAttachment={canWriteParecer}
+                hasPendingAttachments={parecerPendingFiles.length > 0}
+                onFilesDropped={addParecerFiles}
+                onFilesPasted={addParecerFiles}
                 onAcceptMention={(query) => {
                   const list = (profiles||[]).filter(p => (p.full_name||'').toLowerCase().includes((query||'').toLowerCase()));
                   if (list.length === 1) {
@@ -1077,16 +1108,25 @@ export default function CadastroPJPage() {
                   return false;
                 }}
                 onAcceptCommand={(query) => {
-                  const opts = ['aprovado','negado','reanalise'].filter(k => k.includes((query||'').toLowerCase()));
+                  if (!canWriteParecer) return false;
+                  const opts = ['aprovado','negado','reanalise','anexo'].filter(k => k.includes((query||'').toLowerCase()));
                   if (opts.length === 1) {
-                    parecerComposerRef.current?.setDecision(opts[0] as any);
                     setCmdOpenParecer(false); setCmdQueryParecer('');
+                    if (opts[0] === 'anexo') {
+                      parecerAttachInputRef.current?.click();
+                      const clean = novoParecer.text.replace(/\s*\/[\w]*$/, '').trimEnd();
+                      const next = { ...novoParecer, text: clean };
+                      setNovoParecer(next);
+                      parecerComposerRef.current?.setValue(next);
+                    } else {
+                      parecerComposerRef.current?.setDecision(opts[0] as any);
+                    }
                     return true;
                   }
                   return false;
                 }}
                 onChange={(val)=> { setNovoParecer(val); try { setParecerDraft({ text: val.text ?? '', decision: val.decision ?? null }); } catch {} }}
-                onSubmit={isLeitor ? undefined : handleSubmitParecer}
+                onSubmit={!canWriteParecer ? undefined : handleSubmitParecer}
                 onCancel={()=> {
                   setCmdOpenParecer(false);
                   setMentionOpenParecer(false);
@@ -1111,6 +1151,17 @@ export default function CadastroPJPage() {
                   setCmdQueryParecer('');
                 }}
               />
+              {canWriteParecer && parecerPendingFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {parecerPendingFiles.map((f, i) => (
+                    <PendingFileChip
+                      key={i}
+                      file={f}
+                      onRemove={() => setParecerPendingFiles(prev => prev.filter((_, j) => j !== i))}
+                    />
+                  ))}
+                </div>
+              )}
               {mentionOpenParecer && (
                 <div className="absolute z-50" style={{ left: Math.max(0, (mentionAnchorParecer?.left||0)), top: Math.max(0, (mentionAnchorParecer?.top||0)) }}>
                   <MentionDropdown
@@ -1123,29 +1174,44 @@ export default function CadastroPJPage() {
                   />
                 </div>
               )}
-              {cmdOpenParecer && !isLeitor && (
+              {cmdOpenParecer && canWriteParecer && (
                 <div className="absolute z-50 left-0 bottom-full mb-2">
                   <CmdDropdown
                     items={[
                       { key:'aprovado', label:'Aprovado' },
                       { key:'negado', label:'Negado' },
                       { key:'reanalise', label:'Reanálise' },
+                      { key:'anexo', label:'Anexo' },
                     ].filter(i=> i.key.includes(cmdQueryParecer) || i.label.toLowerCase().includes(cmdQueryParecer))}
                     onPick={async (key)=>{
                       setCmdOpenParecer(false); setCmdQueryParecer('');
                       if (key==='aprovado' || key==='negado' || key==='reanalise') {
                         parecerComposerRef.current?.setDecision(key as ComposerDecision);
-                        try {
-                      await syncDecisionStatus(key as ComposerDecision);
-                        } catch (e:any) {
-                          alert(e?.message || 'Falha ao mover');
-                        }
+                        return;
+                      } else if (key === 'anexo') {
+                        parecerAttachInputRef.current?.click();
+                        const clean = novoParecer.text.replace(/\s*\/[\w]*$/, '').trimEnd();
+                        const next = { ...novoParecer, text: clean };
+                        setNovoParecer(next);
+                        parecerComposerRef.current?.setValue(next);
                       }
                     }}
                     initialQuery={cmdQueryParecer}
                   />
                 </div>
               )}
+              <input
+                ref={parecerAttachInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                accept={ATTACHMENT_ALLOWED_TYPES.join(',')}
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  e.target.value = '';
+                  addParecerFiles(files);
+                }}
+              />
             </div>
 
             <div className="portrait-pareceres-scroll">
@@ -1154,25 +1220,26 @@ export default function CadastroPJPage() {
               notes={pareceres as any}
               attachments={cardAttachments}
               profiles={profiles}
-              canWrite={!isLeitor}
+              canWrite={canWriteParecer}
               currentUserId={currentUserId}
               onReply={async (pid, value) => {
-                if (isLeitor) return null;
+                if (!canWriteParecer) return null;
                 const text = (value.text || '').trim();
                 const hasDecision = !!value.decision;
-                if (!hasDecision && !text) return null;
                 const payloadText = hasDecision && !text ? decisionPlaceholder(value.decision ?? null) : text;
-                await supabase.rpc('add_parecer', {
+                const { data: rpcData } = await supabase.rpc('add_parecer', {
                   p_card_id: cardIdEff,
                   p_text: payloadText,
                   p_parent_id: pid,
                   p_decision: value.decision ?? null,
                 });
                 await refreshReanalysisNotes(cardIdEff);
-                return null;
+                const notes = (rpcData as any)?.reanalysis_notes || [];
+                const newNote = [...notes].reverse().find((n: any) => n.parent_id === pid && !n.deleted);
+                return newNote?.id ?? null;
               }}
               onEdit={async (id, value) => {
-                if (isLeitor) return;
+                if (!canWriteParecer) return;
                 const text = (value.text || '').trim();
                 const hasDecision = !!value.decision;
                 if (!hasDecision && !text) return;
@@ -1186,7 +1253,7 @@ export default function CadastroPJPage() {
                 await refreshReanalysisNotes(cardIdEff);
               }}
               onDelete={async (id) => {
-                if (isLeitor) return;
+                if (!canWriteParecer) return;
                 await supabase.rpc('delete_parecer', { p_card_id: cardIdEff, p_note_id: id });
                 await refreshReanalysisNotes(cardIdEff);
               }}
